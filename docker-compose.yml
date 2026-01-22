@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    container_name: shopflowbot-db-1
+    restart: always
+    # Эта строчка заставляет Docker автоматически брать данные из .env
+    env_file:
+      - .env
+    environment:
+      # Важно: используем названия, которые ждет Postgres
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      # Исправленный путь для версии 18+
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
