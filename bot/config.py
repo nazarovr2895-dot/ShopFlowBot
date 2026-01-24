@@ -1,7 +1,13 @@
 import os
 from dotenv import load_dotenv
 
+# Загружаем переменные из .env
 load_dotenv()
 
-TOKEN = os.getenv("TOKEN")
-DB_URL = f"postgresql+asyncpg://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+# Получаем токен
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+# Проверка, чтобы бот не падал молча
+if not BOT_TOKEN:
+    # Если токена нет, выводим ошибку в консоль
+    print("❌ ОШИБКА: Не найден BOT_TOKEN в файле .env")

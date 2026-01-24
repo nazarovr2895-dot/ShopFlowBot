@@ -6,7 +6,6 @@ router = Router()
 
 @router.message(F.text == "🔗 Моя ссылка для покупателя")
 async def get_agent_link(message: types.Message, bot: Bot):
-    # Генерируем ссылку вида t.me/bot?start=agent_12345
     link = await create_start_link(bot, f"agent_{message.from_user.id}", encode=True)
     await message.answer(
         f"🤝 *Ваша ссылка посредника:*\n\n`{link}`\n\n"
@@ -16,5 +15,7 @@ async def get_agent_link(message: types.Message, bot: Bot):
 
 @router.message(F.text == "💰 Мой баланс")
 async def check_balance(message: types.Message):
-    # Здесь позже сделаем подсчет прибыли из базы
-    await message.answer("Ваш текущий баланс: *0 руб.*\nДоступно к выводу: *0 руб.*", parse_mode="Markdown")
+    # Тут должен быть вызов API, например:
+    # balance = await api_get_agent_balance(message.from_user.id)
+    balance = 0 
+    await message.answer(f"Ваш текущий баланс: *{balance} руб.*\nДоступно к выводу: *0 руб.*", parse_mode="Markdown")

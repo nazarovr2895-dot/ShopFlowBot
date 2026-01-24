@@ -1,48 +1,53 @@
 import asyncio
 import logging
-import sys
 from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.redis import RedisStorage
-from redis.asyncio import Redis
+from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.config import TOKEN
-from bot.database.models import db_main
-from bot.handlers.start import router as start_router
-from bot.handlers.seller import router as seller_router
-from bot.middlewares.reset_state import ResetStateMiddleware # Наш новый фильтр
-from bot.handlers.buyer import router as buyer_router
-from bot.handlers.admin import router as admin_router
+# Импортируем конфиг
+from bot.config import BOT_TOKEN
+
+# Импортируем базу данных и модели (ЧТОБЫ СОЗДАЛИСЬ ТАБЛИЦЫ)
+from backend.app.core.database import engine, Base
+# Важно импортировать сами файлы моделей, чтобы SQLAlchemy их увидела
+import backend.app.models.user
+import backend.app.models.seller
+import backend.app.models.order
+import backend.app.models.product
+import backend.app.models.referral
+import backend.app.models.settings
+
+# Импортируем наши роутеры (хендлеры)
+from bot.handlers import start, seller, buyer, agent, admin
 
 async def main():
-    # 1. Инициализация БД
-    await db_main()
-    
-    # 2. Настройка Redis
-    redis = Redis(host='localhost')
-    storage = RedisStorage(redis=redis)
-    
-    # 3. СНАЧАЛА СОЗДАЕМ DISPATCHER (dp)
-    bot = Bot(token=TOKEN)
-    dp = Dispatcher(storage=storage)
+    # Настройка логирования
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
 
-    # 4. ТЕПЕРЬ ПОДКЛЮЧАЕМ MIDDLEWARE (когда dp уже существует)
-    dp.message.middleware(ResetStateMiddleware())
+    # 1. Инициализация базы данных (Создание таблиц)
+    logger.info("Создаем таблицы в базе данных...")
+    async with engine.begin() as conn:
+        # Эта команда создаст все таблицы, описанные в моделях
+        await conn.run_sync(Base.metadata.create_all)
 
-    # 5. Регистрация роутеров
-    dp.include_router(start_router)
-    dp.include_router(seller_router)
-    dp.include_router(admin_router)
+    # 2. Инициализация бота
+    bot = Bot(token=BOT_TOKEN)
+    dp = Dispatcher(storage=MemoryStorage())
 
-    dp.include_router(buyer_router)
+    # 3. Регистрация роутеров
+    dp.include_router(start.router)
+    dp.include_router(seller.router)
+    dp.include_router(buyer.router)
+    dp.include_router(agent.router)
+    dp.include_router(admin.router)
 
-    print("✅ Бот запущен с защитой от зависания состояний!")
-    
+    # Удаляем вебхуки и запускаем поллинг
     await bot.delete_webhook(drop_pending_updates=True)
+    logger.info("✅ Бот запущен и готов к работе!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("❌ Бот выключен")
+        print("Бот остановлен")
