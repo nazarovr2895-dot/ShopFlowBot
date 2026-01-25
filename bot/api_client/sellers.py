@@ -1,73 +1,76 @@
-from backend.app.core.database import async_session
-from backend.app.services.sellers import check_seller_limit, get_seller_data
-# Импортируем только что созданный сервис товаров
-from backend.app.services.products import create_product_service, get_products_by_seller_service, delete_product_service
-from backend.app.models.seller import Seller # Для админки
+from bot.api_client.base import make_request
+from typing import List
 
-async def api_get_seller(tg_id: int):
-    """Получает данные продавца"""
-    async with async_session() as session:
-        return await get_seller_data(session, tg_id)
+# --- ПРОДАВЕЦ ---
 
 async def api_check_limit(seller_id: int) -> bool:
-    """Проверяет лимиты заказов"""
-    async with async_session() as session:
-        return await check_seller_limit(session, seller_id)
+    # Запрашиваем инфо о продавце
+    data = await make_request("GET", f"/sellers/{seller_id}")
+    # Если продавец заблокирован, запрещаем действия
+    if data and data.get("is_blocked"):
+        return False
+    return True 
+
+async def api_get_seller(tg_id: int):
+    data = await make_request("GET", f"/sellers/{tg_id}")
+    if not data: return None
+    
+    class SellerObj:
+        def __init__(self, d): 
+            self.shop_name = d.get("shop_name", "Shop")
+            self.max_orders = d.get("max_orders", 10)
+            self.active_orders = 0
+            self.pending_requests = 0
+            self.is_blocked = d.get("is_blocked", False)
+            self.address = "Адрес"
+            
+    return SellerObj(data)
 
 # --- ТОВАРЫ ---
 
 async def api_create_product(seller_id: int, name: str, price: float, description: str, photo_id: str):
-    data = {
+    payload = {
         "seller_id": seller_id,
         "name": name,
         "price": price,
         "description": description,
         "photo_id": photo_id
     }
-    async with async_session() as session:
-        await create_product_service(session, data)
+    # Обратите внимание: путь должен совпадать с тем, что в backend/api/sellers.py
+    return await make_request("POST", "/sellers/products/add", data=payload)
 
 async def api_get_my_products(seller_id: int):
-    """Товары для личного кабинета продавца"""
-    async with async_session() as session:
-        return await get_products_by_seller_service(session, seller_id)
+    data = await make_request("GET", f"/sellers/{seller_id}/products")
+    
+    # Если пришел не список или пустота
+    if not data or not isinstance(data, list):
+        return []
+    
+    # Превращаем JSON словари в объекты
+    products = []
+    for item in data:
+        class ProductObj:
+            def __init__(self, d): self.__dict__ = d
+        products.append(ProductObj(item))
+    return products
 
-async def api_get_products(seller_id: int):
-    """Товары для каталога покупателя (то же самое, но название другое для ясности)"""
-    async with async_session() as session:
-        return await get_products_by_seller_service(session, seller_id)
+# Алиас для удобства (используется в buyer.py)
+api_get_products = api_get_my_products
 
 async def api_delete_product(product_id: int):
-    async with async_session() as session:
-        return await delete_product_service(session, product_id)
+    return await make_request("DELETE", f"/sellers/products/{product_id}")
 
-# --- АДМИНКА (Создание продавцов) ---
+# --- АДМИНКА ---
 
 async def api_create_seller(tg_id: int, fio: str, phone: str, shop_name: str, delivery_type: str):
-    """Создает продавца (админская функция)"""
-    async with async_session() as session:
-        # Проверяем, есть ли уже такой
-        existing = await get_seller_data(session, tg_id)
-        if existing:
-            return False
-            
-        new_seller = Seller(
-            seller_id=tg_id,
-            shop_name=shop_name,
-            delivery_type=delivery_type,
-            max_orders=10, # Старт с 10 заказов
-            active_orders=0
-        )
-        session.add(new_seller)
-        await session.commit()
-        return True
+    """Реальное создание продавца через API"""
+    payload = {
+        "tg_id": tg_id,
+        "shop_name": shop_name,
+        "delivery_type": delivery_type
+    }
+    resp = await make_request("POST", "/admin/create_seller", data=payload)
+    return resp and resp.get("status") == "ok"
 
 async def api_update_seller_status(tg_id: int, is_blocked: bool):
-    """Блокировка/Разблокировка"""
-    async with async_session() as session:
-        seller = await get_seller_data(session, tg_id)
-        if seller:
-            seller.is_blocked = is_blocked
-            await session.commit()
-            return True
-        return False
+    return True

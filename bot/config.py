@@ -11,3 +11,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     # Если токена нет, выводим ошибку в консоль
     print("❌ ОШИБКА: Не найден BOT_TOKEN в файле .env")
+
+# Если запускаем в Docker, будет backend, если локально — localhost
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")

@@ -1,90 +1,97 @@
 from aiogram import Router, F, types
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
-
-# ❗ ИМПОРТИРУЕМ API ВМЕСТО БД
-from bot.api_client.buyers import api_register_user, api_get_user
-from bot.api_client.referrals import api_register_ref_link
 import bot.keyboards.reply as kb
+from bot.api_client.buyers import api_register_user, api_get_user
 
 router = Router()
 
+# Тот же ID
+MASTER_ADMIN_ID = 8073613186
+
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject, state: FSMContext):
+    await state.clear()
+    
     tg_id = message.from_user.id
     username = message.from_user.username
     fio = message.from_user.full_name
-
-    # 1. РЕГИСТРАЦИЯ ЧЕРЕЗ API (Бэкенд сам решит, новый это юзер или старый)
-    # Эта функция вернет объект пользователя с его ролью
-    user = await api_register_user(tg_id, username, fio)
-    role = user.role if user else "BUYER"
-
-    # 2. ПРОВЕРКА ГЛУБОКОЙ ССЫЛКИ (Deep Linking)
+    
+    # 1. Парсинг Deep Link
     args = command.args
+    referrer_id = None
+    target_seller_id = None
+
     if args:
-        # Если ссылка на магазин (seller_123)
-        if args.startswith("seller_"):
+        if args.startswith("agent_"):
             try:
-                seller_id = int(args.replace("seller_", ""))
-                await state.update_data(current_seller_id=seller_id)
-                await message.answer(
-                    "🌸 Добро пожаловать! Вы зашли в магазин по ссылке.\nНажмите '🌸 Открыть магазин', чтобы увидеть каталог.",
-                    reply_markup=kb.buyer_main
-                )
-                return 
-            except ValueError:
-                await message.answer("Ошибка в ссылке продавца.")
-        
-        # Если ссылка от агента (agent_123)
-        elif args.startswith("agent_"):
+                r_id = int(args.replace("agent_", ""))
+                if r_id != tg_id: referrer_id = r_id
+            except: pass
+        elif args.startswith("seller_"):
             try:
-                referrer_id = int(args.replace("agent_", ""))
-                if referrer_id != tg_id:
-                    # Отправляем в API запрос на связку рефералов
-                    await api_register_ref_link(new_user_id=tg_id, referrer_id=referrer_id)
-                    await state.update_data(current_agent_id=referrer_id)
-                    await message.answer("🌸 Вы зашли по рекомендации партнера!", reply_markup=kb.buyer_main)
-                return
-            except ValueError:
-                await message.answer("Ошибка в ссылке посредника.")
+                target_seller_id = int(args.replace("seller_", ""))
+            except: pass
 
-    # 3. СТАНДАРТНОЕ МЕНЮ ПО РОЛЯМ
-    if role == 'ADMIN':
-        await message.answer("👑 АДМИН-ПАНЕЛЬ активирована.", reply_markup=kb.admin_main)
-    elif role == 'SELLER':
-        # Проверка блокировки могла бы быть тут, но пока пускаем в меню
-        await message.answer("📦 Режим ПРОДАВЦА.", reply_markup=kb.seller_main)
+    # 2. Регистрация
+    user = await api_register_user(tg_id, username, fio, referrer_id=referrer_id)
+    
+    # 3. Определение роли
+    if tg_id == MASTER_ADMIN_ID:
+        role = 'ADMIN'
     else:
-        await message.answer("🛒 Режим ПОКУПАТЕЛЯ.", reply_markup=kb.buyer_main)
+        role = user.role if user else "BUYER"
 
-# --- ПЕРЕКЛЮЧЕНИЯ РЕЖИМОВ ---
+    # 4. Логика перехода по ссылке
+    if target_seller_id:
+        await state.update_data(current_seller_id=target_seller_id)
+        # Выдаем меню ПОКУПАТЕЛЯ (с кнопкой админа, если это ты)
+        menu = kb.get_main_kb(tg_id, "BUYER")
+        await message.answer(
+            "🌸 Вы перешли в магазин!\nНажмите кнопку **'🌸 Открыть магазин'**, чтобы увидеть каталог товаров.",
+            reply_markup=menu,
+            parse_mode="Markdown"
+        )
+        return
+
+    if referrer_id:
+        menu = kb.get_main_kb(tg_id, "BUYER")
+        await message.answer("👋 Добро пожаловать! Вы зарегистрированы по приглашению партнера.", reply_markup=menu)
+        return
+
+    # 5. Обычный вход (Главное меню)
+    menu = kb.get_main_kb(tg_id, role)
+    
+    if role == 'ADMIN':
+        await message.answer("👑 АДМИН-ПАНЕЛЬ активирована (Master Key).", reply_markup=menu)
+    elif role == 'SELLER':
+        await message.answer("📦 Режим ПРОДАВЦА.", reply_markup=menu)
+    elif role == 'AGENT':
+        await message.answer("🤝 Режим ПОСРЕДНИКА.", reply_markup=menu)
+    else:
+        await message.answer("🛒 Режим ПОКУПАТЕЛЯ.", reply_markup=menu)
+
+
+# --- ПЕРЕКЛЮЧЕНИЯ ---
 
 @router.message(F.text.in_({"🛍 Режим покупателя", "🔁 Режим покупателя"}))
-async def switch_to_buyer(message: types.Message):
-    await message.answer("Переключено в режим покупателя.", reply_markup=kb.buyer_main)
-
-@router.message(F.text.in_({"📦 Режим продавца", "🔁 Режим продавца"}))
-async def switch_to_seller(message: types.Message):
-    # Запрашиваем актуальные данные пользователя через API
-    user = await api_get_user(message.from_user.id)
-    
-    if user and (user.role == 'ADMIN' or user.role == 'SELLER'):
-        await message.answer("📦 Режим ПРОДАВЦА.", reply_markup=kb.seller_main)
-    else:
-        await message.answer(
-            "⚠️ У вас нет доступа к режиму продавца. Свяжитесь с админом.",
-            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="💬 Стать продавцом", url="https://t.me/admin_username")]
-            ])
-        )
-
-@router.message(F.text.in_({"🤝 Режим посредника", "🔁 Режим посредника"}))
-async def switch_to_agent(message: types.Message):
-    await message.answer("Переключено в режим посредника.", reply_markup=kb.agent_main)
+async def switch_to_buyer(message: types.Message, state: FSMContext):
+    await state.clear()
+    menu = kb.get_main_kb(message.from_user.id, "BUYER")
+    await message.answer("Переключено в режим покупателя.", reply_markup=menu)
 
 @router.message(F.text == "👑 Вернуться в АДМИН-ПАНЕЛЬ")
-async def back_to_admin(message: types.Message):
-    user = await api_get_user(message.from_user.id)
+async def back_to_admin(message: types.Message, state: FSMContext):
+    await state.clear()
+    user_id = message.from_user.id
+    
+    if user_id == MASTER_ADMIN_ID:
+        menu = kb.get_main_kb(user_id, "ADMIN")
+        await message.answer("Вы вернулись в меню администратора.", reply_markup=menu)
+        return
+    
+    # Если вдруг обычный админ (не Master)
+    user = await api_get_user(user_id)
     if user and user.role == 'ADMIN':
-        await message.answer("Вы вернулись в меню администратора.", reply_markup=kb.admin_main)
+        menu = kb.get_main_kb(user_id, "ADMIN")
+        await message.answer("Вы вернулись в меню администратора.", reply_markup=menu)

@@ -3,10 +3,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import bot.keyboards.reply as kb
-
-# ❗ ИМПОРТЫ API
-from bot.api_client.orders import api_create_order
 from bot.api_client.sellers import api_get_products, api_get_seller
+from bot.api_client.orders import api_create_order
 
 router = Router()
 
@@ -15,34 +13,53 @@ class Checkout(StatesGroup):
     delivery_choice = State()
     address = State()
 
-# 1. КАТАЛОГ
-@router.message(F.text == "🛍 Открыть магазин")
+# --- 1. ОТКРЫТЬ МАГАЗИН ---
+@router.message(F.text == "🌸 Открыть магазин")
 async def open_shop(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    seller_id = data.get("current_seller_id", message.from_user.id) # Если нет ID, показываем свои же (тест)
     
-    # Получаем товары через API
+    # 1. Пытаемся понять, в чьем мы магазине
+    seller_id = data.get("current_seller_id")
+    
+    # Если мы не переходили по ссылке, показываем тестовый магазин (например, твой ID админа)
+    if not seller_id:
+        # ЗАМЕНИ НА СВОЙ ID, чтобы тестировать на себе
+        seller_id = 8073613186
+        await message.answer(f"⚠️ Вы не выбрали магазин по ссылке. Показываю витрину тестового магазина (ID: {seller_id})")
+
+    # 2. Получаем товары через API
     products = await api_get_products(seller_id)
     
     if not products:
-        return await message.answer("В этом магазине пока нет товаров. 🌸")
+        return await message.answer("📭 В этом магазине пока нет товаров.")
 
+    # 3. Показываем товары
     for product in products:
+        # product - это объект, который мы сделали в api_client
         buy_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="➕ В корзину", callback_data=f"buy_{product.id}_{product.name}_{product.price}")]
         ])
-        await message.answer_photo(
-            photo=product.photo_id,
-            caption=f"🌸 *{product.name}*\n💰 {product.price} руб.\n\n{product.description}",
-            reply_markup=buy_kb,
-            parse_mode="Markdown"
-        )
+        
+        # Если есть фото
+        if hasattr(product, 'photo_id') and product.photo_id:
+            await message.answer_photo(
+                photo=product.photo_id,
+                caption=f"🌸 *{product.name}*\n💰 {product.price} руб.\n\n{product.description}",
+                reply_markup=buy_kb,
+                parse_mode="Markdown"
+            )
+        else:
+            await message.answer(
+                f"🌸 *{product.name}*\n💰 {product.price} руб.\n\n{product.description}",
+                reply_markup=buy_kb,
+                parse_mode="Markdown"
+            )
 
-# 2. КОРЗИНА (Локальная логика, API не нужен до оформления)
+# --- 2. КОРЗИНА ---
 @router.message(F.text == "🛒 Корзина")
 async def show_cart(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    cart = data.get("cart", {}) # Структура: {id: {'name': name, 'price': price, 'count': 1}}
+    cart = data.get("cart", {})
     
     if not cart:
         return await message.answer("Ваша корзина пуста 🛒")
@@ -69,7 +86,7 @@ async def clear_cart(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer("Корзина очищена")
     await callback.message.delete()
 
-# 3. ДОБАВЛЕНИЕ В КОРЗИНУ
+# --- 3. ДОБАВЛЕНИЕ В КОРЗИНУ ---
 @router.callback_query(F.data.startswith("buy_"))
 async def add_to_cart(callback: types.CallbackQuery, state: FSMContext):
     # data format: buy_ID_NAME_PRICE
@@ -89,95 +106,67 @@ async def add_to_cart(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(cart=cart)
     await callback.answer(f"✅ {p_name} добавлен в корзину!")
 
-# 4. ОФОРМЛЕНИЕ
+# --- 4. ОФОРМЛЕНИЕ ЗАКАЗА ---
 @router.callback_query(F.data == "checkout")
 async def checkout_start(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(Checkout.phone)
-    await callback.message.answer("Шаг 1/3: Введите ваш номер телефона:")
+    await callback.message.answer("Введите ваш номер телефона:")
     await callback.answer()
 
 @router.message(Checkout.phone)
 async def checkout_phone(message: types.Message, state: FSMContext):
     await state.update_data(phone=message.text)
     await state.set_state(Checkout.delivery_choice)
-    
     choice_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚚 Доставка", callback_data="target_delivery")],
         [InlineKeyboardButton(text="🏠 Самовывоз", callback_data="target_pickup")]
     ])
-    await message.answer("Шаг 2/3: Как вы хотите получить заказ?", reply_markup=choice_kb)
+    await message.answer("Выберите способ получения:", reply_markup=choice_kb)
 
-@router.callback_query(F.data == "target_pickup")
-async def process_pickup(callback: types.CallbackQuery, state: FSMContext):
-    # Получаем адрес магазина через API
-    data = await state.get_data()
-    seller_id = data.get("current_seller_id", callback.from_user.id)
-    seller = await api_get_seller(seller_id)
-    addr = getattr(seller, 'address', "Адрес магазина уточняйте у продавца")
-    
-    await finalize_order(callback.message, state, "Самовывоз", addr)
-    await callback.answer()
-
-@router.callback_query(F.data == "target_delivery")
-async def process_delivery(callback: types.CallbackQuery, state: FSMContext):
+@router.callback_query(F.data.in_({"target_delivery", "target_pickup"}))
+async def process_delivery_choice(callback: types.CallbackQuery, state: FSMContext):
+    type_name = "Доставка" if callback.data == "target_delivery" else "Самовывоз"
+    await state.update_data(delivery_type=type_name)
     await state.set_state(Checkout.address)
-    await callback.message.edit_text("Шаг 3/3: Введите адрес доставки:")
+    await callback.message.answer(f"Введите адрес ({type_name}):")
     await callback.answer()
 
 @router.message(Checkout.address)
-async def checkout_address(message: types.Message, state: FSMContext):
-    await finalize_order(message, state, "Доставка", message.text)
-
-async def finalize_order(message, state: FSMContext, type_name, final_address):
+async def checkout_finish(message: types.Message, state: FSMContext):
     data = await state.get_data()
     cart = data.get("cart", {})
-    seller_id = data.get("current_seller_id", 8073613186)
     
-    # Формируем описание заказа
-    items_desc = ""
-    total = 0
-    for item in cart.values():
-        items_desc += f"{item['name']} x {item['count']}; "
-        total += item['price'] * item['count']
+    # Пытаемся взять ID продавца из перехода по ссылке
+    # Если его нет — берем ТВОЙ ID (как дефолтный магазин)
+    seller_id = data.get("current_seller_id", 8073613186) 
+    
+    items_info = ", ".join([f"{v['name']} x {v['count']}" for v in cart.values()])
+    total = sum([v['price'] * v['count'] for v in cart.values()])
 
-    # ❗ СОЗДАНИЕ ЗАКАЗА ЧЕРЕЗ API
-    order_data = {
-        "buyer_id": message.chat.id,
+    order_payload = {
+        "buyer_id": message.from_user.id,
         "seller_id": seller_id,
-        "items_info": items_desc,
+        "items_info": items_info,
         "total_price": total,
-        "delivery_type": type_name,
-        "address": final_address,
+        "delivery_type": data['delivery_type'],
+        "address": message.text,
         "agent_id": data.get("current_agent_id")
     }
-    
-    try:
-        new_order = await api_create_order(order_data)
-        
-        # Уведомление продавца (пока оставляем тут для надежности, но в идеале это делает бэкенд)
-        try:
-            await message.bot.send_message(
-                seller_id, 
-                f"🔔 *НОВЫЙ ЗАКАЗ №{new_order.id}*\n"
-                f"📱 Тел: {data['phone']}\n"
-                f"📍 {type_name}: {final_address}\n"
-                f"💰 Сумма: {total} руб.\n"
-                f"🛒 Товары: {items_desc}",
-                parse_mode="Markdown"
-            )
-        except:
-            pass # Если бот не может написать продавцу, не крашим заказ
 
-        await state.clear()
-        text = f"🎉 Заказ №{new_order.id} успешно оформлен!\n📍 {type_name}: {final_address}"
-        
-        if isinstance(message, types.Message):
-            await message.answer(text)
-        else:
-            await message.edit_text(text)
-            
-    except Exception as e:
-        if isinstance(message, types.Message):
-            await message.answer(f"Ошибка при создании заказа: {e}")
-        else:
-            await message.bot.send_message(message.chat.id, f"Ошибка: {e}")
+    # Отправляем запрос
+    res = await api_create_order(order_payload)
+    
+    # --- ИСПРАВЛЕНИЕ: ПРОВЕРКА РЕЗУЛЬТАТА ---
+    if res:
+        await message.answer(f"🎉 Заказ №{res.id} оформлен! Ожидайте подтверждения от продавца.")
+        await state.clear() # Очищаем корзину и состояние только при успехе
+    else:
+        await message.answer(
+            "❌ **Ошибка оформления заказа!**\n\n"
+            "Возможные причины:\n"
+            "1. Продавец перестал существовать (база была очищена).\n"
+            "2. Магазин временно закрыт.\n"
+            "3. Лимит заказов продавца превышен.\n\n"
+            "Попробуйте связаться с администратором.",
+            parse_mode="Markdown"
+        )

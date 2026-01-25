@@ -1,23 +1,22 @@
 import asyncio
-from bot.database.models import User, async_session
-from sqlalchemy import select
+from sqlalchemy import update
+from backend.app.core.database import async_session
+from backend.app.models.user import User
 
-async def make_me_admin(tg_id: int):
+# 👇 ВПИШИ СЮДА СВОЙ ID
+MY_ID = 8073613186  # Я взял ID из твоего лога ошибки. Если другой - поменяй.
+
+async def main():
+    print(f"👑 Назначаем пользователя {MY_ID} админом...")
     async with async_session() as session:
-        # Ищем пользователя в базе
-        user = await session.get(User, tg_id)
-        
-        if user:
-            user.role = 'ADMIN'
-            print(f"✅ Роль пользователя {tg_id} изменена на ADMIN.")
-        else:
-            # Если вы еще не нажали /start после сброса, создаем запись сразу
-            new_admin = User(tg_id=tg_id, role='ADMIN')
-            session.add(new_admin)
-            print(f"✅ Пользователь {tg_id} добавлен в базу как ADMIN.")
-        
+        # Обновляем роль
+        await session.execute(
+            update(User)
+            .where(User.tg_id == MY_ID)
+            .values(role='ADMIN')
+        )
         await session.commit()
+    print("✅ Готово! Перезапустите бота (или нажмите /start).")
 
 if __name__ == "__main__":
-    MY_ID = int(input("Введите ваш Telegram ID: "))
-    asyncio.run(make_me_admin(MY_ID))
+    asyncio.run(main())

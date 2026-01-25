@@ -3,3 +3,4 @@ sqlalchemy[asyncio]==2.0.30
 asyncpg==0.29.0
 python-dotenv==1.0.1
 redis==5.0.4
+aiohttp==3.9.3   <-- ДОБАВИТЬ ЭТУ СТРОКУ

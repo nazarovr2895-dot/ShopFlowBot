@@ -1,21 +1,151 @@
-from aiogram import Router, F, types, Bot
-from aiogram.utils.deep_linking import create_start_link
+from aiogram import Router, F, types
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 import bot.keyboards.reply as kb
+from bot.api_client.buyers import api_get_user
+from bot.api_client.agents import api_get_agent_stats, api_register_agent_data
 
 router = Router()
 
-@router.message(F.text == "🔗 Моя ссылка для покупателя")
-async def get_agent_link(message: types.Message, bot: Bot):
-    link = await create_start_link(bot, f"agent_{message.from_user.id}", encode=True)
+# FSM: Анкета
+class AgentRegister(StatesGroup):
+    fio = State()
+    age = State()
+    phone = State()
+    self_employed = State()
+
+# --- 1. ВХОД В РЕЖИМ ---
+@router.message(F.text.in_({"🤝 Режим посредника", "🔁 Режим посредника"}))
+async def enter_agent_mode(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    user = await api_get_user(user_id)
+    
+    if not user:
+        return await message.answer("Ошибка связи с сервером.")
+
+    # Если уже агент — показываем меню
+    if user.role == 'AGENT':
+        menu = kb.get_main_kb(user_id, "AGENT")
+        await message.answer("🤝 Кабинет посредника открыт.", reply_markup=menu)
+        return
+
+    # Если нет — начинаем регистрацию
     await message.answer(
-        f"🤝 *Ваша ссылка посредника:*\n\n`{link}`\n\n"
-        "Отправляйте её клиентам. Все заказы по этой ссылке будут закреплены за вами.",
-        parse_mode="Markdown"
+        "👋 Вы еще не являетесь нашим партнером.\n"
+        "Чтобы зарабатывать 7% с продаж, заполните анкету.\n\n"
+        "1. Введите ваше **ФИО**:",
+        reply_markup=kb.cancel_kb
     )
+    await state.set_state(AgentRegister.fio)
+
+# --- 2. ОБРАБОТКА ШАГОВ (Везде добавлена проверка отмены) ---
+
+# Шаг 1: ФИО -> Возраст
+@router.message(AgentRegister.fio)
+async def process_fio(message: types.Message, state: FSMContext):
+    # 👇 ПРОВЕРКА ОТМЕНЫ
+    if message.text == "❌ Отмена":
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "BUYER")
+        await message.answer("Регистрация отменена.", reply_markup=menu)
+        return
+
+    await state.update_data(fio=message.text)
+    await message.answer("2. Введите ваш **возраст** (числом):", reply_markup=kb.cancel_kb)
+    await state.set_state(AgentRegister.age)
+
+# Шаг 2: Возраст -> Телефон
+@router.message(AgentRegister.age)
+async def process_age(message: types.Message, state: FSMContext):
+    # 👇 ПРОВЕРКА ОТМЕНЫ (Важно! Раньше тут была ошибка)
+    if message.text == "❌ Отмена":
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "BUYER")
+        await message.answer("Регистрация отменена.", reply_markup=menu)
+        return
+
+    if not message.text.isdigit():
+        await message.answer("Пожалуйста, введите возраст числом (например, 25).")
+        return
+        
+    await state.update_data(age=int(message.text))
+    await message.answer("3. Введите ваш **номер телефона**:", reply_markup=kb.cancel_kb)
+    await state.set_state(AgentRegister.phone)
+
+# Шаг 3: Телефон -> Самозанятость
+@router.message(AgentRegister.phone)
+async def process_phone(message: types.Message, state: FSMContext):
+    # 👇 ПРОВЕРКА ОТМЕНЫ
+    if message.text == "❌ Отмена":
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "BUYER")
+        await message.answer("Регистрация отменена.", reply_markup=menu)
+        return
+
+    await state.update_data(phone=message.text)
+    
+    # Спрашиваем про самозанятость
+    await message.answer(
+        "4. Вы оформлены как **самозанятый**?",
+        reply_markup=kb.yes_no_kb
+    )
+    await state.set_state(AgentRegister.self_employed)
+
+# Шаг 4: Финал
+@router.message(AgentRegister.self_employed)
+async def process_self_employed(message: types.Message, state: FSMContext):
+    text = message.text.lower()
+    
+    # 👇 ПРОВЕРКА ОТМЕНЫ
+    if "отмена" in text:
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "BUYER")
+        await message.answer("Регистрация отменена.", reply_markup=menu)
+        return
+
+    # Распознаем ответ
+    is_self = False
+    if "да" in text:
+        is_self = True
+    elif "нет" in text:
+        is_self = False
+    else:
+        await message.answer("Нажмите кнопку 'Да' или 'Нет'.")
+        return
+
+    # Сохраняем
+    data = await state.get_data()
+    res = await api_register_agent_data(
+        tg_id=message.from_user.id,
+        fio=data['fio'],
+        phone=data['phone'],
+        age=data['age'],
+        is_self_employed=is_self
+    )
+    
+    if res:
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "AGENT")
+        await message.answer("✅ Поздравляем! Вы стали партнером.", reply_markup=menu)
+    else:
+        await message.answer("Ошибка сохранения данных. Попробуйте позже.")
+
+
+# --- 3. МЕНЮ АГЕНТА ---
+
+@router.message(F.text == "🔗 Реферальная ссылка")
+async def show_ref_link(message: types.Message):
+    bot_info = await message.bot.get_me()
+    link = f"https://t.me/{bot_info.username}?start=agent_{message.from_user.id}"
+    await message.answer(f"🔗 **Ваша ссылка:**\n`{link}`", parse_mode="Markdown")
 
 @router.message(F.text == "💰 Мой баланс")
-async def check_balance(message: types.Message):
-    # Тут должен быть вызов API, например:
-    # balance = await api_get_agent_balance(message.from_user.id)
-    balance = 0 
-    await message.answer(f"Ваш текущий баланс: *{balance} руб.*\nДоступно к выводу: *0 руб.*", parse_mode="Markdown")
+async def show_balance(message: types.Message):
+    stats = await api_get_agent_stats(message.from_user.id)
+    b = stats.get('balance', 0) if stats else 0
+    c = stats.get('referrals_count_level_1', 0) if stats else 0
+    
+    await message.answer(
+        f"💰 **Баланс:** {b} ₽\n"
+        f"👥 **Приглашено:** {c} чел."
+    )

@@ -14,7 +14,7 @@ class Seller(Base):
     metro_id: Mapped[int] = mapped_column(ForeignKey('metro_stations.id'), nullable=True)
     map_url: Mapped[str] = mapped_column(Text, nullable=True)
     delivery_type: Mapped[str] = mapped_column(String(100), nullable=True)
-    max_orders: Mapped[int] = mapped_column(Integer, default=0)
+    max_orders: Mapped[int] = mapped_column(Integer, default=10)
     active_orders: Mapped[int] = mapped_column(Integer, default=0)
     pending_requests: Mapped[int] = mapped_column(Integer, default=0)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
