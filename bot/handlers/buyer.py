@@ -3,12 +3,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import bot.keyboards.reply as kb
-from bot.api_client.sellers import api_get_products, api_get_seller
+from bot.api_client.sellers import api_get_products, api_get_seller, api_get_buyer_orders, api_update_order_status
 from bot.api_client.orders import api_create_order
 
 router = Router()
 
 class Checkout(StatesGroup):
+    fio = State()
     phone = State()
     delivery_choice = State()
     address = State()
@@ -109,9 +110,32 @@ async def add_to_cart(callback: types.CallbackQuery, state: FSMContext):
 # --- 4. ОФОРМЛЕНИЕ ЗАКАЗА ---
 @router.callback_query(F.data == "checkout")
 async def checkout_start(callback: types.CallbackQuery, state: FSMContext):
-    await state.set_state(Checkout.phone)
-    await callback.message.answer("Введите ваш номер телефона:")
+    # Сохраняем снимок корзины на момент оформления
+    data = await state.get_data()
+    cart = data.get("cart", {})
+    
+    if not cart:
+        await callback.answer("❌ Корзина пуста!", show_alert=True)
+        return
+    
+    # Вычисляем итоги заранее и сохраняем
+    items_info = ", ".join([f"{v['name']} x {v['count']}" for v in cart.values()])
+    total_price = sum([v['price'] * v['count'] for v in cart.values()])
+    
+    await state.update_data(
+        checkout_items_info=items_info,
+        checkout_total_price=total_price
+    )
+    
+    await state.set_state(Checkout.fio)
+    await callback.message.answer("Введите ваше ФИО (Имя Фамилия):")
     await callback.answer()
+
+@router.message(Checkout.fio)
+async def checkout_fio(message: types.Message, state: FSMContext):
+    await state.update_data(fio=message.text)
+    await state.set_state(Checkout.phone)
+    await message.answer("Введите ваш номер телефона:")
 
 @router.message(Checkout.phone)
 async def checkout_phone(message: types.Message, state: FSMContext):
@@ -134,14 +158,19 @@ async def process_delivery_choice(callback: types.CallbackQuery, state: FSMConte
 @router.message(Checkout.address)
 async def checkout_finish(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    cart = data.get("cart", {})
     
     # Пытаемся взять ID продавца из перехода по ссылке
     # Если его нет — берем ТВОЙ ID (как дефолтный магазин)
     seller_id = data.get("current_seller_id", 8073613186) 
     
-    items_info = ", ".join([f"{v['name']} x {v['count']}" for v in cart.values()])
-    total = sum([v['price'] * v['count'] for v in cart.values()])
+    # Используем сохраненные данные из checkout_start
+    items_info = data.get("checkout_items_info", "")
+    total = data.get("checkout_total_price", 0)
+    fio = data.get("fio", "")
+    phone = data.get("phone", "")
+    
+    # Добавляем ФИО и телефон к адресу для информации продавцу
+    full_address = f"{message.text}\n📞 {phone}\n👤 {fio}"
 
     order_payload = {
         "buyer_id": message.from_user.id,
@@ -149,24 +178,149 @@ async def checkout_finish(message: types.Message, state: FSMContext):
         "items_info": items_info,
         "total_price": total,
         "delivery_type": data['delivery_type'],
-        "address": message.text,
+        "address": full_address,
         "agent_id": data.get("current_agent_id")
     }
 
     # Отправляем запрос
     res = await api_create_order(order_payload)
     
-    # --- ИСПРАВЛЕНИЕ: ПРОВЕРКА РЕЗУЛЬТАТА ---
+    # --- ПРОВЕРКА РЕЗУЛЬТАТА ---
     if res:
-        await message.answer(f"🎉 Заказ №{res.id} оформлен! Ожидайте подтверждения от продавца.")
+        await message.answer(
+            f"🎉 *Заказ №{res.id} оформлен!*\n\n"
+            f"👤 {fio}\n"
+            f"📞 {phone}\n"
+            f"🛒 {items_info}\n"
+            f"💰 Сумма: {total} руб.\n\n"
+            "Ожидайте подтверждения от продавца.",
+            parse_mode="Markdown"
+        )
         await state.clear() # Очищаем корзину и состояние только при успехе
     else:
+        # Не очищаем состояние при ошибке, чтобы можно было повторить
+        menu = kb.get_main_kb(message.from_user.id, "BUYER")
         await message.answer(
-            "❌ **Ошибка оформления заказа!**\n\n"
+            "❌ *Ошибка оформления заказа!*\n\n"
             "Возможные причины:\n"
-            "1. Продавец перестал существовать (база была очищена).\n"
+            "1. Продавец перестал существовать.\n"
             "2. Магазин временно закрыт.\n"
             "3. Лимит заказов продавца превышен.\n\n"
             "Попробуйте связаться с администратором.",
+            parse_mode="Markdown",
+            reply_markup=menu
+        )
+
+
+# --- 5. МОИ ЗАКАЗЫ ---
+@router.message(F.text == "📦 Мои заказы")
+async def my_orders_handler(message: types.Message):
+    """Показать заказы покупателя"""
+    buyer_id = message.from_user.id
+    orders = await api_get_buyer_orders(buyer_id)
+    
+    if not orders:
+        return await message.answer("📭 У вас пока нет заказов.")
+    
+    await message.answer(f"📦 Ваши заказы: {len(orders)}")
+    
+    # Статусы на русском с эмодзи
+    status_names = {
+        "pending": "⏳ Ожидает подтверждения",
+        "accepted": "✅ Принят продавцом",
+        "assembling": "📦 Собирается",
+        "in_transit": "🚚 В пути",
+        "done": "📬 Доставлен (ожидает подтверждения)",
+        "completed": "✅ Получен",
+        "rejected": "❌ Отклонен"
+    }
+    
+    for order in orders:
+        status_text = status_names.get(order.status, order.status)
+        delivery_emoji = "🚚" if order.delivery_type == "Доставка" else "🏪"
+        
+        text = (
+            f"📦 *Заказ #{order.id}*\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"📊 Статус: *{status_text}*\n"
+            f"🛒 Товары: {order.items_info}\n"
+            f"💰 Сумма: *{order.total_price} руб.*\n"
+            f"{delivery_emoji} {order.delivery_type}\n"
+        )
+        
+        if order.created_at:
+            text += f"🕐 Создан: {order.created_at[:16].replace('T', ' ')}\n"
+        
+        # Кнопки действий в зависимости от статуса
+        buttons = []
+        
+        # Если заказ активен или доставлен - можно подтвердить получение
+        # НЕ показываем для completed (уже подтвержден) и rejected (отклонен)
+        if order.status in ["in_transit", "assembling", "accepted", "done"]:
+            buttons.append([
+                InlineKeyboardButton(
+                    text="✅ Я получил заказ", 
+                    callback_data=f"buyer_confirm_{order.id}"
+                )
+            ])
+        
+        # Кнопка связи с продавцом
+        buttons.append([
+            InlineKeyboardButton(
+                text="💬 Связаться с продавцом", 
+                url=f"tg://user?id={order.seller_id}"
+            )
+        ])
+        
+        kb_order = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        
+        await message.answer(text, reply_markup=kb_order, parse_mode="Markdown")
+
+
+@router.callback_query(F.data.startswith("buyer_confirm_"))
+async def buyer_confirm_order(callback: types.CallbackQuery):
+    """Покупатель подтверждает получение - показываем подтверждение"""
+    order_id = int(callback.data.split("_")[2])
+    
+    confirm_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Да, получил", callback_data=f"buyer_received_{order_id}"),
+            InlineKeyboardButton(text="❌ Нет, отмена", callback_data=f"buyer_cancel_{order_id}")
+        ]
+    ])
+    
+    await callback.message.edit_reply_markup(reply_markup=confirm_kb)
+    await callback.answer("Подтвердите получение заказа")
+
+
+@router.callback_query(F.data.startswith("buyer_received_"))
+async def buyer_received_order(callback: types.CallbackQuery):
+    """Покупатель подтвердил получение заказа"""
+    order_id = int(callback.data.split("_")[2])
+    
+    # Устанавливаем статус "completed" - покупатель подтвердил получение
+    result = await api_update_order_status(order_id, "completed")
+    
+    if result and result.get("status") == "ok":
+        await callback.answer("✅ Спасибо! Заказ отмечен как полученный.", show_alert=True)
+        await callback.message.edit_text(
+            callback.message.text + "\n\n✅ *ЗАКАЗ ПОЛУЧЕН*",
             parse_mode="Markdown"
         )
+    else:
+        await callback.answer("❌ Ошибка при обновлении статуса", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("buyer_cancel_"))
+async def buyer_cancel_confirm(callback: types.CallbackQuery):
+    """Покупатель отменил подтверждение"""
+    await callback.answer("Отменено")
+    # Возвращаем исходные кнопки
+    order_id = int(callback.data.split("_")[2])
+    
+    buttons = [
+        [InlineKeyboardButton(text="✅ Я получил заказ", callback_data=f"buyer_confirm_{order_id}")],
+        [InlineKeyboardButton(text="💬 Связаться с продавцом", url=f"tg://user?id=0")]
+    ]
+    
+    await callback.message.edit_reply_markup(reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))

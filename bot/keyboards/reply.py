@@ -1,5 +1,6 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from bot.config import MINI_APP_URL
 
 # 👇 ТВОЙ ID (ЗОЛОТОЙ КЛЮЧ)
 MASTER_ADMIN_ID = 8073613186
@@ -40,8 +41,10 @@ def get_main_kb(user_id: int, role: str):
 
     # --- 4. КНОПКИ ПОКУПАТЕЛЯ (Для всех остальных) ---
     else: # BUYER
+        builder.row(KeyboardButton(text="🛍 Каталог магазинов", web_app=WebAppInfo(url=MINI_APP_URL)))
         builder.row(KeyboardButton(text="🌸 Открыть магазин"), KeyboardButton(text="🛒 Корзина"))
-        builder.row(KeyboardButton(text="📦 Режим продавца"), KeyboardButton(text="🤝 Режим посредника"))
+        builder.row(KeyboardButton(text="📦 Мои заказы"))
+        builder.row(KeyboardButton(text="🔁 Режим продавца"), KeyboardButton(text="🤝 Режим посредника"))
         
         if user_id == MASTER_ADMIN_ID:
             builder.row(KeyboardButton(text="👑 Вернуться в АДМИН-ПАНЕЛЬ"))

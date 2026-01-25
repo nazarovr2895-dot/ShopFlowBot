@@ -32,6 +32,9 @@ async def reset_and_seed():
             District(id=7, city_id=1, name="ЮЗАО"),
             District(id=8, city_id=1, name="ЗАО"),
             District(id=9, city_id=1, name="СЗАО"),
+            District(id=10, city_id=1, name="НАО"),
+            District(id=11, city_id=1, name="ТАО"),
+            District(id=12, city_id=1, name="ЗелАО"),
         ]
         session.add_all(districts)
         await session.commit()

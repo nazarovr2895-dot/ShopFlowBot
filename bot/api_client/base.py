@@ -16,6 +16,16 @@ async def make_request(method: str, endpoint: str, data: dict = None, params: di
                     if response.content_type != "application/json":
                          return {"status": response.status}
                     return await response.json()
+            elif method == "PUT":
+                async with session.put(url, json=data, params=params) as response:
+                    if response.content_type != "application/json":
+                         return {"status": response.status}
+                    return await response.json()
+            elif method == "DELETE":
+                async with session.delete(url, params=params) as response:
+                    if response.content_type != "application/json":
+                         return {"status": response.status}
+                    return await response.json()
         except Exception as e:
             print(f"❌ Ошибка запроса к API {url}: {e}")
             return None

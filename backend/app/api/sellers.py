@@ -55,10 +55,44 @@ async def delete_product(product_id: int, session: AsyncSession = Depends(get_se
 @router.get("/{tg_id}")
 async def get_seller_info(tg_id: int, session: AsyncSession = Depends(get_session)):
     """Инфо о продавце (для проверки лимитов и т.д.)"""
-    # Если таблицы Seller еще нет или логика сложная, пока вернем заглушку, но через базу
-    # (Здесь можно подключить реальную таблицу Seller, если она есть)
+    result = await session.execute(
+        select(Seller).where(Seller.seller_id == tg_id)
+    )
+    seller = result.scalar_one_or_none()
+    
+    if not seller:
+        return None
+    
     return {
-        "shop_name": "My Shop",
-        "max_orders": 100,
-        "is_blocked": False
+        "seller_id": seller.seller_id,
+        "shop_name": seller.shop_name or "My Shop",
+        "description": seller.description,
+        "max_orders": seller.max_orders,
+        "active_orders": seller.active_orders,
+        "pending_requests": seller.pending_requests,
+        "is_blocked": seller.is_blocked,
+        "delivery_type": seller.delivery_type,
+        "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None
     }
+
+
+@router.put("/{tg_id}/limits")
+async def update_seller_limits(tg_id: int, max_orders: int, session: AsyncSession = Depends(get_session)):
+    """Обновить лимит заказов продавца"""
+    if max_orders < 1 or max_orders > 100:
+        from fastapi import HTTPException
+        raise HTTPException(400, "Лимит должен быть от 1 до 100")
+    
+    result = await session.execute(
+        select(Seller).where(Seller.seller_id == tg_id)
+    )
+    seller = result.scalar_one_or_none()
+    
+    if not seller:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Продавец не найден")
+    
+    seller.max_orders = max_orders
+    await session.commit()
+    
+    return {"status": "ok", "max_orders": max_orders}
