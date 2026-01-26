@@ -52,6 +52,10 @@ export function ShopCard({ seller }: ShopCardProps) {
         </span>
       </div>
 
+      {seller.owner_fio && (
+        <div className="shop-card__owner">{seller.owner_fio}</div>
+      )}
+
       <div className="shop-card__location">
         {[seller.metro_name, seller.district_name].filter(Boolean).join(' • ') || 'Локация не указана'}
       </div>

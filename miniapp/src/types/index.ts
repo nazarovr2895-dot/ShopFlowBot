@@ -20,6 +20,7 @@ export interface Metro {
 export interface PublicSellerListItem {
   seller_id: number;
   shop_name: string | null;
+  owner_fio: string | null;
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
   city_name: string | null;
   district_name: string | null;
@@ -65,4 +66,5 @@ export interface SellerFilters {
   metro_id?: number;
   delivery_type?: 'delivery' | 'pickup' | 'both';
   sort_price?: 'asc' | 'desc';
+  sort_mode?: 'all_city' | 'nearby';
 }

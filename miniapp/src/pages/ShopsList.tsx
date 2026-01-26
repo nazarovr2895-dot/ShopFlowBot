@@ -2,17 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import type { PublicSellerListItem, SellerFilters } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
+import { useLocationCache } from '../hooks/useLocationCache';
 import { ShopCard, Filters, Loader, EmptyState } from '../components';
 import './ShopsList.css';
 
-// Cache for filters to persist between navigations
-let cachedFilters: SellerFilters = {};
-
 export function ShopsList() {
   const { setBackButton, hideMainButton } = useTelegramWebApp();
+  const { filters, setFilters, isInitialized } = useLocationCache();
   
   const [sellers, setSellers] = useState<PublicSellerListItem[]>([]);
-  const [filters, setFilters] = useState<SellerFilters>(cachedFilters);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -52,12 +50,12 @@ export function ShopsList() {
     [filters]
   );
 
-  // Initial load and reload on filter change
+  // Initial load and reload on filter change (wait for cache initialization)
   useEffect(() => {
+    if (!isInitialized) return;
     setPage(1);
     loadSellers(1);
-    cachedFilters = filters; // Save filters to cache
-  }, [filters, loadSellers]);
+  }, [filters, loadSellers, isInitialized]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;

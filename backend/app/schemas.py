@@ -50,5 +50,12 @@ class ProductCreate(BaseModel):
     price: float
     photo_id: Optional[str] = None
 
+class ProductUpdate(BaseModel):
+    """Схема для обновления товара - все поля опциональны"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    photo_id: Optional[str] = None
+
 class ProductResponse(ProductCreate):
     id: int

@@ -6,6 +6,7 @@ Public API endpoints for Mini App
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
+from sqlalchemy.sql.expression import func as sql_func
 from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
@@ -13,6 +14,7 @@ from datetime import datetime
 from backend.app.api.deps import get_session
 from backend.app.models.seller import Seller, City, District, Metro
 from backend.app.models.product import Product
+from backend.app.models.user import User
 
 
 router = APIRouter()
@@ -41,6 +43,7 @@ class PublicSellerListItem(BaseModel):
     """Краткая информация о продавце для списка"""
     seller_id: int
     shop_name: Optional[str]
+    owner_fio: Optional[str]
     delivery_type: Optional[str]
     city_name: Optional[str]
     district_name: Optional[str]
@@ -83,6 +86,7 @@ async def get_public_sellers(
     metro_id: Optional[int] = Query(None, description="Фильтр по станции метро"),
     delivery_type: Optional[str] = Query(None, description="Тип доставки: delivery, pickup, both"),
     sort_price: Optional[str] = Query(None, description="Сортировка по цене: asc, desc"),
+    sort_mode: Optional[str] = Query(None, description="Режим: all_city (все магазины), nearby (по близости)"),
     page: int = Query(1, ge=1, description="Номер страницы"),
     per_page: int = Query(20, ge=1, le=100, description="Количество на странице"),
 ):
@@ -99,6 +103,8 @@ async def get_public_sellers(
     # Базовые условия для активных продавцов
     base_conditions = [
         Seller.is_blocked == False,
+        # Не soft-deleted
+        Seller.deleted_at.is_(None),
         # Размещение активно или не установлено
         (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
         # Есть свободные слоты
@@ -138,6 +144,7 @@ async def get_public_sellers(
     query = (
         select(
             Seller,
+            User.fio.label("owner_fio"),
             City.name.label("city_name"),
             District.name.label("district_name"),
             Metro.name.label("metro_name"),
@@ -145,6 +152,7 @@ async def get_public_sellers(
             product_stats.c.max_price,
             func.coalesce(product_stats.c.product_count, 0).label("product_count")
         )
+        .outerjoin(User, Seller.seller_id == User.tg_id)
         .outerjoin(City, Seller.city_id == City.id)
         .outerjoin(District, Seller.district_id == District.id)
         .outerjoin(Metro, Seller.metro_id == Metro.id)
@@ -157,6 +165,9 @@ async def get_public_sellers(
         query = query.order_by(product_stats.c.min_price.asc().nullslast())
     elif sort_price == "desc":
         query = query.order_by(product_stats.c.max_price.desc().nullslast())
+    elif sort_mode in ("all_city", "nearby"):
+        # Случайная сортировка для режимов "Все магазины" и "По близости"
+        query = query.order_by(sql_func.random())
     else:
         # По умолчанию сортируем по количеству свободных слотов (больше слотов = выше)
         query = query.order_by(
@@ -186,6 +197,7 @@ async def get_public_sellers(
         sellers.append(PublicSellerListItem(
             seller_id=seller.seller_id,
             shop_name=seller.shop_name,
+            owner_fio=row.owner_fio,
             delivery_type=seller.delivery_type,
             city_name=row.city_name,
             district_name=row.district_name,
@@ -237,6 +249,9 @@ async def get_public_seller_detail(
     seller = row[0]
     
     # Проверяем доступность
+    if seller.deleted_at:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
+    
     if seller.is_blocked:
         raise HTTPException(status_code=403, detail="Продавец заблокирован")
     

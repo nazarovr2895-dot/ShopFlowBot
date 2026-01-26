@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from backend.app.api.deps import get_session
 from backend.app.models.seller import Seller, City, District
 from backend.app.models.user import User
@@ -121,12 +121,26 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
     return {"status": "ok"}
 
 @router.get("/sellers/search")
-async def search_sellers(fio: str, session: AsyncSession = Depends(get_session)):
-    """Поиск продавцов по ФИО"""
+async def search_sellers(
+    fio: str,
+    include_deleted: bool = False,
+    session: AsyncSession = Depends(get_session)
+):
+    """Поиск продавцов по ФИО. По умолчанию не включает soft-deleted."""
+    conditions = [User.fio.ilike(f"%{fio}%")]
+    
+    # Включаем роль SELLER или BUYER (если продавец был soft-deleted, роль меняется на BUYER)
+    if include_deleted:
+        # При поиске с удаленными - ищем по всем, у кого есть запись Seller
+        pass
+    else:
+        # Исключаем soft-deleted
+        conditions.append(Seller.deleted_at.is_(None))
+    
     result = await session.execute(
         select(User, Seller)
         .join(Seller, User.tg_id == Seller.seller_id)
-        .where(User.fio.ilike(f"%{fio}%"), User.role == 'SELLER')
+        .where(*conditions)
     )
     sellers = []
     for user, seller in result.all():
@@ -135,18 +149,29 @@ async def search_sellers(fio: str, session: AsyncSession = Depends(get_session))
             "fio": user.fio,
             "phone": user.phone,
             "shop_name": seller.shop_name,
-            "is_blocked": seller.is_blocked
+            "is_blocked": seller.is_blocked,
+            "is_deleted": seller.deleted_at is not None,
+            "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None
         })
     return sellers
 
 @router.get("/sellers/all")
-async def list_all_sellers(session: AsyncSession = Depends(get_session)):
-    """Список всех продавцов"""
-    result = await session.execute(
-        select(User, Seller)
-        .join(Seller, User.tg_id == Seller.seller_id)
-        .where(User.role == 'SELLER')
-    )
+async def list_all_sellers(
+    include_deleted: bool = False,
+    session: AsyncSession = Depends(get_session)
+):
+    """Список всех продавцов. По умолчанию не включает soft-deleted."""
+    conditions = []
+    
+    if not include_deleted:
+        conditions.append(Seller.deleted_at.is_(None))
+    
+    query = select(User, Seller).join(Seller, User.tg_id == Seller.seller_id)
+    
+    if conditions:
+        query = query.where(*conditions)
+    
+    result = await session.execute(query)
     sellers = []
     for user, seller in result.all():
         sellers.append({
@@ -154,7 +179,9 @@ async def list_all_sellers(session: AsyncSession = Depends(get_session)):
             "fio": user.fio,
             "phone": user.phone,
             "shop_name": seller.shop_name,
-            "is_blocked": seller.is_blocked
+            "is_blocked": seller.is_blocked,
+            "is_deleted": seller.deleted_at is not None,
+            "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None
         })
     return sellers
 
@@ -208,6 +235,53 @@ async def block_seller(tg_id: int, is_blocked: bool, session: AsyncSession = Dep
     seller.is_blocked = is_blocked
     await session.commit()
     return {"status": "ok"}
+
+@router.put("/sellers/{tg_id}/soft-delete")
+async def soft_delete_seller(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """
+    Soft Delete продавца (скрыть).
+    Устанавливает deleted_at = now, сохраняя все данные и историю заказов.
+    Продавец не отображается в публичных списках, но данные сохраняются.
+    """
+    seller = await session.get(Seller, tg_id)
+    if not seller:
+        return {"status": "not_found"}
+    
+    # Устанавливаем timestamp удаления
+    seller.deleted_at = datetime.utcnow()
+    
+    # Меняем роль пользователя на BUYER
+    user = await session.get(User, tg_id)
+    if user and user.role != 'ADMIN':
+        user.role = 'BUYER'
+    
+    await session.commit()
+    return {"status": "ok", "message": "Продавец скрыт (soft delete)"}
+
+
+@router.put("/sellers/{tg_id}/restore")
+async def restore_seller(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """
+    Восстановить soft-deleted продавца.
+    """
+    seller = await session.get(Seller, tg_id)
+    if not seller:
+        return {"status": "not_found"}
+    
+    if not seller.deleted_at:
+        return {"status": "not_deleted", "message": "Продавец не был удален"}
+    
+    # Убираем timestamp удаления
+    seller.deleted_at = None
+    
+    # Восстанавливаем роль пользователя
+    user = await session.get(User, tg_id)
+    if user and user.role == 'BUYER':
+        user.role = 'SELLER'
+    
+    await session.commit()
+    return {"status": "ok", "message": "Продавец восстановлен"}
+
 
 @router.delete("/sellers/{tg_id}")
 async def delete_seller(tg_id: int, session: AsyncSession = Depends(get_session)):
@@ -338,3 +412,279 @@ async def set_seller_limit(tg_id: int, max_orders: int, session: AsyncSession = 
     seller.max_orders = max_orders
     await session.commit()
     return {"status": "ok", "max_orders": max_orders}
+
+
+# ============================================
+# УПРАВЛЕНИЕ АГЕНТАМИ (ПОСРЕДНИКАМИ)
+# ============================================
+
+class AgentResponse(BaseModel):
+    tg_id: int
+    fio: Optional[str]
+    phone: Optional[str]
+    age: Optional[int]
+    is_self_employed: bool
+    balance: float
+    referrals_count: int
+    created_at: Optional[str]
+
+
+@router.get("/agents/all", response_model=List[AgentResponse])
+async def list_all_agents(session: AsyncSession = Depends(get_session)):
+    """Получить список всех агентов (пользователей с role='AGENT')"""
+    # Получаем всех агентов
+    result = await session.execute(
+        select(User).where(User.role == 'AGENT')
+    )
+    agents = result.scalars().all()
+    
+    agent_list = []
+    for agent in agents:
+        # Считаем количество рефералов для каждого агента
+        ref_count_result = await session.execute(
+            select(func.count()).select_from(User).where(User.referrer_id == agent.tg_id)
+        )
+        referrals_count = ref_count_result.scalar() or 0
+        
+        agent_list.append(AgentResponse(
+            tg_id=agent.tg_id,
+            fio=agent.fio,
+            phone=agent.phone,
+            age=agent.age,
+            is_self_employed=agent.is_self_employed or False,
+            balance=float(agent.balance) if agent.balance else 0.0,
+            referrals_count=referrals_count,
+            created_at=agent.created_at.isoformat() if agent.created_at else None
+        ))
+    
+    return agent_list
+
+
+@router.get("/agents/search")
+async def search_agents(
+    query: str,
+    session: AsyncSession = Depends(get_session)
+):
+    """Поиск агентов по ФИО или Telegram ID"""
+    conditions = [User.role == 'AGENT']
+    
+    # Если запрос - число, ищем также по tg_id
+    if query.isdigit():
+        conditions.append(
+            (User.fio.ilike(f"%{query}%")) | (User.tg_id == int(query))
+        )
+    else:
+        conditions.append(User.fio.ilike(f"%{query}%"))
+    
+    result = await session.execute(
+        select(User).where(*conditions)
+    )
+    agents = result.scalars().all()
+    
+    agent_list = []
+    for agent in agents:
+        # Считаем количество рефералов
+        ref_count_result = await session.execute(
+            select(func.count()).select_from(User).where(User.referrer_id == agent.tg_id)
+        )
+        referrals_count = ref_count_result.scalar() or 0
+        
+        agent_list.append({
+            "tg_id": agent.tg_id,
+            "fio": agent.fio,
+            "phone": agent.phone,
+            "age": agent.age,
+            "is_self_employed": agent.is_self_employed or False,
+            "balance": float(agent.balance) if agent.balance else 0.0,
+            "referrals_count": referrals_count,
+            "created_at": agent.created_at.isoformat() if agent.created_at else None
+        })
+    
+    return agent_list
+
+
+@router.get("/agents/{tg_id}")
+async def get_agent_details(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """Получить детальную информацию об агенте"""
+    # Получаем агента
+    result = await session.execute(select(User).where(User.tg_id == tg_id))
+    agent = result.scalar_one_or_none()
+    
+    if not agent:
+        return {"status": "not_found"}
+    
+    # Считаем прямых рефералов (Level 1)
+    level1_result = await session.execute(
+        select(User).where(User.referrer_id == tg_id)
+    )
+    level1_users = level1_result.scalars().all()
+    level1_count = len(level1_users)
+    level1_ids = [u.tg_id for u in level1_users]
+    
+    # Считаем рефералов Level 2 (приглашенные агентами)
+    level2_count = 0
+    agents_invited = 0
+    
+    invited_agents = [u for u in level1_users if u.role == 'AGENT']
+    agents_invited = len(invited_agents)
+    invited_agent_ids = [u.tg_id for u in invited_agents]
+    
+    if invited_agent_ids:
+        level2_result = await session.execute(
+            select(func.count()).select_from(User).where(User.referrer_id.in_(invited_agent_ids))
+        )
+        level2_count = level2_result.scalar() or 0
+    
+    # Считаем заработок Level 1 (7% от заказов прямых рефералов)
+    earnings_level_1 = 0.0
+    if level1_ids:
+        level1_orders_result = await session.execute(
+            select(func.coalesce(func.sum(Order.total_price), 0))
+            .where(
+                Order.buyer_id.in_(level1_ids),
+                Order.status.in_(["done", "completed", "delivered"])
+            )
+        )
+        level1_total = level1_orders_result.scalar() or 0
+        earnings_level_1 = float(level1_total) * 0.07
+    
+    # Считаем заработок Level 2 (2% от заказов рефералов агентов)
+    earnings_level_2 = 0.0
+    if invited_agent_ids:
+        # Получаем ID рефералов приглашенных агентов
+        level2_ids_result = await session.execute(
+            select(User.tg_id).where(User.referrer_id.in_(invited_agent_ids))
+        )
+        level2_ids = [r[0] for r in level2_ids_result.fetchall()]
+        
+        if level2_ids:
+            level2_orders_result = await session.execute(
+                select(func.coalesce(func.sum(Order.total_price), 0))
+                .where(
+                    Order.buyer_id.in_(level2_ids),
+                    Order.status.in_(["done", "completed", "delivered"])
+                )
+            )
+            level2_total = level2_orders_result.scalar() or 0
+            earnings_level_2 = float(level2_total) * 0.02
+    
+    # Список приглашенных агентов с их статистикой
+    invited_agents_info = []
+    for inv_agent in invited_agents:
+        # Количество рефералов у приглашенного агента
+        inv_ref_result = await session.execute(
+            select(func.count()).select_from(User).where(User.referrer_id == inv_agent.tg_id)
+        )
+        inv_ref_count = inv_ref_result.scalar() or 0
+        
+        invited_agents_info.append({
+            "tg_id": inv_agent.tg_id,
+            "fio": inv_agent.fio,
+            "referrals_count": inv_ref_count
+        })
+    
+    return {
+        "status": "ok",
+        "agent": {
+            "tg_id": agent.tg_id,
+            "fio": agent.fio,
+            "phone": agent.phone,
+            "age": agent.age,
+            "is_self_employed": agent.is_self_employed or False,
+            "balance": float(agent.balance) if agent.balance else 0.0,
+            "created_at": agent.created_at.isoformat() if agent.created_at else None
+        },
+        "stats": {
+            "referrals_level_1": level1_count,
+            "referrals_level_2": level2_count,
+            "agents_invited": agents_invited,
+            "earnings_level_1": round(earnings_level_1, 2),
+            "earnings_level_2": round(earnings_level_2, 2),
+            "total_earnings": round(earnings_level_1 + earnings_level_2, 2)
+        },
+        "invited_agents": invited_agents_info
+    }
+
+
+@router.put("/agents/{tg_id}/remove")
+async def remove_agent_status(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """
+    Снять статус агента (переводит role на BUYER).
+    Не удаляет пользователя, только меняет роль.
+    """
+    user = await session.get(User, tg_id)
+    if not user:
+        return {"status": "not_found"}
+    
+    if user.role != 'AGENT':
+        return {"status": "not_agent", "message": "Пользователь не является агентом"}
+    
+    # Меняем роль на BUYER
+    user.role = 'BUYER'
+    await session.commit()
+    
+    return {"status": "ok", "message": "Статус агента снят"}
+
+
+@router.put("/agents/{tg_id}/set_balance")
+async def set_agent_balance(
+    tg_id: int,
+    new_balance: float,
+    session: AsyncSession = Depends(get_session)
+):
+    """Установить баланс агента (для корректировок)"""
+    user = await session.get(User, tg_id)
+    if not user:
+        return {"status": "not_found"}
+    
+    if new_balance < 0:
+        return {"status": "error", "message": "Баланс не может быть отрицательным"}
+    
+    user.balance = new_balance
+    await session.commit()
+    
+    return {"status": "ok", "new_balance": new_balance}
+
+
+@router.get("/agents/{tg_id}/referrals")
+async def get_agent_referrals(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """Получить список рефералов агента"""
+    # Проверяем, существует ли агент
+    agent = await session.get(User, tg_id)
+    if not agent:
+        return {"status": "not_found"}
+    
+    # Получаем всех прямых рефералов
+    result = await session.execute(
+        select(User).where(User.referrer_id == tg_id)
+    )
+    referrals = result.scalars().all()
+    
+    referrals_list = []
+    for ref in referrals:
+        # Считаем количество заказов от этого реферала
+        orders_result = await session.execute(
+            select(func.count(Order.id), func.coalesce(func.sum(Order.total_price), 0))
+            .where(
+                Order.buyer_id == ref.tg_id,
+                Order.status.in_(["done", "completed", "delivered"])
+            )
+        )
+        orders_row = orders_result.first()
+        orders_count = orders_row[0] if orders_row else 0
+        orders_sum = float(orders_row[1]) if orders_row and orders_row[1] else 0.0
+        
+        referrals_list.append({
+            "tg_id": ref.tg_id,
+            "fio": ref.fio,
+            "role": ref.role,
+            "orders_count": orders_count,
+            "orders_sum": orders_sum,
+            "created_at": ref.created_at.isoformat() if ref.created_at else None
+        })
+    
+    return {
+        "status": "ok",
+        "referrals": referrals_list,
+        "total": len(referrals_list)
+    }

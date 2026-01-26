@@ -96,6 +96,18 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     onFiltersChange({
       ...filters,
       sort_price: sortPrice || undefined,
+      // Clear sort_mode when using price sorting
+      sort_mode: sortPrice ? undefined : filters.sort_mode,
+    });
+  };
+
+  const handleSortModeChange = (mode: SellerFilters['sort_mode']) => {
+    hapticFeedback('light');
+    onFiltersChange({
+      ...filters,
+      sort_mode: mode,
+      // Clear sort_price when changing mode (modes use random sorting)
+      sort_price: undefined,
     });
   };
 
@@ -109,10 +121,33 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     filters.district_id ||
     filters.metro_id ||
     filters.delivery_type ||
-    filters.sort_price;
+    filters.sort_price ||
+    filters.sort_mode;
 
   return (
     <div className="filters">
+      {/* Sort mode toggle */}
+      <div className="filters__mode-toggle">
+        <button
+          className={`filters__mode-btn ${!filters.sort_mode || filters.sort_mode === 'all_city' ? 'active' : ''}`}
+          onClick={() => handleSortModeChange('all_city')}
+        >
+          Все магазины
+        </button>
+        <button
+          className={`filters__mode-btn ${filters.sort_mode === 'nearby' ? 'active' : ''}`}
+          onClick={() => handleSortModeChange('nearby')}
+        >
+          По близости
+        </button>
+      </div>
+
+      {filters.sort_mode === 'nearby' && !filters.district_id && (
+        <div className="filters__hint">
+          Выберите район для отображения ближайших магазинов
+        </div>
+      )}
+
       <div className="filters__row">
         <select
           className="filters__select"

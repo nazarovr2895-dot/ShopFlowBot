@@ -7,6 +7,45 @@
   border-radius: 12px;
 }
 
+.filters__mode-toggle {
+  display: flex;
+  gap: 0;
+  background: var(--tg-theme-bg-color, #fff);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.filters__mode-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tg-theme-hint-color, #888);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filters__mode-btn.active {
+  background: var(--tg-theme-button-color, #2196f3);
+  color: var(--tg-theme-button-text-color, #fff);
+}
+
+.filters__mode-btn:not(.active):active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.filters__hint {
+  padding: 8px 12px;
+  background: rgba(33, 150, 243, 0.1);
+  border-radius: 8px;
+  color: var(--tg-theme-link-color, #2196f3);
+  font-size: 12px;
+  text-align: center;
+}
+
 .filters__row {
   display: flex;
   gap: 8px;

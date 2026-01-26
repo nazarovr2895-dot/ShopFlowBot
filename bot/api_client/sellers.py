@@ -1,5 +1,6 @@
 from bot.api_client.base import make_request
-from typing import List
+from typing import List, Tuple, Optional
+from datetime import datetime
 
 # --- ПРОДАВЕЦ ---
 
@@ -9,7 +10,65 @@ async def api_check_limit(seller_id: int) -> bool:
     # Если продавец заблокирован, запрещаем действия
     if data and data.get("is_blocked"):
         return False
-    return True 
+    return True
+
+
+async def api_validate_seller_availability(seller_id: int) -> Tuple[bool, Optional[str]]:
+    """
+    Проверяет доступность продавца для покупки.
+    
+    Возвращает кортеж (is_available, error_message):
+    - (True, None) - продавец доступен
+    - (False, "reason") - продавец недоступен + причина
+    
+    Проверяет:
+    1. Существование продавца
+    2. Не soft-deleted
+    3. is_blocked == False
+    4. placement_expired_at == None или > now
+    5. (max_orders - active_orders - pending_requests) > 0
+    """
+    data = await make_request("GET", f"/sellers/{seller_id}")
+    
+    # Продавец не найден
+    if not data:
+        return (False, "not_found")
+    
+    # Продавец soft-deleted
+    if data.get("is_deleted", False):
+        return (False, "deleted")
+    
+    # Продавец заблокирован
+    if data.get("is_blocked", False):
+        return (False, "blocked")
+    
+    # Проверка срока размещения
+    placement_expired_at = data.get("placement_expired_at")
+    if placement_expired_at:
+        try:
+            # Парсим дату (формат ISO 8601)
+            if isinstance(placement_expired_at, str):
+                expired_at = datetime.fromisoformat(placement_expired_at.replace("Z", "+00:00"))
+                if expired_at.tzinfo:
+                    expired_at = expired_at.replace(tzinfo=None)
+            else:
+                expired_at = placement_expired_at
+            
+            if expired_at <= datetime.utcnow():
+                return (False, "expired")
+        except (ValueError, TypeError):
+            pass  # Если не удалось распарсить - игнорируем проверку
+    
+    # Проверка лимита заказов
+    max_orders = data.get("max_orders", 10)
+    active_orders = data.get("active_orders", 0)
+    pending_requests = data.get("pending_requests", 0)
+    available_slots = max_orders - active_orders - pending_requests
+    
+    if available_slots <= 0:
+        return (False, "limit_reached")
+    
+    return (True, None) 
 
 async def api_get_seller(tg_id: int):
     data = await make_request("GET", f"/sellers/{tg_id}")
@@ -26,6 +85,8 @@ async def api_get_seller(tg_id: int):
             self.is_blocked = d.get("is_blocked", False)
             self.delivery_type = d.get("delivery_type")
             self.placement_expired_at = d.get("placement_expired_at")
+            self.deleted_at = d.get("deleted_at")
+            self.is_deleted = d.get("is_deleted", False)
             
     return SellerObj(data)
 
@@ -63,6 +124,32 @@ api_get_products = api_get_my_products
 async def api_delete_product(product_id: int):
     return await make_request("DELETE", f"/sellers/products/{product_id}")
 
+
+async def api_get_product(product_id: int):
+    """Получить товар по ID"""
+    data = await make_request("GET", f"/sellers/products/{product_id}")
+    if not data:
+        return None
+    
+    class ProductObj:
+        def __init__(self, d): self.__dict__ = d
+    return ProductObj(data)
+
+
+async def api_update_product(product_id: int, name: str = None, description: str = None, price: float = None, photo_id: str = None):
+    """Обновить товар"""
+    payload = {}
+    if name is not None:
+        payload["name"] = name
+    if description is not None:
+        payload["description"] = description
+    if price is not None:
+        payload["price"] = price
+    if photo_id is not None:
+        payload["photo_id"] = photo_id
+    
+    return await make_request("PUT", f"/sellers/products/{product_id}", data=payload)
+
 # --- АДМИНКА ---
 
 async def api_get_cities():
@@ -93,9 +180,12 @@ async def api_create_seller(
     }
     return await make_request("POST", "/admin/create_seller", data=payload)
 
-async def api_search_sellers(fio: str):
-    """Поиск продавцов по ФИО"""
-    return await make_request("GET", "/admin/sellers/search", params={"fio": fio})
+async def api_search_sellers(fio: str, include_deleted: bool = False):
+    """Поиск продавцов по ФИО. По умолчанию не включает soft-deleted."""
+    params = {"fio": fio}
+    if include_deleted:
+        params["include_deleted"] = "true"
+    return await make_request("GET", "/admin/sellers/search", params=params)
 
 async def api_update_seller_field(tg_id: int, field: str, value: str):
     """Обновить поле продавца"""
@@ -108,8 +198,20 @@ async def api_block_seller(tg_id: int, is_blocked: bool):
     resp = await make_request("PUT", f"/admin/sellers/{tg_id}/block", params={"is_blocked": str(is_blocked).lower()})
     return resp and resp.get("status") == "ok"
 
+async def api_soft_delete_seller(tg_id: int):
+    """Soft Delete продавца (скрыть, сохраняя данные и историю заказов)"""
+    resp = await make_request("PUT", f"/admin/sellers/{tg_id}/soft-delete")
+    return resp and resp.get("status") == "ok"
+
+
+async def api_restore_seller(tg_id: int):
+    """Восстановить soft-deleted продавца"""
+    resp = await make_request("PUT", f"/admin/sellers/{tg_id}/restore")
+    return resp and resp.get("status") == "ok"
+
+
 async def api_delete_seller(tg_id: int):
-    """Удалить продавца"""
+    """Удалить продавца (Hard Delete - полное удаление из БД)"""
     resp = await make_request("DELETE", f"/admin/sellers/{tg_id}")
     return resp and resp.get("status") == "ok"
 
@@ -117,9 +219,12 @@ async def api_get_all_stats():
     """Получить общую статистику"""
     return await make_request("GET", "/admin/stats/all")
 
-async def api_get_all_sellers():
-    """Список всех продавцов"""
-    return await make_request("GET", "/admin/sellers/all")
+async def api_get_all_sellers(include_deleted: bool = False):
+    """Список всех продавцов. По умолчанию не включает soft-deleted."""
+    params = {}
+    if include_deleted:
+        params["include_deleted"] = "true"
+    return await make_request("GET", "/admin/sellers/all", params=params if params else None)
 
 async def api_get_seller_stats(fio: str):
     """Получить статистику продавца"""
@@ -212,3 +317,39 @@ async def api_get_buyer_orders(buyer_id: int):
 async def api_update_order_status(order_id: int, status: str):
     """Изменить статус заказа"""
     return await make_request("PUT", f"/orders/{order_id}/status", params={"status": status})
+
+
+# ============================================
+# УПРАВЛЕНИЕ АГЕНТАМИ (ПОСРЕДНИКАМИ)
+# ============================================
+
+async def api_get_all_agents():
+    """Получить список всех агентов"""
+    return await make_request("GET", "/admin/agents/all")
+
+
+async def api_search_agents(query: str):
+    """Поиск агентов по ФИО или Telegram ID"""
+    return await make_request("GET", "/admin/agents/search", params={"query": query})
+
+
+async def api_get_agent_details(tg_id: int):
+    """Получить детальную информацию об агенте"""
+    return await make_request("GET", f"/admin/agents/{tg_id}")
+
+
+async def api_remove_agent_status(tg_id: int):
+    """Снять статус агента (переводит на BUYER)"""
+    resp = await make_request("PUT", f"/admin/agents/{tg_id}/remove")
+    return resp and resp.get("status") == "ok"
+
+
+async def api_set_agent_balance(tg_id: int, new_balance: float):
+    """Установить баланс агента"""
+    resp = await make_request("PUT", f"/admin/agents/{tg_id}/set_balance", params={"new_balance": new_balance})
+    return resp and resp.get("status") == "ok"
+
+
+async def api_get_agent_referrals(tg_id: int):
+    """Получить список рефералов агента"""
+    return await make_request("GET", f"/admin/agents/{tg_id}/referrals")

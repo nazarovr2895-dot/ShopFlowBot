@@ -78,8 +78,19 @@ async def accept_order(order_id: int, session: AsyncSession = Depends(get_sessio
         seller.active_orders += 1
         
         order.status = "accepted"
+        
+        # Сохраняем buyer_id для возврата
+        buyer_id = order.buyer_id
+        items_info = order.items_info
+        total_price = float(order.total_price)
 
-    return {"status": "ok", "new_status": "accepted"}
+    return {
+        "status": "ok", 
+        "new_status": "accepted",
+        "buyer_id": buyer_id,
+        "items_info": items_info,
+        "total_price": total_price
+    }
 
 # --- 3. ОТКЛОНИТЬ ЗАКАЗ ---
 @router.post("/{order_id}/reject")
@@ -103,8 +114,19 @@ async def reject_order(order_id: int, session: AsyncSession = Depends(get_sessio
             seller.pending_requests -= 1
         
         order.status = "rejected"
+        
+        # Сохраняем buyer_id для возврата
+        buyer_id = order.buyer_id
+        items_info = order.items_info
+        total_price = float(order.total_price)
 
-    return {"status": "ok", "new_status": "rejected"}
+    return {
+        "status": "ok", 
+        "new_status": "rejected",
+        "buyer_id": buyer_id,
+        "items_info": items_info,
+        "total_price": total_price
+    }
 
 # --- 4. ЗАВЕРШИТЬ ЗАКАЗ ---
 @router.post("/{order_id}/done")
@@ -128,8 +150,19 @@ async def done_order(order_id: int, session: AsyncSession = Depends(get_session)
             seller.active_orders -= 1
         
         order.status = "done"
+        
+        # Сохраняем buyer_id для возврата
+        buyer_id = order.buyer_id
+        items_info = order.items_info
+        total_price = float(order.total_price)
 
-    return {"status": "ok", "new_status": "done"}
+    return {
+        "status": "ok", 
+        "new_status": "done",
+        "buyer_id": buyer_id,
+        "items_info": items_info,
+        "total_price": total_price
+    }
 
 
 # --- 5. ЗАКАЗЫ ПРОДАВЦА ---
@@ -209,12 +242,16 @@ async def update_order_status(
     Изменить статус заказа.
     Допустимые статусы: pending, accepted, assembling, in_transit, done, completed, rejected
     - done: продавец отметил как выполненный
-    - completed: покупатель подтвердил получение
+    - completed: покупатель подтвердил получение (начисляются комиссии агентам)
     """
+    from backend.app.services.referrals import accrue_commissions
+    
     valid_statuses = ["pending", "accepted", "assembling", "in_transit", "done", "completed", "rejected"]
     
     if status not in valid_statuses:
         raise HTTPException(400, f"Invalid status. Must be one of: {valid_statuses}")
+    
+    commissions_accrued = []
     
     async with session.begin():
         order = await session.get(Order, order_id)
@@ -232,8 +269,30 @@ async def update_order_status(
             seller = res.scalar_one_or_none()
             if seller and seller.active_orders > 0:
                 seller.active_orders -= 1
+        
+        # Если покупатель подтвердил получение - начисляем комиссии агентам
+        if status == "completed" and old_status != "completed":
+            commissions_accrued = await accrue_commissions(
+                session=session,
+                order_total=float(order.total_price),
+                buyer_id=order.buyer_id
+            )
+        
+        # Сохраняем данные для возврата
+        buyer_id = order.buyer_id
+        seller_id = order.seller_id
+        items_info = order.items_info
+        total_price = float(order.total_price)
     
-    return {"status": "ok", "new_status": status}
+    return {
+        "status": "ok", 
+        "new_status": status,
+        "buyer_id": buyer_id,
+        "seller_id": seller_id,
+        "items_info": items_info,
+        "total_price": total_price,
+        "commissions_accrued": commissions_accrued
+    }
 
 
 @router.get("/seller/{seller_id}/stats")

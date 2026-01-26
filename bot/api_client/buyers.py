@@ -12,12 +12,20 @@ class UserObj:
         # Добавим баланс, раз уж он появился в базе
         self.balance = data.get("balance", 0)
         
+        # Сохраняем реальную роль из базы данных
+        self._db_role = data.get("role", "BUYER")
+        
         # ЛОГИКА MASTER KEY:
-        # Если это ты — ты всегда АДМИН
+        # Мастер-админ всегда имеет доступ к админке
         if self.tg_id == MASTER_ADMIN_ID:
             self.role = "ADMIN"
         else:
-            self.role = data.get("role", "BUYER")
+            self.role = self._db_role
+    
+    @property
+    def is_agent(self) -> bool:
+        """Проверяет, зарегистрирован ли пользователь как агент (по реальной роли в БД)"""
+        return self._db_role == "AGENT"
 
 async def api_get_user(tg_id: int):
     # Если это ты, можно даже не делать запрос, или делать, но подменять результат

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from backend.app.api.deps import get_session
 from backend.app.models.product import Product
 from backend.app.models.seller import Seller
-from backend.app.schemas import ProductCreate, ProductResponse
+from backend.app.schemas import ProductCreate, ProductUpdate, ProductResponse
 from typing import List
 from fastapi.encoders import jsonable_encoder
 
@@ -43,6 +43,37 @@ async def add_product(data: ProductCreate, session: AsyncSession = Depends(get_s
     await session.refresh(new_product)
     return new_product
 
+@router.get("/products/{product_id}", response_model=ProductResponse)
+async def get_product(product_id: int, session: AsyncSession = Depends(get_session)):
+    """Получить товар по ID"""
+    result = await session.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+    
+    return product
+
+
+@router.put("/products/{product_id}", response_model=ProductResponse)
+async def update_product(product_id: int, data: ProductUpdate, session: AsyncSession = Depends(get_session)):
+    """Обновить товар"""
+    result = await session.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+    
+    # Обновляем только переданные поля
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(product, field, value)
+    
+    await session.commit()
+    await session.refresh(product)
+    return product
+
+
 @router.delete("/products/{product_id}")
 async def delete_product(product_id: int, session: AsyncSession = Depends(get_session)):
     """Удалить товар"""
@@ -72,7 +103,9 @@ async def get_seller_info(tg_id: int, session: AsyncSession = Depends(get_sessio
         "pending_requests": seller.pending_requests,
         "is_blocked": seller.is_blocked,
         "delivery_type": seller.delivery_type,
-        "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None
+        "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
+        "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
+        "is_deleted": seller.deleted_at is not None
     }
 
 
