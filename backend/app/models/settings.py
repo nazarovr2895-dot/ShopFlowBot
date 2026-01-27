@@ -1,6 +1,6 @@
 from sqlalchemy import Integer
 from sqlalchemy.orm import Mapped, mapped_column
-from backend.app.core.database import Base
+from backend.app.core.base import Base
 
 class GlobalSettings(Base):
     __tablename__ = 'settings'

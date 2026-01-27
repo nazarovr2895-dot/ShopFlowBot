@@ -3,11 +3,9 @@ from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
 import bot.keyboards.reply as kb
 from bot.api_client.buyers import api_register_user, api_get_user
+from bot.config import MASTER_ADMIN_ID
 
 router = Router()
-
-# Тот же ID
-MASTER_ADMIN_ID = 8073613186
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject, state: FSMContext):

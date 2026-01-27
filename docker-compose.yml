@@ -14,21 +14,26 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     restart: always
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
 
   backend:
     build: ./backend
-    # 👇 ВОТ ЭТА МАГИЯ ВАЖНА 👇
     environment:
-      - DB_HOST=db           # Внутри докера база доступна по имени "db"
+      - DB_HOST=db
       - DB_PORT=5432
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
-    # 👆 КОНЕЦ МАГИИ 👆
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      - MASTER_ADMIN_ID=${MASTER_ADMIN_ID}
     env_file:
       - .env
     depends_on:
@@ -38,6 +43,11 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/src/backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   miniapp:
     build:
@@ -52,3 +62,4 @@ services:
 
 volumes:
   pgdata:
+  redis_data:

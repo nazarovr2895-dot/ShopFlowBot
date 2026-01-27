@@ -1,30 +1,473 @@
+# backend/app/services/sellers.py
+"""
+Seller service - handles all seller-related business logic.
+"""
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from backend.app.models.seller import Seller
+from sqlalchemy import select, func
+from typing import Optional, List, Dict, Any
+from datetime import datetime
 
+from backend.app.models.seller import Seller, City, District
+from backend.app.models.user import User
+from backend.app.models.order import Order
+
+
+class SellerServiceError(Exception):
+    """Base exception for seller service errors."""
+    def __init__(self, message: str, status_code: int = 400):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(self.message)
+
+
+class SellerNotFoundError(SellerServiceError):
+    def __init__(self, seller_id: int):
+        super().__init__(f"Seller {seller_id} not found", 404)
+
+
+class SellerExistsError(SellerServiceError):
+    def __init__(self, seller_id: int):
+        super().__init__(f"Seller {seller_id} already exists", 409)
+
+
+class InvalidFieldError(SellerServiceError):
+    def __init__(self, field: str):
+        super().__init__(f"Invalid field: {field}", 400)
+
+
+class SellerService:
+    """Service class for seller operations."""
+    
+    VALID_UPDATE_FIELDS = {
+        "fio", "phone", "shop_name", "description", 
+        "map_url", "delivery_type", "city_id", "district_id"
+    }
+    
+    def __init__(self, session: AsyncSession):
+        self.session = session
+    
+    async def check_limit(self, seller_id: int) -> bool:
+        """
+        Check if seller can accept new orders.
+        
+        Returns:
+            True if seller can accept new orders (limit NOT exceeded)
+        """
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == seller_id)
+        )
+        seller = result.scalar_one_or_none()
+        
+        if not seller:
+            return False
+        
+        current_load = seller.active_orders + seller.pending_requests
+        return current_load < seller.max_orders
+    
+    async def get_seller(self, seller_id: int) -> Optional[Dict[str, Any]]:
+        """Get seller data for display."""
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == seller_id)
+        )
+        seller = result.scalar_one_or_none()
+        
+        if not seller:
+            return None
+        
+        return {
+            "seller_id": seller.seller_id,
+            "shop_name": seller.shop_name or "My Shop",
+            "description": seller.description,
+            "max_orders": seller.max_orders,
+            "active_orders": seller.active_orders,
+            "pending_requests": seller.pending_requests,
+            "is_blocked": seller.is_blocked,
+            "delivery_type": seller.delivery_type,
+            "city_id": seller.city_id,
+            "district_id": seller.district_id,
+            "map_url": seller.map_url,
+            "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
+            "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
+            "is_deleted": seller.deleted_at is not None
+        }
+    
+    async def create_seller(
+        self,
+        tg_id: int,
+        fio: str,
+        phone: str,
+        shop_name: str,
+        description: Optional[str] = None,
+        city_id: Optional[int] = None,
+        district_id: Optional[int] = None,
+        map_url: Optional[str] = None,
+        delivery_type: str = "pickup",
+        placement_expired_at: Optional[datetime] = None,
+    ) -> Dict[str, str]:
+        """
+        Create a new seller with associated user record.
+        
+        Returns:
+            {"status": "ok"} on success, {"status": "exists"} if seller exists
+        """
+        # Check if seller already exists
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == tg_id)
+        )
+        if result.scalar_one_or_none():
+            return {"status": "exists"}
+        
+        # Create or update user record
+        user_res = await self.session.execute(
+            select(User).where(User.tg_id == tg_id)
+        )
+        user = user_res.scalar_one_or_none()
+        
+        if not user:
+            user = User(
+                tg_id=tg_id,
+                fio=fio,
+                phone=phone,
+                role='SELLER'
+            )
+            self.session.add(user)
+        else:
+            if user.role != 'ADMIN':
+                user.role = 'SELLER'
+            user.fio = fio
+            user.phone = phone
+        
+        # Ensure city exists
+        await self._ensure_city_exists(city_id)
+        
+        # Ensure district exists
+        await self._ensure_district_exists(district_id, city_id)
+        
+        # Create seller
+        new_seller = Seller(
+            seller_id=tg_id,
+            shop_name=shop_name,
+            description=description,
+            city_id=city_id,
+            district_id=district_id,
+            map_url=map_url,
+            delivery_type=delivery_type,
+            placement_expired_at=placement_expired_at,
+            max_orders=10,
+            active_orders=0,
+            pending_requests=0
+        )
+        self.session.add(new_seller)
+        
+        await self.session.commit()
+        return {"status": "ok"}
+    
+    async def _ensure_city_exists(self, city_id: Optional[int]) -> None:
+        """Ensure city record exists."""
+        if city_id is not None:
+            city = await self.session.get(City, city_id)
+            if not city and city_id == 1:
+                self.session.add(City(id=1, name="Москва"))
+    
+    async def _ensure_district_exists(
+        self, 
+        district_id: Optional[int], 
+        city_id: Optional[int]
+    ) -> None:
+        """Ensure district record exists."""
+        if district_id is not None:
+            district = await self.session.get(District, district_id)
+            if not district:
+                district_names = {
+                    1: "ЦАО", 2: "САО", 3: "СВАО", 4: "ВАО",
+                    5: "ЮВАО", 6: "ЮАО", 7: "ЮЗАО", 8: "ЗАО",
+                    9: "СЗАО", 10: "Зеленоградский", 
+                    11: "Новомосковский", 12: "Троицкий",
+                }
+                self.session.add(District(
+                    id=district_id,
+                    city_id=city_id,
+                    name=district_names.get(district_id, f"Округ {district_id}")
+                ))
+    
+    async def update_field(
+        self,
+        tg_id: int,
+        field: str,
+        value: str
+    ) -> Dict[str, str]:
+        """Update a single seller field."""
+        if field not in self.VALID_UPDATE_FIELDS:
+            raise InvalidFieldError(field)
+        
+        user = await self.session.get(User, tg_id)
+        seller = await self.session.get(Seller, tg_id)
+        
+        if not user or not seller:
+            raise SellerNotFoundError(tg_id)
+        
+        # User fields
+        if field == "fio":
+            user.fio = value
+        elif field == "phone":
+            user.phone = value
+        # Seller fields
+        elif field == "shop_name":
+            seller.shop_name = value
+        elif field == "description":
+            seller.description = value
+        elif field == "map_url":
+            seller.map_url = value
+        elif field == "delivery_type":
+            seller.delivery_type = value
+        elif field == "city_id":
+            seller.city_id = int(value) if value.isdigit() else None
+        elif field == "district_id":
+            seller.district_id = int(value) if value.isdigit() else None
+        
+        await self.session.commit()
+        return {"status": "ok"}
+    
+    async def block_seller(self, tg_id: int, is_blocked: bool) -> Dict[str, str]:
+        """Block or unblock a seller."""
+        seller = await self.session.get(Seller, tg_id)
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+        
+        seller.is_blocked = is_blocked
+        await self.session.commit()
+        return {"status": "ok"}
+    
+    async def soft_delete(self, tg_id: int) -> Dict[str, str]:
+        """
+        Soft delete a seller (hide from public lists).
+        Sets deleted_at timestamp, changes user role to BUYER.
+        """
+        seller = await self.session.get(Seller, tg_id)
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+        
+        seller.deleted_at = datetime.utcnow()
+        
+        user = await self.session.get(User, tg_id)
+        if user and user.role != 'ADMIN':
+            user.role = 'BUYER'
+        
+        await self.session.commit()
+        return {"status": "ok", "message": "Продавец скрыт (soft delete)"}
+    
+    async def restore(self, tg_id: int) -> Dict[str, str]:
+        """Restore a soft-deleted seller."""
+        seller = await self.session.get(Seller, tg_id)
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+        
+        if not seller.deleted_at:
+            return {"status": "not_deleted", "message": "Продавец не был удален"}
+        
+        seller.deleted_at = None
+        
+        user = await self.session.get(User, tg_id)
+        if user and user.role == 'BUYER':
+            user.role = 'SELLER'
+        
+        await self.session.commit()
+        return {"status": "ok", "message": "Продавец восстановлен"}
+    
+    async def hard_delete(self, tg_id: int) -> Dict[str, str]:
+        """
+        Hard delete a seller. Order history is preserved.
+        Changes user role to BUYER.
+        """
+        seller = await self.session.get(Seller, tg_id)
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+        
+        user = await self.session.get(User, tg_id)
+        if user and user.role != 'ADMIN':
+            user.role = 'BUYER'
+        
+        await self.session.delete(seller)
+        await self.session.commit()
+        return {"status": "ok"}
+    
+    async def reset_counters(self, tg_id: int) -> Dict[str, str]:
+        """Reset seller order counters."""
+        seller = await self.session.get(Seller, tg_id)
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+        
+        seller.active_orders = 0
+        seller.pending_requests = 0
+        await self.session.commit()
+        return {"status": "ok", "message": "Счетчики сброшены"}
+    
+    async def set_order_limit(self, tg_id: int, max_orders: int) -> Dict[str, Any]:
+        """Set seller's maximum order limit."""
+        if max_orders < 0 or max_orders > 1000:
+            raise SellerServiceError("Лимит должен быть от 0 до 1000")
+        
+        seller = await self.session.get(Seller, tg_id)
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+        
+        seller.max_orders = max_orders
+        await self.session.commit()
+        return {"status": "ok", "max_orders": max_orders}
+    
+    async def update_limits(self, tg_id: int, max_orders: int) -> Dict[str, Any]:
+        """Update seller order limit (1-100 range)."""
+        if max_orders < 1 or max_orders > 100:
+            raise SellerServiceError("Лимит должен быть от 1 до 100")
+        
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == tg_id)
+        )
+        seller = result.scalar_one_or_none()
+        
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+        
+        seller.max_orders = max_orders
+        await self.session.commit()
+        return {"status": "ok", "max_orders": max_orders}
+    
+    async def list_all(self, include_deleted: bool = False) -> List[Dict[str, Any]]:
+        """List all sellers with optional deleted filter."""
+        conditions = []
+        if not include_deleted:
+            conditions.append(Seller.deleted_at.is_(None))
+        
+        query = select(User, Seller).join(Seller, User.tg_id == Seller.seller_id)
+        if conditions:
+            query = query.where(*conditions)
+        
+        result = await self.session.execute(query)
+        
+        return [
+            {
+                "tg_id": user.tg_id,
+                "fio": user.fio,
+                "phone": user.phone,
+                "shop_name": seller.shop_name,
+                "is_blocked": seller.is_blocked,
+                "is_deleted": seller.deleted_at is not None,
+                "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None
+            }
+            for user, seller in result.all()
+        ]
+    
+    async def search(
+        self, 
+        fio: str, 
+        include_deleted: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Search sellers by name."""
+        conditions = [User.fio.ilike(f"%{fio}%")]
+        
+        if not include_deleted:
+            conditions.append(Seller.deleted_at.is_(None))
+        
+        result = await self.session.execute(
+            select(User, Seller)
+            .join(Seller, User.tg_id == Seller.seller_id)
+            .where(*conditions)
+        )
+        
+        return [
+            {
+                "tg_id": user.tg_id,
+                "fio": user.fio,
+                "phone": user.phone,
+                "shop_name": seller.shop_name,
+                "is_blocked": seller.is_blocked,
+                "is_deleted": seller.deleted_at is not None,
+                "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None
+            }
+            for user, seller in result.all()
+        ]
+    
+    async def get_cities(self) -> List[Dict[str, Any]]:
+        """Get list of all cities."""
+        result = await self.session.execute(select(City))
+        cities = result.scalars().all()
+        return [{"id": c.id, "name": c.name} for c in cities]
+    
+    async def get_districts(self, city_id: int) -> List[Dict[str, Any]]:
+        """Get districts for a city."""
+        result = await self.session.execute(
+            select(District).where(District.city_id == city_id)
+        )
+        districts = result.scalars().all()
+        return [{"id": d.id, "name": d.name} for d in districts]
+    
+    async def get_all_stats(self, commission_percent: int = 18) -> List[Dict[str, Any]]:
+        """Get statistics for all sellers."""
+        result = await self.session.execute(
+            select(
+                User.fio,
+                func.count(Order.id).label('orders_count'),
+                func.sum(Order.total_price).label('total_sales')
+            )
+            .join(Order, User.tg_id == Order.seller_id)
+            .where(Order.status == 'delivered')
+            .group_by(User.fio)
+        )
+        
+        stats = []
+        for row in result.all():
+            total_sales = float(row.total_sales) if row.total_sales else 0.0
+            platform_profit = total_sales * (commission_percent / 100)
+            stats.append({
+                "fio": row.fio,
+                "orders_count": row.orders_count,
+                "total_sales": total_sales,
+                "platform_profit": platform_profit
+            })
+        
+        return stats
+    
+    async def get_seller_stats_by_fio(
+        self, 
+        fio: str, 
+        commission_percent: int = 18
+    ) -> Optional[Dict[str, Any]]:
+        """Get statistics for a specific seller by name."""
+        result = await self.session.execute(
+            select(
+                User.fio,
+                func.count(Order.id).label('orders_count'),
+                func.sum(Order.total_price).label('total_sales')
+            )
+            .join(Order, User.tg_id == Order.seller_id)
+            .where(Order.status == 'delivered', User.fio.ilike(f"%{fio}%"))
+            .group_by(User.fio)
+        )
+        
+        row = result.first()
+        if not row:
+            return None
+        
+        total_sales = float(row.total_sales) if row.total_sales else 0.0
+        platform_profit = total_sales * (commission_percent / 100)
+        
+        return {
+            "fio": row.fio,
+            "orders_count": row.orders_count,
+            "total_sales": total_sales,
+            "platform_profit": platform_profit
+        }
+
+
+# Legacy functions for backward compatibility
 async def check_seller_limit(session: AsyncSession, seller_id: int) -> bool:
-    """
-    Проверяет, может ли продавец принять новый заказ.
-    Возвращает True, если лимит НЕ превышен.
-    Логика: active_orders + pending_requests < max_orders
-    """
-    query = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
-    seller = query.scalar_one_or_none()
+    """Legacy function - use SellerService.check_limit instead."""
+    service = SellerService(session)
+    return await service.check_limit(seller_id)
 
-    if not seller:
-        return False  # Продавец не найден
-
-    current_load = seller.active_orders + seller.pending_requests
-    
-    # Если max_orders = 0, считаем что лимита нет (или наоборот, заблокирован - зависит от твоей логики).
-    # Обычно 0 значит безлимит, но по твоей формуле это будет false. 
-    # Сделаем строго по формуле из PDF:
-    if current_load < seller.max_orders:
-        return True
-    
-    return False
 
 async def get_seller_data(session: AsyncSession, seller_id: int):
-    """Получает данные продавца для отображения в боте"""
-    query = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
-    return query.scalar_one_or_none()
+    """Legacy function - use SellerService.get_seller instead."""
+    service = SellerService(session)
+    return await service.get_seller(seller_id)

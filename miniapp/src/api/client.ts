@@ -10,6 +10,23 @@ import type {
 // API base URL - пустой для использования прокси в dev режиме
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+/**
+ * Get Telegram WebApp init data for authentication.
+ * Returns the raw initData string that should be sent to the backend.
+ */
+function getTelegramInitData(): string | null {
+  try {
+    // @ts-expect-error - Telegram is injected by Telegram WebApp
+    const telegram = window.Telegram?.WebApp;
+    if (telegram?.initData) {
+      return telegram.initData;
+    }
+  } catch {
+    // Not running in Telegram WebApp context
+  }
+  return null;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -21,11 +38,23 @@ class ApiClient {
     const url = `${this.baseUrl}${endpoint}`;
     console.log('[API] Fetching:', url);
     
+    // Build headers with optional Telegram auth
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',  // Bypass ngrok interstitial page
+    };
+    
+    // Add Telegram authentication if available
+    const initData = getTelegramInitData();
+    if (initData) {
+      headers['X-Telegram-Init-Data'] = initData;
+    }
+    
     try {
       const response = await fetch(url, {
         headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',  // Bypass ngrok interstitial page
+          ...headers,
+          ...(options?.headers || {}),
         },
         ...options,
       });

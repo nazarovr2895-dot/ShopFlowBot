@@ -1,7 +1,7 @@
-from sqlalchemy import BigInteger, ForeignKey, DateTime, Integer, DECIMAL
+from sqlalchemy import BigInteger, ForeignKey, DateTime, Integer, DECIMAL, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
-from backend.app.core.database import Base
+from backend.app.core.base import Base
 
 class Referral(Base):
     __tablename__ = 'referrals'
@@ -19,3 +19,7 @@ class Referral(Base):
     
     # Дата создания связи (привязка навсегда)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        Index('ix_referrals_referrer_id', 'referrer_id'),
+    )

@@ -1,6 +1,6 @@
-from sqlalchemy import BigInteger, String, ForeignKey, DECIMAL, Text, Boolean
+from sqlalchemy import BigInteger, String, ForeignKey, DECIMAL, Text, Boolean, Index
 from sqlalchemy.orm import Mapped, mapped_column
-from backend.app.core.database import Base
+from backend.app.core.base import Base
 
 class Product(Base):
     __tablename__ = 'products'
@@ -11,3 +11,8 @@ class Product(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     photo_id: Mapped[str] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    __table_args__ = (
+        Index('ix_products_seller_id', 'seller_id'),
+        Index('ix_products_is_active', 'is_active'),
+    )

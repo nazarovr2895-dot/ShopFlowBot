@@ -1,9 +1,6 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
-from bot.config import MINI_APP_URL
-
-# 👇 ТВОЙ ID (ЗОЛОТОЙ КЛЮЧ)
-MASTER_ADMIN_ID = 8073613186
+from bot.config import MINI_APP_URL, MASTER_ADMIN_ID
 
 def get_main_kb(user_id: int, role: str):
     """

@@ -1,7 +1,7 @@
-from sqlalchemy import BigInteger, String, ForeignKey, Text, Boolean, Integer, DateTime
+from sqlalchemy import BigInteger, String, ForeignKey, Text, Boolean, Integer, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
-from backend.app.core.database import Base
+from backend.app.core.base import Base
 
 
 class Seller(Base):
@@ -21,6 +21,13 @@ class Seller(Base):
     placement_expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     deleted_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)  # Soft delete timestamp
 
+    __table_args__ = (
+        Index('ix_sellers_city_id', 'city_id'),
+        Index('ix_sellers_district_id', 'district_id'),
+        Index('ix_sellers_is_blocked', 'is_blocked'),
+        Index('ix_sellers_deleted_at', 'deleted_at'),
+    )
+
 class City(Base):
     __tablename__ = 'cities'
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -32,8 +39,16 @@ class District(Base):
     city_id: Mapped[int] = mapped_column(ForeignKey('cities.id'))
     name: Mapped[str] = mapped_column(String(100))
 
+    __table_args__ = (
+        Index('ix_districts_city_id', 'city_id'),
+    )
+
 class Metro(Base):
     __tablename__ = 'metro_stations'
     id: Mapped[int] = mapped_column(primary_key=True)
     district_id: Mapped[int] = mapped_column(ForeignKey('districts.id'))
     name: Mapped[str] = mapped_column(String(100))
+
+    __table_args__ = (
+        Index('ix_metro_stations_district_id', 'district_id'),
+    )

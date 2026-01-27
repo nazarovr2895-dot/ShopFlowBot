@@ -17,3 +17,11 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # URL Mini App для кнопки каталога
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://flowshop-miniapp.vercel.app")
+
+# Redis конфигурация для FSM Storage
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_DB = int(os.getenv("REDIS_DB", 0))
+
+# Master Admin ID (имеет полный доступ ко всем функциям)
+MASTER_ADMIN_ID = int(os.getenv("MASTER_ADMIN_ID", "0"))

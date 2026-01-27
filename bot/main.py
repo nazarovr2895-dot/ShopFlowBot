@@ -1,13 +1,17 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.redis import RedisStorage
+from redis.asyncio import Redis
 
 # Импортируем конфиг
-from bot.config import BOT_TOKEN
+from bot.config import BOT_TOKEN, REDIS_HOST, REDIS_PORT, REDIS_DB
 
 # Импортируем базу данных и модели
 from backend.app.core.database import engine, Base
+
+# Импортируем API клиент для graceful shutdown
+from bot.api_client.base import APIClient
 
 # --- МОДЕЛИ ---
 import backend.app.models.user
@@ -31,9 +35,13 @@ async def main():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # 2. Инициализация бота
+    # 2. Инициализация бота с Redis для FSM storage
+    logger.info(f"🔗 Подключение к Redis: {REDIS_HOST}:{REDIS_PORT}, db={REDIS_DB}")
+    redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
+    storage = RedisStorage(redis=redis)
+    
     bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher(storage=MemoryStorage())
+    dp = Dispatcher(storage=storage)
 
     # 3. Регистрация роутеров (ПОРЯДОК ВАЖЕН!)
     dp.include_router(start.router)   # <--- START ПЕРВЫЙ!
@@ -47,8 +55,20 @@ async def main():
     
     logger.info(f"✅ Бот запущен! Master Admin ID: {start.MASTER_ADMIN_ID}")
     
-    # Запуск
-    await dp.start_polling(bot)
+    # Запуск с graceful shutdown
+    try:
+        await dp.start_polling(bot)
+    finally:
+        # Закрываем все соединения при остановке
+        logger.info("🔌 Закрытие соединений...")
+        
+        # Закрываем HTTP клиент
+        await APIClient.close()
+        logger.info("✅ HTTP клиент закрыт")
+        
+        # Закрываем Redis соединение
+        await redis.close()
+        logger.info("✅ Redis соединение закрыто")
 
 if __name__ == "__main__":
     try:

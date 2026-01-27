@@ -1,7 +1,7 @@
-from sqlalchemy import BigInteger, String, ForeignKey, DateTime, DECIMAL, Text
+from sqlalchemy import BigInteger, String, ForeignKey, DateTime, DECIMAL, Text, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
-from backend.app.core.database import Base
+from backend.app.core.base import Base
 
 class Order(Base):
     __tablename__ = 'orders'
@@ -15,3 +15,10 @@ class Order(Base):
     delivery_type: Mapped[str] = mapped_column(String(50), nullable=True)
     address: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        Index('ix_orders_seller_id', 'seller_id'),
+        Index('ix_orders_buyer_id', 'buyer_id'),
+        Index('ix_orders_status', 'status'),
+        Index('ix_orders_created_at', 'created_at'),
+    )

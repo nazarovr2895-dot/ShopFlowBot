@@ -2,6 +2,7 @@
 Public API endpoints for Mini App
 - No authentication required
 - Read-only access to public seller data
+- Reference data (cities, districts, metro) is cached in Redis
 """
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,10 +12,11 @@ from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
 
-from backend.app.api.deps import get_session
+from backend.app.api.deps import get_session, get_cache
 from backend.app.models.seller import Seller, City, District, Metro
 from backend.app.models.product import Product
 from backend.app.models.user import User
+from backend.app.services.cache import CacheService
 
 
 router = APIRouter()
@@ -300,11 +302,19 @@ async def get_public_seller_detail(
 @router.get("/metro/{district_id}", response_model=List[MetroResponse])
 async def get_metro_stations(
     district_id: int,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    cache: CacheService = Depends(get_cache)
 ):
     """
     Получить список станций метро в районе.
+    Кэшируется на 1 час (TTL: 3600 секунд).
     """
+    # Сначала проверяем кэш
+    cached = await cache.get_metro(district_id)
+    if cached:
+        return [MetroResponse(**s) for s in cached]
+    
+    # Запрос к БД
     query = (
         select(Metro)
         .where(Metro.district_id == district_id)
@@ -314,32 +324,60 @@ async def get_metro_stations(
     result = await session.execute(query)
     stations = result.scalars().all()
     
-    return [
-        MetroResponse(id=s.id, name=s.name, district_id=s.district_id)
+    stations_data = [
+        {"id": s.id, "name": s.name, "district_id": s.district_id}
         for s in stations
     ]
+    
+    # Сохраняем в кэш
+    await cache.set_metro(district_id, stations_data)
+    
+    return [MetroResponse(**s) for s in stations_data]
 
 
 @router.get("/cities", response_model=List[CityResponse])
-async def get_cities(session: AsyncSession = Depends(get_session)):
+async def get_cities(
+    session: AsyncSession = Depends(get_session),
+    cache: CacheService = Depends(get_cache)
+):
     """
     Получить список всех городов.
+    Кэшируется на 1 час (TTL: 3600 секунд).
     """
+    # Сначала проверяем кэш
+    cached = await cache.get_cities()
+    if cached:
+        return [CityResponse(**c) for c in cached]
+    
+    # Запрос к БД
     query = select(City).order_by(City.name)
     result = await session.execute(query)
     cities = result.scalars().all()
     
-    return [CityResponse(id=c.id, name=c.name) for c in cities]
+    cities_data = [{"id": c.id, "name": c.name} for c in cities]
+    
+    # Сохраняем в кэш
+    await cache.set_cities(cities_data)
+    
+    return [CityResponse(**c) for c in cities_data]
 
 
 @router.get("/districts/{city_id}", response_model=List[DistrictResponse])
 async def get_districts(
     city_id: int,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    cache: CacheService = Depends(get_cache)
 ):
     """
     Получить список районов города.
+    Кэшируется на 1 час (TTL: 3600 секунд).
     """
+    # Сначала проверяем кэш
+    cached = await cache.get_districts(city_id)
+    if cached:
+        return [DistrictResponse(**d) for d in cached]
+    
+    # Запрос к БД
     query = (
         select(District)
         .where(District.city_id == city_id)
@@ -349,7 +387,12 @@ async def get_districts(
     result = await session.execute(query)
     districts = result.scalars().all()
     
-    return [
-        DistrictResponse(id=d.id, name=d.name, city_id=d.city_id)
+    districts_data = [
+        {"id": d.id, "name": d.name, "city_id": d.city_id}
         for d in districts
     ]
+    
+    # Сохраняем в кэш
+    await cache.set_districts(city_id, districts_data)
+    
+    return [DistrictResponse(**d) for d in districts_data]

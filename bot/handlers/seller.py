@@ -3,6 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import bot.keyboards.reply as kb
+from bot.config import MASTER_ADMIN_ID
 
 # Импорт API
 from bot.api_client.sellers import (
@@ -12,7 +13,6 @@ from bot.api_client.sellers import (
 )
 
 router = Router()
-MASTER_ADMIN_ID = 8073613186
 
 class AddProduct(StatesGroup):
     name = State(); description = State(); price = State(); photo = State()

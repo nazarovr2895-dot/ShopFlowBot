@@ -1,7 +1,7 @@
-from sqlalchemy import BigInteger, String, DateTime, ForeignKey, DECIMAL, Integer, Boolean
+from sqlalchemy import BigInteger, String, DateTime, ForeignKey, DECIMAL, Integer, Boolean, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
-from backend.app.core.database import Base
+from backend.app.core.base import Base
 
 class User(Base):
     __tablename__ = 'users'
@@ -20,3 +20,8 @@ class User(Base):
     # --- НОВЫЕ ПОЛЯ ДЛЯ АГЕНТА ---
     age: Mapped[int] = mapped_column(Integer, nullable=True)
     is_self_employed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    __table_args__ = (
+        Index('ix_users_referrer_id', 'referrer_id'),
+        Index('ix_users_role', 'role'),
+    )
