@@ -52,6 +52,7 @@ class Seller(Base):
     metro_id: Mapped[int] = mapped_column(ForeignKey('metro_stations.id'), nullable=True)
     map_url: Mapped[str] = mapped_column(Text, nullable=True)
     delivery_type: Mapped[str] = mapped_column(String(100), nullable=True)
+    delivery_price: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0.0)
     max_orders: Mapped[int] = mapped_column(Integer, default=0)
     active_orders: Mapped[int] = mapped_column(Integer, default=0)
     pending_requests: Mapped[int] = mapped_column(Integer, default=0)
@@ -67,6 +68,7 @@ class Product(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     photo_id: Mapped[str] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    quantity: Mapped[int] = mapped_column(Integer, default=0)
 
 class Order(Base):
     __tablename__ = 'orders'
