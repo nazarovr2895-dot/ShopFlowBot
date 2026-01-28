@@ -1,11 +1,17 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ShopsList, ShopDetails } from './pages';
+import { LocationSetup, Loader } from './components';
 import { useTelegramWebApp } from './hooks/useTelegramWebApp';
+import { api } from './api/client';
+import { useLocationCache } from './hooks/useLocationCache';
 import './App.css';
 
 function AppContent() {
   const { webApp } = useTelegramWebApp();
+  const { setFilters } = useLocationCache();
+  const [isCheckingLocation, setIsCheckingLocation] = useState(true);
+  const [needsLocationSetup, setNeedsLocationSetup] = useState(false);
 
   useEffect(() => {
     // Apply theme colors from Telegram
@@ -34,6 +40,72 @@ function AppContent() {
       root.style.setProperty('--tg-theme-secondary-bg-color', theme.secondary_bg_color);
     }
   }, [webApp.themeParams]);
+
+  // Check if user needs to set up location
+  useEffect(() => {
+    const checkUserLocation = async () => {
+      try {
+        const user = await api.getCurrentUser();
+        
+        // Check if user has city_id and district_id set
+        if (!user.city_id || !user.district_id) {
+          setNeedsLocationSetup(true);
+        } else {
+          // Set filters from user's saved location
+          setFilters({
+            city_id: user.city_id,
+            district_id: user.district_id,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to check user location:', error);
+        // If we can't check, allow access but show location setup
+        setNeedsLocationSetup(true);
+      } finally {
+        setIsCheckingLocation(false);
+      }
+    };
+
+    checkUserLocation();
+  }, [setFilters]);
+
+  const handleLocationComplete = async (cityId: number, districtId: number) => {
+    try {
+      // Save location to user profile
+      await api.updateLocation(cityId, districtId);
+      
+      // Update filters
+      setFilters({
+        city_id: cityId,
+        district_id: districtId,
+      });
+      
+      // Hide location setup
+      setNeedsLocationSetup(false);
+    } catch (error) {
+      console.error('Failed to save location:', error);
+      // Still allow to proceed even if save fails
+      setFilters({
+        city_id: cityId,
+        district_id: districtId,
+      });
+      setNeedsLocationSetup(false);
+    }
+  };
+
+  // Show loading state while checking
+  if (isCheckingLocation) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Loader centered />
+      </div>
+    );
+  }
+
+  // Show location setup if needed
+  if (needsLocationSetup) {
+    return <LocationSetup onComplete={handleLocationComplete} />;
+  }
 
   return (
     <Routes>

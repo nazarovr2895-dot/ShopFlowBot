@@ -21,6 +21,10 @@ class User(Base):
     age: Mapped[int] = mapped_column(Integer, nullable=True)
     is_self_employed: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # --- ПОЛЯ ДЛЯ ЛОКАЦИИ ---
+    city_id: Mapped[int] = mapped_column(ForeignKey('cities.id'), nullable=True)
+    district_id: Mapped[int] = mapped_column(ForeignKey('districts.id'), nullable=True)
+
     __table_args__ = (
         Index('ix_users_referrer_id', 'referrer_id'),
         Index('ix_users_role', 'role'),

@@ -114,6 +114,35 @@ class ApiClient {
   async getSellerDetail(sellerId: number): Promise<PublicSellerDetail> {
     return this.fetch<PublicSellerDetail>(`/public/sellers/${sellerId}`);
   }
+
+  // User API
+  async getCurrentUser(): Promise<{
+    tg_id: number;
+    username?: string;
+    fio?: string;
+    role: string;
+    city_id?: number;
+    district_id?: number;
+  }> {
+    return this.fetch<{
+      tg_id: number;
+      username?: string;
+      fio?: string;
+      role: string;
+      city_id?: number;
+      district_id?: number;
+    }>('/buyers/me');
+  }
+
+  async updateLocation(cityId?: number, districtId?: number): Promise<void> {
+    await this.fetch('/buyers/me/location', {
+      method: 'PUT',
+      body: JSON.stringify({
+        city_id: cityId || null,
+        district_id: districtId || null,
+      }),
+    });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);

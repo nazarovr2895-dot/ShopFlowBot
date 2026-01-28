@@ -12,10 +12,14 @@ class BuyerCreate(BaseModel):
 
 class BuyerResponse(BuyerCreate):
     # id в твоей базе это и есть tg_id, но оставим поле для совместимости
+    id: Optional[int] = None
     role: str
     # 👇 Добавили: баланс и реферала
     balance: Decimal = Decimal(0)
     referrer_id: Optional[int] = None
+    # 👇 Поля для локации
+    city_id: Optional[int] = None
+    district_id: Optional[int] = None
 
 # --- Продавцы ---
 class SellerCreate(BaseModel):

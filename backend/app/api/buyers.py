@@ -9,6 +9,7 @@ from backend.app.schemas import BuyerCreate, BuyerResponse
 from backend.app.core.auth import (
     TelegramInitData,
     get_current_user_optional,
+    get_current_user,
     verify_user_id,
 )
 from backend.app.services.buyers import (
@@ -24,6 +25,28 @@ logger = get_logger(__name__)
 def _handle_service_error(e: BuyerServiceError):
     """Convert service exceptions to HTTP exceptions."""
     raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/me", response_model=BuyerResponse)
+async def get_current_buyer(
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Получить информацию о текущем пользователе (для Mini App)"""
+    service = BuyerService(session)
+    user = await service.get_buyer(current_user.user.id)
+    
+    if not user:
+        # Если пользователь не найден, создаем его
+        user = await service.register_buyer(
+            tg_id=current_user.user.id,
+            username=current_user.user.username,
+            fio=current_user.user.first_name
+        )
+    
+    # Get user info as dict (includes city_id and district_id)
+    user_info = await service.get_buyer_info(current_user.user.id)
+    return user_info
 
 
 @router.get("/{telegram_id}", response_model=Optional[BuyerResponse])
@@ -78,6 +101,12 @@ async def register_buyer(
     return user
 
 
+class LocationUpdate(BaseModel):
+    """Схема для обновления локации пользователя"""
+    city_id: Optional[int] = None
+    district_id: Optional[int] = None
+
+
 class AgentUpgrade(BaseModel):
     tg_id: int
     fio: str
@@ -118,4 +147,40 @@ async def upgrade_to_agent(
         return result
     except BuyerServiceError as e:
         logger.warning("Agent upgrade failed", tg_id=data.tg_id, error=e.message)
+        _handle_service_error(e)
+
+
+@router.put("/me/location", response_model=BuyerResponse)
+async def update_location(
+    data: LocationUpdate,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Обновить локацию текущего пользователя (город и округ).
+    
+    Используется в Mini App для сохранения выбранных фильтров.
+    """
+    logger.info(
+        "Updating user location",
+        tg_id=current_user.user.id,
+        city_id=data.city_id,
+        district_id=data.district_id,
+    )
+    
+    service = BuyerService(session)
+    
+    try:
+        updated_user = await service.update_profile(
+            tg_id=current_user.user.id,
+            city_id=data.city_id,
+            district_id=data.district_id,
+        )
+        logger.info("User location updated", tg_id=current_user.user.id)
+        
+        # Add id field for schema compatibility
+        updated_user["id"] = updated_user["tg_id"]
+        return updated_user
+    except BuyerServiceError as e:
+        logger.warning("Location update failed", tg_id=current_user.user.id, error=e.message)
         _handle_service_error(e)

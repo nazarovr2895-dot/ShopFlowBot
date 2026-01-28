@@ -61,6 +61,8 @@ class BuyerService:
             "role": user.role,
             "balance": float(user.balance) if user.balance else 0.0,
             "referrer_id": user.referrer_id,
+            "city_id": user.city_id,
+            "district_id": user.district_id,
             "created_at": user.created_at.isoformat() if user.created_at else None
         }
     
@@ -181,7 +183,7 @@ class BuyerService:
         if not user:
             raise UserNotFoundError(tg_id)
         
-        allowed_fields = {"fio", "phone", "username", "age", "is_self_employed"}
+        allowed_fields = {"fio", "phone", "username", "age", "is_self_employed", "city_id", "district_id"}
         
         for field, value in fields.items():
             if field in allowed_fields and value is not None:
