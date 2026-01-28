@@ -26,33 +26,16 @@ class Checkout(StatesGroup):
     delivery_choice = State()
     address = State()
 
-# --- 1. ОТКРЫТЬ МАГАЗИН ---
-@router.message(F.text == "🌸 Открыть магазин")
-async def open_shop(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    
-    # 1. Пытаемся понять, в чьем мы магазине
-    seller_id = data.get("current_seller_id")
-    
-    # Если мы не переходили по ссылке, предлагаем выбрать магазин в mini app
-    if not seller_id:
-        mini_app_kb = ReplyKeyboardMarkup(keyboard=[
-            [KeyboardButton(text="🛍 Перейти в каталог", web_app=WebAppInfo(url=MINI_APP_URL))]
-        ], resize_keyboard=True)
-        await message.answer(
-            "⚠️ Вы еще не выбрали магазин.\n\n"
-            "Пожалуйста, выберите магазин из каталога, чтобы просмотреть товары.",
-            reply_markup=mini_app_kb
-        )
-        return
-
-    # 2. Получаем товары через API
+async def show_shop_products(message: types.Message, seller_id: int):
+    """Вспомогательная функция для показа товаров магазина"""
+    # Получаем товары через API
     products = await api_get_products(seller_id)
     
     if not products:
-        return await message.answer("📭 В этом магазине пока нет товаров.")
+        await message.answer("📭 В этом магазине пока нет товаров.")
+        return
 
-    # 3. Показываем товары (только с количеством > 0)
+    # Показываем товары (только с количеством > 0)
     for product in products:
         # Проверяем количество товара
         quantity = getattr(product, 'quantity', 0)
@@ -82,6 +65,29 @@ async def open_shop(message: types.Message, state: FSMContext):
                 reply_markup=buy_kb,
                 parse_mode="Markdown"
             )
+
+# --- 1. ОТКРЫТЬ МАГАЗИН ---
+@router.message(F.text == "🌸 Открыть магазин")
+async def open_shop(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    
+    # 1. Пытаемся понять, в чьем мы магазине
+    seller_id = data.get("current_seller_id")
+    
+    # Если мы не переходили по ссылке, предлагаем выбрать магазин в mini app
+    if not seller_id:
+        mini_app_kb = ReplyKeyboardMarkup(keyboard=[
+            [KeyboardButton(text="🛍 Перейти в каталог", web_app=WebAppInfo(url=MINI_APP_URL))]
+        ], resize_keyboard=True)
+        await message.answer(
+            "⚠️ Вы еще не выбрали магазин.\n\n"
+            "Пожалуйста, выберите магазин из каталога, чтобы просмотреть товары.",
+            reply_markup=mini_app_kb
+        )
+        return
+
+    # Показываем товары магазина
+    await show_shop_products(message, seller_id)
 
 # --- 2. КОРЗИНА ---
 @router.message(F.text == "🛒 Корзина")

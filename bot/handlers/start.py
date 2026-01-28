@@ -46,10 +46,13 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
         # Выдаем меню ПОКУПАТЕЛЯ (с кнопкой админа, если это ты)
         menu = kb.get_main_kb(tg_id, "BUYER")
         await message.answer(
-            "🌸 Вы перешли в магазин!\nНажмите кнопку **'🌸 Открыть магазин'**, чтобы увидеть каталог товаров.",
+            "🌸 Вы перешли в магазин!",
             reply_markup=menu,
             parse_mode="Markdown"
         )
+        # Сразу показываем товары магазина (импортируем внутри функции, чтобы избежать циклических импортов)
+        from bot.handlers.buyer import show_shop_products
+        await show_shop_products(message, target_seller_id)
         return
 
     if referrer_id:
