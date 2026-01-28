@@ -344,6 +344,14 @@ async def my_orders_handler(message: types.Message):
         status_text = status_names.get(order.status, order.status)
         delivery_emoji = "🚚" if order.delivery_type == "Доставка" else "🏪"
         
+        # Адрес доставки или самовывоза (в заказе хранится в address)
+        addr = (order.address or "").strip()
+        addr_display = addr.replace("\n", " · ") if addr else ""
+        if addr_display:
+            delivery_line = f"{delivery_emoji} {order.delivery_type}: {addr_display}"
+        else:
+            delivery_line = f"{delivery_emoji} {order.delivery_type}"
+        
         # Проверяем, была ли изменена цена
         price_text = f"💰 Сумма: *{order.total_price} руб.*"
         if hasattr(order, 'original_price') and order.original_price and abs(float(order.original_price) - float(order.total_price)) > 0.01:
@@ -358,7 +366,7 @@ async def my_orders_handler(message: types.Message):
             f"📊 Статус: *{status_text}*\n"
             f"🛒 Товары: {format_items_info(order.items_info)}\n"
             f"{price_text}\n"
-            f"{delivery_emoji} {order.delivery_type}\n"
+            f"{delivery_line}\n"
         )
         
         if order.created_at:
