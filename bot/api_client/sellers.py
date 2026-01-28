@@ -84,6 +84,8 @@ async def api_get_seller(tg_id: int):
             self.pending_requests = d.get("pending_requests", 0)
             self.is_blocked = d.get("is_blocked", False)
             self.delivery_type = d.get("delivery_type")
+            self.delivery_price = d.get("delivery_price", 0.0)
+            self.map_url = d.get("map_url")
             self.placement_expired_at = d.get("placement_expired_at")
             self.deleted_at = d.get("deleted_at")
             self.is_deleted = d.get("is_deleted", False)
@@ -92,13 +94,14 @@ async def api_get_seller(tg_id: int):
 
 # --- ТОВАРЫ ---
 
-async def api_create_product(seller_id: int, name: str, price: float, description: str, photo_id: str):
+async def api_create_product(seller_id: int, name: str, price: float, description: str, photo_id: str, quantity: int = 0):
     payload = {
         "seller_id": seller_id,
         "name": name,
         "price": price,
         "description": description,
-        "photo_id": photo_id
+        "photo_id": photo_id,
+        "quantity": quantity
     }
     # Обратите внимание: путь должен совпадать с тем, что в backend/api/sellers.py
     return await make_request("POST", "/sellers/products/add", data=payload)
@@ -163,7 +166,7 @@ async def api_get_districts(city_id: int):
 async def api_create_seller(
     tg_id: int, fio: str, phone: str, shop_name: str,
     description: str = None, city_id: int = None, district_id: int = None,
-    map_url: str = None, delivery_type: str = None, placement_expired_at: str = None
+    map_url: str = None, delivery_type: str = None, delivery_price: float = 0.0, placement_expired_at: str = None
 ):
     """Создание продавца с полными данными"""
     payload = {
@@ -176,6 +179,7 @@ async def api_create_seller(
         "district_id": district_id,
         "map_url": map_url,
         "delivery_type": delivery_type,
+        "delivery_price": delivery_price,
         "placement_expired_at": placement_expired_at
     }
     return await make_request("POST", "/admin/create_seller", data=payload)
@@ -257,6 +261,7 @@ async def api_get_seller_orders(seller_id: int, status: str = None):
                 self.seller_id = d.get("seller_id")
                 self.items_info = d.get("items_info", "")
                 self.total_price = d.get("total_price", 0)
+                self.original_price = d.get("original_price")
                 self.status = d.get("status", "pending")
                 self.delivery_type = d.get("delivery_type")
                 self.address = d.get("address")
@@ -306,6 +311,7 @@ async def api_get_buyer_orders(buyer_id: int):
                 self.seller_id = d.get("seller_id")
                 self.items_info = d.get("items_info", "")
                 self.total_price = d.get("total_price", 0)
+                self.original_price = d.get("original_price")
                 self.status = d.get("status", "pending")
                 self.delivery_type = d.get("delivery_type")
                 self.address = d.get("address")
@@ -317,6 +323,11 @@ async def api_get_buyer_orders(buyer_id: int):
 async def api_update_order_status(order_id: int, status: str):
     """Изменить статус заказа"""
     return await make_request("PUT", f"/orders/{order_id}/status", params={"status": status})
+
+
+async def api_update_order_price(order_id: int, new_price: float):
+    """Изменить цену заказа"""
+    return await make_request("PUT", f"/orders/{order_id}/price", params={"new_price": new_price})
 
 
 # ============================================

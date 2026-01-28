@@ -90,6 +90,15 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     });
   };
 
+  const handleFreeDeliveryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    hapticFeedback('light');
+    const freeDelivery = e.target.value === '' ? undefined : e.target.value === 'true';
+    onFiltersChange({
+      ...filters,
+      free_delivery: freeDelivery,
+    });
+  };
+
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     hapticFeedback('light');
     const sortPrice = e.target.value as SellerFilters['sort_price'] | '';
@@ -121,6 +130,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     filters.district_id ||
     filters.metro_id ||
     filters.delivery_type ||
+    filters.free_delivery !== undefined ||
     filters.sort_price ||
     filters.sort_mode;
 
@@ -205,6 +215,18 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
           <option value="both">Доставка и самовывоз</option>
         </select>
 
+        <select
+          className="filters__select"
+          value={filters.free_delivery === undefined ? '' : filters.free_delivery.toString()}
+          onChange={handleFreeDeliveryChange}
+        >
+          <option value="">Любая доставка</option>
+          <option value="true">Бесплатная доставка</option>
+          <option value="false">Платная доставка</option>
+        </select>
+      </div>
+
+      <div className="filters__row">
         <select
           className="filters__select"
           value={filters.sort_price || ''}

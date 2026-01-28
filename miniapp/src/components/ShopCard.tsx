@@ -23,14 +23,15 @@ export function ShopCard({ seller }: ShopCardProps) {
     }).format(price);
   };
 
-  const getDeliveryLabel = (type: string | null) => {
+  const getDeliveryLabel = (type: string | null, deliveryPrice: number) => {
     switch (type) {
       case 'delivery':
-        return 'Доставка';
+        return deliveryPrice === 0 ? 'Доставка (бесплатно)' : `Доставка (${formatPrice(deliveryPrice)})`;
       case 'pickup':
         return 'Самовывоз';
       case 'both':
-        return 'Доставка / Самовывоз';
+        const deliveryText = deliveryPrice === 0 ? 'бесплатно' : formatPrice(deliveryPrice);
+        return `Доставка (${deliveryText}) / Самовывоз`;
       default:
         return 'Не указано';
     }
@@ -62,7 +63,7 @@ export function ShopCard({ seller }: ShopCardProps) {
 
       <div className="shop-card__footer">
         <div className="shop-card__price">{priceRange}</div>
-        <div className="shop-card__delivery">{getDeliveryLabel(seller.delivery_type)}</div>
+        <div className="shop-card__delivery">{getDeliveryLabel(seller.delivery_type, seller.delivery_price)}</div>
       </div>
 
       <div className="shop-card__products">

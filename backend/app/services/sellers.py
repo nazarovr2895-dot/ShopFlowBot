@@ -41,7 +41,7 @@ class SellerService:
     
     VALID_UPDATE_FIELDS = {
         "fio", "phone", "shop_name", "description", 
-        "map_url", "delivery_type", "city_id", "district_id"
+        "map_url", "delivery_type", "delivery_price", "city_id", "district_id"
     }
     
     def __init__(self, session: AsyncSession):
@@ -84,6 +84,7 @@ class SellerService:
             "pending_requests": seller.pending_requests,
             "is_blocked": seller.is_blocked,
             "delivery_type": seller.delivery_type,
+            "delivery_price": float(seller.delivery_price) if seller.delivery_price else 0.0,
             "city_id": seller.city_id,
             "district_id": seller.district_id,
             "map_url": seller.map_url,
@@ -103,6 +104,7 @@ class SellerService:
         district_id: Optional[int] = None,
         map_url: Optional[str] = None,
         delivery_type: str = "pickup",
+        delivery_price: float = 0.0,
         placement_expired_at: Optional[datetime] = None,
     ) -> Dict[str, str]:
         """
@@ -153,6 +155,7 @@ class SellerService:
             district_id=district_id,
             map_url=map_url,
             delivery_type=delivery_type,
+            delivery_price=delivery_price,
             placement_expired_at=placement_expired_at,
             max_orders=10,
             active_orders=0,
@@ -221,6 +224,8 @@ class SellerService:
             seller.map_url = value
         elif field == "delivery_type":
             seller.delivery_type = value
+        elif field == "delivery_price":
+            seller.delivery_price = float(value) if value.replace('.', '', 1).isdigit() else 0.0
         elif field == "city_id":
             seller.city_id = int(value) if value.isdigit() else None
         elif field == "district_id":

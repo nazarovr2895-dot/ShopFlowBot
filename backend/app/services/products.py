@@ -9,8 +9,19 @@ async def create_product_service(session: AsyncSession, data: dict):
     await session.commit()
     return new_product
 
-async def get_products_by_seller_service(session: AsyncSession, seller_id: int):
-    result = await session.execute(select(Product).where(Product.seller_id == seller_id))
+async def get_products_by_seller_service(session: AsyncSession, seller_id: int, only_available: bool = False):
+    """
+    Получить товары продавца.
+    
+    Args:
+        session: Сессия БД
+        seller_id: ID продавца
+        only_available: Если True, возвращает только товары с quantity > 0
+    """
+    query = select(Product).where(Product.seller_id == seller_id)
+    if only_available:
+        query = query.where(Product.quantity > 0)
+    result = await session.execute(query)
     return result.scalars().all()
 
 async def get_product_by_id_service(session: AsyncSession, product_id: int):

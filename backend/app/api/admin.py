@@ -47,6 +47,7 @@ class SellerCreateSchema(BaseModel):
     district_id: Optional[int] = None
     map_url: Optional[str] = None
     delivery_type: str
+    delivery_price: float = 0.0
     placement_expired_at: Optional[datetime] = None
 
 
@@ -115,6 +116,7 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
         district_id=data.district_id,
         map_url=data.map_url,
         delivery_type=data.delivery_type,
+        delivery_price=data.delivery_price,
         placement_expired_at=data.placement_expired_at,
     )
     logger.info("Seller created", tg_id=data.tg_id, shop_name=data.shop_name)

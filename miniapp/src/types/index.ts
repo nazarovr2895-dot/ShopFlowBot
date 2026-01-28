@@ -22,6 +22,7 @@ export interface PublicSellerListItem {
   shop_name: string | null;
   owner_fio: string | null;
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
+  delivery_price: number;
   city_name: string | null;
   district_name: string | null;
   metro_name: string | null;
@@ -44,6 +45,7 @@ export interface PublicSellerDetail {
   shop_name: string | null;
   description: string | null;
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
+  delivery_price: number;
   map_url: string | null;
   city_name: string | null;
   district_name: string | null;
@@ -65,6 +67,7 @@ export interface SellerFilters {
   district_id?: number;
   metro_id?: number;
   delivery_type?: 'delivery' | 'pickup' | 'both';
+  free_delivery?: boolean;
   sort_price?: 'asc' | 'desc';
   sort_mode?: 'all_city' | 'nearby';
 }

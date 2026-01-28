@@ -31,6 +31,7 @@ class AddSeller(StatesGroup):
     district = State()
     map_url = State()
     delivery_type = State()
+    delivery_price = State()
     placement_expired_at = State()
 
 # --- FSM ДЛЯ ИЗМЕНЕНИЯ ДАННЫХ ---
@@ -214,8 +215,28 @@ async def select_delivery_type(callback: types.CallbackQuery, state: FSMContext)
     
     delivery_type = callback.data.split("_")[1]
     await state.update_data(delivery_type=delivery_type)
+    await state.set_state(AddSeller.delivery_price)
+    await callback.message.edit_text("💰 Укажите стоимость доставки (число):\n\nЕсли доставка бесплатная - введите 0\nЕсли доставка платная - введите стоимость в рублях")
+
+@router.message(AddSeller.delivery_price)
+async def add_delivery_price(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("Отменено.", reply_markup=kb.get_main_kb(message.from_user.id, "ADMIN"))
+        return
+    
+    try:
+        delivery_price = float(message.text)
+        if delivery_price < 0:
+            await message.answer("❌ Стоимость доставки не может быть отрицательной. Введите число >= 0:")
+            return
+    except ValueError:
+        await message.answer("❌ Введите число (например: 0 для бесплатной доставки или 200 для платной):")
+        return
+    
+    await state.update_data(delivery_price=delivery_price)
     await state.set_state(AddSeller.placement_expired_at)
-    await callback.message.edit_text("📅 Введите дату окончания размещения (формат: ДД.ММ.ГГГГ или оставьте пустым):")
+    await message.answer("📅 Введите дату окончания размещения (формат: ДД.ММ.ГГГГ или оставьте пустым):")
 
 @router.message(AddSeller.placement_expired_at)
 async def add_expiry_date(message: types.Message, state: FSMContext):
@@ -246,6 +267,7 @@ async def add_expiry_date(message: types.Message, state: FSMContext):
         district_id=data.get('district_id'),
         map_url=data.get('map_url'),
         delivery_type=data.get('delivery_type'),
+        delivery_price=data.get('delivery_price', 0.0),
         placement_expired_at=placement_expired_at
     )
 
@@ -309,6 +331,7 @@ async def search_seller_for_edit(message: types.Message, state: FSMContext):
             [InlineKeyboardButton(text="📝 Описание", callback_data="field_description")],
             [InlineKeyboardButton(text="🗺 Адрес (Яндекс.Карты)", callback_data="field_map_url")],
             [InlineKeyboardButton(text="🚚 Тип доставки", callback_data="field_delivery_type")],
+            [InlineKeyboardButton(text="💰 Стоимость доставки", callback_data="field_delivery_price")],
             [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]
         ])
         await message.answer(
@@ -379,7 +402,8 @@ async def select_field_to_edit(callback: types.CallbackQuery, state: FSMContext)
         "shop_name": "Название магазина",
         "description": "Описание",
         "map_url": "Адрес (Яндекс.Карты)",
-        "delivery_type": "Тип доставки"
+        "delivery_type": "Тип доставки",
+        "delivery_price": "Стоимость доставки"
     }
     
     await state.update_data(selected_field=field)
@@ -396,6 +420,11 @@ async def select_field_to_edit(callback: types.CallbackQuery, state: FSMContext)
         await callback.message.edit_text(
             f"Выберите новый тип доставки:",
             reply_markup=keyboard
+        )
+    elif field == "delivery_price":
+        await callback.message.edit_text(
+            f"Введите новую стоимость доставки (число):\n\nЕсли доставка бесплатная - введите 0\nЕсли доставка платная - введите стоимость в рублях",
+            reply_markup=None
         )
     else:
         await callback.message.edit_text(
@@ -437,7 +466,23 @@ async def enter_new_value(message: types.Message, state: FSMContext):
         return
     
     data = await state.get_data()
-    success = await api_update_seller_field(data['selected_tg_id'], data['selected_field'], message.text)
+    field = data['selected_field']
+    
+    # Валидация для стоимости доставки
+    if field == "delivery_price":
+        try:
+            delivery_price = float(message.text)
+            if delivery_price < 0:
+                await message.answer("❌ Стоимость доставки не может быть отрицательной. Введите число >= 0:")
+                return
+            value = str(delivery_price)
+        except ValueError:
+            await message.answer("❌ Введите число (например: 0 для бесплатной доставки или 200 для платной):")
+            return
+    else:
+        value = message.text
+    
+    success = await api_update_seller_field(data['selected_tg_id'], field, value)
     
     if success:
         await message.answer("✅ Поле успешно обновлено!", reply_markup=kb.get_main_kb(message.from_user.id, "ADMIN"))

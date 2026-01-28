@@ -1,6 +1,7 @@
 from sqlalchemy import BigInteger, String, ForeignKey, DateTime, DECIMAL, Text, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from typing import Optional
 from backend.app.core.base import Base
 
 class Order(Base):
@@ -11,6 +12,7 @@ class Order(Base):
     agent_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
     items_info: Mapped[str] = mapped_column(Text)
     total_price: Mapped[float] = mapped_column(DECIMAL(10, 2))
+    original_price: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default='pending')
     delivery_type: Mapped[str] = mapped_column(String(50), nullable=True)
     address: Mapped[str] = mapped_column(Text, nullable=True)

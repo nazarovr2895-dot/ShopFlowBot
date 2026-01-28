@@ -7,9 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
+import re
 
 from backend.app.models.order import Order
 from backend.app.models.seller import Seller
+from backend.app.models.product import Product
 
 
 class OrderServiceError(Exception):
@@ -112,6 +114,9 @@ class OrderService:
             self._validate_seller(seller, seller_id)
             self._check_limits(seller)
             
+            # НЕ уменьшаем количество товаров при создании заказа
+            # Количество будет уменьшено только при принятии заказа продавцом (accept_order)
+            
             # Increment pending counter
             seller.pending_requests += 1
             
@@ -134,6 +139,7 @@ class OrderService:
     async def accept_order(self, order_id: int) -> Dict[str, Any]:
         """
         Accept a pending order. Moves counter from pending to active.
+        Уменьшает количество товаров на складе.
         
         Returns dict with order info for notification purposes.
         """
@@ -144,6 +150,35 @@ class OrderService:
             
             if order.status != "pending":
                 raise InvalidOrderStatusError(order_id, order.status, "pending")
+            
+            # Уменьшаем количество товаров при принятии заказа
+            # Формат items_info: "ID:название x количество, ID:название x количество"
+            items_pattern = r'(\d+):([^x]+)\s*x\s*(\d+)'
+            items_matches = re.findall(items_pattern, order.items_info)
+            
+            if items_matches:
+                for product_id_str, product_name, quantity_str in items_matches:
+                    product_id = int(product_id_str)
+                    quantity_to_reduce = int(quantity_str)
+                    
+                    # Получаем товар с блокировкой для атомарного обновления
+                    product_result = await self.session.execute(
+                        select(Product).where(
+                            Product.id == product_id,
+                            Product.seller_id == order.seller_id
+                        ).with_for_update()
+                    )
+                    product = product_result.scalar_one_or_none()
+                    
+                    if product:
+                        # Проверяем доступное количество
+                        if product.quantity < quantity_to_reduce:
+                            raise OrderServiceError(
+                                f"Недостаточно товара '{product.name}'. Доступно: {product.quantity}, запрошено: {quantity_to_reduce}",
+                                400
+                            )
+                        # Уменьшаем количество
+                        product.quantity -= quantity_to_reduce
             
             # Lock and update seller counters
             seller = await self._get_seller_for_update(order.seller_id)
@@ -166,6 +201,7 @@ class OrderService:
     async def reject_order(self, order_id: int) -> Dict[str, Any]:
         """
         Reject a pending order. Frees up pending slot.
+        НЕ изменяет количество товаров на складе, так как сделка не состоялась.
         
         Returns dict with order info for notification purposes.
         """
@@ -176,6 +212,9 @@ class OrderService:
             
             if order.status != "pending":
                 raise InvalidOrderStatusError(order_id, order.status, "pending")
+            
+            # НЕ уменьшаем количество товаров при отклонении заказа
+            # Товары остаются доступными для других покупателей
             
             # Lock and update seller counters
             seller = await self._get_seller_for_update(order.seller_id)
@@ -319,7 +358,7 @@ class OrderService:
         query = (
             select(Order)
             .where(Order.buyer_id == buyer_id)
-            .order_by(Order.created_at.desc())
+            .order_by(Order.created_at.asc())
         )
         
         result = await self.session.execute(query)

@@ -9,16 +9,32 @@ from bot.config import MASTER_ADMIN_ID
 from bot.api_client.sellers import (
     api_check_limit, api_get_seller, api_create_product, api_get_my_products, api_delete_product,
     api_get_seller_orders, api_accept_order, api_reject_order, api_done_order,
-    api_update_seller_limit, api_get_seller_revenue_stats, api_update_order_status
+    api_update_seller_limit, api_get_seller_revenue_stats, api_update_order_status,
+    api_update_order_price
 )
 
 router = Router()
 
+def format_items_info(items_info: str) -> str:
+    """Форматирует items_info для отображения, убирая ID товаров"""
+    import re
+    # Формат: "ID:название x количество, ID:название x количество"
+    # Преобразуем в: "название x количество, название x количество"
+    pattern = r'(\d+):([^x]+)\s*x\s*(\d+)'
+    def replace(match):
+        product_id, product_name, quantity = match.groups()
+        return f"{product_name.strip()} x {quantity}"
+    return re.sub(pattern, replace, items_info)
+
 class AddProduct(StatesGroup):
-    name = State(); description = State(); price = State(); photo = State()
+    name = State(); description = State(); price = State(); quantity = State(); photo = State()
 
 class SellerSettings(StatesGroup):
     waiting_for_limit = State()
+
+class ChangeOrderPrice(StatesGroup):
+    waiting_for_price = State()
+    waiting_for_confirm = State()
 
 # --- 1. ВХОД В РЕЖИМ (Единственный правильный) ---
 @router.message(F.text.in_({"📦 Режим продавца", "🔁 Режим продавца"}))
@@ -64,14 +80,32 @@ async def my_products_list(message: types.Message):
     if not products:
         return await message.answer("📭 Товаров нет.")
     
-    await message.answer(f"📦 Найдено товаров: {len(products)}")
-    for p in products:
+    # Фильтруем товары с количеством > 0 для отображения
+    available_products = [p for p in products if getattr(p, 'quantity', 0) > 0]
+    out_of_stock_products = [p for p in products if getattr(p, 'quantity', 0) <= 0]
+    
+    await message.answer(f"📦 Найдено товаров: {len(products)} (в наличии: {len(available_products)}, закончились: {len(out_of_stock_products)})")
+    
+    # Показываем только товары в наличии
+    for p in available_products:
+        quantity = getattr(p, 'quantity', 0)
         d_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить", callback_data=f"delete_product_{p.id}")]])
-        caption = f"🏷 *{p.name}*\n📝 {p.description}\n💰 *{p.price} руб.*"
+        caption = f"🏷 *{p.name}*\n📝 {p.description}\n💰 *{p.price} руб.*\n📦 В наличии: {quantity} шт."
         if p.photo_id:
             await message.answer_photo(p.photo_id, caption=caption, reply_markup=d_kb, parse_mode="Markdown")
         else:
             await message.answer(caption, reply_markup=d_kb, parse_mode="Markdown")
+    
+    # Показываем товары, которые закончились
+    if out_of_stock_products:
+        await message.answer(f"\n⚠️ *Товары, которые закончились (не отображаются покупателям):*")
+        for p in out_of_stock_products:
+            d_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить", callback_data=f"delete_product_{p.id}")]])
+            caption = f"🏷 *{p.name}*\n📝 {p.description}\n💰 *{p.price} руб.*\n❌ Закончился"
+            if p.photo_id:
+                await message.answer_photo(p.photo_id, caption=caption, reply_markup=d_kb, parse_mode="Markdown")
+            else:
+                await message.answer(caption, reply_markup=d_kb, parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("delete_product_"))
 async def delete_product_handler(callback: types.CallbackQuery):
@@ -97,12 +131,20 @@ async def purchase_requests_handler(message: types.Message):
         delivery_emoji = "🚚" if order.delivery_type == "delivery" else "🏪"
         delivery_text = "Доставка" if order.delivery_type == "delivery" else "Самовывоз"
         
+        # Проверяем, была ли изменена цена
+        price_text = f"💰 Сумма: *{order.total_price} руб.*"
+        if hasattr(order, 'original_price') and order.original_price and abs(float(order.original_price) - float(order.total_price)) > 0.01:
+            price_text = (
+                f"💰 Сумма: *{order.total_price} руб.*\n"
+                f"   (было: {order.original_price} руб.)"
+            )
+        
         text = (
             f"📦 *Заказ #{order.id}*\n"
             f"━━━━━━━━━━━━━━━\n"
             f"👤 Покупатель ID: `{order.buyer_id}`\n"
-            f"🛒 Товары: {order.items_info}\n"
-            f"💰 Сумма: *{order.total_price} руб.*\n"
+            f"🛒 Товары: {format_items_info(order.items_info)}\n"
+            f"{price_text}\n"
             f"{delivery_emoji} Тип: {delivery_text}\n"
         )
         
@@ -127,20 +169,215 @@ async def purchase_requests_handler(message: types.Message):
 
 
 @router.callback_query(F.data.startswith("order_accept_"))
-async def accept_order_callback(callback: types.CallbackQuery):
+async def accept_order_callback(callback: types.CallbackQuery, state: FSMContext):
     """Принять заказ"""
     order_id = int(callback.data.split("_")[2])
     result = await api_accept_order(order_id)
     
     if result and result.get("status") == "ok":
-        await callback.answer("✅ Заказ принят! Теперь он в активных.", show_alert=True)
+        # Получаем информацию о заказе для отображения текущей цены
+        total_price = result.get("total_price", 0)
+        original_price = result.get("original_price", total_price)
+        
+        # Сохраняем original_price в состояние для дальнейшего использования
+        await state.update_data(order_id=order_id, original_price=original_price)
+        
         # Обновляем сообщение
         await callback.message.edit_text(
-            callback.message.text + "\n\n✅ *ЗАКАЗ ПРИНЯТ*",
+            callback.message.text + "\n\n✅ *ЗАКАЗ ПРИНЯТ*\n\n"
+            f"💰 Текущая сумма: *{total_price} руб.*\n\n"
+            "Вы можете изменить сумму заказа или оставить текущую.",
             parse_mode="Markdown"
         )
+        
+        # Показываем кнопки для изменения цены или подтверждения текущей
+        kb_price = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✏️ Изменить сумму", callback_data=f"change_price_{order_id}"),
+                InlineKeyboardButton(text="✅ Оставить текущую", callback_data=f"keep_price_{order_id}")
+            ]
+        ])
+        
+        await callback.message.edit_reply_markup(reply_markup=kb_price)
+        await callback.answer("✅ Заказ принят! Выберите действие с суммой.", show_alert=True)
     else:
         await callback.answer("❌ Ошибка при принятии заказа", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("keep_price_"))
+async def keep_price_callback(callback: types.CallbackQuery, state: FSMContext):
+    """Оставить текущую цену заказа"""
+    order_id = int(callback.data.split("_")[2])
+    
+    # Очищаем состояние
+    await state.clear()
+    
+    # Убираем кнопки изменения цены
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.answer("✅ Сумма заказа оставлена без изменений", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("change_price_"))
+async def change_price_start_callback(callback: types.CallbackQuery, state: FSMContext):
+    """Начать процесс изменения цены заказа"""
+    order_id = int(callback.data.split("_")[2])
+    
+    # Получаем данные из состояния или из API
+    data = await state.get_data()
+    current_price = data.get("original_price", 0)
+    
+    # Если нет в состоянии, получаем из API
+    if not current_price:
+        orders = await api_get_seller_orders(callback.from_user.id, status="accepted")
+        order = next((o for o in orders if o.id == order_id), None)
+        if order:
+            current_price = order.total_price
+            original_price = order.original_price if hasattr(order, 'original_price') and order.original_price else order.total_price
+            await state.update_data(order_id=order_id, original_price=original_price)
+        else:
+            current_price = 0
+    
+    # Сохраняем order_id в состояние
+    await state.update_data(order_id=order_id)
+    await state.set_state(ChangeOrderPrice.waiting_for_price)
+    
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        f"✏️ *Изменение суммы заказа*\n\n"
+        f"💰 Текущая сумма: *{current_price} руб.*\n\n"
+        "Введите новую сумму заказа (только число):",
+        parse_mode="Markdown",
+        reply_markup=kb.cancel_kb
+    )
+    await callback.answer()
+
+
+@router.message(ChangeOrderPrice.waiting_for_price)
+async def change_price_process(message: types.Message, state: FSMContext):
+    """Обработка ввода новой цены"""
+    if message.text == "❌ Отмена":
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "SELLER")
+        await message.answer("Отменено.", reply_markup=menu)
+        return
+    
+    # Проверка ввода
+    try:
+        new_price = float(message.text.replace(",", "."))
+        if new_price < 0:
+            return await message.answer("❌ Сумма не может быть отрицательной")
+    except ValueError:
+        return await message.answer("❌ Введите корректное число (например: 1500 или 1500.50)")
+    
+    data = await state.get_data()
+    order_id = data.get("order_id")
+    original_price = data.get("original_price", 0)
+    
+    # Если цена изменилась, требуем двойное подтверждение
+    if abs(new_price - original_price) > 0.01:  # Учитываем погрешность округления
+        await state.update_data(new_price=new_price)
+        await state.set_state(ChangeOrderPrice.waiting_for_confirm)
+        
+        confirm_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Да, изменить", callback_data=f"confirm_price_change_{order_id}"),
+                InlineKeyboardButton(text="❌ Отмена", callback_data=f"cancel_price_change_{order_id}")
+            ]
+        ])
+        
+        await message.answer(
+            f"⚠️ *Подтверждение изменения суммы*\n\n"
+            f"💰 Было: *{original_price} руб.*\n"
+            f"💰 Станет: *{new_price} руб.*\n\n"
+            "Вы уверены, что хотите изменить сумму заказа?\n"
+            "Покупатель будет уведомлен об изменении.",
+            parse_mode="Markdown",
+            reply_markup=confirm_kb
+        )
+    else:
+        # Цена не изменилась, просто подтверждаем
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "SELLER")
+        await message.answer(
+            f"✅ Сумма не изменилась (*{original_price} руб.*). Заказ оставлен без изменений.",
+            parse_mode="Markdown",
+            reply_markup=menu
+        )
+
+
+@router.callback_query(F.data.startswith("confirm_price_change_"))
+async def confirm_price_change_callback(callback: types.CallbackQuery, state: FSMContext):
+    """Подтверждение изменения цены (первое подтверждение)"""
+    order_id = int(callback.data.split("_")[3])
+    data = await state.get_data()
+    new_price = data.get("new_price")
+    original_price = data.get("original_price", 0)
+    
+    # Второе подтверждение
+    await state.update_data(first_confirm=True)
+    
+    second_confirm_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Да, подтверждаю", callback_data=f"final_confirm_price_{order_id}"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data=f"cancel_price_change_{order_id}")
+        ]
+    ])
+    
+    await callback.message.edit_text(
+        f"⚠️ *Второе подтверждение*\n\n"
+        f"💰 Было: *{original_price} руб.*\n"
+        f"💰 Станет: *{new_price} руб.*\n\n"
+        "Пожалуйста, подтвердите изменение суммы еще раз:",
+        parse_mode="Markdown",
+        reply_markup=second_confirm_kb
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("final_confirm_price_"))
+async def final_confirm_price_callback(callback: types.CallbackQuery, state: FSMContext):
+    """Финальное подтверждение изменения цены"""
+    order_id = int(callback.data.split("_")[3])
+    data = await state.get_data()
+    new_price = data.get("new_price")
+    original_price = data.get("original_price", 0)
+    
+    # Вызываем API для изменения цены
+    result = await api_update_order_price(order_id, new_price)
+    
+    menu = kb.get_main_kb(callback.from_user.id, "SELLER")
+    
+    if result and result.get("status") == "ok":
+        await callback.message.edit_text(
+            f"✅ *Сумма заказа изменена*\n\n"
+            f"💰 Было: *{original_price} руб.*\n"
+            f"💰 Стало: *{new_price} руб.*\n\n"
+            "Покупатель будет уведомлен об изменении суммы.",
+            parse_mode="Markdown"
+        )
+        await callback.message.edit_reply_markup(reply_markup=None)
+        await callback.answer("✅ Сумма заказа успешно изменена!", show_alert=True)
+    else:
+        await callback.message.edit_text(
+            callback.message.text + "\n\n❌ *Ошибка при изменении суммы*",
+            parse_mode="Markdown"
+        )
+        await callback.answer("❌ Ошибка при изменении суммы заказа", show_alert=True)
+    
+    await state.clear()
+
+
+@router.callback_query(F.data.startswith("cancel_price_change_"))
+async def cancel_price_change_callback(callback: types.CallbackQuery, state: FSMContext):
+    """Отмена изменения цены"""
+    await state.clear()
+    menu = kb.get_main_kb(callback.from_user.id, "SELLER")
+    await callback.message.edit_text(
+        callback.message.text + "\n\n❌ *Изменение суммы отменено*",
+        parse_mode="Markdown"
+    )
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.answer("Изменение суммы отменено")
 
 
 @router.callback_query(F.data.startswith("order_reject_"))
@@ -187,13 +424,21 @@ async def active_orders_handler(message: types.Message):
         delivery_emoji = "🚚" if order.delivery_type == "Доставка" else "🏪"
         status_text = status_names.get(order.status, order.status)
         
+        # Проверяем, была ли изменена цена
+        price_text = f"💰 Сумма: *{order.total_price} руб.*"
+        if hasattr(order, 'original_price') and order.original_price and abs(float(order.original_price) - float(order.total_price)) > 0.01:
+            price_text = (
+                f"💰 Сумма: *{order.total_price} руб.*\n"
+                f"   (было: {order.original_price} руб.)"
+            )
+        
         text = (
             f"📦 *Заказ #{order.id}*\n"
             f"━━━━━━━━━━━━━━━\n"
             f"📊 Статус: *{status_text}*\n"
             f"👤 Покупатель ID: `{order.buyer_id}`\n"
-            f"🛒 Товары: {order.items_info}\n"
-            f"💰 Сумма: *{order.total_price} руб.*\n"
+            f"🛒 Товары: {format_items_info(order.items_info)}\n"
+            f"{price_text}\n"
             f"{delivery_emoji} {order.delivery_type or 'Не указано'}\n"
         )
         
@@ -428,8 +673,27 @@ async def add_p_desc(message: types.Message, state: FSMContext):
 
 @router.message(AddProduct.price)
 async def add_p_price(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "SELLER")
+        await message.answer("Отменено.", reply_markup=menu)
+        return
     if not message.text.isdigit(): return await message.answer("Только цифры!")
     await state.update_data(price=float(message.text))
+    await state.set_state(AddProduct.quantity)
+    await message.answer("Количество товара (сколько штук доступно):", reply_markup=kb.cancel_kb)
+
+@router.message(AddProduct.quantity)
+async def add_p_quantity(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "SELLER")
+        await message.answer("Отменено.", reply_markup=menu)
+        return
+    if not message.text.isdigit(): return await message.answer("Только цифры!")
+    quantity = int(message.text)
+    if quantity < 0: return await message.answer("Количество не может быть отрицательным!")
+    await state.update_data(quantity=quantity)
     await state.set_state(AddProduct.photo)
     await message.answer("Фото:", reply_markup=kb.cancel_kb)
 
@@ -439,10 +703,11 @@ async def add_p_photo(message: types.Message, state: FSMContext):
     data = await state.get_data()
     await message.answer("⏳ Сохраняю...")
     
-    res = await api_create_product(message.from_user.id, data['name'], data['price'], data['description'], photo_id)
+    quantity = data.get('quantity', 0)
+    res = await api_create_product(message.from_user.id, data['name'], data['price'], data['description'], photo_id, quantity)
     menu = kb.get_main_kb(message.from_user.id, "SELLER")
     
-    if res: await message.answer(f"✅ Товар '{data['name']}' добавлен!", reply_markup=menu)
+    if res: await message.answer(f"✅ Товар '{data['name']}' добавлен! Количество: {quantity} шт.", reply_markup=menu)
     else: await message.answer("❌ Ошибка сохранения.", reply_markup=menu)
     await state.clear()
 

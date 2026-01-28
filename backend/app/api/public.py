@@ -47,6 +47,7 @@ class PublicSellerListItem(BaseModel):
     shop_name: Optional[str]
     owner_fio: Optional[str]
     delivery_type: Optional[str]
+    delivery_price: float = 0.0
     city_name: Optional[str]
     district_name: Optional[str]
     metro_name: Optional[str]
@@ -62,6 +63,7 @@ class PublicSellerDetail(BaseModel):
     shop_name: Optional[str]
     description: Optional[str]
     delivery_type: Optional[str]
+    delivery_price: float = 0.0
     map_url: Optional[str]
     city_name: Optional[str]
     district_name: Optional[str]
@@ -87,6 +89,7 @@ async def get_public_sellers(
     district_id: Optional[int] = Query(None, description="Фильтр по району"),
     metro_id: Optional[int] = Query(None, description="Фильтр по станции метро"),
     delivery_type: Optional[str] = Query(None, description="Тип доставки: delivery, pickup, both"),
+    free_delivery: Optional[bool] = Query(None, description="Фильтр по бесплатной доставке: true - только бесплатная, false - только платная"),
     sort_price: Optional[str] = Query(None, description="Сортировка по цене: asc, desc"),
     sort_mode: Optional[str] = Query(None, description="Режим: all_city (все магазины), nearby (по близости)"),
     page: int = Query(1, ge=1, description="Номер страницы"),
@@ -129,7 +132,16 @@ async def get_public_sellers(
         elif delivery_type == "both":
             base_conditions.append(Seller.delivery_type == "both")
     
-    # Подзапрос для статистики товаров
+    # Фильтр по бесплатной/платной доставке
+    if free_delivery is not None:
+        if free_delivery:
+            # Только бесплатная доставка (delivery_price == 0)
+            base_conditions.append(Seller.delivery_price == 0.0)
+        else:
+            # Только платная доставка (delivery_price > 0)
+            base_conditions.append(Seller.delivery_price > 0.0)
+    
+    # Подзапрос для статистики товаров (только с количеством > 0)
     product_stats = (
         select(
             Product.seller_id,
@@ -137,7 +149,10 @@ async def get_public_sellers(
             func.max(Product.price).label("max_price"),
             func.count(Product.id).label("product_count")
         )
-        .where(Product.is_active == True)
+        .where(
+            Product.is_active == True,
+            Product.quantity > 0  # Только товары в наличии
+        )
         .group_by(Product.seller_id)
         .subquery()
     )
@@ -201,6 +216,7 @@ async def get_public_sellers(
             shop_name=seller.shop_name,
             owner_fio=row.owner_fio,
             delivery_type=seller.delivery_type,
+            delivery_price=float(seller.delivery_price) if seller.delivery_price else 0.0,
             city_name=row.city_name,
             district_name=row.district_name,
             metro_name=row.metro_name,
@@ -262,12 +278,13 @@ async def get_public_seller_detail(
     
     available_slots = seller.max_orders - seller.active_orders - seller.pending_requests
     
-    # Получаем товары
+    # Получаем товары (только с количеством > 0)
     products_query = (
         select(Product)
         .where(
             Product.seller_id == seller_id,
-            Product.is_active == True
+            Product.is_active == True,
+            Product.quantity > 0  # Только товары в наличии
         )
         .order_by(Product.price.asc())
     )
@@ -280,7 +297,8 @@ async def get_public_seller_detail(
             "name": p.name,
             "description": p.description,
             "price": float(p.price),
-            "photo_id": p.photo_id
+            "photo_id": p.photo_id,
+            "quantity": p.quantity
         }
         for p in products
     ]
@@ -290,6 +308,7 @@ async def get_public_seller_detail(
         shop_name=seller.shop_name,
         description=seller.description,
         delivery_type=seller.delivery_type,
+        delivery_price=float(seller.delivery_price) if seller.delivery_price else 0.0,
         map_url=seller.map_url,
         city_name=row.city_name,
         district_name=row.district_name,

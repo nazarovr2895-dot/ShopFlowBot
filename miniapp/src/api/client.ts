@@ -100,6 +100,7 @@ class ApiClient {
     if (filters.district_id) params.append('district_id', filters.district_id.toString());
     if (filters.metro_id) params.append('metro_id', filters.metro_id.toString());
     if (filters.delivery_type) params.append('delivery_type', filters.delivery_type);
+    if (filters.free_delivery !== undefined) params.append('free_delivery', filters.free_delivery.toString());
     if (filters.sort_price) params.append('sort_price', filters.sort_price);
     if (filters.sort_mode) params.append('sort_mode', filters.sort_mode);
     

@@ -135,6 +135,11 @@ export function ShopDetails() {
           <span className="shop-details__info-label">Способ получения</span>
           <span className="shop-details__info-value">
             {getDeliveryLabel(seller.delivery_type)}
+            {seller.delivery_type && (seller.delivery_type === 'delivery' || seller.delivery_type === 'both') && (
+              seller.delivery_price === 0 
+                ? ' (бесплатно)' 
+                : ` (${formatPrice(seller.delivery_price)})`
+            )}
           </span>
         </div>
 

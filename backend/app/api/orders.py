@@ -92,7 +92,8 @@ async def accept_order(order_id: int, session: AsyncSession = Depends(get_sessio
             "new_status": result["new_status"],
             "buyer_id": result["buyer_id"],
             "items_info": result["items_info"],
-            "total_price": result["total_price"]
+            "total_price": result["total_price"],
+            "original_price": result.get("original_price")
         }
     except OrderServiceError as e:
         _handle_service_error(e)
@@ -207,7 +208,46 @@ async def update_order_status(
         _handle_service_error(e)
 
 
-# --- 8. СТАТИСТИКА ПРОДАВЦА ---
+# --- 8. ИЗМЕНЕНИЕ ЦЕНЫ ЗАКАЗА ---
+@router.put("/{order_id}/price")
+async def update_order_price(
+    order_id: int,
+    new_price: float,
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Изменить цену заказа. Можно изменить только для заказов со статусом 'accepted'.
+    """
+    logger.info("Updating order price", order_id=order_id, new_price=new_price)
+    service = OrderService(session)
+    
+    try:
+        from decimal import Decimal
+        result = await service.update_order_price(order_id, Decimal(str(new_price)))
+        logger.info(
+            "Order price updated",
+            order_id=order_id,
+            old_price=result.get("original_price"),
+            new_price=result["total_price"]
+        )
+        return {
+            "status": "ok",
+            "order_id": result["order_id"],
+            "buyer_id": result["buyer_id"],
+            "total_price": result["total_price"],
+            "original_price": result["original_price"]
+        }
+    except OrderServiceError as e:
+        logger.warning(
+            "Order price update failed",
+            order_id=order_id,
+            requested_price=new_price,
+            error=e.message,
+        )
+        _handle_service_error(e)
+
+
+# --- 9. СТАТИСТИКА ПРОДАВЦА ---
 @router.get("/seller/{seller_id}/stats")
 async def get_seller_order_stats(
     seller_id: int,

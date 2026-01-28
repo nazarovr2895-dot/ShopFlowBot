@@ -34,8 +34,8 @@ def _handle_service_error(e: SellerServiceError):
 
 @router.get("/{seller_id}/products", response_model=List[ProductResponse])
 async def get_products(seller_id: int, session: AsyncSession = Depends(get_session)):
-    """Получить все товары продавца"""
-    products = await get_products_by_seller_service(session, seller_id)
+    """Получить все товары продавца (включая товары с количеством 0 для продавца)"""
+    products = await get_products_by_seller_service(session, seller_id, only_available=False)
     return products if products else []
 
 
@@ -53,7 +53,8 @@ async def add_product(data: ProductCreate, session: AsyncSession = Depends(get_s
         "name": data.name,
         "description": data.description,
         "price": data.price,
-        "photo_id": data.photo_id
+        "photo_id": data.photo_id,
+        "quantity": data.quantity
     }
     result = await create_product_service(session, product_data)
     logger.info("Product added", product_id=result.id, seller_id=data.seller_id)
