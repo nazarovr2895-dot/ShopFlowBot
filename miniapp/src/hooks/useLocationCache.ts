@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { SellerFilters } from '../types';
+import { api } from '../api/client';
 
 const STORAGE_KEY = 'flowshop_location_filters';
 
@@ -73,9 +74,48 @@ export function useLocationCache() {
   const [filters, setFiltersState] = useState<SellerFilters>(() => loadFromStorage());
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Mark as initialized after first render (to handle SSR scenarios)
+  // Check user profile for location on mount and sync with localStorage
   useEffect(() => {
-    setIsInitialized(true);
+    const syncUserLocation = async () => {
+      try {
+        const user = await api.getCurrentUser();
+        
+        // If user has location set, use it (has priority over localStorage)
+        if (user?.city_id && user?.district_id) {
+          const userFilters = {
+            city_id: user.city_id,
+            district_id: user.district_id,
+          };
+          
+          // Update state with user's location
+          setFiltersState((prev) => ({
+            ...prev,
+            ...userFilters,
+          }));
+          
+          // Update localStorage to keep in sync
+          try {
+            const existing = localStorage.getItem(STORAGE_KEY);
+            let cached = existing ? JSON.parse(existing) : {};
+            cached = {
+              ...cached,
+              ...userFilters,
+              timestamp: Date.now(),
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+          } catch (e) {
+            console.error('Failed to sync user location to localStorage:', e);
+          }
+        }
+      } catch (error) {
+        // Silently fail - use localStorage data if available
+        console.error('Failed to sync user location:', error);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+
+    syncUserLocation();
   }, []);
 
   // Save to localStorage whenever filters change (after initialization)
@@ -85,8 +125,14 @@ export function useLocationCache() {
     }
   }, [filters, isInitialized]);
 
-  const setFilters = useCallback((newFilters: SellerFilters) => {
-    setFiltersState(newFilters);
+  const setFilters = useCallback((newFilters: SellerFilters | ((prev: SellerFilters) => SellerFilters)) => {
+    setFiltersState((prev) => {
+      if (typeof newFilters === 'function') {
+        return newFilters(prev);
+      }
+      // Merge with existing filters instead of replacing
+      return { ...prev, ...newFilters };
+    });
   }, []);
 
   const resetFilters = useCallback(() => {

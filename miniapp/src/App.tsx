@@ -51,11 +51,33 @@ function AppContent() {
         if (!user.city_id || !user.district_id) {
           setNeedsLocationSetup(true);
         } else {
-          // Set filters from user's saved location
-          setFilters({
+          // Update filters with user's saved location (merge with existing)
+          // Also update localStorage directly to ensure ShopsList gets the values
+          const updatedFilters = {
             city_id: user.city_id,
             district_id: user.district_id,
-          });
+          };
+          
+          // Update state
+          setFilters((prev) => ({
+            ...prev,
+            ...updatedFilters,
+          }));
+          
+          // Also update localStorage directly to sync with ShopsList
+          try {
+            const STORAGE_KEY = 'flowshop_location_filters';
+            const existing = localStorage.getItem(STORAGE_KEY);
+            let cached = existing ? JSON.parse(existing) : {};
+            cached = {
+              ...cached,
+              ...updatedFilters,
+              timestamp: Date.now(),
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+          } catch (e) {
+            console.error('Failed to update localStorage:', e);
+          }
         }
       } catch (error) {
         console.error('Failed to check user location:', error);
@@ -74,21 +96,62 @@ function AppContent() {
       // Save location to user profile
       await api.updateLocation(cityId, districtId);
       
-      // Update filters
-      setFilters({
+      // Update filters (merge with existing)
+      const updatedFilters = {
         city_id: cityId,
         district_id: districtId,
-      });
+      };
+      
+      setFilters((prev) => ({
+        ...prev,
+        ...updatedFilters,
+      }));
+      
+      // Also update localStorage directly to sync with ShopsList
+      try {
+        const STORAGE_KEY = 'flowshop_location_filters';
+        const existing = localStorage.getItem(STORAGE_KEY);
+        let cached = existing ? JSON.parse(existing) : {};
+        cached = {
+          ...cached,
+          ...updatedFilters,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+      } catch (e) {
+        console.error('Failed to update localStorage:', e);
+      }
       
       // Hide location setup
       setNeedsLocationSetup(false);
     } catch (error) {
       console.error('Failed to save location:', error);
       // Still allow to proceed even if save fails
-      setFilters({
+      const updatedFilters = {
         city_id: cityId,
         district_id: districtId,
-      });
+      };
+      
+      setFilters((prev) => ({
+        ...prev,
+        ...updatedFilters,
+      }));
+      
+      // Update localStorage even if API call failed
+      try {
+        const STORAGE_KEY = 'flowshop_location_filters';
+        const existing = localStorage.getItem(STORAGE_KEY);
+        let cached = existing ? JSON.parse(existing) : {};
+        cached = {
+          ...cached,
+          ...updatedFilters,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+      } catch (e) {
+        console.error('Failed to update localStorage:', e);
+      }
+      
       setNeedsLocationSetup(false);
     }
   };
