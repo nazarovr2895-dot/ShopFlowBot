@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { City, District, Metro, SellerFilters } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
@@ -14,8 +14,12 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
   
   const [cities, setCities] = useState<City[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
-  const [metros, setMetros] = useState<Metro[]>([]);
   const [loading, setLoading] = useState(false);
+  const [metroSearchQuery, setMetroSearchQuery] = useState('');
+  const [metroSearchResults, setMetroSearchResults] = useState<Metro[]>([]);
+  const [metroSearching, setMetroSearching] = useState(false);
+  const [metroDropdownOpen, setMetroDropdownOpen] = useState(false);
+  const metroSearchRef = useRef<HTMLDivElement>(null);
 
   // Load cities on mount
   useEffect(() => {
@@ -34,22 +38,46 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     } else {
       setDistricts([]);
     }
-    setMetros([]);
   }, [filters.city_id]);
 
-  // Load metros when district changes
+  // Clear metro search when metro filter is cleared (e.g. reset, district change)
   useEffect(() => {
-    if (filters.district_id) {
-      setLoading(true);
-      api
-        .getMetroStations(filters.district_id)
-        .then(setMetros)
-        .catch(console.error)
-        .finally(() => setLoading(false));
-    } else {
-      setMetros([]);
+    if (!filters.metro_id) {
+      setMetroSearchQuery('');
     }
-  }, [filters.district_id]);
+  }, [filters.metro_id]);
+
+  // Debounced metro search (search across all stations)
+  useEffect(() => {
+    if (metroSearchQuery.trim().length < 2) {
+      setMetroSearchResults([]);
+      setMetroDropdownOpen(metroSearchQuery.length > 0);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setMetroSearching(true);
+      api
+        .searchMetroStations(metroSearchQuery.trim())
+        .then((results) => {
+          setMetroSearchResults(results);
+          setMetroDropdownOpen(true);
+        })
+        .catch(console.error)
+        .finally(() => setMetroSearching(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [metroSearchQuery]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (metroSearchRef.current && !metroSearchRef.current.contains(e.target as Node)) {
+        setMetroDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     hapticFeedback('light');
@@ -72,14 +100,28 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     });
   };
 
-  const handleMetroChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleMetroSelect = useCallback(
+    (metro: Metro) => {
+      hapticFeedback('light');
+      setMetroSearchQuery(metro.name);
+      setMetroDropdownOpen(false);
+      onFiltersChange({
+        ...filters,
+        metro_id: metro.id,
+      });
+    },
+    [filters, hapticFeedback, onFiltersChange]
+  );
+
+  const handleMetroClear = useCallback(() => {
     hapticFeedback('light');
-    const metroId = e.target.value ? parseInt(e.target.value) : undefined;
+    setMetroSearchQuery('');
+    setMetroDropdownOpen(false);
     onFiltersChange({
       ...filters,
-      metro_id: metroId,
+      metro_id: undefined,
     });
-  };
+  }, [filters, hapticFeedback, onFiltersChange]);
 
   const handleDeliveryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     hapticFeedback('light');
@@ -187,20 +229,54 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         </select>
       </div>
 
-      <div className="filters__row">
-        <select
-          className="filters__select"
-          value={filters.metro_id || ''}
-          onChange={handleMetroChange}
-          disabled={!filters.district_id || loading}
-        >
-          <option value="">Все станции метро</option>
-          {metros.map((metro) => (
-            <option key={metro.id} value={metro.id}>
-              {metro.name}
-            </option>
-          ))}
-        </select>
+      <div className="filters__row filters__metro-search" ref={metroSearchRef}>
+        <div className="filters__metro-input-wrap">
+          <input
+            type="text"
+            className="filters__metro-input"
+            placeholder="Поиск станции метро..."
+            value={metroSearchQuery}
+            onChange={(e) => setMetroSearchQuery(e.target.value)}
+            onFocus={() => metroSearchResults.length > 0 && setMetroDropdownOpen(true)}
+          />
+          {filters.metro_id && (
+            <button
+              type="button"
+              className="filters__metro-clear"
+              onClick={handleMetroClear}
+              aria-label="Очистить метро"
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {metroDropdownOpen && (
+          <div className="filters__metro-dropdown">
+            {metroSearchQuery.trim().length < 2 ? (
+              <div className="filters__metro-hint">Введите минимум 2 символа</div>
+            ) : metroSearching ? (
+              <div className="filters__metro-hint">Поиск...</div>
+            ) : metroSearchResults.length === 0 ? (
+              <div className="filters__metro-hint">Станции не найдены</div>
+            ) : (
+              metroSearchResults.map((metro) => (
+                <button
+                  key={metro.id}
+                  type="button"
+                  className={`filters__metro-option ${filters.metro_id === metro.id ? 'selected' : ''}`}
+                  onClick={() => handleMetroSelect(metro)}
+                >
+                  <span
+                    className="filters__metro-line-color"
+                    style={{ backgroundColor: metro.line_color || '#999' }}
+                    aria-hidden
+                  />
+                  {metro.name}
+                </button>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <div className="filters__row">

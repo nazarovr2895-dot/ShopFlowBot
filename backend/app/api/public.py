@@ -28,6 +28,7 @@ class MetroResponse(BaseModel):
     id: int
     name: str
     district_id: int
+    line_color: Optional[str] = None
 
 
 class DistrictResponse(BaseModel):
@@ -51,6 +52,8 @@ class PublicSellerListItem(BaseModel):
     city_name: Optional[str]
     district_name: Optional[str]
     metro_name: Optional[str]
+    metro_walk_minutes: Optional[int] = None
+    metro_line_color: Optional[str] = None
     available_slots: int  # max_orders - active_orders - pending_requests
     min_price: Optional[float]
     max_price: Optional[float]
@@ -68,6 +71,8 @@ class PublicSellerDetail(BaseModel):
     city_name: Optional[str]
     district_name: Optional[str]
     metro_name: Optional[str]
+    metro_walk_minutes: Optional[int] = None
+    metro_line_color: Optional[str] = None
     available_slots: int
     products: List[dict]
 
@@ -165,6 +170,7 @@ async def get_public_sellers(
             City.name.label("city_name"),
             District.name.label("district_name"),
             Metro.name.label("metro_name"),
+            Metro.line_color.label("metro_line_color"),
             product_stats.c.min_price,
             product_stats.c.max_price,
             func.coalesce(product_stats.c.product_count, 0).label("product_count")
@@ -220,6 +226,8 @@ async def get_public_sellers(
             city_name=row.city_name,
             district_name=row.district_name,
             metro_name=row.metro_name,
+            metro_walk_minutes=seller.metro_walk_minutes,
+            metro_line_color=row.metro_line_color,
             available_slots=available_slots,
             min_price=float(row.min_price) if row.min_price else None,
             max_price=float(row.max_price) if row.max_price else None,
@@ -250,7 +258,8 @@ async def get_public_seller_detail(
             Seller,
             City.name.label("city_name"),
             District.name.label("district_name"),
-            Metro.name.label("metro_name")
+            Metro.name.label("metro_name"),
+            Metro.line_color.label("metro_line_color")
         )
         .outerjoin(City, Seller.city_id == City.id)
         .outerjoin(District, Seller.district_id == District.id)
@@ -313,9 +322,34 @@ async def get_public_seller_detail(
         city_name=row.city_name,
         district_name=row.district_name,
         metro_name=row.metro_name,
+        metro_walk_minutes=seller.metro_walk_minutes,
+        metro_line_color=row.metro_line_color,
         available_slots=available_slots,
         products=products_list
     )
+
+
+@router.get("/metro/search", response_model=List[MetroResponse])
+async def search_metro_stations(
+    q: str = Query(..., min_length=1, description="Поиск по названию станции"),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Поиск станций метро по названию по всем районам.
+    Возвращает список станций с id, name, district_id, line_color.
+    """
+    query = (
+        select(Metro)
+        .where(Metro.name.ilike(f"%{q}%"))
+        .order_by(Metro.name)
+        .limit(50)
+    )
+    result = await session.execute(query)
+    stations = result.scalars().all()
+    return [
+        MetroResponse(id=s.id, name=s.name, district_id=s.district_id, line_color=s.line_color)
+        for s in stations
+    ]
 
 
 @router.get("/metro/{district_id}", response_model=List[MetroResponse])
@@ -344,7 +378,7 @@ async def get_metro_stations(
     stations = result.scalars().all()
     
     stations_data = [
-        {"id": s.id, "name": s.name, "district_id": s.district_id}
+        {"id": s.id, "name": s.name, "district_id": s.district_id, "line_color": s.line_color}
         for s in stations
     ]
     

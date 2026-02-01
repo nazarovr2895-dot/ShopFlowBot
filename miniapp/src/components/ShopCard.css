@@ -67,6 +67,31 @@
   white-space: nowrap;
 }
 
+.shop-card__metro {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shop-card__metro-line {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.shop-card__metro-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shop-card__metro-walk {
+  color: var(--tg-theme-hint-color, #888);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .shop-card__footer {
   display: flex;
   justify-content: space-between;

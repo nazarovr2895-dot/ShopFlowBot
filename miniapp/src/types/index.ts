@@ -14,6 +14,7 @@ export interface Metro {
   id: number;
   name: string;
   district_id: number;
+  line_color?: string;
 }
 
 // Seller types
@@ -26,6 +27,8 @@ export interface PublicSellerListItem {
   city_name: string | null;
   district_name: string | null;
   metro_name: string | null;
+  metro_walk_minutes?: number;
+  metro_line_color?: string;
   available_slots: number;
   min_price: number | null;
   max_price: number | null;
@@ -50,6 +53,8 @@ export interface PublicSellerDetail {
   city_name: string | null;
   district_name: string | null;
   metro_name: string | null;
+  metro_walk_minutes?: number;
+  metro_line_color?: string;
   available_slots: number;
   products: Product[];
 }

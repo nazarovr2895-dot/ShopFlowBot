@@ -9,7 +9,7 @@ from bot.api_client.sellers import (
     api_search_sellers, api_update_seller_field,
     api_block_seller, api_delete_seller,
     api_get_all_stats, api_get_seller_stats, api_get_agents_stats,
-    api_get_all_sellers
+    api_get_all_sellers, api_search_metro
 )
 
 router = Router()
@@ -30,6 +30,8 @@ class AddSeller(StatesGroup):
     city = State()
     district = State()
     map_url = State()
+    metro = State()
+    metro_walk_minutes = State()
     delivery_type = State()
     delivery_price = State()
     placement_expired_at = State()
@@ -189,9 +191,109 @@ async def add_map_url(message: types.Message, state: FSMContext):
         return
     
     await state.update_data(map_url=message.text)
+    await state.set_state(AddSeller.metro)
+    await message.answer(
+        "🚇 Введите название станции метро для поиска (например: Арбатская):\n"
+        "Или нажмите «Пропустить», чтобы не указывать метро.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⏭ Пропустить", callback_data="metro_skip")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]
+        ])
+    )
+
+
+@router.message(AddSeller.metro)
+async def add_metro(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("Отменено.", reply_markup=kb.get_main_kb(message.from_user.id, "ADMIN"))
+        return
+
+    if message.text and message.text.strip().lower() == "пропустить":
+        await state.update_data(metro_id=None, metro_walk_minutes=None)
+        await state.set_state(AddSeller.delivery_type)
+        del_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🚚 Только самовывоз", callback_data="deliv_pickup")],
+            [InlineKeyboardButton(text="🚚 Доставка", callback_data="deliv_delivery")],
+            [InlineKeyboardButton(text="🚚 Оба", callback_data="deliv_both")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]
+        ])
+        await message.answer("🚚 Выберите тип доставки:", reply_markup=del_kb)
+        return
+
+    stations = await api_search_metro(message.text.strip())
+    if not stations or len(stations) == 0:
+        await message.answer("❌ Станции не найдены. Введите название ещё раз или нажмите «Пропустить».")
+        return
+
+    keyboard = []
+    for s in stations[:15]:
+        keyboard.append([InlineKeyboardButton(
+            text=f"{s.get('name', '—')}",
+            callback_data=f"metro_{s.get('id')}"
+        )])
+    keyboard.append([InlineKeyboardButton(text="⏭ Пропустить", callback_data="metro_skip")])
+    keyboard.append([InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")])
+
+    await message.answer(
+        "Выберите станцию метро:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+    )
+
+
+@router.callback_query(AddSeller.metro)
+async def select_metro(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data == "cancel":
+        await callback.answer()
+        await state.clear()
+        await callback.message.edit_text("Отменено.")
+        await callback.message.answer("Главное меню.", reply_markup=kb.get_main_kb(callback.from_user.id, "ADMIN"))
+        return
+
+    if callback.data == "metro_skip":
+        await callback.answer()
+        await state.update_data(metro_id=None, metro_walk_minutes=None)
+        await state.set_state(AddSeller.delivery_type)
+        del_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🚚 Только самовывоз", callback_data="deliv_pickup")],
+            [InlineKeyboardButton(text="🚚 Доставка", callback_data="deliv_delivery")],
+            [InlineKeyboardButton(text="🚚 Оба", callback_data="deliv_both")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]
+        ])
+        await callback.message.edit_text("🚚 Выберите тип доставки:", reply_markup=del_kb)
+        return
+
+    if callback.data and callback.data.startswith("metro_"):
+        metro_id_str = callback.data.split("_")[1]
+        if metro_id_str.isdigit():
+            await callback.answer()
+            await state.update_data(metro_id=int(metro_id_str))
+            await state.set_state(AddSeller.metro_walk_minutes)
+            await callback.message.edit_text(
+                "🚶 Сколько минут пешком до метро? Введите число (например: 5):",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+            )
+
+
+@router.message(AddSeller.metro_walk_minutes)
+async def add_metro_walk_minutes(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("Отменено.", reply_markup=kb.get_main_kb(message.from_user.id, "ADMIN"))
+        return
+
+    try:
+        minutes = int(message.text.strip())
+        if minutes <= 0:
+            await message.answer("❌ Введите число больше 0 (например: 5):")
+            return
+    except ValueError:
+        await message.answer("❌ Введите целое число (например: 5):")
+        return
+
+    await state.update_data(metro_walk_minutes=minutes)
     await state.set_state(AddSeller.delivery_type)
-    
-    # Кнопки для выбора типа доставки
+
     del_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚚 Только самовывоз", callback_data="deliv_pickup")],
         [InlineKeyboardButton(text="🚚 Доставка", callback_data="deliv_delivery")],
@@ -199,6 +301,7 @@ async def add_map_url(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]
     ])
     await message.answer("🚚 Выберите тип доставки:", reply_markup=del_kb)
+
 
 @router.callback_query(AddSeller.delivery_type)
 async def select_delivery_type(callback: types.CallbackQuery, state: FSMContext):
@@ -266,6 +369,8 @@ async def add_expiry_date(message: types.Message, state: FSMContext):
         city_id=data.get('city_id'),
         district_id=data.get('district_id'),
         map_url=data.get('map_url'),
+        metro_id=data.get('metro_id'),
+        metro_walk_minutes=data.get('metro_walk_minutes'),
         delivery_type=data.get('delivery_type'),
         delivery_price=data.get('delivery_price', 0.0),
         placement_expired_at=placement_expired_at

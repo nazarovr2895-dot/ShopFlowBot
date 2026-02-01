@@ -40,8 +40,9 @@ class SellerService:
     """Service class for seller operations."""
     
     VALID_UPDATE_FIELDS = {
-        "fio", "phone", "shop_name", "description", 
-        "map_url", "delivery_type", "delivery_price", "city_id", "district_id"
+        "fio", "phone", "shop_name", "description",
+        "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
+        "metro_id", "metro_walk_minutes"
     }
     
     def __init__(self, session: AsyncSession):
@@ -87,6 +88,8 @@ class SellerService:
             "delivery_price": float(seller.delivery_price) if seller.delivery_price else 0.0,
             "city_id": seller.city_id,
             "district_id": seller.district_id,
+            "metro_id": seller.metro_id,
+            "metro_walk_minutes": seller.metro_walk_minutes,
             "map_url": seller.map_url,
             "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
             "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
@@ -103,6 +106,8 @@ class SellerService:
         city_id: Optional[int] = None,
         district_id: Optional[int] = None,
         map_url: Optional[str] = None,
+        metro_id: Optional[int] = None,
+        metro_walk_minutes: Optional[int] = None,
         delivery_type: str = "pickup",
         delivery_price: float = 0.0,
         placement_expired_at: Optional[datetime] = None,
@@ -146,6 +151,10 @@ class SellerService:
         # Ensure district exists
         await self._ensure_district_exists(district_id, city_id)
         
+        # Validate: metro_walk_minutes > 0 when metro_id is specified (plan §5)
+        if metro_id is not None and metro_walk_minutes is not None and metro_walk_minutes <= 0:
+            raise SellerServiceError("Время до метро должно быть больше 0 минут")
+        
         # Create seller
         new_seller = Seller(
             seller_id=tg_id,
@@ -154,6 +163,8 @@ class SellerService:
             city_id=city_id,
             district_id=district_id,
             map_url=map_url,
+            metro_id=metro_id,
+            metro_walk_minutes=metro_walk_minutes,
             delivery_type=delivery_type,
             delivery_price=delivery_price,
             placement_expired_at=placement_expired_at,
@@ -230,7 +241,14 @@ class SellerService:
             seller.city_id = int(value) if value.isdigit() else None
         elif field == "district_id":
             seller.district_id = int(value) if value.isdigit() else None
-        
+        elif field == "metro_id":
+            seller.metro_id = int(value) if value.isdigit() else None
+        elif field == "metro_walk_minutes":
+            new_val = int(value) if value.isdigit() else None
+            if new_val is not None and new_val <= 0 and seller.metro_id is not None:
+                raise SellerServiceError("Время до метро должно быть больше 0 минут")
+            seller.metro_walk_minutes = new_val
+
         await self.session.commit()
         return {"status": "ok"}
     

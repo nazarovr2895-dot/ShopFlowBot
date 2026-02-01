@@ -92,3 +92,105 @@
 .filters__reset:active {
   background: rgba(33, 150, 243, 0.1);
 }
+
+/* Metro search */
+.filters__metro-search {
+  position: relative;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.filters__metro-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filters__metro-input {
+  flex: 1;
+  padding: 10px 36px 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #000);
+  font-size: 14px;
+}
+
+.filters__metro-input::placeholder {
+  color: var(--tg-theme-hint-color, #888);
+}
+
+.filters__metro-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--tg-theme-link-color, #2196f3);
+}
+
+.filters__metro-clear {
+  position: absolute;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--tg-theme-hint-color, #888);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filters__metro-clear:active {
+  opacity: 0.8;
+}
+
+.filters__metro-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--tg-theme-bg-color, #fff);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.filters__metro-hint {
+  padding: 12px;
+  color: var(--tg-theme-hint-color, #888);
+  font-size: 13px;
+  text-align: center;
+}
+
+.filters__metro-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--tg-theme-text-color, #000);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.filters__metro-option:hover,
+.filters__metro-option.selected {
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.filters__metro-line-color {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}

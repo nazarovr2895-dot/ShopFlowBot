@@ -88,6 +88,11 @@ class ApiClient {
     return this.fetch<Metro[]>(`/public/metro/${districtId}`);
   }
 
+  async searchMetroStations(query: string): Promise<Metro[]> {
+    const params = new URLSearchParams({ q: query });
+    return this.fetch<Metro[]>(`/public/metro/search?${params.toString()}`);
+  }
+
   // Sellers API
   async getSellers(
     filters: SellerFilters = {},

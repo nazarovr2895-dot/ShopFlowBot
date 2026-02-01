@@ -163,10 +163,27 @@ async def api_get_districts(city_id: int):
     """Получить список округов по городу"""
     return await make_request("GET", f"/admin/districts/{city_id}")
 
+
+async def api_search_metro(query: str):
+    """
+    Поиск станций метро по названию по всем районам.
+    Возвращает список станций: [{"id", "name", "district_id", "line_color"}, ...].
+    При пустом запросе или ошибке возвращает [].
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    data = await make_request("GET", "/public/metro/search", params={"q": q})
+    if not isinstance(data, list):
+        return []
+    return data
+
+
 async def api_create_seller(
     tg_id: int, fio: str, phone: str, shop_name: str,
     description: str = None, city_id: int = None, district_id: int = None,
-    map_url: str = None, delivery_type: str = None, delivery_price: float = 0.0, placement_expired_at: str = None
+    map_url: str = None, metro_id: int = None, metro_walk_minutes: int = None,
+    delivery_type: str = None, delivery_price: float = 0.0, placement_expired_at: str = None
 ):
     """Создание продавца с полными данными"""
     payload = {
@@ -182,6 +199,10 @@ async def api_create_seller(
         "delivery_price": delivery_price,
         "placement_expired_at": placement_expired_at
     }
+    if metro_id is not None:
+        payload["metro_id"] = metro_id
+    if metro_walk_minutes is not None:
+        payload["metro_walk_minutes"] = metro_walk_minutes
     return await make_request("POST", "/admin/create_seller", data=payload)
 
 async def api_search_sellers(fio: str, include_deleted: bool = False):

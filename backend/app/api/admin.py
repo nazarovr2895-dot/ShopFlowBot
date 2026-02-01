@@ -46,6 +46,8 @@ class SellerCreateSchema(BaseModel):
     city_id: Optional[int] = None
     district_id: Optional[int] = None
     map_url: Optional[str] = None
+    metro_id: Optional[int] = None
+    metro_walk_minutes: Optional[int] = None
     delivery_type: str
     delivery_price: float = 0.0
     placement_expired_at: Optional[datetime] = None
@@ -115,6 +117,8 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
         city_id=data.city_id,
         district_id=data.district_id,
         map_url=data.map_url,
+        metro_id=data.metro_id,
+        metro_walk_minutes=data.metro_walk_minutes,
         delivery_type=data.delivery_type,
         delivery_price=data.delivery_price,
         placement_expired_at=data.placement_expired_at,

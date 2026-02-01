@@ -44,6 +44,35 @@ export function ShopCard({ seller }: ShopCardProps) {
         : `${formatPrice(seller.min_price)} – ${formatPrice(seller.max_price)}`
       : 'Нет товаров';
 
+  const renderLocation = () => {
+    const parts: React.ReactNode[] = [];
+    if (seller.district_name) parts.push(seller.district_name);
+    if (seller.metro_name) {
+      parts.push(
+        <span key="metro" className="shop-card__metro">
+          {seller.metro_line_color && (
+            <span
+              className="shop-card__metro-line"
+              style={{ backgroundColor: seller.metro_line_color }}
+              aria-hidden
+            />
+          )}
+          <span className="shop-card__metro-name">{seller.metro_name}</span>
+          {seller.metro_walk_minutes != null && seller.metro_walk_minutes > 0 && (
+            <span className="shop-card__metro-walk">
+              🚶 {seller.metro_walk_minutes} мин
+            </span>
+          )}
+        </span>,
+      );
+    }
+    if (parts.length === 0) return 'Локация не указана';
+    return parts.reduce<React.ReactNode[]>(
+      (acc, part, i) => (i === 0 ? [part] : [...acc, ' • ', part]),
+      [],
+    );
+  };
+
   return (
     <div className="shop-card" onClick={handleClick}>
       <div className="shop-card__header">
@@ -58,7 +87,7 @@ export function ShopCard({ seller }: ShopCardProps) {
       )}
 
       <div className="shop-card__location">
-        {[seller.metro_name, seller.district_name].filter(Boolean).join(' • ') || 'Локация не указана'}
+        {renderLocation()}
       </div>
 
       <div className="shop-card__footer">
