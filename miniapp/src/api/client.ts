@@ -7,7 +7,13 @@ import type {
   SellerFilters,
 } from '../types';
 
-// API base URL - пустой для использования прокси в dev режиме
+// API base URL: сначала runtime (config.json), иначе из сборки (VITE_API_URL)
+let runtimeApiUrl: string | null = null;
+
+export function setApiBaseUrl(url: string): void {
+  runtimeApiUrl = url;
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 /**
@@ -34,8 +40,12 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
+  private getBaseUrl(): string {
+    return runtimeApiUrl != null && runtimeApiUrl !== '' ? runtimeApiUrl : this.baseUrl;
+  }
+
   private async fetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = `${this.getBaseUrl()}${endpoint}`;
     console.log('[API] Fetching:', url);
     
     // Build headers with optional Telegram auth

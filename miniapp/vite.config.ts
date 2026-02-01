@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', '@twa-dev/sdk'],
+  },
   resolve: {
     alias: {
       '@': new URL('./src', import.meta.url).pathname,
@@ -14,6 +17,10 @@ export default defineConfig({
     allowedHosts: ['localhost', '.ngrok-free.dev', '.ngrok.io', '.loophole.site'],
     proxy: {
       '/public': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/buyers': {
         target: 'http://localhost:8000',
         changeOrigin: true,
       },

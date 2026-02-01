@@ -41,12 +41,18 @@ function AppContent() {
     }
   }, [webApp.themeParams]);
 
-  // Check if user needs to set up location
+  // Check if user needs to set up location (with timeout so we don't hang forever)
   useEffect(() => {
+    const REQUEST_TIMEOUT_MS = 12_000;
+
     const checkUserLocation = async () => {
       try {
-        const user = await api.getCurrentUser();
-        
+        const userPromise = api.getCurrentUser();
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), REQUEST_TIMEOUT_MS)
+        );
+        const user = await Promise.race([userPromise, timeoutPromise]);
+
         // Check if user has city_id and district_id set
         if (!user.city_id || !user.district_id) {
           setNeedsLocationSetup(true);
