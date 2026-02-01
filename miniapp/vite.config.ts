@@ -1,18 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': new URL('./src', import.meta.url).pathname,
     },
   },
   server: {
     port: 3000,
     host: true,
-    allowedHosts: ['localhost', '.ngrok-free.dev', '.ngrok.io'],
+    allowedHosts: ['localhost', '.ngrok-free.dev', '.ngrok.io', '.loophole.site'],
     proxy: {
       '/public': {
         target: 'http://localhost:8000',
