@@ -1,0 +1,28 @@
+.agent-info p {
+  margin-bottom: 0.5rem;
+}
+
+.referrals-section {
+  margin-top: 1.5rem;
+}
+
+.referrals-section h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.referrals-list {
+  list-style: none;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.referrals-list li {
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.modal-lg {
+  max-width: 520px;
+}

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from datetime import datetime
@@ -21,6 +22,17 @@ from backend.app.services.cache import CacheService
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+# Admin panel auth: when ADMIN_SECRET is set, require X-Admin-Token header
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
+
+
+async def require_admin_token(x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Require admin token when ADMIN_SECRET is configured. Otherwise allow all."""
+    if not ADMIN_SECRET:
+        return
+    if not x_admin_token or x_admin_token != ADMIN_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid or missing admin token")
 
 
 def _handle_seller_error(e: SellerServiceError):

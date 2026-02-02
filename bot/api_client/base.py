@@ -32,17 +32,18 @@ class APIClient:
             cls._session = None
 
 
-async def make_request(method: str, endpoint: str, data: dict = None, params: dict = None):
+async def make_request(method: str, endpoint: str, data: dict = None, params: dict = None, headers: dict = None):
     """
     Выполнить HTTP запрос к backend API.
     Использует singleton ClientSession для эффективного переиспользования соединений.
     """
     url = f"{BACKEND_URL}{endpoint}"
     session = await APIClient.get_session()
-    
+    req_headers = dict(headers or {})
+
     try:
         if method == "POST":
-            async with session.post(url, json=data) as response:
+            async with session.post(url, json=data, headers=req_headers or None) as response:
                 # Проверяем статус ответа
                 if response.status >= 400:
                     error_text = await response.text()
@@ -56,7 +57,7 @@ async def make_request(method: str, endpoint: str, data: dict = None, params: di
                     return {"status": response.status}
                 return await response.json()
         elif method == "GET":
-            async with session.get(url, params=params) as response:
+            async with session.get(url, params=params, headers=req_headers or None) as response:
                 if response.status >= 400:
                     error_text = await response.text()
                     logger.error(f"❌ API ошибка {response.status} для {url}: {error_text}")
@@ -68,7 +69,7 @@ async def make_request(method: str, endpoint: str, data: dict = None, params: di
                     return {"status": response.status}
                 return await response.json()
         elif method == "PUT":
-            async with session.put(url, json=data, params=params) as response:
+            async with session.put(url, json=data, params=params, headers=req_headers or None) as response:
                 if response.status >= 400:
                     error_text = await response.text()
                     logger.error(f"❌ API ошибка {response.status} для {url}: {error_text}")
@@ -80,7 +81,7 @@ async def make_request(method: str, endpoint: str, data: dict = None, params: di
                     return {"status": response.status}
                 return await response.json()
         elif method == "DELETE":
-            async with session.delete(url, params=params) as response:
+            async with session.delete(url, params=params, headers=req_headers or None) as response:
                 if response.status >= 400:
                     error_text = await response.text()
                     logger.error(f"❌ API ошибка {response.status} для {url}: {error_text}")

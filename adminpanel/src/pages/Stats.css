@@ -1,0 +1,64 @@
+.stats-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.stats-summary h3,
+.card h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.summary-item {
+  padding: 1rem;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.summary-item.accent .summary-value {
+  color: var(--accent);
+}
+
+.summary-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.search-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.search-row .form-input {
+  flex: 1;
+  max-width: 300px;
+}
+
+.single-seller-stats {
+  padding: 1rem;
+  background: var(--bg);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.single-seller-stats p {
+  margin-bottom: 0.25rem;
+}

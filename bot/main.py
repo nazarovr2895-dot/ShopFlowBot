@@ -23,7 +23,7 @@ import backend.app.models.product
 # import backend.app.models.settings
 
 # Импортируем роутеры
-from bot.handlers import start, seller, buyer, agent, admin
+from bot.handlers import start, seller, buyer, agent
 
 async def main():
     # Включаем подробное логирование
@@ -48,12 +48,11 @@ async def main():
     dp.include_router(seller.router)
     dp.include_router(buyer.router)
     dp.include_router(agent.router)
-    dp.include_router(admin.router)
 
     # Удаляем старые апдейты (чтобы бот не отвечал на старые сообщения)
     await bot.delete_webhook(drop_pending_updates=True)
     
-    logger.info(f"✅ Бот запущен! Master Admin ID: {start.MASTER_ADMIN_ID}")
+    logger.info("✅ Бот запущен!")
     
     # Запуск с graceful shutdown
     try:

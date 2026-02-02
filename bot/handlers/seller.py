@@ -712,11 +712,6 @@ async def add_p_photo(message: types.Message, state: FSMContext):
     await state.clear()
 
 # --- 5. ВЫХОД (Переходы по кнопкам) ---
-@router.message(F.text == "👑 Вернуться в АДМИН-ПАНЕЛЬ")
-async def to_adm(message: types.Message):
-    menu = kb.get_main_kb(message.from_user.id, "ADMIN")
-    await message.answer("Меню админа.", reply_markup=menu)
-
 @router.message(F.text == "🛍 Режим покупателя")
 async def to_buy(message: types.Message):
     menu = kb.get_main_kb(message.from_user.id, "BUYER")
