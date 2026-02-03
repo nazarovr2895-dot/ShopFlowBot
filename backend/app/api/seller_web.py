@@ -1,15 +1,27 @@
 """Seller web panel API - protected by X-Seller-Token."""
 import os
+import uuid
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.deps import get_session
 from backend.app.api.seller_auth import require_seller_token
 from backend.app.core.logging import get_logger
-from backend.app.schemas import ProductCreate, ProductUpdate
+from backend.app.schemas import (
+    ProductCreate,
+    ProductUpdate,
+    FlowerCreate,
+    ReceptionCreate,
+    ReceptionItemCreate,
+    ReceptionItemUpdate,
+    InventoryCheckLine,
+    BouquetCreate,
+)
 from backend.app.services.orders import OrderService, OrderServiceError
 from backend.app.services.sellers import SellerService, SellerServiceError
 from backend.app.services.products import (
@@ -19,10 +31,35 @@ from backend.app.services.products import (
     update_product_service,
     delete_product_service,
 )
+from backend.app.services.receptions import (
+    list_flowers,
+    create_flower,
+    delete_flower,
+    list_receptions,
+    create_reception,
+    get_reception,
+    add_reception_item,
+    update_reception_item,
+    delete_reception_item,
+    get_reception_items_for_inventory,
+    inventory_check,
+)
 from backend.app.services.referrals import accrue_commissions
+from backend.app.services.bouquets import (
+    list_bouquets_with_totals,
+    get_bouquet_with_totals,
+    create_bouquet as create_bouquet_svc,
+    update_bouquet as update_bouquet_svc,
+    delete_bouquet as delete_bouquet_svc,
+)
 
 router = APIRouter(dependencies=[Depends(require_seller_token)])
 logger = get_logger(__name__)
+
+# Директория для загруженных фото (backend/static)
+UPLOAD_DIR = Path(__file__).resolve().parents[2] / "static"
+PRODUCTS_UPLOAD_SUBDIR = Path("uploads") / "products"
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 
 def _get_seller_id(seller_id: int = Depends(require_seller_token)) -> int:
@@ -201,6 +238,8 @@ async def add_product(
         "photo_id": data.photo_id,
         "quantity": data.quantity,
     }
+    if data.bouquet_id is not None:
+        product_data["bouquet_id"] = data.bouquet_id
     return await create_product_service(session, product_data)
 
 
@@ -231,6 +270,320 @@ async def delete_product(
         raise HTTPException(status_code=404, detail="Товар не найден")
     await delete_product_service(session, product_id)
     return {"status": "deleted"}
+
+
+@router.post("/upload-photo")
+async def upload_product_photo(
+    file: UploadFile = File(...),
+    seller_id: int = Depends(require_seller_token),
+):
+    """Загрузка фото товара. Возвращает photo_id (путь для сохранения в товаре)."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Файл не выбран")
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Допустимые форматы: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
+        )
+    upload_dir = UPLOAD_DIR / PRODUCTS_UPLOAD_SUBDIR
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}{ext}"
+    path = upload_dir / name
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:  # 10 MB
+        raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 10 МБ)")
+    path.write_bytes(content)
+    photo_id = f"/static/{PRODUCTS_UPLOAD_SUBDIR}/{name}"
+    return {"photo_id": photo_id}
+
+
+def _handle_crm_db_error(e: Exception) -> None:
+    """Raise 503 with clear message if CRM tables are missing (migration not run)."""
+    logger.exception("CRM API error: %s", e)
+    if isinstance(e, (OperationalError, ProgrammingError)):
+        msg = str(e).lower()
+        if "does not exist" in msg or "undefined_table" in msg or "relation" in msg:
+            raise HTTPException(
+                status_code=503,
+                detail="CRM tables not found. Run migrations in backend: cd backend && alembic upgrade head",
+            ) from e
+    raise e
+
+
+# --- FLOWERS (catalog) ---
+@router.get("/flowers")
+async def api_list_flowers(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        flowers = await list_flowers(session, seller_id)
+        return [{"id": f.id, "name": f.name, "default_shelf_life_days": f.default_shelf_life_days} for f in flowers]
+    except Exception as e:
+        _handle_crm_db_error(e)
+        raise
+
+
+@router.post("/flowers")
+async def api_create_flower(
+    data: FlowerCreate,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        flower = await create_flower(
+            session, seller_id, data.name, data.default_shelf_life_days
+        )
+        return {"id": flower.id, "name": flower.name, "default_shelf_life_days": flower.default_shelf_life_days}
+    except Exception as e:
+        _handle_crm_db_error(e)
+        raise
+
+
+@router.delete("/flowers/{flower_id}")
+async def api_delete_flower(
+    flower_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    ok = await delete_flower(session, flower_id, seller_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Цветок не найден")
+    return {"status": "deleted"}
+
+
+# --- RECEPTIONS ---
+@router.get("/receptions")
+async def api_list_receptions(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await list_receptions(session, seller_id)
+    except Exception as e:
+        _handle_crm_db_error(e)
+        raise
+
+
+@router.post("/receptions")
+async def api_create_reception(
+    data: ReceptionCreate,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from datetime import datetime
+    rec_date = None
+    if data.reception_date:
+        try:
+            rec_date = datetime.strptime(data.reception_date, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    rec = await create_reception(session, seller_id, data.name, rec_date)
+    return {
+        "id": rec.id,
+        "name": rec.name,
+        "reception_date": rec.reception_date.isoformat() if rec.reception_date else None,
+    }
+
+
+@router.get("/receptions/{reception_id}")
+async def api_get_reception(
+    reception_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    rec = await get_reception(session, reception_id, seller_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Приёмка не найдена")
+    return rec
+
+
+@router.post("/receptions/{reception_id}/items")
+async def api_add_reception_item(
+    reception_id: int,
+    data: ReceptionItemCreate,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    from datetime import datetime
+    arr_date = None
+    if data.arrival_date:
+        try:
+            arr_date = datetime.strptime(data.arrival_date, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    item = await add_reception_item(
+        session,
+        reception_id,
+        seller_id,
+        data.flower_id,
+        data.quantity_initial,
+        arr_date,
+        data.shelf_life_days,
+        data.price_per_unit,
+    )
+    if not item:
+        raise HTTPException(status_code=400, detail="Приёмка или цветок не найдены")
+    return {
+        "id": item.id,
+        "flower_id": item.flower_id,
+        "quantity_initial": item.quantity_initial,
+        "arrival_date": item.arrival_date.isoformat() if item.arrival_date else None,
+        "shelf_life_days": item.shelf_life_days,
+        "price_per_unit": float(item.price_per_unit),
+        "remaining_quantity": item.remaining_quantity,
+        "sold_quantity": item.sold_quantity,
+        "sold_amount": float(item.sold_amount),
+    }
+
+
+@router.put("/receptions/items/{item_id}")
+async def api_update_reception_item(
+    item_id: int,
+    data: ReceptionItemUpdate,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    from datetime import datetime
+    kwargs = data.model_dump(exclude_unset=True)
+    if "arrival_date" in kwargs and kwargs["arrival_date"]:
+        try:
+            kwargs["arrival_date"] = datetime.strptime(kwargs["arrival_date"], "%Y-%m-%d").date()
+        except ValueError:
+            kwargs.pop("arrival_date", None)
+    item = await update_reception_item(session, item_id, seller_id, **kwargs)
+    if not item:
+        raise HTTPException(status_code=404, detail="Позиция не найдена")
+    return {
+        "id": item.id,
+        "remaining_quantity": item.remaining_quantity,
+        "quantity_initial": item.quantity_initial,
+        "arrival_date": item.arrival_date.isoformat() if item.arrival_date else None,
+        "shelf_life_days": item.shelf_life_days,
+        "price_per_unit": float(item.price_per_unit),
+        "sold_quantity": item.sold_quantity,
+        "sold_amount": float(item.sold_amount),
+    }
+
+
+@router.delete("/receptions/items/{item_id}")
+async def api_delete_reception_item(
+    item_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    ok = await delete_reception_item(session, item_id, seller_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Позиция не найдена")
+    return {"status": "deleted"}
+
+
+# --- BOUQUETS ---
+@router.get("/bouquets")
+async def api_list_bouquets(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    return await list_bouquets_with_totals(session, seller_id)
+
+
+@router.get("/bouquets/{bouquet_id}")
+async def api_get_bouquet(
+    bouquet_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    b = await get_bouquet_with_totals(session, bouquet_id, seller_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Букет не найден")
+    return b
+
+
+@router.post("/bouquets")
+async def api_create_bouquet(
+    data: BouquetCreate,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    items = [{"flower_id": i.flower_id, "quantity": i.quantity, "markup_multiplier": i.markup_multiplier} for i in data.items]
+    try:
+        b = await create_bouquet_svc(
+            session, seller_id, data.name, data.packaging_cost, items
+        )
+        return await get_bouquet_with_totals(session, b.id, seller_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/bouquets/{bouquet_id}")
+async def api_update_bouquet(
+    bouquet_id: int,
+    data: BouquetCreate,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    items = [{"flower_id": i.flower_id, "quantity": i.quantity, "markup_multiplier": i.markup_multiplier} for i in data.items]
+    try:
+        b = await update_bouquet_svc(
+            session, bouquet_id, seller_id, data.name, data.packaging_cost, items
+        )
+        if not b:
+            raise HTTPException(status_code=404, detail="Букет не найден")
+        return await get_bouquet_with_totals(session, bouquet_id, seller_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/bouquets/{bouquet_id}")
+async def api_delete_bouquet(
+    bouquet_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    ok = await delete_bouquet_svc(session, bouquet_id, seller_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Букет не найден")
+    return {"status": "deleted"}
+
+
+# --- INVENTORY ---
+@router.get("/receptions/{reception_id}/inventory")
+async def api_get_reception_inventory(
+    reception_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    rec_result = await get_reception(session, reception_id, seller_id)
+    if not rec_result:
+        raise HTTPException(status_code=404, detail="Приёмка не найдена")
+    items = await get_reception_items_for_inventory(session, reception_id, seller_id)
+    return {"reception_id": reception_id, "items": items}
+
+
+@router.post("/receptions/{reception_id}/inventory/check")
+async def api_inventory_check(
+    reception_id: int,
+    body: list[InventoryCheckLine],
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    rec_result = await get_reception(session, reception_id, seller_id)
+    if not rec_result:
+        raise HTTPException(status_code=404, detail="Приёмка не найдена")
+    lines = [{"reception_item_id": x.reception_item_id, "actual_quantity": x.actual_quantity} for x in body]
+    return await inventory_check(session, reception_id, seller_id, lines)
 
 
 # --- SECURITY ---

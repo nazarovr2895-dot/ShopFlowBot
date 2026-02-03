@@ -104,16 +104,23 @@ async def api_get_seller(tg_id: int):
 
 # --- ТОВАРЫ ---
 
-async def api_create_product(seller_id: int, name: str, price: float, description: str, photo_id: str, quantity: int = 0):
+async def api_get_bouquets(seller_id: int):
+    """Список букетов продавца (для выбора при добавлении товара из букета)."""
+    data = await make_request("GET", f"/sellers/{seller_id}/bouquets")
+    return data if isinstance(data, list) else []
+
+
+async def api_create_product(seller_id: int, name: str, price: float, description: str, photo_id: str, quantity: int = 0, bouquet_id: Optional[int] = None):
     payload = {
         "seller_id": seller_id,
         "name": name,
         "price": price,
-        "description": description,
+        "description": description or "",
         "photo_id": photo_id,
         "quantity": quantity
     }
-    # Обратите внимание: путь должен совпадать с тем, что в backend/api/sellers.py
+    if bouquet_id is not None:
+        payload["bouquet_id"] = bouquet_id
     return await make_request("POST", "/sellers/products/add", data=payload)
 
 async def api_get_my_products(seller_id: int):

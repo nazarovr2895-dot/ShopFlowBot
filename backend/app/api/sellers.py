@@ -20,6 +20,7 @@ from backend.app.services.products import (
     update_product_service,
     delete_product_service,
 )
+from backend.app.services.bouquets import list_bouquets_with_totals
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -39,6 +40,12 @@ async def get_products(seller_id: int, session: AsyncSession = Depends(get_sessi
     return products if products else []
 
 
+@router.get("/{seller_id}/bouquets")
+async def get_seller_bouquets(seller_id: int, session: AsyncSession = Depends(get_session)):
+    """Список букетов продавца (для бота при добавлении товара из букета)."""
+    return await list_bouquets_with_totals(session, seller_id)
+
+
 @router.post("/products/add", response_model=ProductResponse)
 async def add_product(data: ProductCreate, session: AsyncSession = Depends(get_session)):
     """Добавить товар"""
@@ -56,6 +63,8 @@ async def add_product(data: ProductCreate, session: AsyncSession = Depends(get_s
         "photo_id": data.photo_id,
         "quantity": data.quantity
     }
+    if data.bouquet_id is not None:
+        product_data["bouquet_id"] = data.bouquet_id
     result = await create_product_service(session, product_data)
     logger.info("Product added", product_id=result.id, seller_id=data.seller_id)
     return result

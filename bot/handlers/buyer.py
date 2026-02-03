@@ -5,7 +5,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 import bot.keyboards.reply as kb
 from bot.api_client.sellers import api_get_products, api_get_seller, api_get_buyer_orders, api_update_order_status, api_get_product
 from bot.api_client.orders import api_create_order
-from bot.config import MINI_APP_URL
+from bot.config import MINI_APP_URL, BACKEND_URL
 
 router = Router()
 
@@ -51,10 +51,13 @@ async def show_shop_products(message: types.Message, seller_id: int):
         quantity_text = f"📦 В наличии: {quantity} шт.\n" if quantity > 0 else ""
         caption = f"🌸 *{product.name}*\n💰 {product.price} руб.\n{quantity_text}\n{product.description}"
         
-        # Если есть фото
+        # Если есть фото: Telegram принимает только file_id или полный HTTP(S) URL
         if hasattr(product, 'photo_id') and product.photo_id:
+            photo = product.photo_id
+            if photo.startswith("/"):
+                photo = f"{BACKEND_URL.rstrip('/')}{photo}"
             await message.answer_photo(
-                photo=product.photo_id,
+                photo=photo,
                 caption=caption,
                 reply_markup=buy_kb,
                 parse_mode="Markdown"

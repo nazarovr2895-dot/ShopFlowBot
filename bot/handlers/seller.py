@@ -3,14 +3,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import bot.keyboards.reply as kb
-from bot.config import MASTER_ADMIN_ID
+from bot.config import MASTER_ADMIN_ID, BACKEND_URL
 
 # Импорт API
 from bot.api_client.sellers import (
     api_check_limit, api_get_seller, api_create_product, api_get_my_products, api_delete_product,
     api_get_seller_orders, api_accept_order, api_reject_order, api_done_order,
     api_update_seller_limit, api_get_seller_revenue_stats, api_update_order_status,
-    api_update_order_price
+    api_update_order_price, api_get_bouquets,
 )
 
 router = Router()
@@ -92,7 +92,8 @@ async def my_products_list(message: types.Message):
         d_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить", callback_data=f"delete_product_{p.id}")]])
         caption = f"🏷 *{p.name}*\n📝 {p.description}\n💰 *{p.price} руб.*\n📦 В наличии: {quantity} шт."
         if p.photo_id:
-            await message.answer_photo(p.photo_id, caption=caption, reply_markup=d_kb, parse_mode="Markdown")
+            photo = f"{BACKEND_URL.rstrip('/')}{p.photo_id}" if p.photo_id.startswith("/") else p.photo_id
+            await message.answer_photo(photo, caption=caption, reply_markup=d_kb, parse_mode="Markdown")
         else:
             await message.answer(caption, reply_markup=d_kb, parse_mode="Markdown")
     
@@ -103,7 +104,8 @@ async def my_products_list(message: types.Message):
             d_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗑 Удалить", callback_data=f"delete_product_{p.id}")]])
             caption = f"🏷 *{p.name}*\n📝 {p.description}\n💰 *{p.price} руб.*\n❌ Закончился"
             if p.photo_id:
-                await message.answer_photo(p.photo_id, caption=caption, reply_markup=d_kb, parse_mode="Markdown")
+                photo = f"{BACKEND_URL.rstrip('/')}{p.photo_id}" if p.photo_id.startswith("/") else p.photo_id
+                await message.answer_photo(photo, caption=caption, reply_markup=d_kb, parse_mode="Markdown")
             else:
                 await message.answer(caption, reply_markup=d_kb, parse_mode="Markdown")
 
@@ -667,8 +669,65 @@ async def start_add_p(message: types.Message, state: FSMContext):
             "⛔ Сейчас вы не можете добавлять товары: лимит на сегодня не задан или исчерпан.\n"
             "Укажите лимит в разделе «⚙️ Настройка лимитов» (после 6:00 нужно задать лимит на каждый день)."
         )
+    kb_choice = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Вручную", callback_data="add_product_manual")],
+        [InlineKeyboardButton(text="💐 Из букета", callback_data="add_product_from_bouquet")],
+    ])
+    await message.answer("Как добавить товар?", reply_markup=kb_choice)
+
+
+@router.callback_query(F.data == "add_product_manual")
+async def add_product_manual_cb(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(AddProduct.name)
-    await message.answer("Введите название товара:", reply_markup=kb.cancel_kb)
+    await callback.message.answer("Введите название товара:", reply_markup=kb.cancel_kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "add_product_from_bouquet")
+async def add_product_from_bouquet_cb(callback: types.CallbackQuery, state: FSMContext):
+    bouquets = await api_get_bouquets(callback.from_user.id)
+    if not bouquets:
+        await callback.answer("Нет букетов. Создайте букет в веб-панели (Конструктор букетов).", show_alert=True)
+        return
+    await state.update_data(bouquets_list=bouquets)
+    rows = []
+    for b in bouquets[:20]:
+        name = (b.get("name") or "Букет")[:30]
+        price = b.get("total_price")
+        pr = f" — {price:.0f} ₽" if price is not None else ""
+        rows.append([InlineKeyboardButton(text=f"{name}{pr}", callback_data=f"add_bouquet_sel_{b.get('id')}")])
+    kb_b = InlineKeyboardMarkup(inline_keyboard=rows)
+    await callback.message.edit_text("Выберите букет:")
+    await callback.message.edit_reply_markup(reply_markup=kb_b)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("add_bouquet_sel_"))
+async def add_bouquet_select_cb(callback: types.CallbackQuery, state: FSMContext):
+    bouquet_id = int(callback.data.split("_")[3])
+    data = await state.get_data()
+    bouquets_list = data.get("bouquets_list") or []
+    chosen = next((b for b in bouquets_list if b.get("id") == bouquet_id), None)
+    if not chosen:
+        await callback.answer("Букет не найден.", show_alert=True)
+        return
+    # Количество автоматически по остаткам в приёмке (сколько таких букетов можно собрать)
+    quantity = max(0, int(chosen.get("can_assemble_count") or 0))
+    await state.update_data(
+        bouquet_id=bouquet_id,
+        name=chosen.get("name") or "Букет",
+        price=chosen.get("total_price") or 0,
+        description="",
+        quantity=quantity,
+    )
+    await state.set_state(AddProduct.photo)
+    await callback.message.answer(
+        f"Количество установлено автоматически по остаткам в приёмке: *{quantity}* шт.\n\n"
+        "Отправьте фото товара:",
+        reply_markup=kb.cancel_kb,
+        parse_mode="Markdown",
+    )
+    await callback.answer()
 
 @router.message(AddProduct.name)
 async def add_p_name(message: types.Message, state: FSMContext):
@@ -711,20 +770,38 @@ async def add_p_quantity(message: types.Message, state: FSMContext):
     if quantity < 0: return await message.answer("Количество не может быть отрицательным!")
     await state.update_data(quantity=quantity)
     await state.set_state(AddProduct.photo)
-    await message.answer("Фото:", reply_markup=kb.cancel_kb)
+    await message.answer("Отправьте фото товара:", reply_markup=kb.cancel_kb)
+
+@router.message(AddProduct.photo, F.text)
+async def add_p_photo_cancel(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        menu = kb.get_main_kb(message.from_user.id, "SELLER")
+        await message.answer("Отменено.", reply_markup=menu)
+    else:
+        await message.answer("Отправьте фото товара (или нажмите «❌ Отмена»).")
 
 @router.message(AddProduct.photo, F.photo)
 async def add_p_photo(message: types.Message, state: FSMContext):
     photo_id = message.photo[-1].file_id
     data = await state.get_data()
     await message.answer("⏳ Сохраняю...")
-    
-    quantity = data.get('quantity', 0)
-    res = await api_create_product(message.from_user.id, data['name'], data['price'], data['description'], photo_id, quantity)
+    quantity = data.get("quantity", 0)
+    bouquet_id = data.get("bouquet_id")
+    res = await api_create_product(
+        message.from_user.id,
+        data["name"],
+        data["price"],
+        data.get("description") or "",
+        photo_id,
+        quantity,
+        bouquet_id=bouquet_id,
+    )
     menu = kb.get_main_kb(message.from_user.id, "SELLER")
-    
-    if res: await message.answer(f"✅ Товар '{data['name']}' добавлен! Количество: {quantity} шт.", reply_markup=menu)
-    else: await message.answer("❌ Ошибка сохранения.", reply_markup=menu)
+    if res:
+        await message.answer(f"✅ Товар «{data['name']}» добавлен! Количество: {quantity} шт.", reply_markup=menu)
+    else:
+        await message.answer("❌ Ошибка сохранения.", reply_markup=menu)
     await state.clear()
 
 # --- 5. ВЫХОД (Переходы по кнопкам) ---

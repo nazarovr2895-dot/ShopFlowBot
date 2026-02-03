@@ -14,6 +14,7 @@ from backend.app.models.order import Order
 from backend.app.models.seller import Seller
 from backend.app.models.product import Product
 from backend.app.services.sellers import SellerService
+from backend.app.services.bouquets import check_bouquet_stock, deduct_bouquet_from_receptions
 
 
 class OrderServiceError(Exception):
@@ -182,7 +183,17 @@ class OrderService:
                             f"Недостаточно товара '{product.name}'. Доступно: {product.quantity}, запрошено: {quantity_to_reduce}",
                             400
                         )
-                    # Уменьшаем количество
+                    # Если товар из букета — проверяем остатки в приёмках и списываем
+                    if getattr(product, "bouquet_id", None):
+                        err = await check_bouquet_stock(
+                            self.session, order.seller_id, product.bouquet_id, quantity_to_reduce
+                        )
+                        if err:
+                            raise OrderServiceError(err, 400)
+                        await deduct_bouquet_from_receptions(
+                            self.session, order.seller_id, product.bouquet_id, quantity_to_reduce
+                        )
+                    # Уменьшаем количество товара
                     product.quantity -= quantity_to_reduce
 
         # Lock and update seller counters

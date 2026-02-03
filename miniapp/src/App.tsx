@@ -53,16 +53,16 @@ function AppContent() {
         );
         const user = await Promise.race([userPromise, timeoutPromise]);
 
-        // Check if user has city_id and district_id set
-        if (!user.city_id || !user.district_id) {
+        // Check if user has city_id set (district optional — "все округи" = no district_id)
+        if (!user.city_id) {
           setNeedsLocationSetup(true);
         } else {
           // Update filters with user's saved location (merge with existing)
           // Also update localStorage directly to ensure ShopsList gets the values
-          const updatedFilters = {
+          const updatedFilters: { city_id: number; district_id?: number } = {
             city_id: user.city_id,
-            district_id: user.district_id,
           };
+          if (user.district_id != null) updatedFilters.district_id = user.district_id;
           
           // Update state
           setFilters((prev) => ({
@@ -97,16 +97,16 @@ function AppContent() {
     checkUserLocation();
   }, [setFilters]);
 
-  const handleLocationComplete = async (cityId: number, districtId: number) => {
+  const handleLocationComplete = async (cityId: number, districtId?: number) => {
     try {
-      // Save location to user profile
+      // Save location to user profile (districtId undefined = "все округи")
       await api.updateLocation(cityId, districtId);
-      
+
       // Update filters (merge with existing)
-      const updatedFilters = {
+      const updatedFilters: { city_id: number; district_id?: number } = {
         city_id: cityId,
-        district_id: districtId,
       };
+      if (districtId != null) updatedFilters.district_id = districtId;
       
       setFilters((prev) => ({
         ...prev,
@@ -133,10 +133,10 @@ function AppContent() {
     } catch (error) {
       console.error('Failed to save location:', error);
       // Still allow to proceed even if save fails
-      const updatedFilters = {
+      const updatedFilters: { city_id: number; district_id?: number } = {
         city_id: cityId,
-        district_id: districtId,
       };
+      if (districtId != null) updatedFilters.district_id = districtId;
       
       setFilters((prev) => ({
         ...prev,

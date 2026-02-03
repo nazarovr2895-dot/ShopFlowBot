@@ -1,0 +1,139 @@
+.seller-receptions-loading {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.receptions-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.seller-receptions-page .add-form {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+}
+
+.seller-receptions-page .form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.seller-receptions-page .form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.flowers-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.flower-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.flower-item:last-child {
+  border-bottom: none;
+}
+
+.flower-shelf {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.receptions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.reception-tab {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.reception-tab:hover {
+  background: var(--bg-hover);
+}
+
+.reception-tab.active {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+}
+
+.reception-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.reception-date {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.add-item-form {
+  margin-bottom: 1rem;
+}
+
+.reception-items-wrap {
+  overflow-x: auto;
+}
+
+.reception-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.reception-items-table th,
+.reception-items-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.reception-items-table th {
+  font-weight: 600;
+  background: var(--bg);
+}
+
+.reception-items-table tr.row-expiring {
+  background: rgba(255, 193, 7, 0.15);
+}
+
+.reception-items-table tr.row-expiring td:nth-child(7) {
+  font-weight: 600;
+  color: var(--danger, #c62828);
+}
+
+.shop-section {
+  margin-bottom: 1.5rem;
+}
+
+.section-hint {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.empty-text {
+  color: var(--text-muted);
+  font-style: italic;
+}

@@ -11,6 +11,9 @@ import { StatsAgents } from './pages/StatsAgents';
 import { SellerDashboard } from './pages/seller/SellerDashboard';
 import { SellerOrders } from './pages/seller/SellerOrders';
 import { SellerShop } from './pages/seller/SellerShop';
+import { SellerReceptions } from './pages/seller/SellerReceptions';
+import { SellerBouquets } from './pages/seller/SellerBouquets';
+import { SellerInventory } from './pages/seller/SellerInventory';
 import { SellerStats } from './pages/seller/SellerStats';
 import { SellerProfile } from './pages/seller/SellerProfile';
 import { SellerSecurity } from './pages/seller/SellerSecurity';
@@ -57,6 +60,9 @@ function AppRoutes() {
           <>
             <Route path="orders" element={<SellerOrders />} />
             <Route path="shop" element={<SellerShop />} />
+            <Route path="receptions" element={<SellerReceptions />} />
+            <Route path="bouquets" element={<SellerBouquets />} />
+            <Route path="inventory" element={<SellerInventory />} />
             <Route path="stats" element={<SellerStats />} />
             <Route path="profile" element={<SellerProfile />} />
             <Route path="security" element={<SellerSecurity />} />

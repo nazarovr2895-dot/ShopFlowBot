@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,6 +68,10 @@ app.include_router(admin_auth.router, prefix="/admin", tags=["admin"])
 app.include_router(seller_auth.router, prefix="/seller-web", tags=["seller-web"])
 # Seller web API (X-Seller-Token required)
 app.include_router(seller_web.router, prefix="/seller-web", tags=["seller-web"])
+# Статика для загруженных фото товаров (seller web)
+_static_dir = Path(__file__).resolve().parent.parent / "static"
+_static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 # Admin API - с проверкой токена
 app.include_router(
     admin.router,

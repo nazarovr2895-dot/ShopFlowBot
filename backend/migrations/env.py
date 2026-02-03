@@ -19,7 +19,7 @@ from backend.app.core.config import DB_URL
 from backend.app.core.base import Base
 
 # Импортируем все модели, чтобы они зарегистрировались в метаданных
-from backend.app.models import user, seller, order, product, referral, settings
+from backend.app.models import user, seller, order, product, referral, settings, crm
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

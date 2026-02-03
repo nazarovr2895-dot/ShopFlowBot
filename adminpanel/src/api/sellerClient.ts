@@ -114,7 +114,24 @@ export async function getProducts(): Promise<SellerProduct[]> {
   return fetchSeller<SellerProduct[]>('/seller-web/products');
 }
 
-export async function createProduct(data: { seller_id: number; name: string; description: string; price: number; photo_id?: string; quantity: number }): Promise<SellerProduct> {
+export async function uploadProductPhoto(file: File): Promise<{ photo_id: string }> {
+  const API_BASE = import.meta.env.VITE_API_URL || '';
+  const token = sessionStorage.getItem('seller_token');
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_BASE}/seller-web/upload-photo`, {
+    method: 'POST',
+    headers: token ? { 'X-Seller-Token': token } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function createProduct(data: { seller_id: number; name: string; description: string; price: number; photo_id?: string; quantity: number; bouquet_id?: number }): Promise<SellerProduct> {
   return fetchSeller<SellerProduct>('/seller-web/products', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -141,4 +158,182 @@ export async function changeCredentials(data: { old_login: string; old_password:
     method: 'PUT',
     body: JSON.stringify(data),
   });
+}
+
+// --- CRM: Flowers ---
+export interface Flower {
+  id: number;
+  name: string;
+  default_shelf_life_days: number | null;
+}
+
+export async function getFlowers(): Promise<Flower[]> {
+  return fetchSeller<Flower[]>('/seller-web/flowers');
+}
+
+export async function createFlower(data: { name: string; default_shelf_life_days?: number | null }): Promise<Flower> {
+  return fetchSeller<Flower>('/seller-web/flowers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteFlower(flowerId: number): Promise<{ status: string }> {
+  return fetchSeller(`/seller-web/flowers/${flowerId}`, { method: 'DELETE' });
+}
+
+// --- CRM: Receptions ---
+export interface ReceptionBrief {
+  id: number;
+  name: string;
+  reception_date: string | null;
+}
+
+export interface ReceptionItemRow {
+  id: number;
+  flower_id: number;
+  flower_name: string;
+  quantity_initial: number;
+  arrival_date: string | null;
+  shelf_life_days: number;
+  price_per_unit: number;
+  remaining_quantity: number;
+  sold_quantity: number;
+  sold_amount: number;
+  days_left: number | null;
+}
+
+export interface ReceptionDetail {
+  id: number;
+  name: string;
+  reception_date: string | null;
+  items: ReceptionItemRow[];
+}
+
+export async function getReceptions(): Promise<ReceptionBrief[]> {
+  return fetchSeller<ReceptionBrief[]>('/seller-web/receptions');
+}
+
+export async function createReception(data: { name: string; reception_date?: string | null }): Promise<ReceptionBrief> {
+  return fetchSeller<ReceptionBrief>('/seller-web/receptions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getReception(receptionId: number): Promise<ReceptionDetail> {
+  return fetchSeller<ReceptionDetail>(`/seller-web/receptions/${receptionId}`);
+}
+
+export async function addReceptionItem(
+  receptionId: number,
+  data: { flower_id: number; quantity_initial: number; arrival_date?: string | null; shelf_life_days: number; price_per_unit: number }
+): Promise<ReceptionItemRow> {
+  return fetchSeller(`/seller-web/receptions/${receptionId}/items`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateReceptionItem(
+  itemId: number,
+  data: Partial<{ remaining_quantity: number; quantity_initial: number; arrival_date: string | null; shelf_life_days: number; price_per_unit: number }>
+): Promise<unknown> {
+  return fetchSeller(`/seller-web/receptions/items/${itemId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteReceptionItem(itemId: number): Promise<{ status: string }> {
+  return fetchSeller(`/seller-web/receptions/items/${itemId}`, { method: 'DELETE' });
+}
+
+// --- Inventory ---
+export interface InventoryItem {
+  id: number;
+  flower_id: number;
+  flower_name: string;
+  remaining_quantity: number;
+  price_per_unit: number;
+  days_left: number | null;
+}
+
+export async function getReceptionInventory(receptionId: number): Promise<{ reception_id: number; items: InventoryItem[] }> {
+  return fetchSeller(`/seller-web/receptions/${receptionId}/inventory`);
+}
+
+export async function inventoryCheck(
+  receptionId: number,
+  lines: { reception_item_id: number; actual_quantity: number }[]
+): Promise<{ lines: { reception_item_id: number; flower_name: string; system_quantity: number; actual_quantity: number; difference: number; loss_amount: number }[]; total_loss: number }> {
+  return fetchSeller(`/seller-web/receptions/${receptionId}/inventory/check`, {
+    method: 'POST',
+    body: JSON.stringify(lines),
+  });
+}
+
+// --- Bouquets ---
+export interface BouquetItemDto {
+  flower_id: number;
+  flower_name: string;
+  quantity: number;
+  markup_multiplier: number;
+}
+
+export interface BouquetDetail {
+  id: number;
+  name: string;
+  packaging_cost: number;
+  total_cost: number | null;
+  total_price: number | null;
+  items: BouquetItemDto[];
+  /** Сколько таких букетов можно собрать из текущих остатков в приёмке */
+  can_assemble_count?: number;
+  /** false = в приёмке не хватает цветов, букет скрыт в mini app */
+  is_active?: boolean;
+}
+
+export interface FlowerStock {
+  flower_id: number;
+  flower_name: string;
+  remaining_quantity: number;
+  avg_price: number;
+}
+
+export async function getBouquets(): Promise<BouquetDetail[]> {
+  return fetchSeller<BouquetDetail[]>('/seller-web/bouquets');
+}
+
+export async function getBouquet(bouquetId: number): Promise<BouquetDetail> {
+  return fetchSeller<BouquetDetail>(`/seller-web/bouquets/${bouquetId}`);
+}
+
+export async function createBouquet(data: {
+  name: string;
+  packaging_cost: number;
+  items: { flower_id: number; quantity: number; markup_multiplier: number }[];
+}): Promise<BouquetDetail> {
+  return fetchSeller<BouquetDetail>('/seller-web/bouquets', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateBouquet(
+  bouquetId: number,
+  data: {
+    name: string;
+    packaging_cost: number;
+    items: { flower_id: number; quantity: number; markup_multiplier: number }[];
+  }
+): Promise<BouquetDetail> {
+  return fetchSeller<BouquetDetail>(`/seller-web/bouquets/${bouquetId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteBouquet(bouquetId: number): Promise<{ status: string }> {
+  return fetchSeller(`/seller-web/bouquets/${bouquetId}`, { method: 'DELETE' });
 }

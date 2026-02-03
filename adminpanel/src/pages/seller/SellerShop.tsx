@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { getMe, getProducts, updateLimits, createProduct, updateProduct, deleteProduct } from '../../api/sellerClient';
-import type { SellerMe, SellerProduct } from '../../api/sellerClient';
+import { getMe, getProducts, getBouquets, updateLimits, createProduct, updateProduct, deleteProduct, uploadProductPhoto } from '../../api/sellerClient';
+import type { SellerMe, SellerProduct, BouquetDetail } from '../../api/sellerClient';
 import './SellerShop.css';
+
+type AddProductMode = 'choice' | 'manual' | 'bouquet';
 
 export function SellerShop() {
   const [me, setMe] = useState<SellerMe | null>(null);
@@ -10,7 +12,12 @@ export function SellerShop() {
   const [limitValue, setLimitValue] = useState('');
   const [limitSaving, setLimitSaving] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [addProductMode, setAddProductMode] = useState<AddProductMode>('choice');
+  const [bouquets, setBouquets] = useState<BouquetDetail[]>([]);
+  const [selectedBouquetId, setSelectedBouquetId] = useState<number | null>(null);
   const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', quantity: '1' });
+  const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
+  const [productPhotoPreview, setProductPhotoPreview] = useState<string | null>(null);
   const [editingQty, setEditingQty] = useState<{ id: number; value: string } | null>(null);
 
   const load = async () => {
@@ -59,19 +66,64 @@ export function SellerShop() {
       return;
     }
     try {
-      await createProduct({
+      let photo_id: string | undefined;
+      if (productPhotoFile) {
+        const res = await uploadProductPhoto(productPhotoFile);
+        photo_id = res.photo_id;
+      }
+      const payload: Parameters<typeof createProduct>[0] = {
         seller_id: me.seller_id,
         name: newProduct.name,
         description: newProduct.description,
         price,
         quantity,
-      });
+      };
+      if (photo_id) payload.photo_id = photo_id;
+      if (selectedBouquetId != null) payload.bouquet_id = selectedBouquetId;
+      await createProduct(payload);
       setNewProduct({ name: '', description: '', price: '', quantity: '1' });
+      setProductPhotoFile(null);
+      setProductPhotoPreview(null);
       setShowAddProduct(false);
+      setAddProductMode('choice');
+      setSelectedBouquetId(null);
       load();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Ошибка');
     }
+  };
+
+  const handleProductPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setProductPhotoFile(file);
+      setProductPhotoPreview(URL.createObjectURL(file));
+    } else {
+      setProductPhotoFile(null);
+      setProductPhotoPreview(null);
+    }
+  };
+
+  const openAddFromBouquet = async () => {
+    try {
+      const list = await getBouquets();
+      setBouquets(list || []);
+      setAddProductMode('bouquet');
+    } catch {
+      setBouquets([]);
+      setAddProductMode('bouquet');
+    }
+  };
+
+  const selectBouquetForProduct = (b: BouquetDetail) => {
+    setSelectedBouquetId(b.id);
+    const canAssemble = Math.max(0, b.can_assemble_count ?? 0);
+    setNewProduct({
+      name: b.name,
+      description: '',
+      price: String(b.total_price ?? 0),
+      quantity: String(canAssemble),
+    });
   };
 
   const handleDeleteProduct = async (id: number) => {
@@ -163,14 +215,50 @@ export function SellerShop() {
       {/* Мои товары */}
       <div className="card shop-section">
         <h3>📦 Мои товары</h3>
-        <p className="section-hint">Товары, которые видят покупатели. Добавьте фото через Telegram-бота.</p>
-        <button className="btn btn-primary" onClick={() => setShowAddProduct(true)} style={{ marginBottom: '1rem' }}>
+        <p className="section-hint">Товары, которые видят покупатели. Фото можно загрузить здесь или добавить через Telegram-бота.</p>
+        <button className="btn btn-primary" onClick={() => { setShowAddProduct(true); setAddProductMode('choice'); }} style={{ marginBottom: '1rem' }}>
           ➕ Добавить товар
         </button>
 
-        {showAddProduct && (
+        {showAddProduct && addProductMode === 'choice' && (
+          <div className="add-product-choice card">
+            <h4>Как добавить товар?</h4>
+            <div className="choice-buttons">
+              <button type="button" className="btn btn-primary" onClick={() => setAddProductMode('manual')}>
+                Создать вручную
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={openAddFromBouquet}>
+                Из букета
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showAddProduct && addProductMode === 'bouquet' && !selectedBouquetId && (
+          <div className="card add-form">
+            <h4>Выберите букет</h4>
+            {bouquets.length === 0 ? (
+              <p className="empty-text">Нет букетов. Создайте букет в разделе «Конструктор букетов».</p>
+            ) : (
+              <ul className="bouquet-choice-list">
+                {bouquets.map((b) => (
+                  <li key={b.id}>
+                    <button type="button" className="btn btn-secondary" onClick={() => selectBouquetForProduct(b)}>
+                      {b.name} — {b.total_price != null ? `${b.total_price.toFixed(0)} ₽` : '—'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button type="button" className="btn btn-secondary" onClick={() => { setShowAddProduct(false); setAddProductMode('choice'); }}>
+              Назад
+            </button>
+          </div>
+        )}
+
+        {showAddProduct && (addProductMode === 'manual' || (addProductMode === 'bouquet' && selectedBouquetId)) && (
           <form onSubmit={handleAddProduct} className="add-product-form card">
-            <h4>Новый товар</h4>
+            <h4>{selectedBouquetId ? 'Товар из букета' : 'Новый товар'}</h4>
             <div className="form-group">
               <label>Название</label>
               <input
@@ -202,17 +290,59 @@ export function SellerShop() {
               </div>
               <div className="form-group">
                 <label>Количество</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={newProduct.quantity}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, quantity: e.target.value }))}
-                  className="form-input"
-                />
+                {selectedBouquetId ? (
+                  <>
+                    <input
+                      type="number"
+                      min={0}
+                      value={newProduct.quantity}
+                      readOnly
+                      className="form-input form-input-readonly"
+                      title="По остаткам в приёмке"
+                    />
+                    <span className="form-hint">По остаткам в приёмке</span>
+                  </>
+                ) : (
+                  <input
+                    type="number"
+                    min={0}
+                    value={newProduct.quantity}
+                    onChange={(e) => setNewProduct((p) => ({ ...p, quantity: e.target.value }))}
+                    className="form-input"
+                  />
+                )}
               </div>
             </div>
+            <div className="form-group">
+              <label>Фото товара</label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleProductPhotoChange}
+                className="form-input"
+              />
+              {productPhotoPreview && (
+                <div className="product-photo-preview">
+                  <img src={productPhotoPreview} alt="Превью" />
+                </div>
+              )}
+            </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowAddProduct(false)}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setProductPhotoFile(null);
+                  setProductPhotoPreview(null);
+                  if (selectedBouquetId) {
+                    setAddProductMode('bouquet');
+                    setSelectedBouquetId(null);
+                  } else {
+                    setShowAddProduct(false);
+                    setAddProductMode('choice');
+                  }
+                }}
+              >
                 Отмена
               </button>
               <button type="submit" className="btn btn-primary">Добавить</button>

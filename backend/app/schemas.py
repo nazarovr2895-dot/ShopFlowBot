@@ -54,6 +54,7 @@ class ProductCreate(BaseModel):
     price: float
     photo_id: Optional[str] = None
     quantity: int = 0
+    bouquet_id: Optional[int] = None
 
 class ProductUpdate(BaseModel):
     """Схема для обновления товара - все поля опциональны"""
@@ -62,6 +63,52 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = None
     photo_id: Optional[str] = None
     quantity: Optional[int] = None
+    bouquet_id: Optional[int] = None
 
 class ProductResponse(ProductCreate):
     id: int
+
+
+# --- CRM: Flowers, Receptions ---
+class FlowerCreate(BaseModel):
+    name: str
+    default_shelf_life_days: Optional[int] = None
+
+
+class ReceptionCreate(BaseModel):
+    name: str
+    reception_date: Optional[str] = None  # YYYY-MM-DD
+
+
+class ReceptionItemCreate(BaseModel):
+    flower_id: int
+    quantity_initial: int
+    arrival_date: Optional[str] = None  # YYYY-MM-DD
+    shelf_life_days: int
+    price_per_unit: float
+
+
+class ReceptionItemUpdate(BaseModel):
+    remaining_quantity: Optional[int] = None
+    quantity_initial: Optional[int] = None
+    arrival_date: Optional[str] = None
+    shelf_life_days: Optional[int] = None
+    price_per_unit: Optional[float] = None
+
+
+class InventoryCheckLine(BaseModel):
+    reception_item_id: int
+    actual_quantity: int
+
+
+# --- CRM: Bouquets ---
+class BouquetItemCreate(BaseModel):
+    flower_id: int
+    quantity: int
+    markup_multiplier: float = 1.0
+
+
+class BouquetCreate(BaseModel):
+    name: str
+    packaging_cost: float = 0
+    items: List[BouquetItemCreate]

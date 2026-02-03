@@ -19,6 +19,7 @@ from backend.app.models.user import User
 from backend.app.models.order import Order
 from backend.app.services.cache import CacheService
 from backend.app.services.sellers import _today_6am_date, _today_6am_utc
+from backend.app.services.bouquets import get_active_bouquet_ids
 from sqlalchemy import or_
 
 
@@ -371,12 +372,16 @@ async def get_public_seller_detail(
         .order_by(Product.price.asc())
     )
     products_result = await session.execute(products_query)
-    products = products_result.scalars().all()
-    
+    products = list(products_result.scalars().all())
+    # Товары-букеты скрываем из каталога, если в приёмке не хватает цветов (букет неактивен)
+    active_bouquet_ids = await get_active_bouquet_ids(session, seller_id)
+    products = [
+        p for p in products
+        if getattr(p, "bouquet_id", None) is None or p.bouquet_id in active_bouquet_ids
+    ]
     # Не показываем магазин, если нет ни одного товара в наличии
     if not products:
         raise HTTPException(status_code=404, detail="Продавец не найден")
-    
     products_list = [
         {
             "id": p.id,

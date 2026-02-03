@@ -5,7 +5,7 @@ import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import './LocationSetup.css';
 
 interface LocationSetupProps {
-  onComplete: (cityId: number, districtId: number) => void;
+  onComplete: (cityId: number, districtId?: number) => void;
 }
 
 export function LocationSetup({ onComplete }: LocationSetupProps) {
@@ -42,14 +42,14 @@ export function LocationSetup({ onComplete }: LocationSetupProps) {
     }
   }, [selectedCityId]);
 
-  // Update main button when selection changes
+  // Update main button when selection changes (city required; district optional — "Все округи" = no district)
   useEffect(() => {
-    if (selectedCityId && selectedDistrictId) {
+    if (selectedCityId) {
       setMainButton(
         'Продолжить',
         () => {
           hapticFeedback('medium');
-          if (selectedCityId && selectedDistrictId) {
+          if (selectedCityId) {
             onComplete(selectedCityId, selectedDistrictId);
           }
         },
@@ -111,11 +111,11 @@ export function LocationSetup({ onComplete }: LocationSetupProps) {
             <label className="location-setup__label">Район</label>
             <select
               className="location-setup__select"
-              value={selectedDistrictId || ''}
+              value={selectedDistrictId ?? ''}
               onChange={handleDistrictChange}
               disabled={!selectedCityId || loadingDistricts}
             >
-              <option value="">Выберите район</option>
+              <option value="">Все округи</option>
               {districts.map((district) => (
                 <option key={district.id} value={district.id}>
                   {district.name}

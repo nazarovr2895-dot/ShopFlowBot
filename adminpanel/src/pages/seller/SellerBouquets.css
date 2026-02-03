@@ -1,0 +1,120 @@
+.seller-bouquets-loading {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.seller-bouquets-page .bouquet-form {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+}
+
+.seller-bouquets-page .form-group {
+  margin-bottom: 1rem;
+}
+
+.seller-bouquets-page .form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.bouquet-item-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bouquet-item-row .form-input {
+  flex: 1;
+  min-width: 100px;
+}
+
+.bouquet-item-row .qty-input {
+  width: 70px;
+}
+
+.bouquet-totals {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+}
+
+.bouquets-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.bouquet-card {
+  padding: 1rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.bouquet-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.bouquet-price {
+  font-weight: 600;
+}
+
+.bouquet-status {
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.bouquet-status-active {
+  color: var(--success, #2e7d32);
+}
+
+.bouquet-status-inactive {
+  color: var(--danger, #c62828);
+  font-weight: 500;
+}
+
+.bouquet-card-inactive {
+  opacity: 0.92;
+  border-color: var(--border);
+}
+
+.bouquet-cost {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.bouquet-composition {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+}
+
+.bouquet-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.section-hint {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.empty-text {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.shop-section {
+  margin-bottom: 1.5rem;
+}
