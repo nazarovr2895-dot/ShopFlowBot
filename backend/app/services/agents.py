@@ -333,7 +333,10 @@ class AgentService:
                 func.sum(Order.total_price).label('total_sales')
             )
             .join(Order, User.tg_id == Order.agent_id)
-            .where(Order.status == 'delivered', Order.agent_id.isnot(None))
+            .where(
+                Order.status.in_(('done', 'completed', 'delivered')),
+                Order.agent_id.isnot(None)
+            )
             .group_by(User.fio)
         )
         

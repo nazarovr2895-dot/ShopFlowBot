@@ -6,6 +6,8 @@ import { Dashboard } from './pages/Dashboard';
 import { Sellers } from './pages/Sellers';
 import { Agents } from './pages/Agents';
 import { Stats } from './pages/Stats';
+import { StatsSellers } from './pages/StatsSellers';
+import { StatsAgents } from './pages/StatsAgents';
 import './index.css';
 import './App.css';
 
@@ -35,6 +37,8 @@ function AppRoutes() {
         <Route path="sellers" element={<Sellers />} />
         <Route path="agents" element={<Agents />} />
         <Route path="stats" element={<Stats />} />
+        <Route path="stats/sellers" element={<StatsSellers />} />
+        <Route path="stats/agents" element={<StatsAgents />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

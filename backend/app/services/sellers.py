@@ -42,7 +42,7 @@ class SellerService:
     VALID_UPDATE_FIELDS = {
         "fio", "phone", "shop_name", "description",
         "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
-        "metro_id", "metro_walk_minutes"
+        "metro_id", "metro_walk_minutes", "placement_expired_at"
     }
     
     def __init__(self, session: AsyncSession):
@@ -248,6 +248,26 @@ class SellerService:
             if new_val is not None and new_val <= 0 and seller.metro_id is not None:
                 raise SellerServiceError("Время до метро должно быть больше 0 минут")
             seller.metro_walk_minutes = new_val
+        elif field == "placement_expired_at":
+            value_stripped = (value or "").strip()
+            if not value_stripped or value_stripped.lower() in ("null", "none", "-"):
+                seller.placement_expired_at = None
+            else:
+                # Accept YYYY-MM-DD or DD.MM.YYYY
+                try:
+                    if "-" in value_stripped:
+                        # YYYY-MM-DD
+                        seller.placement_expired_at = datetime.strptime(value_stripped[:10], "%Y-%m-%d")
+                    else:
+                        # DD.MM.YYYY
+                        parts = value_stripped.split(".")
+                        if len(parts) == 3:
+                            d, m, y = int(parts[0]), int(parts[1]), int(parts[2])
+                            seller.placement_expired_at = datetime(y, m, d)
+                        else:
+                            raise SellerServiceError("Дата должна быть в формате ДД.ММ.ГГГГ или ГГГГ-ММ-ДД")
+                except (ValueError, IndexError) as e:
+                    raise SellerServiceError(f"Неверный формат даты: {e}")
 
         await self.session.commit()
         return {"status": "ok"}
@@ -374,6 +394,15 @@ class SellerService:
                 "fio": user.fio,
                 "phone": user.phone,
                 "shop_name": seller.shop_name,
+                "description": seller.description,
+                "district_id": seller.district_id,
+                "map_url": seller.map_url,
+                "metro_id": seller.metro_id,
+                "metro_walk_minutes": seller.metro_walk_minutes,
+                "delivery_type": seller.delivery_type,
+                "delivery_price": float(seller.delivery_price) if seller.delivery_price is not None else 0.0,
+                "max_orders": seller.max_orders,
+                "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
                 "is_blocked": seller.is_blocked,
                 "is_deleted": seller.deleted_at is not None,
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None
@@ -404,6 +433,15 @@ class SellerService:
                 "fio": user.fio,
                 "phone": user.phone,
                 "shop_name": seller.shop_name,
+                "description": seller.description,
+                "district_id": seller.district_id,
+                "map_url": seller.map_url,
+                "metro_id": seller.metro_id,
+                "metro_walk_minutes": seller.metro_walk_minutes,
+                "delivery_type": seller.delivery_type,
+                "delivery_price": float(seller.delivery_price) if seller.delivery_price is not None else 0.0,
+                "max_orders": seller.max_orders,
+                "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
                 "is_blocked": seller.is_blocked,
                 "is_deleted": seller.deleted_at is not None,
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None
@@ -425,8 +463,21 @@ class SellerService:
         districts = result.scalars().all()
         return [{"id": d.id, "name": d.name} for d in districts]
     
-    async def get_all_stats(self, commission_percent: int = 18) -> List[Dict[str, Any]]:
-        """Get statistics for all sellers."""
+    # Статусы заказов, считающиеся «выполненными» для статистики (бот ставит "done")
+    COMPLETED_ORDER_STATUSES = ('done', 'completed', 'delivered')
+
+    async def get_all_stats(
+        self,
+        commission_percent: int = 18,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get statistics for all sellers (optionally filtered by order date)."""
+        conditions = [Order.status.in_(self.COMPLETED_ORDER_STATUSES)]
+        if date_from is not None:
+            conditions.append(Order.created_at >= date_from)
+        if date_to is not None:
+            conditions.append(Order.created_at <= date_to)
         result = await self.session.execute(
             select(
                 User.fio,
@@ -434,7 +485,7 @@ class SellerService:
                 func.sum(Order.total_price).label('total_sales')
             )
             .join(Order, User.tg_id == Order.seller_id)
-            .where(Order.status == 'delivered')
+            .where(*conditions)
             .group_by(User.fio)
         )
         
@@ -456,7 +507,7 @@ class SellerService:
         fio: str, 
         commission_percent: int = 18
     ) -> Optional[Dict[str, Any]]:
-        """Get statistics for a specific seller by name."""
+        """Get statistics for a specific seller by name (completed orders only)."""
         result = await self.session.execute(
             select(
                 User.fio,
@@ -464,7 +515,10 @@ class SellerService:
                 func.sum(Order.total_price).label('total_sales')
             )
             .join(Order, User.tg_id == Order.seller_id)
-            .where(Order.status == 'delivered', User.fio.ilike(f"%{fio}%"))
+            .where(
+                Order.status.in_(self.COMPLETED_ORDER_STATUSES),
+                User.fio.ilike(f"%{fio}%")
+            )
             .group_by(User.fio)
         )
         
