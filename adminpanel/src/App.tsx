@@ -8,20 +8,30 @@ import { Agents } from './pages/Agents';
 import { Stats } from './pages/Stats';
 import { StatsSellers } from './pages/StatsSellers';
 import { StatsAgents } from './pages/StatsAgents';
+import { SellerDashboard } from './pages/seller/SellerDashboard';
+import { SellerOrders } from './pages/seller/SellerOrders';
+import { SellerShop } from './pages/seller/SellerShop';
+import { SellerStats } from './pages/seller/SellerStats';
+import { SellerProfile } from './pages/seller/SellerProfile';
+import { SellerSecurity } from './pages/seller/SellerSecurity';
 import './index.css';
 import './App.css';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
-  // When no token in session, redirect to login
-  const hasToken = typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem('admin_token');
-  if (!hasToken && !isAuthenticated) {
+  const hasAdminToken = typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem('admin_token');
+  const hasSellerToken = typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem('seller_token');
+  if (!hasAdminToken && !hasSellerToken && !isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
 }
 
 function AppRoutes() {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
+  const isSeller = role === 'seller';
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
@@ -33,12 +43,25 @@ function AppRoutes() {
           </PrivateRoute>
         }
       >
-        <Route index element={<Dashboard />} />
-        <Route path="sellers" element={<Sellers />} />
-        <Route path="agents" element={<Agents />} />
-        <Route path="stats" element={<Stats />} />
-        <Route path="stats/sellers" element={<StatsSellers />} />
-        <Route path="stats/agents" element={<StatsAgents />} />
+        <Route index element={isSeller ? <SellerDashboard /> : <Dashboard />} />
+        {isAdmin && (
+          <>
+            <Route path="sellers" element={<Sellers />} />
+            <Route path="agents" element={<Agents />} />
+            <Route path="stats" element={<Stats />} />
+            <Route path="stats/sellers" element={<StatsSellers />} />
+            <Route path="stats/agents" element={<StatsAgents />} />
+          </>
+        )}
+        {isSeller && (
+          <>
+            <Route path="orders" element={<SellerOrders />} />
+            <Route path="shop" element={<SellerShop />} />
+            <Route path="stats" element={<SellerStats />} />
+            <Route path="profile" element={<SellerProfile />} />
+            <Route path="security" element={<SellerSecurity />} />
+          </>
+        )}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

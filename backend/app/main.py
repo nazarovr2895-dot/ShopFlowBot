@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api import buyers, sellers, orders, agents, admin, public
-from backend.app.api import admin_auth
+from backend.app.api import admin_auth, seller_auth, seller_web
 from backend.app.api.admin import require_admin_token
 from backend.app.api.deps import get_session
 from backend.app.services.cache import CacheService
@@ -62,6 +62,10 @@ app.include_router(orders.router, prefix="/orders", tags=["orders"])
 app.include_router(agents.router, prefix="/agents", tags=["agents"])
 # Admin login - без токена (первым, чтобы /admin/login работал)
 app.include_router(admin_auth.router, prefix="/admin", tags=["admin"])
+# Seller web login (no token required)
+app.include_router(seller_auth.router, prefix="/seller-web", tags=["seller-web"])
+# Seller web API (X-Seller-Token required)
+app.include_router(seller_web.router, prefix="/seller-web", tags=["seller-web"])
 # Admin API - с проверкой токена
 app.include_router(
     admin.router,

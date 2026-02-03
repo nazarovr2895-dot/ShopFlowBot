@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from backend.app.api.deps import get_session, get_cache
 from backend.app.core.logging import get_logger
+from backend.app.core.password_utils import hash_password
 from backend.app.services.sellers import (
     SellerService,
     SellerServiceError,
@@ -112,7 +113,7 @@ async def get_districts(city_id: int, session: AsyncSession = Depends(get_sessio
 
 @router.post("/create_seller")
 async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = Depends(get_session)):
-    """Создать продавца с полными данными"""
+    """Создать продавца с полными данными. Автоматически генерирует логин и пароль для веб-панели."""
     logger.info(
         "Creating seller",
         tg_id=data.tg_id,
@@ -256,6 +257,62 @@ async def set_seller_limit(tg_id: int, max_orders: int, session: AsyncSession = 
         return {"status": "not_found"}
     except SellerServiceError as e:
         return {"status": "error", "message": e.message}
+
+
+@router.get("/sellers/{tg_id}/web_credentials")
+async def get_seller_web_credentials(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """Получить текущие данные для входа. Пароль возвращается только при стандартном формате (Seller+id)."""
+    from sqlalchemy import select
+    from backend.app.models.seller import Seller
+
+    try:
+        result = await session.execute(select(Seller).where(Seller.seller_id == tg_id))
+        seller = result.scalar_one_or_none()
+        if not seller:
+            return {"status": "not_found", "web_login": None, "web_password": None}
+        web_login = getattr(seller, "web_login", None)
+        if not web_login:
+            return {"status": "ok", "web_login": None, "web_password": None}
+        is_standard = web_login == f"Seller{tg_id}"
+        return {
+            "status": "ok",
+            "web_login": web_login,
+            "web_password": str(tg_id) if is_standard else None,
+        }
+    except Exception as e:
+        logger.exception("get_web_credentials failed", tg_id=tg_id, error=str(e))
+        return {"status": "error", "web_login": None, "web_password": None}
+
+
+@router.post("/sellers/{tg_id}/set_web_credentials")
+async def set_seller_web_credentials(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """Установить логин и пароль для веб-панели: login=Seller{tg_id}, password={tg_id}."""
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+    from backend.app.models.seller import Seller
+
+    try:
+        result = await session.execute(select(Seller).where(Seller.seller_id == tg_id))
+        seller = result.scalar_one_or_none()
+        if not seller:
+            return {"status": "not_found"}
+        web_login = f"Seller{tg_id}"
+        web_password = str(tg_id)
+        seller.web_login = web_login
+        seller.web_password_hash = hash_password(web_password)
+        await session.commit()
+        return {"status": "ok", "web_login": web_login, "web_password": web_password}
+    except IntegrityError:
+        await session.rollback()
+        logger.exception("set_web_credentials IntegrityError", tg_id=tg_id)
+        raise HTTPException(status_code=400, detail="Ошибка: такой логин уже используется другим продавцом")
+    except Exception as e:
+        await session.rollback()
+        logger.exception("set_web_credentials failed", tg_id=tg_id, error=str(e))
+        err_msg = str(e)
+        if "web_login" in err_msg or "web_password" in err_msg or "column" in err_msg.lower():
+            raise HTTPException(status_code=500, detail="Ошибка БД. Выполните миграции: python run_migrations.py")
+        raise HTTPException(status_code=500, detail=err_msg)
 
 
 # ============================================

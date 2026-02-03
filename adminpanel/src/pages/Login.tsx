@@ -1,9 +1,8 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { login as apiLogin } from '../api/adminClient';
-
-const TOKEN_KEY = 'admin_token';
+import { login as apiAdminLogin } from '../api/adminClient';
+import { sellerLogin } from '../api/adminClient';
 import './Login.css';
 
 export function Login() {
@@ -20,13 +19,22 @@ export function Login() {
     setLoading(true);
 
     try {
-      const { token } = await apiLogin(loginValue, password);
-      sessionStorage.setItem(TOKEN_KEY, token);
-      login(token);
+      // Try admin login first
+      try {
+        const { token } = await apiAdminLogin(loginValue, password);
+        login({ token, role: 'admin' });
+        navigate('/', { replace: true });
+        return;
+      } catch {
+        // Not admin, try seller
+      }
+
+      // Try seller login
+      const { token, seller_id } = await sellerLogin(loginValue, password);
+      login({ token, role: 'seller', sellerId: seller_id });
       navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка входа');
-      sessionStorage.removeItem(TOKEN_KEY);
     } finally {
       setLoading(false);
     }
@@ -37,7 +45,7 @@ export function Login() {
       <div className="login-card">
         <div className="login-header">
           <h1>Shop<span className="accent">Flow</span></h1>
-          <p>Админ-панель</p>
+          <p>Вход для администраторов и продавцов</p>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">

@@ -8,6 +8,8 @@ import {
   deleteSeller,
   setSellerLimit,
   searchMetro,
+  getSellerWebCredentials,
+  setSellerWebCredentials,
 } from '../api/adminClient';
 import type { Seller, MetroStation } from '../types';
 import './Sellers.css';
@@ -203,11 +205,13 @@ function AddSellerModal({
   const [expiryDate, setExpiryDate] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [credentials, setCredentials] = useState<{ web_login: string; web_password: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
+    setCredentials(null);
     try {
       const payload: Record<string, unknown> = {
         tg_id: parseInt(tgId, 10),
@@ -225,11 +229,18 @@ function AddSellerModal({
         const [d, m, y] = expiryDate.split('.');
         if (d && m && y) payload.placement_expired_at = `${y}-${m}-${d}`;
       }
-      const res = await createSeller(payload);
+      const res = await createSeller(payload) as { status?: string; web_login?: string; web_password?: string };
       if (res?.status === 'ok' || res?.status === undefined) {
-        onSuccess();
+        if (res.web_login && res.web_password) {
+          setCredentials({ web_login: res.web_login, web_password: res.web_password });
+        } else {
+          onSuccess();
+          onClose();
+        }
+      } else if (res?.status === 'exists') {
+        setError('Продавец с таким Telegram ID уже существует.');
       } else {
-        setError('Ошибка создания. Проверьте Telegram ID — возможно, продавец уже существует.');
+        setError('Ошибка создания. Проверьте данные.');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
@@ -238,8 +249,36 @@ function AddSellerModal({
     }
   };
 
+  const handleCloseCredentials = () => {
+    setCredentials(null);
+    onSuccess();
+    onClose();
+  };
+
   return (
-    <Modal title="Добавить продавца" onClose={onClose}>
+    <Modal title={credentials ? 'Данные для входа' : 'Добавить продавца'} onClose={credentials ? handleCloseCredentials : onClose}>
+      {credentials ? (
+        <div className="credentials-block">
+          <p className="credentials-hint">Данные для входа созданы автоматически. Передайте их продавцу для входа в веб-панель.</p>
+          <div className="form-group">
+            <label className="form-label">Логин</label>
+            <div className="credentials-value">
+              <code>{credentials.web_login}</code>
+              <button type="button" className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(credentials.web_login)}>Копировать</button>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Пароль</label>
+            <div className="credentials-value">
+              <code>{credentials.web_password}</code>
+              <button type="button" className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(credentials.web_password)}>Копировать</button>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn btn-primary" onClick={handleCloseCredentials}>Готово</button>
+          </div>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit}>
         <FormRow label="ФИО" value={fio} onChange={setFio} required />
         <FormRow label="Telegram ID" value={tgId} onChange={setTgId} required type="number" />
@@ -271,6 +310,7 @@ function AddSellerModal({
           </button>
         </div>
       </form>
+      )}
     </Modal>
   );
 }
@@ -293,6 +333,9 @@ function SellerDetailsModal({
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'error' | 'success'>('error');
+  const [webCredentials, setWebCredentials] = useState<{ web_login: string; web_password: string } | null>(null);
+  const [currentCredentials, setCurrentCredentials] = useState<{ web_login: string | null; web_password: string | null } | null>(null);
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
 
   // Edit state
   const [editField, setEditField] = useState('');
@@ -334,6 +377,14 @@ function SellerDetailsModal({
   useEffect(() => {
     setManageExpiryDate(formatPlacementExpired(seller.placement_expired_at));
   }, [seller.placement_expired_at]);
+
+  useEffect(() => {
+    if (activeTab === 'manage') {
+      getSellerWebCredentials(seller.tg_id)
+        .then((r) => setCurrentCredentials(r))
+        .catch(() => setCurrentCredentials(null));
+    }
+  }, [activeTab, seller.tg_id]);
 
   useEffect(() => {
     if (!editField) return;
@@ -404,6 +455,22 @@ function SellerDetailsModal({
       showMessage(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSetWebCredentials = async () => {
+    setCredentialsLoading(true);
+    setWebCredentials(null);
+    setMsg('');
+    try {
+      const res = await setSellerWebCredentials(seller.tg_id);
+      setWebCredentials({ web_login: res.web_login, web_password: res.web_password });
+      setCurrentCredentials({ web_login: res.web_login, web_password: res.web_password });
+      showMessage('Логин и пароль установлены.', 'success');
+    } catch (e) {
+      showMessage(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setCredentialsLoading(false);
     }
   };
 
@@ -707,6 +774,50 @@ function SellerDetailsModal({
                     Сохранить дату
                   </button>
                 </div>
+              </div>
+
+              <div className="manage-section">
+                <h4>Веб-панель для продавца</h4>
+                <p className="text-muted">{`Стандартные данные: логин Seller${seller.tg_id}, пароль — ${seller.tg_id}. Сменить можно во вкладке «Безопасность» веб-панели.`}</p>
+                {currentCredentials?.web_login && (
+                  <div className="credentials-block" style={{ marginBottom: '1rem' }}>
+                    <h5 style={{ marginBottom: '0.5rem', fontSize: '0.95rem' }}>Текущие данные для входа</h5>
+                    <div className="credentials-value">
+                      <strong>Логин:</strong> <code>{currentCredentials.web_login}</code>
+                      <button type="button" className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(currentCredentials.web_login!)}>Копировать</button>
+                    </div>
+                    {currentCredentials.web_password != null ? (
+                      <div className="credentials-value">
+                        <strong>Пароль:</strong> <code>{currentCredentials.web_password}</code>
+                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(currentCredentials.web_password!)}>Копировать</button>
+                      </div>
+                    ) : (
+                      <p className="form-hint">Пароль изменён продавцом. Узнать нельзя. Сбросить — кнопка ниже.</p>
+                    )}
+                  </div>
+                )}
+                {webCredentials ? (
+                  <div className="credentials-block">
+                    <div className="credentials-value">
+                      <strong>Логин:</strong> <code>{webCredentials.web_login}</code>
+                      <button type="button" className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(webCredentials.web_login)}>Копировать</button>
+                    </div>
+                    <div className="credentials-value">
+                      <strong>Пароль:</strong> <code>{webCredentials.web_password}</code>
+                      <button type="button" className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(webCredentials.web_password)}>Копировать</button>
+                    </div>
+                    <p className="form-hint">Передайте эти данные продавцу.</p>
+                    <button type="button" className="btn btn-secondary" onClick={() => setWebCredentials(null)}>Скрыть</button>
+                  </div>
+                ) : (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleSetWebCredentials}
+                    disabled={credentialsLoading}
+                  >
+                    {credentialsLoading ? 'Создание...' : 'Создать логин и пароль'}
+                  </button>
+                )}
               </div>
 
               <div className="manage-section">

@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
 
-const nav = [
+const adminNav = [
   { to: '/', label: 'Дашборд', icon: '📊' },
   { to: '/sellers', label: 'Продавцы', icon: '🏪' },
   { to: '/agents', label: 'Посредники', icon: '👥' },
@@ -11,8 +11,18 @@ const nav = [
   { to: '/stats/agents', label: 'Статистика по агентам', icon: '👥' },
 ];
 
+const sellerNav = [
+  { to: '/', label: 'Дашборд', icon: '📊' },
+  { to: '/orders', label: 'Заказы', icon: '📦' },
+  { to: '/shop', label: 'Настройка магазина', icon: '⚙️' },
+  { to: '/stats', label: 'Статистика продаж', icon: '📈' },
+  { to: '/profile', label: 'Профиль', icon: '👤' },
+  { to: '/security', label: 'Безопасность', icon: '🔒' },
+];
+
 export function Layout() {
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
+  const nav = role === 'seller' ? sellerNav : adminNav;
   const navigate = useNavigate();
 
   const handleLogout = () => {

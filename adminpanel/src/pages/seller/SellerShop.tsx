@@ -1,0 +1,275 @@
+import { useEffect, useState } from 'react';
+import { getMe, getProducts, updateLimits, createProduct, updateProduct, deleteProduct } from '../../api/sellerClient';
+import type { SellerMe, SellerProduct } from '../../api/sellerClient';
+import './SellerShop.css';
+
+export function SellerShop() {
+  const [me, setMe] = useState<SellerMe | null>(null);
+  const [products, setProducts] = useState<SellerProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [limitValue, setLimitValue] = useState('');
+  const [limitSaving, setLimitSaving] = useState(false);
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', quantity: '1' });
+  const [editingQty, setEditingQty] = useState<{ id: number; value: string } | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [meData, productsData] = await Promise.all([getMe(), getProducts()]);
+      setMe(meData);
+      setProducts(productsData || []);
+      setLimitValue(String(meData?.max_orders ?? ''));
+    } catch {
+      setMe(null);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleSaveLimit = async () => {
+    const num = parseInt(limitValue, 10);
+    if (isNaN(num) || num < 1 || num > 100) {
+      alert('Введите число от 1 до 100');
+      return;
+    }
+    setLimitSaving(true);
+    try {
+      await updateLimits(num);
+      setMe((m) => m ? { ...m, max_orders: num } : null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setLimitSaving(false);
+    }
+  };
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!me) return;
+    const price = parseFloat(newProduct.price);
+    const quantity = parseInt(newProduct.quantity, 10);
+    if (isNaN(price) || price < 0 || isNaN(quantity) || quantity < 0) {
+      alert('Проверьте цену и количество');
+      return;
+    }
+    try {
+      await createProduct({
+        seller_id: me.seller_id,
+        name: newProduct.name,
+        description: newProduct.description,
+        price,
+        quantity,
+      });
+      setNewProduct({ name: '', description: '', price: '', quantity: '1' });
+      setShowAddProduct(false);
+      load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    }
+  };
+
+  const handleDeleteProduct = async (id: number) => {
+    if (!confirm('Удалить товар?')) return;
+    try {
+      await deleteProduct(id);
+      load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    }
+  };
+
+  const handleUpdateQuantity = async (product: SellerProduct, newQty: number) => {
+    if (newQty < 0) return;
+    setEditingQty(null);
+    try {
+      await updateProduct(product.id, { quantity: newQty });
+      load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    }
+  };
+
+  const startEditQty = (p: SellerProduct) => setEditingQty({ id: p.id, value: String(p.quantity) });
+
+  if (loading) {
+    return (
+      <div className="seller-shop-loading">
+        <div className="loader" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="seller-shop-page">
+      <h1 className="page-title">Настройка магазина</h1>
+
+      {/* Лимиты */}
+      <div className="card shop-section">
+        <h3>⚙️ Настройка лимитов</h3>
+        <p className="section-hint">Лимит обнуляется каждый день в 6:00 (МСК). Укажите, сколько заказов сможете выполнить сегодня.</p>
+        <div className="limit-row">
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={limitValue}
+            onChange={(e) => setLimitValue(e.target.value)}
+            className="form-input"
+            style={{ width: '100px' }}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={handleSaveLimit}
+            disabled={limitSaving}
+          >
+            {limitSaving ? 'Сохранение...' : 'Сохранить'}
+          </button>
+        </div>
+        {me?.limit_set_for_today && (
+          <p className="limit-info">
+            Использовано сегодня: {me.orders_used_today ?? 0} / {me.max_orders ?? 0}
+          </p>
+        )}
+      </div>
+
+      {/* Ссылка на магазин */}
+      <div className="card shop-section">
+        <h3>🔗 Ссылка на магазин</h3>
+        <p className="section-hint">Отправьте эту ссылку клиентам — они сразу попадут в каталог вашего магазина.</p>
+        {me?.shop_link ? (
+          <div className="link-box">
+            <code>{me.shop_link}</code>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => {
+                navigator.clipboard.writeText(me.shop_link!);
+                alert('Ссылка скопирована');
+              }}
+            >
+              Копировать
+            </button>
+          </div>
+        ) : (
+          <p className="empty-text">Ссылка генерируется автоматически. Обратитесь к администратору.</p>
+        )}
+      </div>
+
+      {/* Мои товары */}
+      <div className="card shop-section">
+        <h3>📦 Мои товары</h3>
+        <p className="section-hint">Товары, которые видят покупатели. Добавьте фото через Telegram-бота.</p>
+        <button className="btn btn-primary" onClick={() => setShowAddProduct(true)} style={{ marginBottom: '1rem' }}>
+          ➕ Добавить товар
+        </button>
+
+        {showAddProduct && (
+          <form onSubmit={handleAddProduct} className="add-product-form card">
+            <h4>Новый товар</h4>
+            <div className="form-group">
+              <label>Название</label>
+              <input
+                type="text"
+                value={newProduct.name}
+                onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
+                className="form-input"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Описание</label>
+              <textarea
+                value={newProduct.description}
+                onChange={(e) => setNewProduct((p) => ({ ...p, description: e.target.value }))}
+                className="form-input"
+              />
+            </div>
+            <div className="form-row-2">
+              <div className="form-group">
+                <label>Цена (₽)</label>
+                <input
+                  type="number"
+                  value={newProduct.price}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Количество</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={newProduct.quantity}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, quantity: e.target.value }))}
+                  className="form-input"
+                />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAddProduct(false)}>
+                Отмена
+              </button>
+              <button type="submit" className="btn btn-primary">Добавить</button>
+            </div>
+          </form>
+        )}
+
+        {products.length === 0 ? (
+          <p className="empty-text">Нет товаров</p>
+        ) : (
+          <div className="products-list">
+            {products.map((p) => (
+              <div key={p.id} className="product-card">
+                <div className="product-info">
+                  <strong>{p.name}</strong>
+                  <p className="product-desc">{p.description || '—'}</p>
+                  <p className="product-price">{p.price} ₽</p>
+                  <div className="product-qty">
+                    <span>В наличии: </span>
+                    {editingQty?.id === p.id ? (
+                      <>
+                        <input
+                          type="number"
+                          min={0}
+                          value={editingQty.value}
+                          onChange={(e) => setEditingQty((x) => x ? { ...x, value: e.target.value } : null)}
+                          onBlur={() => {
+                            const v = parseInt(editingQty.value, 10);
+                            if (!isNaN(v) && v >= 0) handleUpdateQuantity(p, v);
+                            else setEditingQty(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const v = parseInt(editingQty.value, 10);
+                              if (!isNaN(v) && v >= 0) handleUpdateQuantity(p, v);
+                            }
+                          }}
+                          className="form-input"
+                          style={{ width: '70px', display: 'inline-block' }}
+                          autoFocus
+                        />
+                      </>
+                    ) : (
+                      <span onClick={() => startEditQty(p)} style={{ cursor: 'pointer', textDecoration: 'underline' }}>
+                        {p.quantity} шт. (нажать для изменения)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button className="btn btn-sm btn-secondary" onClick={() => handleDeleteProduct(p.id)}>
+                  🗑 Удалить
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

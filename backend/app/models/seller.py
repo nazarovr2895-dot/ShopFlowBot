@@ -24,6 +24,9 @@ class Seller(Base):
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     placement_expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     deleted_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)  # Soft delete timestamp
+    # Web panel auth (login/password for seller web access)
+    web_login: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True)
+    web_password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

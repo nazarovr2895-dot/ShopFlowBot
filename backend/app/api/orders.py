@@ -67,9 +67,11 @@ async def create_order(
             address=data.address,
             agent_id=data.agent_id,
         )
+        await session.commit()
         logger.info("Order created successfully", order_id=order.id, buyer_id=data.buyer_id)
         return order
     except OrderServiceError as e:
+        await session.rollback()
         logger.warning(
             "Order creation failed",
             buyer_id=data.buyer_id,
@@ -84,9 +86,9 @@ async def create_order(
 @router.post("/{order_id}/accept")
 async def accept_order(order_id: int, session: AsyncSession = Depends(get_session)):
     service = OrderService(session)
-    
     try:
         result = await service.accept_order(order_id)
+        await session.commit()
         return {
             "status": "ok",
             "new_status": result["new_status"],
@@ -96,6 +98,7 @@ async def accept_order(order_id: int, session: AsyncSession = Depends(get_sessio
             "original_price": result.get("original_price")
         }
     except OrderServiceError as e:
+        await session.rollback()
         _handle_service_error(e)
 
 
@@ -103,9 +106,9 @@ async def accept_order(order_id: int, session: AsyncSession = Depends(get_sessio
 @router.post("/{order_id}/reject")
 async def reject_order(order_id: int, session: AsyncSession = Depends(get_session)):
     service = OrderService(session)
-    
     try:
         result = await service.reject_order(order_id)
+        await session.commit()
         return {
             "status": "ok",
             "new_status": result["new_status"],
@@ -114,6 +117,7 @@ async def reject_order(order_id: int, session: AsyncSession = Depends(get_sessio
             "total_price": result["total_price"]
         }
     except OrderServiceError as e:
+        await session.rollback()
         _handle_service_error(e)
 
 
@@ -121,9 +125,9 @@ async def reject_order(order_id: int, session: AsyncSession = Depends(get_sessio
 @router.post("/{order_id}/done")
 async def done_order(order_id: int, session: AsyncSession = Depends(get_session)):
     service = OrderService(session)
-    
     try:
         result = await service.complete_order(order_id)
+        await session.commit()
         return {
             "status": "ok",
             "new_status": result["new_status"],
@@ -132,6 +136,7 @@ async def done_order(order_id: int, session: AsyncSession = Depends(get_session)
             "total_price": result["total_price"]
         }
     except OrderServiceError as e:
+        await session.rollback()
         _handle_service_error(e)
 
 
@@ -176,13 +181,13 @@ async def update_order_status(
     """
     logger.info("Updating order status", order_id=order_id, new_status=status)
     service = OrderService(session)
-    
     try:
         result = await service.update_status(
             order_id=order_id,
             new_status=status,
             accrue_commissions_func=accrue_commissions
         )
+        await session.commit()
         logger.info(
             "Order status updated",
             order_id=order_id,
@@ -199,6 +204,7 @@ async def update_order_status(
             "commissions_accrued": result["commissions_accrued"]
         }
     except OrderServiceError as e:
+        await session.rollback()
         logger.warning(
             "Order status update failed",
             order_id=order_id,
@@ -220,10 +226,10 @@ async def update_order_price(
     """
     logger.info("Updating order price", order_id=order_id, new_price=new_price)
     service = OrderService(session)
-    
     try:
         from decimal import Decimal
         result = await service.update_order_price(order_id, Decimal(str(new_price)))
+        await session.commit()
         logger.info(
             "Order price updated",
             order_id=order_id,
@@ -238,6 +244,7 @@ async def update_order_price(
             "original_price": result["original_price"]
         }
     except OrderServiceError as e:
+        await session.rollback()
         logger.warning(
             "Order price update failed",
             order_id=order_id,

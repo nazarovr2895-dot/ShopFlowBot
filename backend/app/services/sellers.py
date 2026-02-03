@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from backend.app.models.seller import Seller, City, District
 from backend.app.models.user import User
 from backend.app.models.order import Order
+from backend.app.core.password_utils import hash_password, verify_password
 
 # Московское время, «день» начинается в 6:00
 LIMIT_TIMEZONE = ZoneInfo("Europe/Moscow")
@@ -106,22 +107,26 @@ class SellerService:
         return total_used < seller.max_orders
     
     async def get_seller(self, seller_id: int) -> Optional[Dict[str, Any]]:
-        """Get seller data for display. Включает orders_used_today и limit_set_for_today."""
+        """Get seller data for display. Включает orders_used_today, limit_set_for_today, fio, phone from User."""
         result = await self.session.execute(
-            select(Seller).where(Seller.seller_id == seller_id)
+            select(User, Seller)
+            .join(Seller, User.tg_id == Seller.seller_id)
+            .where(Seller.seller_id == seller_id)
         )
-        seller = result.scalar_one_or_none()
-        
-        if not seller:
+        row = result.first()
+        if not row:
             return None
-        
+        user, seller = row
+
         today = _today_6am_date()
         limit_set_for_today = seller.daily_limit_date == today and seller.max_orders > 0
         completed_today = await self._count_completed_since(seller_id, _today_6am_utc()) if limit_set_for_today else 0
         orders_used_today = completed_today + seller.active_orders + seller.pending_requests
-        
+
         return {
             "seller_id": seller.seller_id,
+            "fio": user.fio,
+            "phone": user.phone,
             "shop_name": seller.shop_name or "My Shop",
             "description": seller.description,
             "max_orders": seller.max_orders,
@@ -140,7 +145,7 @@ class SellerService:
             "map_url": seller.map_url,
             "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
             "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
-            "is_deleted": seller.deleted_at is not None
+            "is_deleted": seller.deleted_at is not None,
         }
     
     async def create_seller(
@@ -158,18 +163,21 @@ class SellerService:
         delivery_type: str = "pickup",
         delivery_price: float = 0.0,
         placement_expired_at: Optional[datetime] = None,
-    ) -> Dict[str, str]:
+    ) -> Dict[str, Any]:
         """
         Create a new seller with associated user record.
+        Web credentials auto-generated: login=Seller{tg_id}, password={tg_id}.
         
         Returns:
-            {"status": "ok"} on success, {"status": "exists"} if seller exists
+            {"status": "ok", "web_login": str, "web_password": str} on success
+            {"status": "exists"} if seller exists
         """
         # Check if seller already exists
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == tg_id)
         )
-        if result.scalar_one_or_none():
+        existing = result.scalar_one_or_none()
+        if existing:
             return {"status": "exists"}
         
         # Create or update user record
@@ -202,6 +210,11 @@ class SellerService:
         if metro_id is not None and metro_walk_minutes is not None and metro_walk_minutes <= 0:
             raise SellerServiceError("Время до метро должно быть больше 0 минут")
         
+        # Auto web credentials: login=Seller{tg_id}, password={tg_id}
+        web_login = f"Seller{tg_id}"
+        web_password = str(tg_id)
+        password_hash = hash_password(web_password)
+
         # Create seller
         new_seller = Seller(
             seller_id=tg_id,
@@ -218,12 +231,14 @@ class SellerService:
             max_orders=0,
             daily_limit_date=None,
             active_orders=0,
-            pending_requests=0
+            pending_requests=0,
+            web_login=web_login,
+            web_password_hash=password_hash,
         )
         self.session.add(new_seller)
         
         await self.session.commit()
-        return {"status": "ok"}
+        return {"status": "ok", "web_login": web_login, "web_password": web_password}
     
     async def _ensure_city_exists(self, city_id: Optional[int]) -> None:
         """Ensure city record exists."""
@@ -409,6 +424,43 @@ class SellerService:
         await self.session.commit()
         return {"status": "ok", "max_orders": max_orders}
     
+    async def change_web_credentials(
+        self,
+        seller_id: int,
+        old_login: str,
+        old_password: str,
+        new_login: str,
+        new_password: str,
+    ) -> Dict[str, str]:
+        """Change web login/password. Verify old credentials first."""
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == seller_id)
+        )
+        seller = result.scalar_one_or_none()
+        if not seller:
+            raise SellerNotFoundError(seller_id)
+        if not seller.web_login or not seller.web_password_hash:
+            raise SellerServiceError("Учётные данные для веб-панели не установлены")
+        if seller.web_login != old_login:
+            raise SellerServiceError("Неверный текущий логин")
+        if not verify_password(old_password, seller.web_password_hash):
+            raise SellerServiceError("Неверный текущий пароль")
+        new_login_stripped = (new_login or "").strip()
+        if not new_login_stripped or len(new_login_stripped) < 3:
+            raise SellerServiceError("Новый логин должен быть не менее 3 символов")
+        if not new_password or len(new_password) < 4:
+            raise SellerServiceError("Новый пароль должен быть не менее 4 символов")
+        # Check login uniqueness (excluding current seller)
+        dup = await self.session.execute(
+            select(Seller).where(Seller.web_login == new_login_stripped, Seller.seller_id != seller_id)
+        )
+        if dup.scalar_one_or_none():
+            raise SellerServiceError("Такой логин уже занят")
+        seller.web_login = new_login_stripped
+        seller.web_password_hash = hash_password(new_password)
+        await self.session.commit()
+        return {"status": "ok"}
+
     async def update_limits(self, tg_id: int, max_orders: int) -> Dict[str, Any]:
         """Обновить дневной лимит продавца (1-100). Применяется к текущему дню (до 6:00 следующего)."""
         if max_orders < 1 or max_orders > 100:

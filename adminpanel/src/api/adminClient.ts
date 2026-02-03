@@ -157,10 +157,31 @@ export async function getAgentReferrals(tgId: number): Promise<unknown[]> {
   }
 }
 
-// Login with username and password
+const LOGIN_TIMEOUT_MS = 15000;
+
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = LOGIN_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } catch (e) {
+    if (e instanceof Error) {
+      if (e.name === 'AbortError') {
+        throw new Error('Сервер не отвечает. Проверьте, что бэкенд запущен на http://localhost:8000');
+      }
+      throw new Error(e.message || 'Ошибка сети');
+    }
+    throw e;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+// Admin login
 export async function login(login: string, password: string): Promise<{ token: string }> {
   const url = `${API_BASE}/admin/login`;
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ login, password }),
@@ -170,6 +191,31 @@ export async function login(login: string, password: string): Promise<{ token: s
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+// Seller login (for web panel)
+export async function sellerLogin(login: string, password: string): Promise<{ token: string; seller_id: number }> {
+  const url = `${API_BASE}/seller-web/login`;
+  const res = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getSellerWebCredentials(tgId: number): Promise<{ web_login: string | null; web_password: string | null }> {
+  return fetchAdmin<{ web_login: string | null; web_password: string | null }>(`/admin/sellers/${tgId}/web_credentials`);
+}
+
+export async function setSellerWebCredentials(tgId: number): Promise<{ web_login: string; web_password: string }> {
+  return fetchAdmin<{ web_login: string; web_password: string }>(`/admin/sellers/${tgId}/set_web_credentials`, {
+    method: 'POST',
+  });
 }
 
 // Auth check (verify token works)
