@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-# revision identifiers, used by Alembic.
-revision: str = 'add_metro_line_color_walk'
+# revision identifiers, used by Alembic. (id совпадает с уже применённой в БД ревизией)
+revision: str = 'add_walk_minutes_to_sellers'
 down_revision: Union[str, None] = 'add_original_price_to_orders'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

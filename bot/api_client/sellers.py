@@ -5,10 +5,15 @@ from datetime import datetime
 # --- ПРОДАВЕЦ ---
 
 async def api_check_limit(seller_id: int) -> bool:
-    # Запрашиваем инфо о продавце
+    """Проверка: может ли продавец принимать заказы (не заблокирован, лимит на сегодня задан и не исчерпан)."""
     data = await make_request("GET", f"/sellers/{seller_id}")
-    # Если продавец заблокирован, запрещаем действия
-    if data and data.get("is_blocked"):
+    if not data or data.get("is_blocked"):
+        return False
+    if not data.get("limit_set_for_today", False):
+        return False
+    orders_used = data.get("orders_used_today", 0)
+    max_orders = data.get("max_orders", 0)
+    if max_orders - orders_used <= 0:
         return False
     return True
 
@@ -59,11 +64,13 @@ async def api_validate_seller_availability(seller_id: int) -> Tuple[bool, Option
         except (ValueError, TypeError):
             pass  # Если не удалось распарсить - игнорируем проверку
     
-    # Проверка лимита заказов
-    max_orders = data.get("max_orders", 10)
-    active_orders = data.get("active_orders", 0)
-    pending_requests = data.get("pending_requests", 0)
-    available_slots = max_orders - active_orders - pending_requests
+    # Лимит дневной: после 6:00 продавец должен задать лимит на сегодня
+    if not data.get("limit_set_for_today", False):
+        return (False, "limit_not_set")
+    
+    orders_used_today = data.get("orders_used_today", 0)
+    max_orders = data.get("max_orders", 0)
+    available_slots = max_orders - orders_used_today
     
     if available_slots <= 0:
         return (False, "limit_reached")
@@ -75,11 +82,14 @@ async def api_get_seller(tg_id: int):
     if not data: return None
     
     class SellerObj:
-        def __init__(self, d): 
+        def __init__(self, d):
             self.seller_id = d.get("seller_id")
             self.shop_name = d.get("shop_name", "Shop")
             self.description = d.get("description")
-            self.max_orders = d.get("max_orders", 10)
+            self.max_orders = d.get("max_orders", 0)
+            self.daily_limit_date = d.get("daily_limit_date")
+            self.limit_set_for_today = d.get("limit_set_for_today", False)
+            self.orders_used_today = d.get("orders_used_today", 0)
             self.active_orders = d.get("active_orders", 0)
             self.pending_requests = d.get("pending_requests", 0)
             self.is_blocked = d.get("is_blocked", False)

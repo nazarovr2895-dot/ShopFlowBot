@@ -287,7 +287,7 @@ function SellerDetailsModal({
   onUpdate: (seller: Seller) => void;
 }) {
   const [activeTab, setActiveTab] = useState<'info' | 'edit' | 'manage'>('info');
-  const [limit, setLimit] = useState(String(seller.max_orders ?? 10));
+  const [limit, setLimit] = useState(String(seller.max_orders ?? ''));
   const [manageExpiryDate, setManageExpiryDate] = useState(formatPlacementExpired(seller.placement_expired_at));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -408,12 +408,19 @@ function SellerDetailsModal({
   };
 
   const handleSetLimit = async () => {
+    const num = limit.trim() === '' ? 0 : parseInt(limit, 10);
+    if (isNaN(num) || num < 0) {
+      showMessage('Введите неотрицательное число (0 = сбросить лимит на сегодня)');
+      return;
+    }
     setLoading(true);
     setMsg('');
     try {
-      const res = await setSellerLimit(seller.tg_id, parseInt(limit, 10));
+      const res = await setSellerLimit(seller.tg_id, num);
       if (res?.status === 'ok') {
         showMessage('Лимит обновлён', 'success');
+        onUpdate({ ...seller, max_orders: num });
+        onSuccess();
       } else {
         showMessage((res as { message?: string })?.message || 'Ошибка');
       }
@@ -559,7 +566,7 @@ function SellerDetailsModal({
               </div>
               <div className="info-row">
                 <span className="info-label">Лимит заказов</span>
-                <span className="info-value">{seller.max_orders ?? 10}</span>
+                <span className="info-value">{seller.max_orders != null && seller.max_orders > 0 ? seller.max_orders : 'Не задан'}</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Дата окончания размещения</span>

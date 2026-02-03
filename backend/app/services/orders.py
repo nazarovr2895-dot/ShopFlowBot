@@ -7,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
+from datetime import datetime
 import re
 
 from backend.app.models.order import Order
 from backend.app.models.seller import Seller
 from backend.app.models.product import Product
+from backend.app.services.sellers import SellerService
 
 
 class OrderServiceError(Exception):
@@ -72,12 +74,6 @@ class OrderService:
         if seller.is_blocked:
             raise SellerBlockedError(seller_id)
     
-    def _check_limits(self, seller: Seller) -> None:
-        """Check if seller can accept new orders."""
-        current_load = seller.active_orders + seller.pending_requests
-        if current_load >= seller.max_orders:
-            raise SellerLimitReachedError(seller.seller_id)
-    
     async def create_order(
         self,
         buyer_id: int,
@@ -109,10 +105,11 @@ class OrderService:
             SellerLimitReachedError: If seller has reached order limit
         """
         async with self.session.begin():
-            # Lock seller row for atomic update
             seller = await self._get_seller_for_update(seller_id)
             self._validate_seller(seller, seller_id)
-            self._check_limits(seller)
+            seller_service = SellerService(self.session)
+            if not await seller_service.check_limit(seller_id):
+                raise SellerLimitReachedError(seller_id)
             
             # НЕ уменьшаем количество товаров при создании заказа
             # Количество будет уменьшено только при принятии заказа продавцом (accept_order)
@@ -252,6 +249,8 @@ class OrderService:
                 seller.active_orders -= 1
             
             order.status = "done"
+            if order.completed_at is None:
+                order.completed_at = datetime.utcnow()
             
             return {
                 "order_id": order.id,
@@ -300,6 +299,11 @@ class OrderService:
                 seller = await self._get_seller_for_update(order.seller_id)
                 if seller and seller.active_orders > 0:
                     seller.active_orders -= 1
+                if order.completed_at is None:
+                    order.completed_at = datetime.utcnow()
+            
+            if new_status == "completed" and order.completed_at is None:
+                order.completed_at = datetime.utcnow()
             
             # Accrue commissions when buyer confirms receipt
             if new_status == "completed" and old_status != "completed" and accrue_commissions_func:
@@ -379,6 +383,34 @@ class OrderService:
             for o in orders
         ]
     
+    async def update_order_price(self, order_id: int, new_price: Decimal) -> Dict[str, Any]:
+        """
+        Изменить цену заказа. Можно изменить только для заказов со статусом 'accepted'.
+        При первом изменении сохраняет original_price.
+        
+        Returns dict with order_id, buyer_id, total_price, original_price.
+        """
+        async with self.session.begin():
+            order = await self.session.get(Order, order_id)
+            if not order:
+                raise OrderNotFoundError(order_id)
+            
+            if order.status != "accepted":
+                raise InvalidOrderStatusError(order_id, order.status, "accepted")
+            
+            # При первом изменении сохраняем исходную цену
+            if order.original_price is None:
+                order.original_price = order.total_price
+            
+            order.total_price = new_price
+            
+            return {
+                "order_id": order.id,
+                "buyer_id": order.buyer_id,
+                "total_price": float(order.total_price),
+                "original_price": float(order.original_price) if order.original_price is not None else float(order.total_price)
+            }
+
     async def get_seller_stats(self, seller_id: int) -> Dict[str, Any]:
         """Get order statistics for a seller."""
         # Revenue from completed orders

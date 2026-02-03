@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import ProgrammingError
 from backend.app.models.referral import Referral
 from backend.app.models.user import User
 
@@ -64,9 +65,16 @@ async def accrue_commissions(session: AsyncSession, order_total: float, buyer_id
     
     Возвращает список начисленных комиссий для отладки/логирования:
     [{'user_id': 123, 'amount': 70.0, 'level': 1}, ...]
+    
+    Возвращает [] при отсутствии таблицы referrals (миграция не применена).
     """
-    # Получаем расчет комиссий
-    rewards = await calculate_rewards(session, order_total, buyer_id)
+    try:
+        rewards = await calculate_rewards(session, order_total, buyer_id)
+    except ProgrammingError as e:
+        err_msg = str(e.orig) if hasattr(e, "orig") and e.orig else str(e)
+        if "does not exist" in err_msg:
+            return []
+        raise
     
     accrued = []
     

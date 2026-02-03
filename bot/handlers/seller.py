@@ -545,22 +545,35 @@ async def done_order_callback_legacy(callback: types.CallbackQuery):
 # --- 6. НАСТРОЙКА ЛИМИТОВ ---
 @router.message(F.text == "⚙️ Настройка лимитов")
 async def settings_limit_start(message: types.Message, state: FSMContext):
-    """Начало настройки лимитов"""
+    """Настройка дневного лимита. Лимит обнуляется каждый день в 6:00 (МСК)."""
     seller = await api_get_seller(message.from_user.id)
     
-    current_limit = seller.max_orders if seller else 10
-    current_active = seller.active_orders if seller else 0
-    current_pending = seller.pending_requests if seller else 0
+    if not seller:
+        return await message.answer("❌ Продавец не найден.")
     
-    text = (
-        f"⚙️ *Настройка лимитов*\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"📊 Текущий лимит: *{current_limit}* заказов\n"
-        f"⚡️ Активных: {current_active}\n"
-        f"📩 Ожидающих: {current_pending}\n"
-        f"📈 Свободно слотов: {current_limit - current_active - current_pending}\n\n"
-        f"Введите новый лимит (от 1 до 100):"
-    )
+    limit_set = getattr(seller, "limit_set_for_today", False)
+    current_limit = seller.max_orders or 0
+    orders_used = getattr(seller, "orders_used_today", 0)
+    free_slots = max(0, current_limit - orders_used) if limit_set else 0
+    
+    if not limit_set or current_limit <= 0:
+        text = (
+            "⚙️ *Настройка лимитов*\n"
+            "━━━━━━━━━━━━━━━\n"
+            "🕕 Лимит обнуляется *каждый день в 6:00* (МСК).\n"
+            "После 6:00 укажите, сколько заказов сможете выполнить *сегодня*.\n\n"
+            "📊 Лимит на сегодня: *не задан*\n\n"
+            "Введите число заказов на сегодня (от 1 до 100):"
+        )
+    else:
+        text = (
+            f"⚙️ *Настройка лимитов*\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"🕕 Лимит на сегодня: *{current_limit}* заказов\n"
+            f"📦 Уже использовано: {orders_used}\n"
+            f"📈 Свободно слотов: *{free_slots}*\n\n"
+            f"Введите новый лимит на сегодня (от 1 до 100):"
+        )
     
     await state.set_state(SellerSettings.waiting_for_limit)
     await message.answer(text, reply_markup=kb.cancel_kb, parse_mode="Markdown")
@@ -650,7 +663,10 @@ async def seller_report_handler(message: types.Message):
 @router.message(F.text == "➕ Добавить товар")
 async def start_add_p(message: types.Message, state: FSMContext):
     if not await api_check_limit(message.from_user.id):
-        return await message.answer("⛔ Лимит исчерпан!")
+        return await message.answer(
+            "⛔ Сейчас вы не можете добавлять товары: лимит на сегодня не задан или исчерпан.\n"
+            "Укажите лимит в разделе «⚙️ Настройка лимитов» (после 6:00 нужно задать лимит на каждый день)."
+        )
     await state.set_state(AddProduct.name)
     await message.answer("Введите название товара:", reply_markup=kb.cancel_kb)
 

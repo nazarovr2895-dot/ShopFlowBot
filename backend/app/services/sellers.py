@@ -4,13 +4,34 @@ Seller service - handles all seller-related business logic.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_, or_
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 
 from backend.app.models.seller import Seller, City, District
 from backend.app.models.user import User
 from backend.app.models.order import Order
+
+# Московское время, «день» начинается в 6:00
+LIMIT_TIMEZONE = ZoneInfo("Europe/Moscow")
+LIMIT_DAY_START_HOUR = 6
+
+
+def _today_6am_date() -> date:
+    """Текущая «дата дня»: после 6:00 — сегодня, до 6:00 — вчера."""
+    now = datetime.now(LIMIT_TIMEZONE)
+    if now.hour >= LIMIT_DAY_START_HOUR:
+        return now.date()
+    return (now - timedelta(days=1)).date()
+
+
+def _today_6am_utc() -> datetime:
+    """Начало текущего «дня» (6:00 МСК) в UTC (naive) для сравнения с БД."""
+    d = _today_6am_date()
+    local_6am = datetime(d.year, d.month, d.day, LIMIT_DAY_START_HOUR, 0, 0, tzinfo=LIMIT_TIMEZONE)
+    utc = local_6am.astimezone(ZoneInfo("UTC"))
+    return utc.replace(tzinfo=None)
 
 
 class SellerServiceError(Exception):
@@ -47,13 +68,25 @@ class SellerService:
     
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def _count_completed_since(self, seller_id: int, since: datetime) -> int:
+        """Количество заказов в статусе done/completed с момента since (по completed_at или created_at)."""
+        result = await self.session.execute(
+            select(func.count(Order.id)).where(
+                Order.seller_id == seller_id,
+                Order.status.in_(("done", "completed")),
+                or_(
+                    Order.completed_at >= since,
+                    and_(Order.completed_at.is_(None), Order.created_at >= since)
+                )
+            )
+        )
+        return result.scalar() or 0
     
     async def check_limit(self, seller_id: int) -> bool:
         """
-        Check if seller can accept new orders.
-        
-        Returns:
-            True if seller can accept new orders (limit NOT exceeded)
+        Проверка: может ли продавец принять новый заказ.
+        Лимит — дневной (обнуляется в 6:00 МСК). Учитываются: выполненные сегодня + активные + ожидающие.
         """
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == seller_id)
@@ -63,11 +96,17 @@ class SellerService:
         if not seller:
             return False
         
-        current_load = seller.active_orders + seller.pending_requests
-        return current_load < seller.max_orders
+        today = _today_6am_date()
+        if seller.daily_limit_date != today or seller.max_orders <= 0:
+            return False
+        
+        since = _today_6am_utc()
+        completed_today = await self._count_completed_since(seller_id, since)
+        total_used = completed_today + seller.active_orders + seller.pending_requests
+        return total_used < seller.max_orders
     
     async def get_seller(self, seller_id: int) -> Optional[Dict[str, Any]]:
-        """Get seller data for display."""
+        """Get seller data for display. Включает orders_used_today и limit_set_for_today."""
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == seller_id)
         )
@@ -76,11 +115,19 @@ class SellerService:
         if not seller:
             return None
         
+        today = _today_6am_date()
+        limit_set_for_today = seller.daily_limit_date == today and seller.max_orders > 0
+        completed_today = await self._count_completed_since(seller_id, _today_6am_utc()) if limit_set_for_today else 0
+        orders_used_today = completed_today + seller.active_orders + seller.pending_requests
+        
         return {
             "seller_id": seller.seller_id,
             "shop_name": seller.shop_name or "My Shop",
             "description": seller.description,
             "max_orders": seller.max_orders,
+            "daily_limit_date": seller.daily_limit_date.isoformat() if seller.daily_limit_date else None,
+            "limit_set_for_today": limit_set_for_today,
+            "orders_used_today": orders_used_today,
             "active_orders": seller.active_orders,
             "pending_requests": seller.pending_requests,
             "is_blocked": seller.is_blocked,
@@ -168,7 +215,8 @@ class SellerService:
             delivery_type=delivery_type,
             delivery_price=delivery_price,
             placement_expired_at=placement_expired_at,
-            max_orders=10,
+            max_orders=0,
+            daily_limit_date=None,
             active_orders=0,
             pending_requests=0
         )
@@ -347,7 +395,7 @@ class SellerService:
         return {"status": "ok", "message": "Счетчики сброшены"}
     
     async def set_order_limit(self, tg_id: int, max_orders: int) -> Dict[str, Any]:
-        """Set seller's maximum order limit."""
+        """Установить дневной лимит заказов продавца (админ). 0 = сбросить на сегодня."""
         if max_orders < 0 or max_orders > 1000:
             raise SellerServiceError("Лимит должен быть от 0 до 1000")
         
@@ -355,12 +403,14 @@ class SellerService:
         if not seller:
             raise SellerNotFoundError(tg_id)
         
+        today = _today_6am_date()
         seller.max_orders = max_orders
+        seller.daily_limit_date = today if max_orders > 0 else None
         await self.session.commit()
         return {"status": "ok", "max_orders": max_orders}
     
     async def update_limits(self, tg_id: int, max_orders: int) -> Dict[str, Any]:
-        """Update seller order limit (1-100 range)."""
+        """Обновить дневной лимит продавца (1-100). Применяется к текущему дню (до 6:00 следующего)."""
         if max_orders < 1 or max_orders > 100:
             raise SellerServiceError("Лимит должен быть от 1 до 100")
         
@@ -372,7 +422,9 @@ class SellerService:
         if not seller:
             raise SellerNotFoundError(tg_id)
         
+        today = _today_6am_date()
         seller.max_orders = max_orders
+        seller.daily_limit_date = today
         await self.session.commit()
         return {"status": "ok", "max_orders": max_orders}
     
@@ -402,6 +454,7 @@ class SellerService:
                 "delivery_type": seller.delivery_type,
                 "delivery_price": float(seller.delivery_price) if seller.delivery_price is not None else 0.0,
                 "max_orders": seller.max_orders,
+                "daily_limit_date": seller.daily_limit_date.isoformat() if seller.daily_limit_date else None,
                 "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
                 "is_blocked": seller.is_blocked,
                 "is_deleted": seller.deleted_at is not None,
@@ -441,6 +494,7 @@ class SellerService:
                 "delivery_type": seller.delivery_type,
                 "delivery_price": float(seller.delivery_price) if seller.delivery_price is not None else 0.0,
                 "max_orders": seller.max_orders,
+                "daily_limit_date": seller.daily_limit_date.isoformat() if seller.daily_limit_date else None,
                 "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
                 "is_blocked": seller.is_blocked,
                 "is_deleted": seller.deleted_at is not None,

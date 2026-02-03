@@ -16,7 +16,10 @@ from backend.app.api.deps import get_session, get_cache
 from backend.app.models.seller import Seller, City, District, Metro
 from backend.app.models.product import Product
 from backend.app.models.user import User
+from backend.app.models.order import Order
 from backend.app.services.cache import CacheService
+from backend.app.services.sellers import _today_6am_date, _today_6am_utc
+from sqlalchemy import or_
 
 
 router = APIRouter()
@@ -106,20 +109,72 @@ async def get_public_sellers(
     Условия отображения:
     - Продавец не заблокирован (is_blocked=False)
     - Размещение не истекло (placement_expired_at > now или NULL)
-    - Есть свободные слоты (active_orders + pending_requests < max_orders)
+    - Лимит на сегодня задан и есть свободные слоты
+    - Есть хотя бы один товар в наличии (is_active=True, quantity > 0)
     """
     now = datetime.utcnow()
+    today = _today_6am_date()
+    since_6am = _today_6am_utc()
     
-    # Базовые условия для активных продавцов
+    # Подзапрос: количество выполненных заказов за текущий день (с 6:00) по продавцам
+    completed_today_subq = (
+        select(
+            Order.seller_id,
+            func.count(Order.id).label("completed_today")
+        )
+        .where(
+            Order.status.in_(("done", "completed")),
+            or_(
+                Order.completed_at >= since_6am,
+                and_(Order.completed_at.is_(None), Order.created_at >= since_6am)
+            )
+        )
+        .group_by(Order.seller_id)
+        .subquery()
+    )
+    
+    # Базовые условия: лимит задан на сегодня, есть свободные слоты (учитываем выполненные сегодня)
     base_conditions = [
         Seller.is_blocked == False,
-        # Не soft-deleted
         Seller.deleted_at.is_(None),
-        # Размещение активно или не установлено
         (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
-        # Есть свободные слоты
-        (Seller.active_orders + Seller.pending_requests) < Seller.max_orders
+        Seller.daily_limit_date == today,
+        Seller.max_orders > 0,
     ]
+    
+    # Подзапрос для статистики товаров (только с количеством > 0)
+    product_stats = (
+        select(
+            Product.seller_id,
+            func.min(Product.price).label("min_price"),
+            func.max(Product.price).label("max_price"),
+            func.count(Product.id).label("product_count")
+        )
+        .where(
+            Product.is_active == True,
+            Product.quantity > 0  # Только товары в наличии
+        )
+        .group_by(Product.seller_id)
+        .subquery()
+    )
+    
+    # Условие: (выполнено сегодня + активные + ожидающие) < лимит
+    completed_today_scalar = (
+        select(func.count(Order.id))
+        .where(
+            Order.seller_id == Seller.seller_id,
+            Order.status.in_(("done", "completed")),
+            or_(
+                Order.completed_at >= since_6am,
+                and_(Order.completed_at.is_(None), Order.created_at >= since_6am)
+            )
+        )
+        .correlate(Seller)
+        .scalar_subquery()
+    )
+    base_conditions.append(
+        (func.coalesce(completed_today_scalar, 0) + Seller.active_orders + Seller.pending_requests) < Seller.max_orders
+    )
     
     # Добавляем фильтры
     if city_id:
@@ -162,7 +217,7 @@ async def get_public_sellers(
         .subquery()
     )
     
-    # Основной запрос
+    # Основной запрос: join с completed_today для available_slots
     query = (
         select(
             Seller,
@@ -173,13 +228,15 @@ async def get_public_sellers(
             Metro.line_color.label("metro_line_color"),
             product_stats.c.min_price,
             product_stats.c.max_price,
-            func.coalesce(product_stats.c.product_count, 0).label("product_count")
+            func.coalesce(product_stats.c.product_count, 0).label("product_count"),
+            func.coalesce(completed_today_subq.c.completed_today, 0).label("completed_today")
         )
         .outerjoin(User, Seller.seller_id == User.tg_id)
         .outerjoin(City, Seller.city_id == City.id)
         .outerjoin(District, Seller.district_id == District.id)
         .outerjoin(Metro, Seller.metro_id == Metro.id)
-        .outerjoin(product_stats, Seller.seller_id == product_stats.c.seller_id)
+        .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
+        .outerjoin(completed_today_subq, Seller.seller_id == completed_today_subq.c.seller_id)
         .where(and_(*base_conditions))
     )
     
@@ -189,17 +246,17 @@ async def get_public_sellers(
     elif sort_price == "desc":
         query = query.order_by(product_stats.c.max_price.desc().nullslast())
     elif sort_mode in ("all_city", "nearby"):
-        # Случайная сортировка для режимов "Все магазины" и "По близости"
         query = query.order_by(sql_func.random())
     else:
-        # По умолчанию сортируем по количеству свободных слотов (больше слотов = выше)
         query = query.order_by(
-            (Seller.max_orders - Seller.active_orders - Seller.pending_requests).desc()
+            (Seller.max_orders - func.coalesce(completed_today_subq.c.completed_today, 0) - Seller.active_orders - Seller.pending_requests).desc()
         )
     
-    # Подсчет общего количества
+    # Подсчет общего количества (только продавцы с хотя бы одним товаром в наличии)
     count_query = (
         select(func.count(Seller.seller_id))
+        .select_from(Seller)
+        .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
         .where(and_(*base_conditions))
     )
     total_result = await session.execute(count_query)
@@ -214,8 +271,9 @@ async def get_public_sellers(
     
     sellers = []
     for row in rows:
-        seller = row[0]  # Seller object
-        available_slots = seller.max_orders - seller.active_orders - seller.pending_requests
+        seller = row[0]
+        completed_today = row.completed_today if hasattr(row, "completed_today") else 0
+        available_slots = seller.max_orders - completed_today - seller.active_orders - seller.pending_requests
         
         sellers.append(PublicSellerListItem(
             seller_id=seller.seller_id,
@@ -251,8 +309,9 @@ async def get_public_seller_detail(
     Получить публичный профиль продавца с товарами.
     """
     now = datetime.utcnow()
+    today = _today_6am_date()
+    since_6am = _today_6am_utc()
     
-    # Получаем продавца с джойнами
     query = (
         select(
             Seller,
@@ -275,7 +334,6 @@ async def get_public_seller_detail(
     
     seller = row[0]
     
-    # Проверяем доступность
     if seller.deleted_at:
         raise HTTPException(status_code=404, detail="Продавец не найден")
     
@@ -285,7 +343,22 @@ async def get_public_seller_detail(
     if seller.placement_expired_at and seller.placement_expired_at < now:
         raise HTTPException(status_code=403, detail="Размещение продавца истекло")
     
-    available_slots = seller.max_orders - seller.active_orders - seller.pending_requests
+    # Свободные слоты с учётом дневного лимита и выполненных сегодня
+    if seller.daily_limit_date != today or seller.max_orders <= 0:
+        available_slots = 0
+    else:
+        completed_result = await session.execute(
+            select(func.count(Order.id)).where(
+                Order.seller_id == seller_id,
+                Order.status.in_(("done", "completed")),
+                or_(
+                    Order.completed_at >= since_6am,
+                    and_(Order.completed_at.is_(None), Order.created_at >= since_6am)
+                )
+            )
+        )
+        completed_today = completed_result.scalar() or 0
+        available_slots = max(0, seller.max_orders - completed_today - seller.active_orders - seller.pending_requests)
     
     # Получаем товары (только с количеством > 0)
     products_query = (
@@ -299,6 +372,10 @@ async def get_public_seller_detail(
     )
     products_result = await session.execute(products_query)
     products = products_result.scalars().all()
+    
+    # Не показываем магазин, если нет ни одного товара в наличии
+    if not products:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
     
     products_list = [
         {
