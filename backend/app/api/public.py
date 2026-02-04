@@ -382,13 +382,19 @@ async def get_public_seller_detail(
     # Не показываем магазин, если нет ни одного товара в наличии
     if not products:
         raise HTTPException(status_code=404, detail="Продавец не найден")
+    def _photo_ids(p):
+        if p.photo_ids:
+            return p.photo_ids
+        return [p.photo_id] if p.photo_id else []
+
     products_list = [
         {
             "id": p.id,
             "name": p.name,
             "description": p.description,
             "price": float(p.price),
-            "photo_id": p.photo_id,
+            "photo_id": (p.photo_ids or [p.photo_id] if p.photo_id else [None])[0] if (p.photo_ids or p.photo_id) else None,
+            "photo_ids": _photo_ids(p),
             "quantity": p.quantity
         }
         for p in products

@@ -1,3 +1,4 @@
+import WebApp from '@twa-dev/sdk';
 import type {
   City,
   District,
@@ -5,6 +6,9 @@ import type {
   PublicSellersResponse,
   PublicSellerDetail,
   SellerFilters,
+  CartSellerGroup,
+  VisitedSeller,
+  BuyerOrder,
 } from '../types';
 
 // API base URL: сначала runtime (config.json), иначе из сборки (VITE_API_URL)
@@ -18,19 +22,20 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 /**
  * Get Telegram WebApp init data for authentication.
- * Returns the raw initData string that should be sent to the backend.
+ * Uses the same source as the rest of the app (@twa-dev/sdk).
  */
 function getTelegramInitData(): string | null {
   try {
-    // @ts-expect-error - Telegram is injected by Telegram WebApp
-    const telegram = window.Telegram?.WebApp;
-    if (telegram?.initData) {
-      return telegram.initData;
-    }
+    const data = WebApp.initData;
+    return data && data.length > 0 ? data : null;
   } catch {
-    // Not running in Telegram WebApp context
+    return null;
   }
-  return null;
+}
+
+/** True if we have Telegram init data (e.g. app opened inside Telegram). */
+export function hasTelegramAuth(): boolean {
+  return getTelegramInitData() != null;
 }
 
 class ApiClient {
@@ -42,6 +47,36 @@ class ApiClient {
 
   private getBaseUrl(): string {
     return runtimeApiUrl != null && runtimeApiUrl !== '' ? runtimeApiUrl : this.baseUrl;
+  }
+
+  /** Полный URL фото товара (photo_id с бэкенда — путь вида /static/... или полный URL) */
+  getProductImageUrl(photoId: string | null | undefined): string | null {
+    if (photoId == null || String(photoId).trim() === '') return null;
+    const raw = String(photoId).trim();
+    // Уже полный URL
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    // Путь без ведущего слэша (например "static/uploads/...") — нормализуем
+    const path = raw.startsWith('/') ? raw : `/${raw}`;
+    // Не используем как URL Telegram file_id и прочие не-пути
+    if (!path.startsWith('/static/')) return null;
+    const base = this.getBaseUrl().replace(/\/$/, '');
+    const isLocalBase =
+      typeof window !== 'undefined' &&
+      base &&
+      (base.startsWith('http://localhost') || base.startsWith('http://127.0.0.1'));
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const isPageLocal = origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1');
+    // В Telegram (не localhost) не подставлять localhost в URL картинок — грузить с того же origin (прокси)
+    let url: string;
+    if (isLocalBase && !isPageLocal) {
+      url = path;
+    } else {
+      url = base ? `${base}${path}` : path;
+    }
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      console.log('[API] Product image URL:', url, '(photo_id:', photoId, ', base:', base || '(empty)');
+    }
+    return url;
   }
 
   private async fetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -157,6 +192,61 @@ class ApiClient {
         district_id: districtId || null,
       }),
     });
+  }
+
+  // Cart API
+  async getCart(): Promise<CartSellerGroup[]> {
+    return this.fetch<CartSellerGroup[]>('/buyers/me/cart');
+  }
+
+  async addCartItem(productId: number, quantity: number = 1): Promise<{ product_id: number; quantity: number; seller_id: number }> {
+    return this.fetch('/buyers/me/cart/items', {
+      method: 'POST',
+      body: JSON.stringify({ product_id: productId, quantity }),
+    });
+  }
+
+  async updateCartItem(productId: number, quantity: number): Promise<{ status: string }> {
+    return this.fetch(`/buyers/me/cart/items/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ quantity }),
+    });
+  }
+
+  async removeCartItem(productId: number): Promise<{ status: string }> {
+    return this.fetch(`/buyers/me/cart/items/${productId}`, { method: 'DELETE' });
+  }
+
+  async clearCart(): Promise<{ status: string }> {
+    return this.fetch('/buyers/me/cart', { method: 'DELETE' });
+  }
+
+  async checkoutCart(data: { fio: string; phone: string; delivery_type: string; address: string }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
+    return this.fetch('/buyers/me/cart/checkout', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Visited sellers API
+  async recordVisitedSeller(sellerId: number): Promise<{ status: string }> {
+    return this.fetch('/buyers/me/visited-sellers', {
+      method: 'POST',
+      body: JSON.stringify({ seller_id: sellerId }),
+    });
+  }
+
+  async getVisitedSellers(): Promise<VisitedSeller[]> {
+    return this.fetch<VisitedSeller[]>('/buyers/me/visited-sellers');
+  }
+
+  // Orders API (buyer)
+  async getMyOrders(): Promise<BuyerOrder[]> {
+    return this.fetch<BuyerOrder[]>('/buyers/me/orders');
+  }
+
+  async confirmOrderReceived(orderId: number): Promise<{ status: string; new_status: string }> {
+    return this.fetch(`/buyers/me/orders/${orderId}/confirm`, { method: 'POST' });
   }
 }
 

@@ -10,7 +10,7 @@ from bot.api_client.sellers import (
     api_check_limit, api_get_seller, api_create_product, api_get_my_products, api_delete_product,
     api_get_seller_orders, api_accept_order, api_reject_order, api_done_order,
     api_update_seller_limit, api_get_seller_revenue_stats, api_update_order_status,
-    api_update_order_price, api_get_bouquets,
+    api_update_order_price, api_get_bouquets, api_upload_photo_from_telegram,
 )
 
 router = Router()
@@ -720,11 +720,12 @@ async def add_bouquet_select_cb(callback: types.CallbackQuery, state: FSMContext
         description="",
         quantity=quantity,
     )
+    await state.update_data(photo_ids=[])
     await state.set_state(AddProduct.photo)
     await callback.message.answer(
         f"Количество установлено автоматически по остаткам в приёмке: *{quantity}* шт.\n\n"
-        "Отправьте фото товара:",
-        reply_markup=kb.cancel_kb,
+        "Отправьте от 1 до 3 фото товара. Затем нажмите «✅ Готово».",
+        reply_markup=kb.photo_done_kb,
         parse_mode="Markdown",
     )
     await callback.answer()
@@ -768,23 +769,33 @@ async def add_p_quantity(message: types.Message, state: FSMContext):
     if not message.text.isdigit(): return await message.answer("Только цифры!")
     quantity = int(message.text)
     if quantity < 0: return await message.answer("Количество не может быть отрицательным!")
-    await state.update_data(quantity=quantity)
+    await state.update_data(quantity=quantity, photo_ids=[])
     await state.set_state(AddProduct.photo)
-    await message.answer("Отправьте фото товара:", reply_markup=kb.cancel_kb)
+    await message.answer(
+        "Отправьте от 1 до 3 фото товара. Затем нажмите «✅ Готово».",
+        reply_markup=kb.photo_done_kb,
+    )
 
 @router.message(AddProduct.photo, F.text)
-async def add_p_photo_cancel(message: types.Message, state: FSMContext):
+async def add_p_photo_text(message: types.Message, state: FSMContext):
     if message.text == "❌ Отмена":
         await state.clear()
         menu = kb.get_main_kb(message.from_user.id, "SELLER")
         await message.answer("Отменено.", reply_markup=menu)
-    else:
-        await message.answer("Отправьте фото товара (или нажмите «❌ Отмена»).")
+        return
+    if message.text == "✅ Готово":
+        data = await state.get_data()
+        photo_ids = data.get("photo_ids") or []
+        if not photo_ids:
+            await message.answer("Отправьте хотя бы одно фото товара.")
+            return
+        await _finish_add_product(message, state, data, photo_ids)
+        return
+    await message.answer("Отправьте фото (до 3 шт.) или нажмите «✅ Готово» / «❌ Отмена».")
 
-@router.message(AddProduct.photo, F.photo)
-async def add_p_photo(message: types.Message, state: FSMContext):
-    photo_id = message.photo[-1].file_id
-    data = await state.get_data()
+
+async def _finish_add_product(message: types.Message, state: FSMContext, data: dict, photo_ids: list):
+    """Создать товар с собранными photo_ids и выйти из состояния."""
     await message.answer("⏳ Сохраняю...")
     quantity = data.get("quantity", 0)
     bouquet_id = data.get("bouquet_id")
@@ -793,9 +804,9 @@ async def add_p_photo(message: types.Message, state: FSMContext):
         data["name"],
         data["price"],
         data.get("description") or "",
-        photo_id,
-        quantity,
+        quantity=quantity,
         bouquet_id=bouquet_id,
+        photo_ids=photo_ids,
     )
     menu = kb.get_main_kb(message.from_user.id, "SELLER")
     if res:
@@ -803,6 +814,31 @@ async def add_p_photo(message: types.Message, state: FSMContext):
     else:
         await message.answer("❌ Ошибка сохранения.", reply_markup=menu)
     await state.clear()
+
+
+@router.message(AddProduct.photo, F.photo)
+async def add_p_photo(message: types.Message, state: FSMContext):
+    file_id = message.photo[-1].file_id
+    data = await state.get_data()
+    photo_ids = data.get("photo_ids") or []
+    if len(photo_ids) >= 3:
+        await message.answer("Уже добавлено 3 фото. Нажмите «✅ Готово».")
+        return
+    await message.answer("⏳ Загружаю фото...")
+    path = await api_upload_photo_from_telegram(file_id)
+    if not path:
+        await message.answer("❌ Не удалось загрузить фото. Попробуйте другое изображение.")
+        return
+    photo_ids = photo_ids + [path]
+    await state.update_data(photo_ids=photo_ids)
+    if len(photo_ids) >= 3:
+        await message.answer(f"Добавлено 3 фото. Сохраняю товар...")
+        await _finish_add_product(message, state, data, photo_ids)
+    else:
+        await message.answer(
+            f"Фото добавлено ({len(photo_ids)}/3). Отправьте ещё или нажмите «✅ Готово».",
+            reply_markup=kb.photo_done_kb,
+        )
 
 # --- 5. ВЫХОД (Переходы по кнопкам) ---
 @router.message(F.text == "🛍 Режим покупателя")

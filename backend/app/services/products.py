@@ -2,8 +2,27 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from backend.app.models.product import Product
+from backend.app.schemas import MAX_PRODUCT_PHOTOS
+
+
+def _normalize_photo_ids(data: dict) -> dict:
+    """Set photo_ids (max 3) and photo_id (first) from data."""
+    data = dict(data)
+    photo_ids = data.get("photo_ids")
+    if photo_ids is not None:
+        if not isinstance(photo_ids, list):
+            photo_ids = list(photo_ids) if photo_ids else []
+        photo_ids = [str(p).strip() for p in photo_ids if p][:MAX_PRODUCT_PHOTOS]
+    else:
+        photo_id = data.get("photo_id")
+        photo_ids = [photo_id] if photo_id else []
+    data["photo_ids"] = photo_ids
+    data["photo_id"] = photo_ids[0] if photo_ids else None
+    return data
+
 
 async def create_product_service(session: AsyncSession, data: dict):
+    data = _normalize_photo_ids(data)
     new_product = Product(**data)
     session.add(new_product)
     await session.commit()
@@ -37,6 +56,8 @@ async def update_product_service(session: AsyncSession, product_id: int, update_
     if not product:
         return None
     
+    if "photo_ids" in update_data or "photo_id" in update_data:
+        update_data = _normalize_photo_ids({**{k: getattr(product, k) for k in ("photo_id", "photo_ids")}, **update_data})
     for field, value in update_data.items():
         if value is not None:
             setattr(product, field, value)

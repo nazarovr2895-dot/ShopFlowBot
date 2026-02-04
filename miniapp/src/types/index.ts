@@ -41,6 +41,45 @@ export interface Product {
   description: string | null;
   price: number;
   photo_id: string | null;
+  /** До 3 фото (пути /static/...). Для отображения использовать первый или карусель */
+  photo_ids?: string[] | null;
+  quantity?: number;
+}
+
+// Cart (backend)
+export interface CartItemEntry {
+  product_id: number;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export interface CartSellerGroup {
+  seller_id: number;
+  shop_name: string;
+  items: CartItemEntry[];
+  total: number;
+}
+
+// Visited sellers
+export interface VisitedSeller {
+  seller_id: number;
+  shop_name: string;
+  owner_fio: string | null;
+  visited_at: string | null;
+}
+
+// Orders
+export interface BuyerOrder {
+  id: number;
+  buyer_id: number;
+  seller_id: number;
+  items_info: string;
+  total_price: number;
+  status: string;
+  delivery_type: string;
+  address: string | null;
+  created_at: string | null;
 }
 
 export interface PublicSellerDetail {

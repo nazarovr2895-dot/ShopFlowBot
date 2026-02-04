@@ -1,19 +1,20 @@
 import { useEffect, useCallback } from 'react';
 import WebApp from '@twa-dev/sdk';
 
+let telegramWebAppInitialized = false;
+
+function initTelegramWebAppOnce() {
+  if (telegramWebAppInitialized) return;
+  telegramWebAppInitialized = true;
+  WebApp.ready();
+  WebApp.expand();
+  WebApp.setHeaderColor('secondary_bg_color');
+  WebApp.enableClosingConfirmation();
+}
+
 export function useTelegramWebApp() {
   useEffect(() => {
-    // Initialize WebApp
-    WebApp.ready();
-    
-    // Expand to full height
-    WebApp.expand();
-    
-    // Set header color
-    WebApp.setHeaderColor('secondary_bg_color');
-    
-    // Enable closing confirmation if needed
-    WebApp.enableClosingConfirmation();
+    initTelegramWebAppOnce();
   }, []);
 
   const openShop = useCallback((sellerId: number) => {

@@ -194,6 +194,14 @@ async def update_order_status(
             new_status=result["new_status"],
             commissions_accrued=result["commissions_accrued"],
         )
+        from backend.app.services.telegram_notify import notify_buyer_order_status
+        await notify_buyer_order_status(
+            buyer_id=result["buyer_id"],
+            order_id=order_id,
+            new_status=result["new_status"],
+            items_info=result.get("items_info"),
+            total_price=result.get("total_price"),
+        )
         return {
             "status": "ok",
             "new_status": result["new_status"],

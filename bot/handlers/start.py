@@ -35,19 +35,15 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
     # 3. Определение роли (админка теперь в веб-приложении)
     role = user.role if user else "BUYER"
 
-    # 4. Логика перехода по ссылке
+    # 4. Переход по ссылке магазина — каталог и товары в Mini App
     if target_seller_id:
         await state.update_data(current_seller_id=target_seller_id)
-        # Выдаем меню ПОКУПАТЕЛЯ (с кнопкой админа, если это ты)
         menu = kb.get_main_kb(tg_id, "BUYER")
         await message.answer(
-            "🌸 Вы перешли в магазин!",
+            "🌸 Вы перешли в магазин! Откройте каталог в приложении — там можно посмотреть товары и оформить заказ.",
             reply_markup=menu,
             parse_mode="Markdown"
         )
-        # Сразу показываем товары магазина (импортируем внутри функции, чтобы избежать циклических импортов)
-        from bot.handlers.buyer import show_shop_products
-        await show_shop_products(message, target_seller_id)
         return
 
     if referrer_id:

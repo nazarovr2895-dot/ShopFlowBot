@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import type { PublicSellerListItem } from '../types';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import './ShopCard.css';
@@ -7,11 +8,12 @@ interface ShopCardProps {
 }
 
 export function ShopCard({ seller }: ShopCardProps) {
-  const { openShop, hapticFeedback } = useTelegramWebApp();
+  const navigate = useNavigate();
+  const { hapticFeedback } = useTelegramWebApp();
 
   const handleClick = () => {
     hapticFeedback('light');
-    openShop(seller.seller_id);
+    navigate(`/shop/${seller.seller_id}`);
   };
 
   const formatPrice = (price: number | null) => {

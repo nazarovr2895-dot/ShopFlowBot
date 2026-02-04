@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional, List
 from decimal import Decimal
 
@@ -47,14 +47,25 @@ class OrderResponse(BaseModel):
     status: str
 
 # --- Товары ---
+MAX_PRODUCT_PHOTOS = 3
+
+
 class ProductCreate(BaseModel):
     seller_id: int
     name: str
     description: str
     price: float
-    photo_id: Optional[str] = None
+    photo_id: Optional[str] = None  # legacy: one photo
+    photo_ids: Optional[List[str]] = None  # up to MAX_PRODUCT_PHOTOS
     quantity: int = 0
     bouquet_id: Optional[int] = None
+
+    @model_validator(mode="after")
+    def truncate_photo_ids(self):
+        if self.photo_ids is not None:
+            self.photo_ids = [str(p).strip() for p in self.photo_ids if p][:MAX_PRODUCT_PHOTOS]
+        return self
+
 
 class ProductUpdate(BaseModel):
     """Схема для обновления товара - все поля опциональны"""
@@ -62,11 +73,29 @@ class ProductUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[float] = None
     photo_id: Optional[str] = None
+    photo_ids: Optional[List[str]] = None
     quantity: Optional[int] = None
     bouquet_id: Optional[int] = None
 
-class ProductResponse(ProductCreate):
+
+class ProductResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
     id: int
+    seller_id: int
+    name: str
+    description: str
+    price: float
+    photo_id: Optional[str] = None
+    photo_ids: Optional[List[str]] = None
+    quantity: int
+    bouquet_id: Optional[int] = None
+
+    @model_validator(mode="after")
+    def fill_photo_ids(self):
+        if self.photo_ids is None and self.photo_id:
+            self.photo_ids = [self.photo_id]
+        return self
 
 
 # --- CRM: Flowers, Receptions ---

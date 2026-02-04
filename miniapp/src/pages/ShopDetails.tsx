@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { PublicSellerDetail } from '../types';
-import { api } from '../api/client';
+import { api, hasTelegramAuth } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
-import { Loader, EmptyState } from '../components';
+import { Loader, EmptyState, ProductImage } from '../components';
 import './ShopDetails.css';
 
 export function ShopDetails() {
   const { sellerId } = useParams<{ sellerId: string }>();
   const navigate = useNavigate();
-  const { setBackButton, setMainButton, openShop, hapticFeedback } = useTelegramWebApp();
-  
+  const { setBackButton, hapticFeedback, showAlert } = useTelegramWebApp();
   const [seller, setSeller] = useState<PublicSellerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addingId, setAddingId] = useState<number | null>(null);
 
   // Set up back button
   useEffect(() => {
@@ -26,7 +26,7 @@ export function ShopDetails() {
     };
   }, [setBackButton, navigate]);
 
-  // Load seller details
+  // Load seller details and record visit
   useEffect(() => {
     if (!sellerId) return;
 
@@ -35,8 +35,17 @@ export function ShopDetails() {
       setError(null);
 
       try {
-        const data = await api.getSellerDetail(parseInt(sellerId));
+        const id = parseInt(sellerId, 10);
+        const data = await api.getSellerDetail(id);
         setSeller(data);
+        // Запись посещения только при наличии Telegram init data (внутри Mini App). Иначе не дергаем API — избегаем 401 в консоли.
+        if (hasTelegramAuth()) {
+          try {
+            await api.recordVisitedSeller(data.seller_id);
+          } catch {
+            // игнорируем сбой записи
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка загрузки');
       } finally {
@@ -47,23 +56,18 @@ export function ShopDetails() {
     loadSeller();
   }, [sellerId]);
 
-  // Set up main button
-  useEffect(() => {
-    if (seller && seller.available_slots > 0) {
-      setMainButton(
-        'Открыть магазин',
-        () => {
-          hapticFeedback('medium');
-          openShop(seller.seller_id);
-        },
-        { isVisible: true, isActive: true }
-      );
+  const addToCart = async (productId: number) => {
+    setAddingId(productId);
+    try {
+      hapticFeedback('light');
+      await api.addCartItem(productId, 1);
+      showAlert('Добавлено в корзину');
+    } catch (err) {
+      showAlert(err instanceof Error ? err.message : 'Ошибка');
+    } finally {
+      setAddingId(null);
     }
-
-    return () => {
-      setMainButton('', () => {}, { isVisible: false });
-    };
-  }, [seller, setMainButton, openShop, hapticFeedback]);
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ru-RU', {
@@ -160,22 +164,54 @@ export function ShopDetails() {
           <h2 className="shop-details__products-title">
             Товары ({seller.products.length})
           </h2>
-          <div className="shop-details__products-list">
-            {seller.products.map((product) => (
-              <div key={product.id} className="shop-details__product">
-                <div className="shop-details__product-info">
-                  <span className="shop-details__product-name">{product.name}</span>
-                  {product.description && (
-                    <span className="shop-details__product-desc">
-                      {product.description}
+          <div className="shop-details__products-grid">
+            {seller.products.map((product) => {
+              const inStock = (product.quantity ?? 0) > 0;
+              const isAdding = addingId === product.id;
+              const firstPhotoId = (product.photo_ids && product.photo_ids[0]) || product.photo_id;
+              const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
+              return (
+                <div
+                  key={product.id}
+                  className="shop-details__product-card"
+                  onClick={() => navigate(`/shop/${seller.seller_id}/product/${product.id}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/shop/${seller.seller_id}/product/${product.id}`);
+                    }
+                  }}
+                >
+                  <div className="shop-details__product-card-image-wrap">
+                    <ProductImage
+                      src={imageUrl}
+                      alt={product.name}
+                      className="shop-details__product-card-image"
+                      placeholderClassName="shop-details__product-card-image-placeholder"
+                    />
+                  </div>
+                  <div className="shop-details__product-card-info">
+                    <span className="shop-details__product-card-name">{product.name}</span>
+                    <span className="shop-details__product-card-price">
+                      {formatPrice(product.price)}
                     </span>
-                  )}
+                    <button
+                      type="button"
+                      className="shop-details__product-card-add"
+                      disabled={!inStock || isAdding}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(product.id);
+                      }}
+                    >
+                      {isAdding ? '…' : inStock ? 'В корзину' : 'Нет'}
+                    </button>
+                  </div>
                 </div>
-                <span className="shop-details__product-price">
-                  {formatPrice(product.price)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

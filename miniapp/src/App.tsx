@@ -1,7 +1,17 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ShopsList, ShopDetails } from './pages';
-import { LocationSetup, Loader } from './components';
+import {
+  ShopsList,
+  ShopDetails,
+  Cart,
+  Checkout,
+  VisitedSellers,
+  Profile,
+  OrdersList,
+  OrderDetail,
+  ProductDetail,
+} from './pages';
+import { LocationSetup, Loader, MainLayout } from './components';
 import { useTelegramWebApp } from './hooks/useTelegramWebApp';
 import { api } from './api/client';
 import { useLocationCache } from './hooks/useLocationCache';
@@ -178,15 +188,30 @@ function AppContent() {
 
   return (
     <Routes>
-      <Route path="/" element={<ShopsList />} />
+      <Route element={<MainLayout />}>
+        <Route index element={<ShopsList />} />
+        <Route path="visited" element={<VisitedSellers />} />
+        <Route path="cart" element={<Cart />} />
+        <Route path="profile" element={<Profile />} />
+      </Route>
+      <Route path="/cart/checkout" element={<Checkout />} />
       <Route path="/shop/:sellerId" element={<ShopDetails />} />
+      <Route path="/shop/:sellerId/product/:productId" element={<ProductDetail />} />
+      <Route path="/orders" element={<OrdersList />} />
+      <Route path="/order/:orderId" element={<OrderDetail />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <AppContent />
     </BrowserRouter>
   );

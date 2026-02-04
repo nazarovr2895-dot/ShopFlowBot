@@ -1,2 +1,9 @@
 export { ShopsList } from './ShopsList';
 export { ShopDetails } from './ShopDetails';
+export { Cart } from './Cart';
+export { Checkout } from './Checkout';
+export { VisitedSellers } from './VisitedSellers';
+export { Profile } from './Profile';
+export { OrdersList } from './OrdersList';
+export { OrderDetail } from './OrderDetail';
+export { ProductDetail } from './ProductDetail';

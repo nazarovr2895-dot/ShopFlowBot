@@ -1,4 +1,5 @@
 """Seller web panel API - protected by X-Seller-Token."""
+import io
 import os
 import uuid
 from pathlib import Path
@@ -6,6 +7,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
+from PIL import Image, ImageOps
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,6 +63,11 @@ logger = get_logger(__name__)
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "static"
 PRODUCTS_UPLOAD_SUBDIR = Path("uploads") / "products"
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+# Конвертация загружаемых фото в лёгкий формат (только web seller; Telegram-бот не трогаем)
+UPLOAD_MAX_SIDE_PX = 1200
+UPLOAD_OUTPUT_QUALITY = 85
+UPLOAD_OUTPUT_EXT = ".webp"
 
 
 def _get_seller_id(seller_id: int = Depends(require_seller_token)) -> int:
@@ -162,12 +169,21 @@ async def update_order_status(
     session: AsyncSession = Depends(get_session),
 ):
     from fastapi import HTTPException
+    from backend.app.services.telegram_notify import notify_buyer_order_status
     service = OrderService(session)
     try:
         result = await service.update_status(
             order_id, status, verify_seller_id=seller_id, accrue_commissions_func=accrue_commissions
         )
         await session.commit()
+        # Notify buyer in Telegram about status change
+        await notify_buyer_order_status(
+            buyer_id=result["buyer_id"],
+            order_id=order_id,
+            new_status=result["new_status"],
+            items_info=result.get("items_info"),
+            total_price=result.get("total_price"),
+        )
         return result
     except OrderServiceError as e:
         await session.rollback()
@@ -281,9 +297,12 @@ async def add_product(
         "name": data.name,
         "description": data.description,
         "price": data.price,
-        "photo_id": data.photo_id,
         "quantity": data.quantity,
     }
+    if data.photo_ids is not None:
+        product_data["photo_ids"] = data.photo_ids
+    elif data.photo_id is not None:
+        product_data["photo_id"] = data.photo_id
     if data.bouquet_id is not None:
         product_data["bouquet_id"] = data.bouquet_id
     return await create_product_service(session, product_data)
@@ -318,12 +337,32 @@ async def delete_product(
     return {"status": "deleted"}
 
 
+def _convert_uploaded_image(content: bytes) -> bytes:
+    """Открыть изображение, повернуть по EXIF, уменьшить по длинной стороне, сохранить в WebP."""
+    try:
+        img = Image.open(io.BytesIO(content))
+        img = ImageOps.exif_transpose(img)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        w, h = img.size
+        if max(w, h) > UPLOAD_MAX_SIDE_PX:
+            ratio = UPLOAD_MAX_SIDE_PX / max(w, h)
+            new_size = (int(w * ratio), int(h * ratio))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        out = io.BytesIO()
+        img.save(out, "WEBP", quality=UPLOAD_OUTPUT_QUALITY)
+        return out.getvalue()
+    except Exception as e:
+        logger.warning("Image conversion failed: %s", e)
+        raise HTTPException(status_code=400, detail="Не удалось обработать изображение") from e
+
+
 @router.post("/upload-photo")
 async def upload_product_photo(
     file: UploadFile = File(...),
     seller_id: int = Depends(require_seller_token),
 ):
-    """Загрузка фото товара. Возвращает photo_id (путь для сохранения в товаре)."""
+    """Загрузка фото товара. Конвертируется в WebP с уменьшением размера. Возвращает photo_id."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="Файл не выбран")
     ext = Path(file.filename).suffix.lower()
@@ -332,13 +371,14 @@ async def upload_product_photo(
             status_code=400,
             detail=f"Допустимые форматы: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
         )
-    upload_dir = UPLOAD_DIR / PRODUCTS_UPLOAD_SUBDIR
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    name = f"{uuid.uuid4().hex}{ext}"
-    path = upload_dir / name
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:  # 10 MB
         raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 10 МБ)")
+    content = _convert_uploaded_image(content)
+    upload_dir = UPLOAD_DIR / PRODUCTS_UPLOAD_SUBDIR
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}{UPLOAD_OUTPUT_EXT}"
+    path = upload_dir / name
     path.write_bytes(content)
     photo_id = f"/static/{PRODUCTS_UPLOAD_SUBDIR}/{name}"
     return {"photo_id": photo_id}

@@ -110,15 +110,33 @@ async def api_get_bouquets(seller_id: int):
     return data if isinstance(data, list) else []
 
 
-async def api_create_product(seller_id: int, name: str, price: float, description: str, photo_id: str, quantity: int = 0, bouquet_id: Optional[int] = None):
+async def api_upload_photo_from_telegram(file_id: str) -> Optional[str]:
+    """Загрузить фото из Telegram на бэкенд. Возвращает photo_id (путь) или None."""
+    data = await make_request("POST", "/sellers/upload-photo-from-telegram", data={"file_id": file_id})
+    return data.get("photo_id") if data else None
+
+
+async def api_create_product(
+    seller_id: int,
+    name: str,
+    price: float,
+    description: str,
+    quantity: int = 0,
+    bouquet_id: Optional[int] = None,
+    photo_id: Optional[str] = None,
+    photo_ids: Optional[List[str]] = None,
+):
     payload = {
         "seller_id": seller_id,
         "name": name,
         "price": price,
         "description": description or "",
-        "photo_id": photo_id,
-        "quantity": quantity
+        "quantity": quantity,
     }
+    if photo_ids:
+        payload["photo_ids"] = photo_ids
+    elif photo_id:
+        payload["photo_id"] = photo_id
     if bouquet_id is not None:
         payload["bouquet_id"] = bouquet_id
     return await make_request("POST", "/sellers/products/add", data=payload)
@@ -156,7 +174,14 @@ async def api_get_product(product_id: int):
     return ProductObj(data)
 
 
-async def api_update_product(product_id: int, name: str = None, description: str = None, price: float = None, photo_id: str = None):
+async def api_update_product(
+    product_id: int,
+    name: str = None,
+    description: str = None,
+    price: float = None,
+    photo_id: str = None,
+    photo_ids: Optional[List[str]] = None,
+):
     """Обновить товар"""
     payload = {}
     if name is not None:
@@ -165,9 +190,10 @@ async def api_update_product(product_id: int, name: str = None, description: str
         payload["description"] = description
     if price is not None:
         payload["price"] = price
-    if photo_id is not None:
+    if photo_ids is not None:
+        payload["photo_ids"] = photo_ids
+    elif photo_id is not None:
         payload["photo_id"] = photo_id
-    
     return await make_request("PUT", f"/sellers/products/{product_id}", data=payload)
 
 # --- АДМИНКА ---

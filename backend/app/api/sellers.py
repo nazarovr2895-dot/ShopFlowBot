@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from typing import List
@@ -21,9 +22,14 @@ from backend.app.services.products import (
     delete_product_service,
 )
 from backend.app.services.bouquets import list_bouquets_with_totals
+from backend.app.services.telegram_file import download_telegram_photo_to_static
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+class UploadPhotoFromTelegramBody(BaseModel):
+    file_id: str
 
 
 def _handle_service_error(e: SellerServiceError):
@@ -32,6 +38,15 @@ def _handle_service_error(e: SellerServiceError):
 
 
 # --- ТОВАРЫ ---
+
+@router.post("/upload-photo-from-telegram")
+async def upload_photo_from_telegram(body: UploadPhotoFromTelegramBody):
+    """Скачать фото из Telegram по file_id и сохранить в static. Для бота при добавлении товара."""
+    path = await download_telegram_photo_to_static(body.file_id)
+    if not path:
+        raise HTTPException(status_code=502, detail="Не удалось загрузить фото из Telegram")
+    return {"photo_id": path}
+
 
 @router.get("/{seller_id}/products", response_model=List[ProductResponse])
 async def get_products(seller_id: int, session: AsyncSession = Depends(get_session)):
@@ -60,9 +75,12 @@ async def add_product(data: ProductCreate, session: AsyncSession = Depends(get_s
         "name": data.name,
         "description": data.description,
         "price": data.price,
-        "photo_id": data.photo_id,
-        "quantity": data.quantity
+        "quantity": data.quantity,
     }
+    if data.photo_ids is not None:
+        product_data["photo_ids"] = data.photo_ids
+    elif data.photo_id is not None:
+        product_data["photo_id"] = data.photo_id
     if data.bouquet_id is not None:
         product_data["bouquet_id"] = data.bouquet_id
     result = await create_product_service(session, product_data)

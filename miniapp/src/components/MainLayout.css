@@ -1,0 +1,11 @@
+.main-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0));
+}
+
+.main-layout__content {
+  flex: 1;
+  min-height: 0;
+}

@@ -16,8 +16,8 @@ export function SellerShop() {
   const [bouquets, setBouquets] = useState<BouquetDetail[]>([]);
   const [selectedBouquetId, setSelectedBouquetId] = useState<number | null>(null);
   const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', quantity: '1' });
-  const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
-  const [productPhotoPreview, setProductPhotoPreview] = useState<string | null>(null);
+  const [productPhotoFiles, setProductPhotoFiles] = useState<File[]>([]);
+  const [productPhotoPreviews, setProductPhotoPreviews] = useState<string[]>([]);
   const [editingQty, setEditingQty] = useState<{ id: number; value: string } | null>(null);
 
   const load = async () => {
@@ -66,10 +66,10 @@ export function SellerShop() {
       return;
     }
     try {
-      let photo_id: string | undefined;
-      if (productPhotoFile) {
-        const res = await uploadProductPhoto(productPhotoFile);
-        photo_id = res.photo_id;
+      const photo_ids: string[] = [];
+      for (const file of productPhotoFiles.slice(0, 3)) {
+        const res = await uploadProductPhoto(file);
+        if (res.photo_id) photo_ids.push(res.photo_id);
       }
       const payload: Parameters<typeof createProduct>[0] = {
         seller_id: me.seller_id,
@@ -78,12 +78,12 @@ export function SellerShop() {
         price,
         quantity,
       };
-      if (photo_id) payload.photo_id = photo_id;
+      if (photo_ids.length) payload.photo_ids = photo_ids;
       if (selectedBouquetId != null) payload.bouquet_id = selectedBouquetId;
       await createProduct(payload);
       setNewProduct({ name: '', description: '', price: '', quantity: '1' });
-      setProductPhotoFile(null);
-      setProductPhotoPreview(null);
+      setProductPhotoFiles([]);
+      setProductPhotoPreviews([]);
       setShowAddProduct(false);
       setAddProductMode('choice');
       setSelectedBouquetId(null);
@@ -94,14 +94,19 @@ export function SellerShop() {
   };
 
   const handleProductPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      setProductPhotoFile(file);
-      setProductPhotoPreview(URL.createObjectURL(file));
-    } else {
-      setProductPhotoFile(null);
-      setProductPhotoPreview(null);
-    }
+    const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
+    const next = productPhotoFiles.concat(files).slice(0, 3);
+    setProductPhotoFiles(next);
+    setProductPhotoPreviews(next.map((f) => URL.createObjectURL(f)));
+    e.target.value = '';
+  };
+
+  const removeProductPhoto = (index: number) => {
+    setProductPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setProductPhotoPreviews((prev) => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const openAddFromBouquet = async () => {
@@ -314,16 +319,22 @@ export function SellerShop() {
               </div>
             </div>
             <div className="form-group">
-              <label>Фото товара</label>
+              <label>Фото товара (до 3 шт., JPG/PNG/WebP/GIF)</label>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={handleProductPhotoChange}
                 className="form-input"
+                multiple
               />
-              {productPhotoPreview && (
-                <div className="product-photo-preview">
-                  <img src={productPhotoPreview} alt="Превью" />
+              {productPhotoPreviews.length > 0 && (
+                <div className="product-photos-preview">
+                  {productPhotoPreviews.map((src, i) => (
+                    <div key={i} className="product-photo-preview-wrap">
+                      <img src={src} alt={`Превью ${i + 1}`} />
+                      <button type="button" className="product-photo-remove" onClick={() => removeProductPhoto(i)} aria-label="Удалить">×</button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -332,8 +343,8 @@ export function SellerShop() {
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => {
-                  setProductPhotoFile(null);
-                  setProductPhotoPreview(null);
+                  setProductPhotoFiles([]);
+                  setProductPhotoPreviews([]);
                   if (selectedBouquetId) {
                     setAddProductMode('bouquet');
                     setSelectedBouquetId(null);

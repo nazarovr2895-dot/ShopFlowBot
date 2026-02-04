@@ -21,11 +21,10 @@ def get_main_kb(user_id: int, role: str):
         builder.row(KeyboardButton(text="🔗 Реферальная ссылка"), KeyboardButton(text="💰 Мой баланс"))
         builder.row(KeyboardButton(text="🛍 Режим покупателя"))
 
-    # --- 3. КНОПКИ ПОКУПАТЕЛЯ (Для всех остальных) ---
-    else: # BUYER
-        builder.row(KeyboardButton(text="🛍 Каталог магазинов", web_app=WebAppInfo(url=MINI_APP_URL)))
-        builder.row(KeyboardButton(text="🌸 Открыть магазин"), KeyboardButton(text="🛒 Корзина"))
-        builder.row(KeyboardButton(text="📦 Мои заказы"))
+    # --- 3. КНОПКИ ПОКУПАТЕЛЯ (Mini App: каталог, заказы; в ТГ — только уведомления и подтверждение) ---
+    else:  # BUYER
+        builder.row(KeyboardButton(text="🛍 Каталог", web_app=WebAppInfo(url=MINI_APP_URL)))
+        builder.row(KeyboardButton(text="📦 Мои заказы", web_app=WebAppInfo(url=f"{MINI_APP_URL.rstrip('/')}/orders")))
         builder.row(KeyboardButton(text="🔁 Режим продавца"), KeyboardButton(text="🤝 Режим посредника"))
 
     return builder.as_markup(resize_keyboard=True)
@@ -37,5 +36,11 @@ cancel_kb = ReplyKeyboardMarkup(keyboard=[
 
 yes_no_kb = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text="Да, я самозанятый"), KeyboardButton(text="Нет, физлицо")],
+    [KeyboardButton(text="❌ Отмена")]
+], resize_keyboard=True, one_time_keyboard=True)
+
+# До 3 фото: отправить фото, затем нажать «Готово»
+photo_done_kb = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text="✅ Готово")],
     [KeyboardButton(text="❌ Отмена")]
 ], resize_keyboard=True, one_time_keyboard=True)

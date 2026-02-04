@@ -17,6 +17,10 @@ from backend.app.services.buyers import (
     BuyerServiceError,
     UserNotFoundError,
 )
+from backend.app.services.cart import CartService, VisitedSellersService, CartServiceError
+from backend.app.services.orders import OrderService, OrderNotFoundError, InvalidOrderStatusError
+from backend.app.services.referrals import accrue_commissions
+from backend.app.models.order import Order
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -24,6 +28,10 @@ logger = get_logger(__name__)
 
 def _handle_service_error(e: BuyerServiceError):
     """Convert service exceptions to HTTP exceptions."""
+    raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+def _handle_cart_error(e: CartServiceError):
     raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
@@ -184,3 +192,181 @@ async def update_location(
     except BuyerServiceError as e:
         logger.warning("Location update failed", tg_id=current_user.user.id, error=e.message)
         _handle_service_error(e)
+
+
+# --- Cart (Mini App) ---
+class CartItemAdd(BaseModel):
+    product_id: int
+    quantity: int = 1
+
+
+class CartItemUpdate(BaseModel):
+    quantity: int
+
+
+class CheckoutBody(BaseModel):
+    fio: str
+    phone: str
+    delivery_type: str  # "Доставка" | "Самовывоз"
+    address: str
+
+
+class VisitedSellerRecord(BaseModel):
+    seller_id: int
+
+
+@router.get("/me/cart")
+async def get_cart(
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Корзина текущего пользователя (сгруппировано по продавцам)."""
+    service = CartService(session)
+    return await service.get_cart(current_user.user.id)
+
+
+@router.post("/me/cart/items")
+async def add_cart_item(
+    data: CartItemAdd,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Добавить товар в корзину."""
+    service = CartService(session)
+    try:
+        result = await service.add_item(
+            current_user.user.id, data.product_id, data.quantity
+        )
+        await session.commit()
+        return result
+    except CartServiceError as e:
+        await session.rollback()
+        _handle_cart_error(e)
+
+
+@router.put("/me/cart/items/{product_id}")
+async def update_cart_item(
+    product_id: int,
+    data: CartItemUpdate,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Изменить количество (0 = удалить)."""
+    service = CartService(session)
+    await service.update_item(current_user.user.id, product_id, data.quantity)
+    await session.commit()
+    return {"status": "ok"}
+
+
+@router.delete("/me/cart/items/{product_id}")
+async def remove_cart_item(
+    product_id: int,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Удалить товар из корзины."""
+    service = CartService(session)
+    await service.remove_item(current_user.user.id, product_id)
+    await session.commit()
+    return {"status": "ok"}
+
+
+@router.delete("/me/cart")
+async def clear_cart(
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Очистить корзину."""
+    service = CartService(session)
+    await service.clear_cart(current_user.user.id)
+    await session.commit()
+    return {"status": "ok"}
+
+
+@router.post("/me/cart/checkout")
+async def checkout_cart(
+    data: CheckoutBody,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Оформить заказы из корзины (один заказ на каждого продавца), очистить корзину."""
+    service = CartService(session)
+    try:
+        orders = await service.checkout(
+            current_user.user.id,
+            fio=data.fio,
+            phone=data.phone,
+            delivery_type=data.delivery_type,
+            address=data.address,
+        )
+        await session.commit()
+        return {"orders": orders}
+    except CartServiceError as e:
+        await session.rollback()
+        _handle_cart_error(e)
+
+
+# --- Visited sellers (Mini App) ---
+@router.post("/me/visited-sellers")
+async def record_visited_seller(
+    data: VisitedSellerRecord,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Записать посещение магазина (для раздела «Недавно просмотренные»)."""
+    visited = VisitedSellersService(session)
+    await visited.record_visit(current_user.user.id, data.seller_id)
+    await session.commit()
+    return {"status": "ok"}
+
+
+@router.get("/me/visited-sellers")
+async def get_visited_sellers(
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Список недавно посещённых магазинов."""
+    visited = VisitedSellersService(session)
+    return await visited.get_visited_sellers(current_user.user.id)
+
+
+# --- Orders (Mini App: мои заказы) ---
+@router.get("/me/orders")
+async def get_my_orders(
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Заказы текущего пользователя (для Mini App)."""
+    order_service = OrderService(session)
+    return await order_service.get_buyer_orders(current_user.user.id)
+
+
+@router.post("/me/orders/{order_id}/confirm")
+async def confirm_order_received(
+    order_id: int,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Подтвердить получение заказа (статус -> completed). Доступно только покупателю этого заказа."""
+    order = await session.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.buyer_id != current_user.user.id:
+        raise HTTPException(status_code=403, detail="Not your order")
+    if order.status not in ("done", "in_transit", "assembling", "accepted"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot confirm: order status is {order.status}",
+        )
+    order_service = OrderService(session)
+    try:
+        result = await order_service.update_status(
+            order_id,
+            "completed",
+            accrue_commissions_func=accrue_commissions,
+        )
+        await session.commit()
+        return {"status": "ok", "new_status": result["new_status"]}
+    except (OrderNotFoundError, InvalidOrderStatusError) as e:
+        await session.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
