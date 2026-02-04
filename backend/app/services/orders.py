@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta, date
 import re
 
 from backend.app.models.order import Order
@@ -440,40 +440,208 @@ class OrderService:
             "original_price": orig,
         }
 
-    async def get_seller_stats(self, seller_id: int) -> Dict[str, Any]:
-        """Get order statistics for a seller."""
+    COMPLETED_ORDER_STATUSES = ("done", "completed", "delivered")
+
+    async def get_seller_stats(
+        self,
+        seller_id: int,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Get order statistics for a seller with optional period filters."""
+        date_field = func.coalesce(Order.completed_at, Order.created_at)
+        end_exclusive = date_to + timedelta(days=1) if date_to else None
+
+        base_conditions = [Order.seller_id == seller_id]
+        if date_from:
+            base_conditions.append(date_field >= date_from)
+        if end_exclusive:
+            base_conditions.append(date_field < end_exclusive)
+
+        completed_conditions = base_conditions + [Order.status.in_(self.COMPLETED_ORDER_STATUSES)]
+
         # Revenue from completed orders
-        result = await self.session.execute(
+        totals_stmt = (
             select(
                 func.count(Order.id).label("total_orders"),
-                func.coalesce(func.sum(Order.total_price), 0).label("total_revenue")
-            ).where(
-                Order.seller_id == seller_id,
-                Order.status.in_(["done", "completed"])
+                func.coalesce(func.sum(Order.total_price), 0).label("total_revenue"),
             )
+            .where(*completed_conditions)
         )
-        row = result.one()
-        
-        total_orders = row.total_orders or 0
-        total_revenue = float(row.total_revenue or 0)
+        totals_row = (await self.session.execute(totals_stmt)).one()
+        total_orders = totals_row.total_orders or 0
+        total_revenue = float(totals_row.total_revenue or 0)
         commission = round(total_revenue * 0.18, 2)  # 18% platform commission
-        
-        # Orders by status
-        status_result = await self.session.execute(
-            select(
-                Order.status,
-                func.count(Order.id).label("count")
-            ).where(Order.seller_id == seller_id).group_by(Order.status)
+
+        # Orders by status (any status)
+        status_stmt = (
+            select(Order.status, func.count(Order.id).label("count"))
+            .where(*base_conditions)
+            .group_by(Order.status)
         )
-        status_counts = {row.status: row.count for row in status_result}
-        
+        status_counts = {
+            row.status: row.count
+            for row in (await self.session.execute(status_stmt)).all()
+        }
+
+        # Daily sales for chart
+        daily_stmt = (
+            select(
+                func.date(date_field).label("day"),
+                func.count(Order.id).label("orders_count"),
+                func.coalesce(func.sum(Order.total_price), 0).label("revenue_sum"),
+            )
+            .where(*completed_conditions)
+            .group_by(func.date(date_field))
+            .order_by(func.date(date_field))
+        )
+        daily_rows = (await self.session.execute(daily_stmt)).all()
+        daily_map: Dict[date, Dict[str, float]] = {
+            row.day: {
+                "orders": row.orders_count or 0,
+                "revenue": float(row.revenue_sum or 0),
+            }
+            for row in daily_rows
+        }
+
+        # Fill missing days within the selected range
+        daily_series: List[Dict[str, Any]] = []
+        if daily_map:
+            start_day = date_from.date() if date_from else min(daily_map.keys())
+            end_day = date_to.date() if date_to else max(daily_map.keys())
+            current = start_day
+            while current <= end_day:
+                point = daily_map.get(current, {"orders": 0, "revenue": 0.0})
+                daily_series.append(
+                    {
+                        "date": current.isoformat(),
+                        "orders": point["orders"],
+                        "revenue": round(point["revenue"], 2),
+                    },
+                )
+                current += timedelta(days=1)
+        elif date_from and date_to:
+            current = date_from.date()
+            end_day = date_to.date()
+            while current <= end_day:
+                daily_series.append(
+                    {
+                        "date": current.isoformat(),
+                        "orders": 0,
+                        "revenue": 0.0,
+                    }
+                )
+                current += timedelta(days=1)
+
+        # Delivery vs pickup breakdown
+        delivery_stmt = (
+            select(
+                Order.delivery_type,
+                func.count(Order.id).label("orders_count"),
+                func.coalesce(func.sum(Order.total_price), 0).label("revenue_sum"),
+            )
+            .where(*completed_conditions)
+            .group_by(Order.delivery_type)
+        )
+        delivery_rows = (await self.session.execute(delivery_stmt)).all()
+
+        def _normalize_delivery_type(value: Optional[str]) -> str:
+            if not value:
+                return "unknown"
+            normalized = value.strip().lower()
+            if normalized in {"delivery", "доставка"}:
+                return "delivery"
+            if normalized in {"pickup", "самовывоз"}:
+                return "pickup"
+            return "other"
+
+        delivery_breakdown: Dict[str, Dict[str, float]] = {
+            "delivery": {"orders": 0, "revenue": 0.0},
+            "pickup": {"orders": 0, "revenue": 0.0},
+            "other": {"orders": 0, "revenue": 0.0},
+            "unknown": {"orders": 0, "revenue": 0.0},
+        }
+        for row in delivery_rows:
+            bucket = _normalize_delivery_type(row.delivery_type)
+            delivery_breakdown[bucket]["orders"] += row.orders_count or 0
+            delivery_breakdown[bucket]["revenue"] += float(row.revenue_sum or 0)
+
+        for bucket in delivery_breakdown.values():
+            bucket["revenue"] = round(bucket["revenue"], 2)
+
         return {
             "total_completed_orders": total_orders,
-            "total_revenue": total_revenue,
+            "total_revenue": round(total_revenue, 2),
             "commission_18": commission,
             "net_revenue": round(total_revenue - commission, 2),
-            "orders_by_status": status_counts
+            "orders_by_status": status_counts,
+            "daily_sales": daily_series,
+            "delivery_breakdown": delivery_breakdown,
+            "filters": {
+                "date_from": date_from.date().isoformat() if date_from else None,
+                "date_to": date_to.date().isoformat() if date_to else None,
+            },
         }
+
+    async def get_platform_daily_stats(
+        self,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Platform-wide daily sales for admin chart (completed orders only)."""
+        date_field = func.coalesce(Order.completed_at, Order.created_at)
+        end_exclusive = date_to + timedelta(days=1) if date_to else None
+
+        conditions = [Order.status.in_(self.COMPLETED_ORDER_STATUSES)]
+        if date_from:
+            conditions.append(date_field >= date_from)
+        if end_exclusive:
+            conditions.append(date_field < end_exclusive)
+
+        daily_stmt = (
+            select(
+                func.date(date_field).label("day"),
+                func.count(Order.id).label("orders_count"),
+                func.coalesce(func.sum(Order.total_price), 0).label("revenue_sum"),
+            )
+            .where(*conditions)
+            .group_by(func.date(date_field))
+            .order_by(func.date(date_field))
+        )
+        daily_rows = (await self.session.execute(daily_stmt)).all()
+        daily_map: Dict[date, Dict[str, float]] = {
+            row.day: {
+                "orders": row.orders_count or 0,
+                "revenue": float(row.revenue_sum or 0),
+            }
+            for row in daily_rows
+        }
+
+        daily_series: List[Dict[str, Any]] = []
+        if daily_map:
+            start_day = date_from.date() if date_from else min(daily_map.keys())
+            end_day = date_to.date() if date_to else max(daily_map.keys())
+            current = start_day
+            while current <= end_day:
+                point = daily_map.get(current, {"orders": 0, "revenue": 0.0})
+                daily_series.append({
+                    "date": current.isoformat(),
+                    "orders": point["orders"],
+                    "revenue": round(point["revenue"], 2),
+                })
+                current += timedelta(days=1)
+        elif date_from and date_to:
+            current = date_from.date()
+            end_day = date_to.date()
+            while current <= end_day:
+                daily_series.append({
+                    "date": current.isoformat(),
+                    "orders": 0,
+                    "revenue": 0.0,
+                })
+                current += timedelta(days=1)
+
+        return {"daily_sales": daily_series}
 
 
 # Legacy functions for backward compatibility

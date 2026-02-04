@@ -61,18 +61,21 @@
   padding: 0.5rem 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--bg-card, var(--bg));
+  color: var(--text);
   cursor: pointer;
   font-size: 0.95rem;
 }
 
 .reception-tab:hover {
   background: var(--bg-hover);
+  color: var(--text);
 }
 
 .reception-tab.active {
-  border-color: var(--primary);
-  background: rgba(var(--primary-rgb), 0.1);
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--text);
 }
 
 .reception-header {

@@ -13,6 +13,7 @@ from backend.app.services.sellers import (
     SellerServiceError,
     SellerNotFoundError,
 )
+from backend.app.services.orders import OrderService
 from backend.app.services.agents import (
     AgentService,
     AgentServiceError,
@@ -335,6 +336,24 @@ async def get_all_stats(
     if date_to:
         d_to = dt.combine(dt.fromisoformat(date_to[:10]).date(), time.max)
     return await service.get_all_stats(date_from=d_from, date_to=d_to)
+
+
+@router.get("/stats/overview")
+async def get_stats_overview(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Дневная статистика по платформе для графика (выполненные заказы). date_from, date_to — YYYY-MM-DD."""
+    from datetime import datetime as dt, time
+    d_from = None
+    d_to = None
+    if date_from:
+        d_from = dt.combine(dt.fromisoformat(date_from[:10]).date(), time.min)
+    if date_to:
+        d_to = dt.combine(dt.fromisoformat(date_to[:10]).date(), time.max)
+    order_service = OrderService(session)
+    return await order_service.get_platform_daily_stats(date_from=d_from, date_to=d_to)
 
 
 @router.get("/stats/seller")

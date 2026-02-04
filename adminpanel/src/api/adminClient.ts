@@ -102,12 +102,30 @@ export async function setSellerLimit(tgId: number, maxOrders: number): Promise<{
 // Stats
 export type StatsDateRange = { date_from?: string; date_to?: string };
 
+export interface StatsOverviewDailyPoint {
+  date: string;
+  orders: number;
+  revenue: number;
+}
+
+export interface StatsOverview {
+  daily_sales: StatsOverviewDailyPoint[];
+}
+
 export async function getAllStats(params?: StatsDateRange): Promise<SellerStats[]> {
   const sp = new URLSearchParams();
   if (params?.date_from) sp.set('date_from', params.date_from);
   if (params?.date_to) sp.set('date_to', params.date_to);
   const q = sp.toString() ? `?${sp.toString()}` : '';
   return fetchAdmin<SellerStats[]>(`/admin/stats/all${q}`);
+}
+
+export async function getStatsOverview(params?: StatsDateRange): Promise<StatsOverview> {
+  const sp = new URLSearchParams();
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return fetchAdmin<StatsOverview>(`/admin/stats/overview${q}`);
 }
 
 export async function getSellerStats(fio: string): Promise<SellerStats | null> {

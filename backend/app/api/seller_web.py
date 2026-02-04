@@ -3,6 +3,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import Optional
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
 from pydantic import BaseModel
@@ -203,12 +204,57 @@ async def update_order_price(
 # --- STATS ---
 @router.get("/stats")
 async def get_stats(
+    period: Optional[str] = Query(None, description="Predefined range: 1d, 7d, 30d"),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
     """Get order stats for current seller."""
+
+    def _parse_date(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    start_date = _parse_date(date_from)
+    end_date = _parse_date(date_to)
+    applied_period: Optional[str] = None
+
+    if start_date and not end_date:
+        end_date = start_date
+    elif end_date and not start_date:
+        start_date = end_date
+    if start_date and end_date and start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    period_key = (period or "").lower()
+    if not start_date and not end_date and period_key in {"1d", "7d", "30d"}:
+        today = datetime.utcnow().date()
+        if period_key == "1d":
+            start_day = today
+        elif period_key == "7d":
+            start_day = today - timedelta(days=6)
+        else:
+            start_day = today - timedelta(days=29)
+        start_date = datetime.combine(start_day, datetime.min.time())
+        end_date = datetime.combine(today, datetime.min.time())
+        applied_period = period_key
+    elif start_date or end_date:
+        applied_period = "custom"
+
     service = OrderService(session)
-    return await service.get_seller_stats(seller_id)
+    stats = await service.get_seller_stats(
+        seller_id,
+        date_from=start_date,
+        date_to=end_date,
+    )
+    stats.setdefault("filters", {})
+    stats["filters"]["period"] = applied_period
+    return stats
 
 
 # --- PRODUCTS ---

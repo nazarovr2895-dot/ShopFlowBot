@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getAllStats } from '../api/adminClient';
+import { getAllStats, getStatsOverview, type StatsOverviewDailyPoint } from '../api/adminClient';
 import type { SellerStats } from '../types';
+import { SalesChart } from '../components/SalesChart';
 import './Stats.css';
 
 type RangePreset = '1d' | '7d' | '30d' | 'custom';
@@ -33,6 +34,7 @@ function getRangeDates(preset: RangePreset, customFrom?: string, customTo?: stri
 
 export function Stats() {
   const [sellerStats, setSellerStats] = useState<SellerStats[]>([]);
+  const [dailySales, setDailySales] = useState<StatsOverviewDailyPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [rangePreset, setRangePreset] = useState<RangePreset>('30d');
   const [customFrom, setCustomFrom] = useState(() => getRangeDates('30d').date_from);
@@ -40,11 +42,17 @@ export function Stats() {
 
   const loadStats = useCallback(async (params?: { date_from?: string; date_to?: string }) => {
     setLoading(true);
+    setDailySales([]);
     try {
-      const data = await getAllStats(params);
-      setSellerStats(data || []);
+      const [list, overview] = await Promise.all([
+        getAllStats(params),
+        getStatsOverview(params),
+      ]);
+      setSellerStats(list || []);
+      setDailySales(overview?.daily_sales ?? []);
     } catch {
       setSellerStats([]);
+      setDailySales([]);
     } finally {
       setLoading(false);
     }
@@ -77,6 +85,8 @@ export function Stats() {
       loadStats({ date_from: customFrom, date_to: customTo });
     }
   };
+
+  const chartData = dailySales.map((p) => ({ date: p.date, revenue: p.revenue, orders: p.orders }));
 
   if (loading && sellerStats.length === 0) {
     return (
@@ -157,6 +167,11 @@ export function Stats() {
           <div className="summary-item accent">
             <span className="summary-label">Доход платформы (18%)</span>
             <span className="summary-value">{totalProfit.toLocaleString('ru')} ₽</span>
+          </div>
+        </div>
+        <div className="stats-chart-block">
+          <div className="seller-stats-chart card">
+            {loading ? <div className="seller-chart-loading" /> : <SalesChart data={chartData} />}
           </div>
         </div>
       </div>

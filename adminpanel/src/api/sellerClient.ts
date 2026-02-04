@@ -59,12 +59,41 @@ export interface SellerOrder {
   completed_at?: string;
 }
 
+export type SellerStatsPeriod = '1d' | '7d' | '30d' | 'custom';
+
+export interface SellerStatsFilters {
+  period?: SellerStatsPeriod | null;
+  date_from?: string | null;
+  date_to?: string | null;
+}
+
+export interface SellerStatsDailyPoint {
+  date: string;
+  orders: number;
+  revenue: number;
+}
+
+export interface SellerStatsDeliveryBucket {
+  orders: number;
+  revenue: number;
+}
+
+export interface SellerStatsDeliveryBreakdown {
+  delivery: SellerStatsDeliveryBucket;
+  pickup: SellerStatsDeliveryBucket;
+  other: SellerStatsDeliveryBucket;
+  unknown: SellerStatsDeliveryBucket;
+}
+
 export interface SellerStats {
   total_completed_orders: number;
   total_revenue: number;
   commission_18: number;
   net_revenue: number;
-  orders_by_status: Record<string, number>;
+  orders_by_status?: Record<string, number>;
+  daily_sales?: SellerStatsDailyPoint[];
+  delivery_breakdown?: SellerStatsDeliveryBreakdown;
+  filters?: SellerStatsFilters;
 }
 
 export interface SellerProduct {
@@ -106,8 +135,14 @@ export async function updateOrderPrice(orderId: number, newPrice: number): Promi
   return fetchSeller(`/seller-web/orders/${orderId}/price?new_price=${newPrice}`, { method: 'PUT' });
 }
 
-export async function getStats(): Promise<SellerStats> {
-  return fetchSeller<SellerStats>('/seller-web/stats');
+export async function getStats(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<SellerStats> {
+  const sp = new URLSearchParams();
+  if (params?.period) sp.set('period', params.period);
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  const query = sp.toString();
+  const suffix = query ? `?${query}` : '';
+  return fetchSeller<SellerStats>(`/seller-web/stats${suffix}`);
 }
 
 export async function getProducts(): Promise<SellerProduct[]> {
