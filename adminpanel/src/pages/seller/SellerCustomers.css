@@ -1,0 +1,228 @@
+.customers-page {
+  padding: 1.5rem;
+  max-width: 1000px;
+}
+
+.customers-page h1 {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.customers-settings {
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.customers-settings label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.customers-settings input {
+  width: 100px;
+  margin-right: 0.5rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.customers-settings .row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.customers-add {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.customers-add h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.customers-add form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.customers-add .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.customers-add .field label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.customers-add input {
+  padding: 0.4rem 0.5rem;
+  min-width: 120px;
+}
+
+.customers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.customer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.customer-row:hover {
+  background: var(--bg);
+  border-color: var(--accent);
+}
+
+.customer-row .name {
+  font-weight: 500;
+}
+
+.customer-row .meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.customer-row .points {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.customers-loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.customers-detail {
+  padding: 0;
+}
+
+.customers-detail .back {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.customers-detail .back:hover {
+  text-decoration: underline;
+}
+
+.customer-card {
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.customer-card .card-number {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.customer-card .balance {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.customer-card .row {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.record-sale {
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.record-sale h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.record-sale form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.record-sale input {
+  width: 120px;
+  padding: 0.4rem 0.5rem;
+}
+
+.transactions-list {
+  margin-top: 1rem;
+}
+
+.transactions-list h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
+}
+
+.transaction-item .date {
+  color: var(--text-muted);
+}
+
+.transaction-item .amount {
+  font-weight: 500;
+}
+
+.transaction-item .points {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.customers-search {
+  margin-bottom: 1rem;
+}
+
+.customers-search input {
+  width: 100%;
+  max-width: 300px;
+  padding: 0.4rem 0.5rem;
+}

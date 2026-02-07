@@ -1,6 +1,6 @@
 .shops-list {
   min-height: 100vh;
-  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  background: var(--app-bg);
   padding: 12px;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
@@ -17,48 +17,84 @@
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--tg-theme-text-color, #000);
+  color: var(--app-text);
 }
 
 .shops-list__filter-toggle {
-  padding: 8px 16px;
+  padding: 8px 14px;
   border: none;
   border-radius: 20px;
-  background: var(--tg-theme-bg-color, #fff);
-  color: var(--tg-theme-text-color, #000);
+  background: var(--app-accent);
+  color: #fff;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
-  transition: background 0.15s ease;
-}
-
-.shops-list__filter-toggle.active {
-  background: var(--tg-theme-link-color, #2196f3);
-  color: #fff;
+  gap: 8px;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 2px 8px rgba(155, 135, 196, 0.35);
 }
 
 .shops-list__filter-toggle:active {
-  opacity: 0.8;
+  opacity: 0.9;
+}
+
+.shops-list__filter-icon {
+  flex-shrink: 0;
 }
 
 .shops-list__filter-badge {
-  background: #fff;
-  color: var(--tg-theme-link-color, #2196f3);
+  background: var(--app-accent-dark);
+  color: #fff;
   font-size: 11px;
   font-weight: 600;
   padding: 2px 6px;
-  border-radius: 10px;
+  border-radius: 50%;
   min-width: 18px;
   text-align: center;
+  box-shadow: 0 1px 3px rgba(124, 107, 158, 0.4);
+}
+
+.shops-list__search-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.shops-list__search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--app-text-secondary);
+  pointer-events: none;
+}
+
+.shops-list__search-input {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid var(--app-border, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+  font-size: 15px;
+  color: var(--app-text);
+  background: var(--app-bg-elevated, #fff);
+  box-sizing: border-box;
+}
+
+.shops-list__search-input::placeholder {
+  color: var(--app-text-secondary);
+}
+
+.shops-list__search-input:focus {
+  outline: none;
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 2px rgba(155, 135, 196, 0.2);
 }
 
 .shops-list__info {
   padding: 8px 4px;
   font-size: 13px;
-  color: var(--tg-theme-hint-color, #888);
+  color: var(--app-text-secondary);
 }
 
 .shops-list__grid {
@@ -79,12 +115,12 @@
   padding: 14px;
   border: none;
   border-radius: 12px;
-  background: var(--tg-theme-bg-color, #fff);
-  color: var(--tg-theme-link-color, #2196f3);
+  background: var(--app-bg-elevated);
+  color: var(--app-accent);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: opacity 0.15s ease;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -92,7 +128,7 @@
 }
 
 .shops-list__load-more:active {
-  background: rgba(33, 150, 243, 0.1);
+  opacity: 0.9;
 }
 
 .shops-list__load-more:disabled {

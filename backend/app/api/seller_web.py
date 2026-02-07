@@ -48,6 +48,12 @@ from backend.app.services.receptions import (
     inventory_check,
 )
 from backend.app.services.referrals import accrue_commissions
+from backend.app.services.loyalty import (
+    LoyaltyService,
+    LoyaltyServiceError,
+    CustomerNotFoundError,
+    DuplicatePhoneError,
+)
 from backend.app.services.bouquets import (
     list_bouquets_with_totals,
     get_bouquet_with_totals,
@@ -75,12 +81,17 @@ def _get_seller_id(seller_id: int = Depends(require_seller_token)) -> int:
 
 
 # --- SELLER INFO ---
+class UpdateMeBody(BaseModel):
+    """Optional profile fields for seller (e.g. hashtags)."""
+    hashtags: Optional[str] = None
+
+
 @router.get("/me")
 async def get_me(
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get current seller info including shop link."""
+    """Get current seller info including shop link and hashtags."""
     service = SellerService(session)
     data = await service.get_seller(seller_id)
     if not data:
@@ -90,6 +101,24 @@ async def get_me(
         data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}"
     else:
         data["shop_link"] = None
+    return data
+
+
+@router.put("/me")
+async def update_me(
+    body: UpdateMeBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update current seller profile (e.g. hashtags)."""
+    service = SellerService(session)
+    if body.hashtags is not None:
+        await service.update_field(seller_id, "hashtags", body.hashtags)
+    data = await service.get_seller(seller_id)
+    if not data:
+        return {}
+    bot_username = os.getenv("BOT_USERNAME", "")
+    data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}" if bot_username else None
     return data
 
 
@@ -670,6 +699,113 @@ async def api_inventory_check(
         raise HTTPException(status_code=404, detail="Приёмка не найдена")
     lines = [{"reception_item_id": x.reception_item_id, "actual_quantity": x.actual_quantity} for x in body]
     return await inventory_check(session, reception_id, seller_id, lines)
+
+
+# --- LOYALTY / CUSTOMERS ---
+class LoyaltySettingsBody(BaseModel):
+    points_percent: float
+
+
+class CreateCustomerBody(BaseModel):
+    phone: str
+    first_name: str
+    last_name: str
+
+
+class RecordSaleBody(BaseModel):
+    amount: float
+
+
+@router.get("/loyalty/settings")
+async def get_loyalty_settings(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    svc = LoyaltyService(session)
+    points_percent = await svc.get_points_percent(seller_id)
+    return {"points_percent": points_percent}
+
+
+@router.put("/loyalty/settings")
+async def update_loyalty_settings(
+    body: LoyaltySettingsBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    svc = LoyaltyService(session)
+    try:
+        await svc.set_points_percent(seller_id, body.points_percent)
+        await session.commit()
+        return {"points_percent": body.points_percent}
+    except LoyaltyServiceError as e:
+        await session.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/customers")
+async def list_customers(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    svc = LoyaltyService(session)
+    return await svc.list_customers(seller_id)
+
+
+@router.post("/customers")
+async def create_customer(
+    body: CreateCustomerBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    svc = LoyaltyService(session)
+    try:
+        customer = await svc.create_customer(
+            seller_id,
+            body.phone,
+            body.first_name,
+            body.last_name,
+        )
+        await session.commit()
+        return customer
+    except (DuplicatePhoneError, LoyaltyServiceError) as e:
+        await session.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/customers/{customer_id}")
+async def get_customer(
+    customer_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    svc = LoyaltyService(session)
+    data = await svc.get_customer(customer_id, seller_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    return data
+
+
+@router.post("/customers/{customer_id}/sales")
+async def record_customer_sale(
+    customer_id: int,
+    body: RecordSaleBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Сумма должна быть больше 0")
+    svc = LoyaltyService(session)
+    try:
+        result = await svc.accrue_points(seller_id, customer_id, body.amount, order_id=None)
+        await session.commit()
+        return result
+    except CustomerNotFoundError as e:
+        await session.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
 # --- SECURITY ---

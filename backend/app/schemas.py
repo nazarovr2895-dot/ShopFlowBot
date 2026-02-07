@@ -20,6 +20,8 @@ class BuyerResponse(BuyerCreate):
     # 👇 Поля для локации
     city_id: Optional[int] = None
     district_id: Optional[int] = None
+    # 👇 Телефон (для клубной карты / лояльности)
+    phone: Optional[str] = None
 
 # --- Продавцы ---
 class SellerCreate(BaseModel):

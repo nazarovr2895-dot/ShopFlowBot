@@ -62,7 +62,7 @@ class SellerService:
     """Service class for seller operations."""
     
     VALID_UPDATE_FIELDS = {
-        "fio", "phone", "shop_name", "description",
+        "fio", "phone", "shop_name", "hashtags", "description",
         "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at"
     }
@@ -128,6 +128,7 @@ class SellerService:
             "fio": user.fio,
             "phone": user.phone,
             "shop_name": seller.shop_name or "My Shop",
+            "hashtags": seller.hashtags or "",
             "description": seller.description,
             "max_orders": seller.max_orders,
             "daily_limit_date": seller.daily_limit_date.isoformat() if seller.daily_limit_date else None,
@@ -292,6 +293,8 @@ class SellerService:
         # Seller fields
         elif field == "shop_name":
             seller.shop_name = value
+        elif field == "hashtags":
+            seller.hashtags = (value or "").strip() or None
         elif field == "description":
             seller.description = value
         elif field == "map_url":
@@ -498,7 +501,9 @@ class SellerService:
                 "fio": user.fio,
                 "phone": user.phone,
                 "shop_name": seller.shop_name,
+                "hashtags": seller.hashtags,
                 "description": seller.description,
+                "city_id": seller.city_id,
                 "district_id": seller.district_id,
                 "map_url": seller.map_url,
                 "metro_id": seller.metro_id,
@@ -538,7 +543,9 @@ class SellerService:
                 "fio": user.fio,
                 "phone": user.phone,
                 "shop_name": seller.shop_name,
+                "hashtags": seller.hashtags,
                 "description": seller.description,
+                "city_id": seller.city_id,
                 "district_id": seller.district_id,
                 "map_url": seller.map_url,
                 "metro_id": seller.metro_id,

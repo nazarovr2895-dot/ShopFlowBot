@@ -14,6 +14,7 @@ const adminNav = [
 const sellerNav = [
   { to: '/', label: 'Дашборд', icon: '📊' },
   { to: '/orders', label: 'Заказы', icon: '📦' },
+  { to: '/customers', label: 'Клиенты', icon: '👥' },
   { to: '/shop', label: 'Настройка магазина', icon: '⚙️' },
   { to: '/receptions', label: 'Приёмка', icon: '🌸' },
   { to: '/bouquets', label: 'Конструктор букетов', icon: '💐' },

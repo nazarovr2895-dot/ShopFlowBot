@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PublicSellerListItem, SellerFilters } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { useLocationCache } from '../hooks/useLocationCache';
 import { ShopCard, Filters, Loader, EmptyState } from '../components';
 import './ShopsList.css';
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 export function ShopsList() {
   const { setBackButton, hideMainButton } = useTelegramWebApp();
@@ -17,6 +19,8 @@ export function ShopsList() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [searchInput, setSearchInput] = useState(() => filters.search ?? '');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Hide back button and main button on this page
   useEffect(() => {
@@ -50,6 +54,29 @@ export function ShopsList() {
     [filters]
   );
 
+  // Sync search input from filters (e.g. when loaded from cache)
+  useEffect(() => {
+    setSearchInput((prev) => (filters.search ?? '') !== prev ? (filters.search ?? '') : prev);
+  }, [filters.search]);
+
+  // Debounce search: apply to filters after user stops typing
+  const prevSearchInputRef = useRef(searchInput);
+  useEffect(() => {
+    if (prevSearchInputRef.current === searchInput) return;
+    prevSearchInputRef.current = searchInput;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      searchDebounceRef.current = null;
+      setFilters((prev) => ({
+        ...prev,
+        search: searchInput.trim() || undefined,
+      }));
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchInput, setFilters]);
+
   // Initial load and reload on filter change (wait for cache initialization)
   useEffect(() => {
     if (!isInitialized) return;
@@ -71,7 +98,9 @@ export function ShopsList() {
     setShowFilters((prev) => !prev);
   };
 
-  const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+  const activeFiltersCount = Object.entries(filters).filter(
+    ([k, v]) => k !== 'search' && v !== undefined && v !== ''
+  ).length;
 
   return (
     <div className="shops-list">
@@ -81,12 +110,37 @@ export function ShopsList() {
           className={`shops-list__filter-toggle ${activeFiltersCount > 0 ? 'active' : ''}`}
           onClick={toggleFilters}
         >
+          <svg className="shops-list__filter-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="20" y2="18" />
+            <circle cx="8" cy="6" r="1.5" fill="currentColor" />
+            <circle cx="15" cy="12" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="18" r="1.5" fill="currentColor" />
+          </svg>
           Фильтры
           {activeFiltersCount > 0 && (
             <span className="shops-list__filter-badge">{activeFiltersCount}</span>
           )}
         </button>
       </header>
+
+      <div className="shops-list__search-wrap">
+        <span className="shops-list__search-icon" aria-hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+        </span>
+        <input
+          type="search"
+          className="shops-list__search-input"
+          placeholder="Поиск по названию и хештегам (например: 101 роза)"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          autoComplete="off"
+        />
+      </div>
 
       {showFilters && (
         <Filters filters={filters} onFiltersChange={handleFiltersChange} />
@@ -104,7 +158,7 @@ export function ShopsList() {
         <EmptyState
           title="Магазины не найдены"
           description="Попробуйте изменить параметры фильтра"
-          icon="🏪"
+          illustration="shops"
         />
       ) : (
         <>

@@ -94,6 +94,7 @@ class PublicSellersResponse(BaseModel):
 @router.get("/sellers", response_model=PublicSellersResponse)
 async def get_public_sellers(
     session: AsyncSession = Depends(get_session),
+    search: Optional[str] = Query(None, min_length=1, description="Поиск по названию магазина и хештегам"),
     city_id: Optional[int] = Query(None, description="Фильтр по городу"),
     district_id: Optional[int] = Query(None, description="Фильтр по району"),
     metro_id: Optional[int] = Query(None, description="Фильтр по станции метро"),
@@ -201,6 +202,17 @@ async def get_public_sellers(
         else:
             # Только платная доставка (delivery_price > 0)
             base_conditions.append(Seller.delivery_price > 0.0)
+    
+    # Поиск по названию магазина и хештегам (подстрока без учёта регистра)
+    if search:
+        q = search.strip()
+        if q:
+            base_conditions.append(
+                or_(
+                    Seller.shop_name.ilike(f"%{q}%"),
+                    func.coalesce(Seller.hashtags, "").ilike(f"%{q}%")
+                )
+            )
     
     # Подзапрос для статистики товаров (только с количеством > 0)
     product_stats = (

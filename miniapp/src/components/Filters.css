@@ -3,14 +3,14 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  background: var(--app-bg-elevated);
   border-radius: 12px;
 }
 
 .filters__mode-toggle {
   display: flex;
   gap: 0;
-  background: var(--tg-theme-bg-color, #fff);
+  background: var(--app-surface);
   border-radius: 8px;
   padding: 3px;
 }
@@ -21,7 +21,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--tg-theme-hint-color, #888);
+  color: var(--app-text-secondary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -29,19 +29,19 @@
 }
 
 .filters__mode-btn.active {
-  background: var(--tg-theme-button-color, #2196f3);
-  color: var(--tg-theme-button-text-color, #fff);
+  background: var(--app-accent);
+  color: #fff;
 }
 
 .filters__mode-btn:not(.active):active {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--app-surface);
 }
 
 .filters__hint {
   padding: 8px 12px;
-  background: rgba(33, 150, 243, 0.1);
+  background: var(--app-accent-muted);
   border-radius: 8px;
-  color: var(--tg-theme-link-color, #2196f3);
+  color: var(--app-accent);
   font-size: 12px;
   text-align: center;
 }
@@ -56,12 +56,13 @@
   padding: 10px 12px;
   border: none;
   border-radius: 8px;
-  background: var(--tg-theme-bg-color, #fff);
-  color: var(--tg-theme-text-color, #000);
+  background: var(--app-bg-elevated);
+  color: var(--app-text);
   font-size: 14px;
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  border: 1px solid var(--app-border);
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236b6578' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 32px;
@@ -74,7 +75,7 @@
 
 .filters__select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px var(--tg-theme-link-color, #2196f3);
+  box-shadow: 0 0 0 2px var(--app-accent);
 }
 
 .filters__reset {
@@ -82,7 +83,7 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--tg-theme-link-color, #2196f3);
+  color: var(--app-accent);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -90,7 +91,7 @@
 }
 
 .filters__reset:active {
-  background: rgba(33, 150, 243, 0.1);
+  background: var(--app-accent-muted);
 }
 
 /* Metro search */
@@ -109,20 +110,20 @@
 .filters__metro-input {
   flex: 1;
   padding: 10px 36px 10px 12px;
-  border: none;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
-  background: var(--tg-theme-bg-color, #fff);
-  color: var(--tg-theme-text-color, #000);
+  background: var(--app-bg-elevated);
+  color: var(--app-text);
   font-size: 14px;
 }
 
 .filters__metro-input::placeholder {
-  color: var(--tg-theme-hint-color, #888);
+  color: var(--app-text-secondary);
 }
 
 .filters__metro-input:focus {
   outline: none;
-  box-shadow: 0 0 0 2px var(--tg-theme-link-color, #2196f3);
+  box-shadow: 0 0 0 2px var(--app-accent);
 }
 
 .filters__metro-clear {
@@ -133,8 +134,8 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: var(--tg-theme-hint-color, #888);
-  color: #fff;
+  background: var(--app-text-secondary);
+  color: var(--app-bg);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -155,15 +156,16 @@
   margin-top: 4px;
   max-height: 200px;
   overflow-y: auto;
-  background: var(--tg-theme-bg-color, #fff);
+  background: var(--app-bg-elevated);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 10;
+  border: 1px solid var(--app-border);
 }
 
 .filters__metro-hint {
   padding: 12px;
-  color: var(--tg-theme-hint-color, #888);
+  color: var(--app-text-secondary);
   font-size: 13px;
   text-align: center;
 }
@@ -176,7 +178,7 @@
   padding: 10px 12px;
   border: none;
   background: transparent;
-  color: var(--tg-theme-text-color, #000);
+  color: var(--app-text);
   font-size: 14px;
   text-align: left;
   cursor: pointer;
@@ -185,7 +187,7 @@
 
 .filters__metro-option:hover,
 .filters__metro-option.selected {
-  background: rgba(33, 150, 243, 0.1);
+  background: var(--app-accent-muted);
 }
 
 .filters__metro-line-color {

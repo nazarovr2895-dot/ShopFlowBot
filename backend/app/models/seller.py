@@ -9,6 +9,7 @@ class Seller(Base):
     __tablename__ = 'sellers'
     seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), primary_key=True)
     shop_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    hashtags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # comma-separated, e.g. "101 роза, тюльпаны, гвоздики"
     description: Mapped[str] = mapped_column(Text, nullable=True)
     city_id: Mapped[int] = mapped_column(ForeignKey('cities.id'), nullable=True)
     district_id: Mapped[int] = mapped_column(ForeignKey('districts.id'), nullable=True)
@@ -27,6 +28,8 @@ class Seller(Base):
     # Web panel auth (login/password for seller web access)
     web_login: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True)
     web_password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Loyalty / club card: percent of purchase amount accrued as points (e.g. 5.00 = 5%)
+    loyalty_points_percent: Mapped[float] = mapped_column(DECIMAL(5, 2), default=0)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

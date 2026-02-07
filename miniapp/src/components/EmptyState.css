@@ -13,16 +13,29 @@
   margin-bottom: 16px;
 }
 
+.empty-state__illustration {
+  margin-bottom: 24px;
+  width: 200px;
+  max-width: 70vw;
+  height: auto;
+}
+
+.empty-state__illustration--shops {
+  --empty-shop-stroke: #9b8bb5;
+  --empty-vase-stroke: #8a9bb8;
+}
+
 .empty-state__title {
   margin: 0 0 8px;
   font-size: 18px;
-  font-weight: 600;
-  color: var(--tg-theme-text-color, #000);
+  font-weight: 700;
+  color: var(--app-text);
 }
 
 .empty-state__description {
   margin: 0;
   font-size: 14px;
-  color: var(--tg-theme-hint-color, #888);
+  color: var(--app-text-secondary);
   max-width: 280px;
+  line-height: 1.4;
 }

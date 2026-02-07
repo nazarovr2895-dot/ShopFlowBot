@@ -20,6 +20,7 @@ from backend.app.services.buyers import (
 from backend.app.services.cart import CartService, VisitedSellersService, CartServiceError
 from backend.app.services.orders import OrderService, OrderNotFoundError, InvalidOrderStatusError
 from backend.app.services.referrals import accrue_commissions
+from backend.app.services.loyalty import LoyaltyService
 from backend.app.models.order import Order
 
 router = APIRouter()
@@ -328,6 +329,32 @@ async def get_visited_sellers(
     """Список недавно посещённых магазинов."""
     visited = VisitedSellersService(session)
     return await visited.get_visited_sellers(current_user.user.id)
+
+
+# --- Loyalty (Mini App: мой баланс у продавца) ---
+@router.get("/me/loyalty/{seller_id}")
+async def get_my_loyalty_at_seller(
+    seller_id: int,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Баланс баллов клубной карты у данного продавца (по телефону покупателя)."""
+    from backend.app.models.user import User
+    user = await session.get(User, current_user.user.id)
+    buyer_phone = user.phone if user else None
+    if not buyer_phone:
+        return {"points_balance": 0, "points_percent": 0, "card_number": None, "linked": False}
+    loyalty_svc = LoyaltyService(session)
+    customer = await loyalty_svc.find_customer_by_phone(seller_id, buyer_phone)
+    if not customer:
+        return {"points_balance": 0, "points_percent": 0, "card_number": None, "linked": False}
+    points_percent = await loyalty_svc.get_points_percent(seller_id)
+    return {
+        "points_balance": float(customer.points_balance or 0),
+        "points_percent": points_percent,
+        "card_number": customer.card_number,
+        "linked": True,
+    }
 
 
 # --- Orders (Mini App: мои заказы) ---

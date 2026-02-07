@@ -28,6 +28,7 @@ export interface SellerMe {
   fio?: string;
   phone?: string;
   shop_name: string;
+  hashtags?: string;
   description?: string;
   max_orders: number;
   limit_set_for_today: boolean;
@@ -109,6 +110,13 @@ export interface SellerProduct {
 
 export async function getMe(): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me');
+}
+
+export async function updateMe(payload: { hashtags?: string }): Promise<SellerMe> {
+  return fetchSeller<SellerMe>('/seller-web/me', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function getOrders(params?: { status?: string; date_from?: string; date_to?: string }): Promise<SellerOrder[]> {
@@ -193,6 +201,66 @@ export async function changeCredentials(data: { old_login: string; old_password:
   return fetchSeller('/seller-web/security/change-credentials', {
     method: 'PUT',
     body: JSON.stringify(data),
+  });
+}
+
+// --- Loyalty / Customers ---
+export interface LoyaltySettings {
+  points_percent: number;
+}
+
+export interface SellerCustomerBrief {
+  id: number;
+  phone: string;
+  first_name: string;
+  last_name: string;
+  card_number: string;
+  points_balance: number;
+  created_at: string | null;
+}
+
+export interface LoyaltyTransaction {
+  id: number;
+  amount: number;
+  points_accrued: number;
+  order_id: number | null;
+  created_at: string | null;
+}
+
+export interface SellerCustomerDetail extends SellerCustomerBrief {
+  transactions: LoyaltyTransaction[];
+}
+
+export async function getLoyaltySettings(): Promise<LoyaltySettings> {
+  return fetchSeller<LoyaltySettings>('/seller-web/loyalty/settings');
+}
+
+export async function updateLoyaltySettings(points_percent: number): Promise<LoyaltySettings> {
+  return fetchSeller<LoyaltySettings>('/seller-web/loyalty/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ points_percent }),
+  });
+}
+
+export async function getCustomers(): Promise<SellerCustomerBrief[]> {
+  return fetchSeller<SellerCustomerBrief[]>('/seller-web/customers');
+}
+
+export async function createCustomer(data: { phone: string; first_name: string; last_name: string }): Promise<SellerCustomerBrief> {
+  return fetchSeller<SellerCustomerBrief>('/seller-web/customers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getCustomer(customerId: number): Promise<SellerCustomerDetail> {
+  return fetchSeller<SellerCustomerDetail>(`/seller-web/customers/${customerId}`);
+}
+
+export async function recordSale(customerId: number, amount: number): Promise<{ customer_id: number; amount: number; points_accrued: number; new_balance: number }> {
+  return fetchSeller(`/seller-web/customers/${customerId}/sales`, {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
   });
 }
 

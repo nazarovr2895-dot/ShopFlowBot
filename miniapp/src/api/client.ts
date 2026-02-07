@@ -146,6 +146,7 @@ class ApiClient {
   ): Promise<PublicSellersResponse> {
     const params = new URLSearchParams();
     
+    if (filters.search && filters.search.trim()) params.append('search', filters.search.trim());
     if (filters.city_id) params.append('city_id', filters.city_id.toString());
     if (filters.district_id) params.append('district_id', filters.district_id.toString());
     if (filters.metro_id) params.append('metro_id', filters.metro_id.toString());
@@ -170,6 +171,7 @@ class ApiClient {
     tg_id: number;
     username?: string;
     fio?: string;
+    phone?: string;
     role: string;
     city_id?: number;
     district_id?: number;
@@ -178,6 +180,7 @@ class ApiClient {
       tg_id: number;
       username?: string;
       fio?: string;
+      phone?: string;
       role: string;
       city_id?: number;
       district_id?: number;
@@ -243,6 +246,16 @@ class ApiClient {
   // Orders API (buyer)
   async getMyOrders(): Promise<BuyerOrder[]> {
     return this.fetch<BuyerOrder[]>('/buyers/me/orders');
+  }
+
+  /** Баланс баллов клубной карты у данного продавца (по телефону покупателя). */
+  async getMyLoyaltyAtSeller(sellerId: number): Promise<{
+    points_balance: number;
+    points_percent: number;
+    card_number: string | null;
+    linked: boolean;
+  }> {
+    return this.fetch(`/buyers/me/loyalty/${sellerId}`);
   }
 
   async confirmOrderReceived(orderId: number): Promise<{ status: string; new_status: string }> {

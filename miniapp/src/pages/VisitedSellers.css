@@ -1,12 +1,13 @@
 .visited-page {
   padding: 16px;
+  background: var(--app-bg);
 }
 
 .visited-page__title {
   font-size: 22px;
   font-weight: 700;
   margin-bottom: 16px;
-  color: var(--tg-theme-text-color);
+  color: var(--app-text);
 }
 
 .visited-list {
@@ -20,10 +21,9 @@
   width: 100%;
   text-align: left;
   padding: 14px 16px;
-  background: var(--tg-theme-bg-color);
-  border: none;
+  background: var(--app-bg-elevated);
+  border: 1px solid var(--app-border);
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -37,10 +37,10 @@
 .visited-card__name {
   font-size: 16px;
   font-weight: 600;
-  color: var(--tg-theme-text-color);
+  color: var(--app-text);
 }
 
 .visited-card__owner {
   font-size: 13px;
-  color: var(--tg-theme-hint-color);
+  color: var(--app-text-secondary);
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getMe, getProducts, getBouquets, updateLimits, createProduct, updateProduct, deleteProduct, uploadProductPhoto } from '../../api/sellerClient';
+import { getMe, getProducts, getBouquets, updateLimits, updateMe, createProduct, updateProduct, deleteProduct, uploadProductPhoto } from '../../api/sellerClient';
 import type { SellerMe, SellerProduct, BouquetDetail } from '../../api/sellerClient';
 import './SellerShop.css';
 
@@ -19,6 +19,8 @@ export function SellerShop() {
   const [productPhotoFiles, setProductPhotoFiles] = useState<File[]>([]);
   const [productPhotoPreviews, setProductPhotoPreviews] = useState<string[]>([]);
   const [editingQty, setEditingQty] = useState<{ id: number; value: string } | null>(null);
+  const [hashtagsValue, setHashtagsValue] = useState('');
+  const [hashtagsSaving, setHashtagsSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -27,6 +29,7 @@ export function SellerShop() {
       setMe(meData);
       setProducts(productsData || []);
       setLimitValue(String(meData?.max_orders ?? ''));
+      setHashtagsValue(meData?.hashtags ?? '');
     } catch {
       setMe(null);
       setProducts([]);
@@ -38,6 +41,18 @@ export function SellerShop() {
   useEffect(() => {
     load();
   }, []);
+
+  const handleSaveHashtags = async () => {
+    setHashtagsSaving(true);
+    try {
+      await updateMe({ hashtags: hashtagsValue.trim() || '' });
+      setMe((m) => m ? { ...m, hashtags: hashtagsValue.trim() || '' } : null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setHashtagsSaving(false);
+    }
+  };
 
   const handleSaveLimit = async () => {
     const num = parseInt(limitValue, 10);
@@ -165,6 +180,29 @@ export function SellerShop() {
   return (
     <div className="seller-shop-page">
       <h1 className="page-title">Настройка магазина</h1>
+
+      {/* Хештеги — в начале, чтобы покупатели находили магазин по поиску */}
+      <div className="card shop-section">
+        <h3>🏷️ Хештеги для поиска</h3>
+        <p className="section-hint">
+          Укажите через запятую ключевые слова, по которым покупатели будут находить ваш магазин в каталоге (например: букет из 101 розы, тюльпаны 25, гвоздики).
+        </p>
+        <input
+          type="text"
+          value={hashtagsValue}
+          onChange={(e) => setHashtagsValue(e.target.value)}
+          placeholder="букет из 101 розы, тюльпаны 25, гвоздики"
+          className="form-input hashtags-input"
+        />
+        <button
+          className="btn btn-primary"
+          onClick={handleSaveHashtags}
+          disabled={hashtagsSaving}
+          style={{ marginTop: '0.5rem' }}
+        >
+          {hashtagsSaving ? 'Сохранение...' : 'Сохранить хештеги'}
+        </button>
+      </div>
 
       {/* Лимиты */}
       <div className="card shop-section">

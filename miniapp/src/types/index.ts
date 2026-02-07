@@ -114,4 +114,6 @@ export interface SellerFilters {
   free_delivery?: boolean;
   sort_price?: 'asc' | 'desc';
   sort_mode?: 'all_city' | 'nearby';
+  /** Поиск по названию магазина и хештегам */
+  search?: string;
 }

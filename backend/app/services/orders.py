@@ -13,8 +13,10 @@ import re
 from backend.app.models.order import Order
 from backend.app.models.seller import Seller
 from backend.app.models.product import Product
+from backend.app.models.user import User
 from backend.app.services.sellers import SellerService
 from backend.app.services.bouquets import check_bouquet_stock, deduct_bouquet_from_receptions
+from backend.app.services.loyalty import LoyaltyService
 
 
 class OrderServiceError(Exception):
@@ -335,6 +337,19 @@ class OrderService:
                 order_total=float(order.total_price or 0),
                 buyer_id=order.buyer_id
             )
+
+        # Accrue loyalty points when order first reaches done or completed (by buyer phone)
+        if new_status in ("done", "completed") and old_status not in ("done", "completed"):
+            buyer = await self.session.get(User, order.buyer_id)
+            buyer_phone = buyer.phone if buyer else None
+            if buyer_phone:
+                loyalty_svc = LoyaltyService(self.session)
+                await loyalty_svc.accrue_points_for_buyer_phone(
+                    seller_id=order.seller_id,
+                    buyer_phone=buyer_phone,
+                    amount=float(order.total_price or 0),
+                    order_id=order.id,
+                )
 
         return {
             "order_id": order.id,
