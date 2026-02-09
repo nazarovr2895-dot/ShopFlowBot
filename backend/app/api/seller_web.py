@@ -104,22 +104,9 @@ async def get_me(
     session: AsyncSession = Depends(get_session),
 ):
     """Get current seller info including shop link and hashtags."""
-    # #region agent log
-    import json
-    try:
-        with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"id": f"log_get_me_entry_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "seller_web.py:102", "message": "get_me endpoint entry", "data": {"seller_id": seller_id}, "runId": "run1", "hypothesisId": "A"}) + "\n")
-    except: pass
-    # #endregion
     try:
         service = SellerService(session)
         data = await service.get_seller(seller_id)
-        # #region agent log
-        try:
-            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"id": f"log_get_me_success_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "seller_web.py:108", "message": "get_seller returned data", "data": {"has_data": data is not None}, "runId": "run1", "hypothesisId": "A"}) + "\n")
-        except: pass
-        # #endregion
         if not data:
             return {}
         bot_username = os.getenv("BOT_USERNAME", "")
@@ -129,14 +116,6 @@ async def get_me(
             data["shop_link"] = None
         return data
     except (ProgrammingError, OperationalError) as e:
-        # #region agent log
-        try:
-            error_msg = str(e).lower()
-            is_column_error = 'column' in error_msg and ('does not exist' in error_msg or 'не существует' in error_msg or 'preorder_custom_dates' in error_msg)
-            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"id": f"log_get_me_db_error_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "seller_web.py:116", "message": "Database error in get_me", "data": {"error_type": type(e).__name__, "error_msg": str(e), "is_column_error": is_column_error}, "runId": "run1", "hypothesisId": "A"}) + "\n")
-        except: pass
-        # #endregion
         # If it's a column error (preorder_custom_dates doesn't exist), return error suggesting migration
         error_msg = str(e).lower()
         if 'column' in error_msg and ('does not exist' in error_msg or 'не существует' in error_msg or 'preorder_custom_dates' in error_msg):
@@ -146,12 +125,7 @@ async def get_me(
             )
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
-        # #region agent log
-        try:
-            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"id": f"log_get_me_error_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "seller_web.py:125", "message": "get_me endpoint error", "data": {"error_type": type(e).__name__, "error_msg": str(e), "error_repr": repr(e)}, "runId": "run1", "hypothesisId": "E"}) + "\n")
-        except: pass
-        # #endregion
+        logger.exception("Error in get_me endpoint", seller_id=seller_id, error=str(e))
         raise
 
 
@@ -485,9 +459,31 @@ async def delete_product(
     return {"status": "deleted"}
 
 
+def _validate_image_content(content: bytes) -> bool:
+    """Validate that content is actually an image by checking magic bytes."""
+    # Check for common image formats
+    if content.startswith(b'\xff\xd8\xff'):  # JPEG
+        return True
+    if content.startswith(b'\x89PNG\r\n\x1a\n'):  # PNG
+        return True
+    if content.startswith(b'RIFF') and b'WEBP' in content[:12]:  # WebP
+        return True
+    if content.startswith(b'GIF87a') or content.startswith(b'GIF89a'):  # GIF
+        return True
+    return False
+
+
 def _convert_uploaded_image(content: bytes) -> bytes:
     """Открыть изображение, повернуть по EXIF, уменьшить по длинной стороне, сохранить в WebP."""
+    # Validate image content before processing
+    if not _validate_image_content(content):
+        raise HTTPException(status_code=400, detail="Файл не является изображением")
+    
     try:
+        img = Image.open(io.BytesIO(content))
+        # Verify it's actually an image (not a malicious file)
+        img.verify()
+        # Reopen after verify (verify closes the image)
         img = Image.open(io.BytesIO(content))
         img = ImageOps.exif_transpose(img)
         if img.mode in ("RGBA", "P"):
@@ -510,23 +506,58 @@ async def upload_product_photo(
     file: UploadFile = File(...),
     seller_id: int = Depends(require_seller_token),
 ):
-    """Загрузка фото товара. Конвертируется в WebP с уменьшением размера. Возвращает photo_id."""
+    """Загрузка фото товара. Конвертируется в WebP с уменьшением размера. Возвращает photo_id.
+    
+    Security: Validates file extension, MIME type, and image content.
+    """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Файл не выбран")
+    
+    # Validate file extension
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_IMAGE_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail=f"Допустимые форматы: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
         )
+    
+    # Validate MIME type
+    if file.content_type:
+        allowed_mime_types = {
+            "image/jpeg", "image/jpg", "image/png", 
+            "image/webp", "image/gif"
+        }
+        if file.content_type not in allowed_mime_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Недопустимый тип файла: {file.content_type}"
+            )
+    
     content = await file.read()
+    
+    # Validate file size
     if len(content) > 10 * 1024 * 1024:  # 10 MB
         raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 10 МБ)")
+    
+    # Validate minimum size (prevent empty files)
+    if len(content) < 100:  # Minimum 100 bytes
+        raise HTTPException(status_code=400, detail="Файл слишком маленький")
+    
+    # Convert and validate image content
     content = _convert_uploaded_image(content)
+    
+    # Secure file path generation
     upload_dir = UPLOAD_DIR / PRODUCTS_UPLOAD_SUBDIR
     upload_dir.mkdir(parents=True, exist_ok=True)
     name = f"{uuid.uuid4().hex}{UPLOAD_OUTPUT_EXT}"
     path = upload_dir / name
+    
+    # Ensure path is within upload directory (prevent path traversal)
+    try:
+        path.resolve().relative_to(upload_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Недопустимый путь к файлу")
+    
     path.write_bytes(content)
     photo_id = f"/static/{PRODUCTS_UPLOAD_SUBDIR}/{name}"
     return {"photo_id": photo_id}
@@ -1041,6 +1072,23 @@ async def change_credentials(
     session: AsyncSession = Depends(get_session),
 ):
     """Change web login and password. Requires current credentials for verification."""
+    from backend.app.core.password_validation import validate_password_strength
+    
+    # Validate new password strength
+    is_valid, errors = validate_password_strength(body.new_password)
+    if not is_valid:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+    
+    # Validate login length
+    if len(body.new_login) < 3:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Логин должен содержать минимум 3 символа")
+    
+    if len(body.new_login) > 64:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Логин слишком длинный (максимум 64 символа)")
+    
     service = SellerService(session)
     try:
         return await service.change_web_credentials(

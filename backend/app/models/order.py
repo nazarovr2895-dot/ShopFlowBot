@@ -25,4 +25,11 @@ class Order(Base):
         Index('ix_orders_buyer_id', 'buyer_id'),
         Index('ix_orders_status', 'status'),
         Index('ix_orders_created_at', 'created_at'),
+        # Composite indexes for common query patterns
+        Index('ix_orders_seller_status', 'seller_id', 'status'),  # Seller orders by status
+        Index('ix_orders_seller_created', 'seller_id', 'created_at'),  # Seller orders by date
+        Index('ix_orders_status_created', 'status', 'created_at'),  # Orders by status and date
+        Index('ix_orders_is_preorder', 'is_preorder'),  # Preorder filter
+        Index('ix_orders_seller_preorder', 'seller_id', 'is_preorder'),  # Seller preorders
+        Index('ix_orders_preorder_date', 'is_preorder', 'preorder_delivery_date'),  # Preorder dates
     )

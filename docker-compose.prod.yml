@@ -1,0 +1,137 @@
+version: '3.8'
+
+# Production Docker Compose configuration
+# For horizontal scaling, use: docker-compose -f docker-compose.prod.yml up --scale backend=5
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Remove port exposure in production (use internal network only)
+    # ports:
+    #   - "${DB_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Production: use managed database or configure replication
+    # command: postgres -c max_connections=200 -c shared_buffers=256MB
+
+  db-replica:
+    # Example read replica configuration
+    # In production, use managed database read replicas (AWS RDS, Google Cloud SQL)
+    # This is a placeholder for documentation
+    profiles:
+      - replica
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_MASTER_SERVICE_HOST: db
+    volumes:
+      - pgdata-replica:/var/lib/postgresql/data
+    depends_on:
+      - db
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Production: use Redis Cluster or managed Redis (AWS ElastiCache, Google Cloud Memorystore)
+
+  redis-sentinel:
+    # Redis Sentinel for high availability (optional)
+    profiles:
+      - sentinel
+    image: redis:7-alpine
+    restart: always
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./redis-sentinel.conf:/etc/redis/sentinel.conf
+
+  backend:
+    build: ./backend
+    restart: always
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_READ_REPLICA_URL=${DB_READ_REPLICA_URL:-}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - MASTER_ADMIN_ID=${MASTER_ADMIN_ID}
+      - ADMIN_LOGIN=${ADMIN_LOGIN}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_SECRET=${ADMIN_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - WORKERS=${WORKERS:-4}
+      - RELOAD=false
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Remove port exposure in production (use nginx/load balancer)
+    # ports:
+    #   - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    # SSL certificates should be mounted from external source
+
+volumes:
+  pgdata:
+  pgdata-replica:
+  redis_data:

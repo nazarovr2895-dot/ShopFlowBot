@@ -1,13 +1,17 @@
 """Seller web panel authentication."""
 import os
+import sys
 from datetime import datetime, timedelta
 from typing import Optional
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from backend.app.api.deps import get_session
 from backend.app.core.password_utils import verify_password
@@ -15,9 +19,23 @@ from backend.app.models.seller import Seller
 from backend.app.models.user import User
 
 router = APIRouter()
-JWT_SECRET = os.getenv("JWT_SECRET", os.getenv("ADMIN_SECRET", "change-me-in-production"))
+
+# Require JWT_SECRET - no default in production
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    # Fallback to ADMIN_SECRET only if explicitly set
+    JWT_SECRET = os.getenv("ADMIN_SECRET")
+    if not JWT_SECRET:
+        print("ERROR: JWT_SECRET or ADMIN_SECRET must be set in environment variables", file=sys.stderr)
+        sys.exit(1)
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24 * 7  # 7 days
+
+# Rate limiter for login endpoint
+limiter = Limiter(key_func=get_remote_address)
+router.state.limiter = limiter
+router.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 class SellerLoginRequest(BaseModel):
@@ -79,11 +97,16 @@ async def require_seller_token(
 
 
 @router.post("/login", response_model=SellerLoginResponse)
+@limiter.limit("5/minute")
 async def seller_login(
+    request: Request,
     data: SellerLoginRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    """Seller login for web panel."""
+    """Seller login for web panel.
+    
+    Rate limited to 5 attempts per minute per IP address.
+    """
     result = await session.execute(
         select(Seller, User).join(User, User.tg_id == Seller.seller_id).where(
             Seller.web_login == data.login,

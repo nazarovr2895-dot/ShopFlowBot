@@ -1,6 +1,7 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, field_validator
 from typing import Optional, List
 from decimal import Decimal
+from backend.app.core.password_validation import sanitize_user_input
 
 # --- Покупатели ---
 class BuyerCreate(BaseModel):
@@ -44,6 +45,14 @@ class OrderCreate(BaseModel):
     address: Optional[str] = None
     is_preorder: bool = False
     preorder_delivery_date: Optional[str] = None  # YYYY-MM-DD
+    
+    @field_validator("items_info", "address")
+    @classmethod
+    def sanitize_text_fields(cls, v: Optional[str]) -> Optional[str]:
+        """Sanitize user input to prevent XSS."""
+        if v is None:
+            return None
+        return sanitize_user_input(v, max_length=5000)
 
 class OrderResponse(BaseModel):
     id: int
@@ -64,6 +73,12 @@ class ProductCreate(BaseModel):
     bouquet_id: Optional[int] = None
     is_preorder: bool = False
 
+    @field_validator("name", "description")
+    @classmethod
+    def sanitize_text_fields(cls, v: str) -> str:
+        """Sanitize user input to prevent XSS."""
+        return sanitize_user_input(v, max_length=2000)
+
     @model_validator(mode="after")
     def truncate_photo_ids(self):
         if self.photo_ids is not None:
@@ -82,6 +97,14 @@ class ProductUpdate(BaseModel):
     bouquet_id: Optional[int] = None
     is_active: Optional[bool] = None
     is_preorder: Optional[bool] = None
+    
+    @field_validator("name", "description")
+    @classmethod
+    def sanitize_text_fields(cls, v: Optional[str]) -> Optional[str]:
+        """Sanitize user input to prevent XSS."""
+        if v is None:
+            return None
+        return sanitize_user_input(v, max_length=2000)
 
 
 class ProductResponse(BaseModel):

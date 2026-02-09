@@ -1,10 +1,14 @@
 import os
+import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,16 +18,32 @@ from backend.app.api.admin import require_admin_token
 from backend.app.api.deps import get_session
 from backend.app.services.cache import CacheService
 from backend.app.core.logging import setup_logging, get_logger
+from backend.app.core.settings import get_settings
+from backend.app.core.metrics import PrometheusMiddleware, get_metrics_response
+
+# Load and validate settings
+try:
+    settings = get_settings()
+except ValueError as e:
+    print(f"Configuration error: {e}", file=sys.stderr)
+    sys.exit(1)
 
 # Initialize structured logging
-# Use JSON format in production (when ENVIRONMENT != "development")
-is_production = os.getenv("ENVIRONMENT", "production") != "development"
+# Use JSON format in production
 setup_logging(
-    log_level=os.getenv("LOG_LEVEL", "INFO"),
-    json_format=is_production
+    log_level=settings.LOG_LEVEL,
+    json_format=settings.is_production
 )
 
 logger = get_logger(__name__)
+
+# Log configuration status
+logger.info(
+    "Application configuration loaded",
+    environment=settings.ENVIRONMENT,
+    db_host=settings.DB_HOST,
+    redis_host=settings.REDIS_HOST,
+)
 
 
 @asynccontextmanager
@@ -43,17 +63,33 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FlowShop Backend", lifespan=lifespan)
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add Prometheus metrics middleware
+app.add_middleware(PrometheusMiddleware)
+
 # CORS middleware для Mini App
-# В продакшене задать ALLOWED_ORIGINS через переменную окружения
-# Например: "https://miniapp.example.com,https://t.me"
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
+# Use settings for CORS configuration
+ALLOWED_ORIGINS = settings.allowed_origins_list
+if not ALLOWED_ORIGINS:
+    # In production, require ALLOWED_ORIGINS to be set
+    if settings.is_production:
+        logger.error("ALLOWED_ORIGINS must be set in production environment")
+        raise ValueError("ALLOWED_ORIGINS environment variable is required in production")
+    # Development fallback
+    ALLOWED_ORIGINS = ["*"]
+    logger.warning("CORS: Allowing all origins (development mode). Set ALLOWED_ORIGINS in production!")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS[0] else ["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Подключаем роутеры (части нашего приложения)
@@ -117,3 +153,17 @@ async def health_check(session: AsyncSession = Depends(get_session)):
         health_status["checks"]["redis"] = f"error: {str(e)}"
     
     return health_status
+
+
+@app.get("/metrics")
+async def metrics_endpoint(openmetrics: bool = False):
+    """
+    Prometheus metrics endpoint.
+    
+    Args:
+        openmetrics: If True, return OpenMetrics format
+        
+    Returns:
+        Metrics in Prometheus or OpenMetrics format
+    """
+    return get_metrics_response(openmetrics=openmetrics)

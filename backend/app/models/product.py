@@ -21,4 +21,9 @@ class Product(Base):
     __table_args__ = (
         Index('ix_products_seller_id', 'seller_id'),
         Index('ix_products_is_active', 'is_active'),
+        # Composite indexes for common query patterns
+        Index('ix_products_seller_active', 'seller_id', 'is_active'),  # Active products by seller
+        Index('ix_products_seller_preorder', 'seller_id', 'is_preorder'),  # Preorder products by seller
+        Index('ix_products_bouquet_id', 'bouquet_id'),  # Products by bouquet
+        Index('ix_products_is_preorder', 'is_preorder'),  # Preorder filter
     )

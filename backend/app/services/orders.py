@@ -20,6 +20,14 @@ from backend.app.services.sellers import SellerService
 from backend.app.services.bouquets import check_bouquet_stock, deduct_bouquet_from_receptions
 from backend.app.services.loyalty import LoyaltyService
 
+# Import metrics
+try:
+    from backend.app.core.metrics import orders_created_total, orders_completed_total
+except ImportError:
+    # Metrics not available (e.g., in tests)
+    orders_created_total = None
+    orders_completed_total = None
+
 
 class OrderServiceError(Exception):
     """Base exception for order service errors."""
@@ -141,6 +149,13 @@ class OrderService:
         )
         self.session.add(order)
         await self.session.flush()
+        
+        # Record metrics
+        if orders_created_total:
+            orders_created_total.labels(
+                seller_id=str(seller_id),
+                status="pending"
+            ).inc()
 
         return order
     
@@ -277,6 +292,10 @@ class OrderService:
         order.status = "done"
         if order.completed_at is None:
             order.completed_at = datetime.utcnow()
+        
+        # Record metrics
+        if orders_completed_total:
+            orders_completed_total.labels(seller_id=str(order.seller_id)).inc()
 
         return {
             "order_id": order.id,
@@ -335,12 +354,17 @@ class OrderService:
             order.completed_at = datetime.utcnow()
 
         # Accrue commissions when buyer confirms receipt
-        if new_status == "completed" and old_status != "completed" and accrue_commissions_func:
-            commissions_accrued = await accrue_commissions_func(
-                session=self.session,
-                order_total=float(order.total_price or 0),
-                buyer_id=order.buyer_id
-            )
+        if new_status == "completed" and old_status != "completed":
+            # Record metrics for completed orders
+            if orders_completed_total:
+                orders_completed_total.labels(seller_id=str(order.seller_id)).inc()
+            
+            if accrue_commissions_func:
+                commissions_accrued = await accrue_commissions_func(
+                    session=self.session,
+                    order_total=float(order.total_price or 0),
+                    buyer_id=order.buyer_id
+                )
 
         # Accrue loyalty points when order first reaches done or completed (by buyer phone)
         if new_status in ("done", "completed") and old_status not in ("done", "completed"):

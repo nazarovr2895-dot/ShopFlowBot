@@ -18,4 +18,15 @@ COPY . backend/
 ENV PYTHONPATH=/src
 
 # 6. Запускаем сервер, обращаясь к нему через полный путь
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Use --reload only in development (set RELOAD=true in environment)
+# In production, use multiple workers for better performance
+ENV RELOAD=${RELOAD:-false}
+ENV WORKERS=${WORKERS:-4}
+
+# Production command: use workers, no reload
+# Development: set RELOAD=true to enable auto-reload
+CMD if [ "$RELOAD" = "true" ]; then \
+        uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload; \
+    else \
+        uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers $WORKERS; \
+    fi

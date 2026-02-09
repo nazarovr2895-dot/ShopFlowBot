@@ -1,11 +1,25 @@
+import os
 from sqlalchemy import BigInteger, String, ForeignKey, DateTime, DECIMAL, Text, Boolean, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from datetime import datetime
 from bot.config import DB_URL
 
+# Connection pool configuration for bot
+# Use smaller pool for bot as it has less concurrent load
+BOT_POOL_SIZE = int(os.getenv("BOT_POOL_SIZE", "10"))
+BOT_MAX_OVERFLOW = int(os.getenv("BOT_MAX_OVERFLOW", "20"))
+
 # Добавили expire_on_commit=False для стабильной работы
-engine = create_async_engine(url=DB_URL, echo=True)
+# Configure connection pool for better performance
+engine = create_async_engine(
+    url=DB_URL,
+    echo=False,  # Disable SQL echo in production
+    pool_size=BOT_POOL_SIZE,
+    max_overflow=BOT_MAX_OVERFLOW,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 class Base(AsyncAttrs, DeclarativeBase):
