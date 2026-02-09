@@ -16,6 +16,7 @@ const sellerNav = [
   { to: '/orders', label: 'Заказы', icon: '📦' },
   { to: '/customers', label: 'Клиенты', icon: '👥' },
   { to: '/shop', label: 'Настройка магазина', icon: '⚙️' },
+  { to: '/showcase', label: 'Витрина', icon: '🪟' },
   { to: '/receptions', label: 'Приёмка', icon: '🌸' },
   { to: '/bouquets', label: 'Конструктор букетов', icon: '💐' },
   { to: '/inventory', label: 'Инвентаризация', icon: '📋' },

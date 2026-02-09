@@ -3,6 +3,7 @@ import {
   getReceptions,
   getReceptionInventory,
   inventoryCheck,
+  inventoryApply,
   type ReceptionBrief,
   type InventoryItem,
 } from '../../api/sellerClient';
@@ -18,6 +19,7 @@ export function SellerInventory() {
     lines: { reception_item_id: number; flower_name: string; system_quantity: number; actual_quantity: number; difference: number; loss_amount: number }[];
     total_loss: number;
   } | null>(null);
+  const [applySubmitting, setApplySubmitting] = useState(false);
 
   const loadReceptions = async () => {
     try {
@@ -67,17 +69,34 @@ export function SellerInventory() {
     setActualQty((p) => ({ ...p, [itemId]: value }));
   };
 
-  const handleCheck = async () => {
-    if (!selectedReceptionId) return;
-    const lines = items.map((it) => ({
+  const getCheckLines = () =>
+    items.map((it) => ({
       reception_item_id: it.id,
       actual_quantity: parseInt(actualQty[it.id] ?? '', 10) || 0,
     }));
+
+  const handleCheck = async () => {
+    if (!selectedReceptionId) return;
     try {
-      const result = await inventoryCheck(selectedReceptionId, lines);
+      const result = await inventoryCheck(selectedReceptionId, getCheckLines());
       setCheckResult(result);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка');
+    }
+  };
+
+  const handleApply = async () => {
+    if (!selectedReceptionId || !checkResult) return;
+    if (!confirm('Остатки в системе будут приведены в соответствие с введёнными. Продолжить?')) return;
+    setApplySubmitting(true);
+    try {
+      await inventoryApply(selectedReceptionId, getCheckLines());
+      setCheckResult(null);
+      await loadInventory(selectedReceptionId);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка');
+    } finally {
+      setApplySubmitting(false);
     }
   };
 
@@ -181,6 +200,15 @@ export function SellerInventory() {
                   ))}
                 </tbody>
               </table>
+              <p className="section-hint">После применения остатки в системе будут обновлены в соответствии с введёнными значениями.</p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleApply}
+                disabled={applySubmitting}
+              >
+                {applySubmitting ? 'Применение…' : 'Применить остатки'}
+              </button>
             </div>
           )}
         </>

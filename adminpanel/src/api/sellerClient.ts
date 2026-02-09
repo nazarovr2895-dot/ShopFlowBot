@@ -23,6 +23,17 @@ async function fetchSeller<T>(endpoint: string, options: RequestInit = {}): Prom
   return res.json();
 }
 
+/** Full URL for a product photo (photo_id from backend, e.g. /static/uploads/products/...). Returns null for Telegram file_id or other non-static paths. */
+export function getProductImageUrl(photoId: string | null | undefined): string | null {
+  if (photoId == null || String(photoId).trim() === '') return null;
+  const raw = String(photoId).trim();
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  const path = raw.startsWith('/') ? raw : `/${raw}`;
+  if (!path.startsWith('/static/')) return null;
+  const base = (API_BASE || '').replace(/\/$/, '');
+  return base ? `${base}${path}` : path;
+}
+
 export interface SellerMe {
   seller_id: number;
   fio?: string;
@@ -44,6 +55,13 @@ export interface SellerMe {
   metro_walk_minutes?: number;
   map_url?: string;
   placement_expired_at?: string;
+  preorder_enabled?: boolean;
+  preorder_schedule_type?: string;
+  preorder_weekday?: number;
+  preorder_interval_days?: number;
+  preorder_base_date?: string | null;
+  preorder_custom_dates?: string[];
+  preorder_available_dates?: string[];
 }
 
 export interface SellerOrder {
@@ -58,6 +76,8 @@ export interface SellerOrder {
   address?: string;
   created_at?: string;
   completed_at?: string;
+  is_preorder?: boolean;
+  preorder_delivery_date?: string | null;
 }
 
 export type SellerStatsPeriod = '1d' | '7d' | '30d' | 'custom';
@@ -86,11 +106,29 @@ export interface SellerStatsDeliveryBreakdown {
   unknown: SellerStatsDeliveryBucket;
 }
 
+export interface SellerStatsTopProduct {
+  product_id: number;
+  product_name: string;
+  quantity_sold: number;
+  order_count: number;
+}
+
+export interface SellerStatsTopBouquet {
+  bouquet_id: number;
+  bouquet_name: string;
+  quantity_sold: number;
+}
+
 export interface SellerStats {
   total_completed_orders: number;
   total_revenue: number;
   commission_18: number;
   net_revenue: number;
+  average_check?: number;
+  previous_period_orders?: number;
+  previous_period_revenue?: number;
+  top_products?: SellerStatsTopProduct[];
+  top_bouquets?: SellerStatsTopBouquet[];
   orders_by_status?: Record<string, number>;
   daily_sales?: SellerStatsDailyPoint[];
   delivery_breakdown?: SellerStatsDeliveryBreakdown;
@@ -106,26 +144,56 @@ export interface SellerProduct {
   photo_id?: string;
   photo_ids?: string[];
   quantity: number;
+  is_active?: boolean;
+  is_preorder?: boolean;
 }
 
 export async function getMe(): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me');
 }
 
-export async function updateMe(payload: { hashtags?: string }): Promise<SellerMe> {
+export interface DashboardAlerts {
+  low_stock_bouquets: { id: number; name: string; can_assemble_count: number }[];
+  expiring_items: { reception_id: number; reception_name: string; flower_name: string; days_left: number; remaining_quantity: number }[];
+}
+
+export async function getDashboardAlerts(): Promise<DashboardAlerts> {
+  return fetchSeller<DashboardAlerts>('/seller-web/dashboard/alerts');
+}
+
+export async function updateMe(payload: {
+  hashtags?: string;
+  preorder_enabled?: boolean;
+  preorder_schedule_type?: string;
+  preorder_weekday?: number;
+  preorder_interval_days?: number;
+  preorder_base_date?: string | null;
+  preorder_custom_dates?: string[] | null;
+}): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
 }
 
-export async function getOrders(params?: { status?: string; date_from?: string; date_to?: string }): Promise<SellerOrder[]> {
+export async function getOrders(params?: { status?: string; date_from?: string; date_to?: string; preorder?: boolean }): Promise<SellerOrder[]> {
   const sp = new URLSearchParams();
   if (params?.status) sp.set('status', params.status);
   if (params?.date_from) sp.set('date_from', params.date_from);
   if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.preorder !== undefined) sp.set('preorder', String(params.preorder));
   const q = sp.toString() ? `?${sp.toString()}` : '';
   return fetchSeller<SellerOrder[]>(`/seller-web/orders${q}`);
+}
+
+export interface SellerOrderDetail extends SellerOrder {
+  buyer_fio?: string | null;
+  buyer_phone?: string | null;
+  customer_id?: number | null;
+}
+
+export async function getOrder(orderId: number): Promise<SellerOrderDetail> {
+  return fetchSeller<SellerOrderDetail>(`/seller-web/orders/${orderId}`);
 }
 
 export async function acceptOrder(orderId: number): Promise<unknown> {
@@ -154,8 +222,11 @@ export async function getStats(params?: { period?: '1d' | '7d' | '30d'; date_fro
   return fetchSeller<SellerStats>(`/seller-web/stats${suffix}`);
 }
 
-export async function getProducts(): Promise<SellerProduct[]> {
-  return fetchSeller<SellerProduct[]>('/seller-web/products');
+export async function getProducts(params?: { preorder?: boolean }): Promise<SellerProduct[]> {
+  const sp = new URLSearchParams();
+  if (params?.preorder !== undefined) sp.set('preorder', String(params.preorder));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return fetchSeller<SellerProduct[]>(`/seller-web/products${q}`);
 }
 
 export async function uploadProductPhoto(file: File): Promise<{ photo_id: string }> {
@@ -175,14 +246,14 @@ export async function uploadProductPhoto(file: File): Promise<{ photo_id: string
   return res.json();
 }
 
-export async function createProduct(data: { seller_id: number; name: string; description: string; price: number; photo_id?: string; photo_ids?: string[]; quantity: number; bouquet_id?: number }): Promise<SellerProduct> {
+export async function createProduct(data: { seller_id: number; name: string; description: string; price: number; photo_id?: string; photo_ids?: string[]; quantity: number; bouquet_id?: number; is_preorder?: boolean }): Promise<SellerProduct> {
   return fetchSeller<SellerProduct>('/seller-web/products', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateProduct(productId: number, data: Partial<{ name: string; description: string; price: number; quantity: number; photo_ids: string[] }>): Promise<SellerProduct> {
+export async function updateProduct(productId: number, data: Partial<{ name: string; description: string; price: number; quantity: number; photo_ids: string[]; is_active: boolean; is_preorder: boolean }>): Promise<SellerProduct> {
   return fetchSeller<SellerProduct>(`/seller-web/products/${productId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -229,6 +300,9 @@ export interface LoyaltyTransaction {
 
 export interface SellerCustomerDetail extends SellerCustomerBrief {
   transactions: LoyaltyTransaction[];
+  total_purchases?: number;
+  last_order_at?: string | null;
+  completed_orders_count?: number;
 }
 
 export async function getLoyaltySettings(): Promise<LoyaltySettings> {
@@ -264,6 +338,17 @@ export async function recordSale(customerId: number, amount: number): Promise<{ 
   });
 }
 
+export async function getCustomerOrders(customerId: number): Promise<SellerOrder[]> {
+  return fetchSeller<SellerOrder[]>(`/seller-web/customers/${customerId}/orders`);
+}
+
+export async function deductPoints(customerId: number, points: number): Promise<{ customer_id: number; points_deducted: number; new_balance: number }> {
+  return fetchSeller(`/seller-web/customers/${customerId}/deduct`, {
+    method: 'POST',
+    body: JSON.stringify({ points }),
+  });
+}
+
 // --- CRM: Flowers ---
 export interface Flower {
   id: number;
@@ -291,6 +376,9 @@ export interface ReceptionBrief {
   id: number;
   name: string;
   reception_date: string | null;
+  is_closed?: boolean;
+  supplier?: string | null;
+  invoice_number?: string | null;
 }
 
 export interface ReceptionItemRow {
@@ -311,6 +399,9 @@ export interface ReceptionDetail {
   id: number;
   name: string;
   reception_date: string | null;
+  is_closed?: boolean;
+  supplier?: string | null;
+  invoice_number?: string | null;
   items: ReceptionItemRow[];
 }
 
@@ -318,9 +409,19 @@ export async function getReceptions(): Promise<ReceptionBrief[]> {
   return fetchSeller<ReceptionBrief[]>('/seller-web/receptions');
 }
 
-export async function createReception(data: { name: string; reception_date?: string | null }): Promise<ReceptionBrief> {
+export async function createReception(data: { name: string; reception_date?: string | null; supplier?: string | null; invoice_number?: string | null }): Promise<ReceptionBrief> {
   return fetchSeller<ReceptionBrief>('/seller-web/receptions', {
     method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateReception(
+  receptionId: number,
+  data: { is_closed?: boolean; supplier?: string | null; invoice_number?: string | null }
+): Promise<ReceptionBrief> {
+  return fetchSeller<ReceptionBrief>(`/seller-web/receptions/${receptionId}`, {
+    method: 'PUT',
     body: JSON.stringify(data),
   });
 }
@@ -372,6 +473,16 @@ export async function inventoryCheck(
   lines: { reception_item_id: number; actual_quantity: number }[]
 ): Promise<{ lines: { reception_item_id: number; flower_name: string; system_quantity: number; actual_quantity: number; difference: number; loss_amount: number }[]; total_loss: number }> {
   return fetchSeller(`/seller-web/receptions/${receptionId}/inventory/check`, {
+    method: 'POST',
+    body: JSON.stringify(lines),
+  });
+}
+
+export async function inventoryApply(
+  receptionId: number,
+  lines: { reception_item_id: number; actual_quantity: number }[]
+): Promise<{ applied: number }> {
+  return fetchSeller(`/seller-web/receptions/${receptionId}/inventory/apply`, {
     method: 'POST',
     body: JSON.stringify(lines),
   });

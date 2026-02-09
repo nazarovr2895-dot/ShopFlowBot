@@ -75,3 +75,98 @@
   font-size: 20px;
   color: var(--app-text-secondary);
 }
+
+/* Мои данные */
+.profile-data {
+  margin-bottom: 20px;
+}
+
+.profile-data__heading {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--app-text-secondary);
+  margin-bottom: 10px;
+}
+
+.profile-data__card {
+  background: var(--app-bg-elevated);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--app-border);
+}
+
+.profile-data__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.profile-data__row:first-child {
+  padding-top: 0;
+}
+
+.profile-data__row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.profile-data__label {
+  font-size: 13px;
+  color: var(--app-text-secondary);
+}
+
+.profile-data__value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--app-text);
+}
+
+.profile-data__value_readonly {
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-data__input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px;
+  color: var(--app-text);
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.profile-data__input::placeholder {
+  color: var(--app-text-secondary);
+  opacity: 0.7;
+}
+
+.profile-data__error {
+  font-size: 13px;
+  color: var(--app-error, #c00);
+  margin: 0 0 10px 0;
+}
+
+.profile-data__save {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--app-button-text, #fff);
+  background: var(--app-accent, #2481cc);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.profile-data__save:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.profile-data__save:active:not(:disabled) {
+  opacity: 0.9;
+}

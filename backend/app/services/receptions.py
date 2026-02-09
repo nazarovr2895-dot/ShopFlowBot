@@ -10,6 +10,12 @@ from sqlalchemy.orm import selectinload
 from backend.app.models.crm import Flower, Reception, ReceptionItem
 
 
+class ReceptionClosedError(Exception):
+    """Raised when trying to add item to a closed reception."""
+    def __init__(self):
+        super().__init__("Приёмка закрыта. Новые позиции добавлять нельзя.")
+
+
 async def list_flowers(session: AsyncSession, seller_id: int) -> List[Flower]:
     result = await session.execute(
         select(Flower).where(Flower.seller_id == seller_id).order_by(Flower.name)
@@ -51,29 +57,42 @@ async def delete_flower(
 async def list_receptions(
     session: AsyncSession, seller_id: int
 ) -> List[Dict[str, Any]]:
+    # Use only columns that exist before migration (is_closed, supplier, invoice_number)
+    # so list works even when migration add_reception_status has not been run.
     result = await session.execute(
-        select(Reception)
+        select(Reception.id, Reception.name, Reception.reception_date)
         .where(Reception.seller_id == seller_id)
         .order_by(Reception.reception_date.desc().nullslast(), Reception.id.desc())
     )
-    receptions = result.scalars().all()
-    out = []
-    for r in receptions:
-        out.append({
-            "id": r.id,
-            "name": r.name,
-            "reception_date": r.reception_date.isoformat() if r.reception_date else None,
-        })
-    return out
+    rows = result.all()
+    return [
+        {
+            "id": row[0],
+            "name": row[1],
+            "reception_date": row[2].isoformat() if row[2] else None,
+            "is_closed": False,
+            "supplier": None,
+            "invoice_number": None,
+        }
+        for row in rows
+    ]
 
 
 async def create_reception(
-    session: AsyncSession, seller_id: int, name: str, reception_date: Optional[date] = None
+    session: AsyncSession,
+    seller_id: int,
+    name: str,
+    reception_date: Optional[date] = None,
+    supplier: Optional[str] = None,
+    invoice_number: Optional[str] = None,
 ) -> Reception:
     rec = Reception(
         seller_id=seller_id,
         name=name,
         reception_date=reception_date,
+        is_closed=False,
+        supplier=supplier,
+        invoice_number=invoice_number,
     )
     session.add(rec)
     await session.commit()
@@ -84,17 +103,24 @@ async def create_reception(
 async def get_reception(
     session: AsyncSession, reception_id: int, seller_id: int
 ) -> Optional[Dict[str, Any]]:
-    result = await session.execute(
-        select(Reception)
+    # Load reception header with only columns that exist before migration (is_closed, supplier, invoice_number)
+    rec_result = await session.execute(
+        select(Reception.id, Reception.name, Reception.reception_date)
         .where(Reception.id == reception_id, Reception.seller_id == seller_id)
-        .options(selectinload(Reception.items))
     )
-    rec = result.scalar_one_or_none()
-    if not rec:
+    rec_row = rec_result.one_or_none()
+    if not rec_row:
         return None
+    rec_id, rec_name, rec_date = rec_row[0], rec_row[1], rec_row[2]
+    # Load items for this reception (ReceptionItem has no new columns)
+    items_result = await session.execute(
+        select(ReceptionItem)
+        .where(ReceptionItem.reception_id == reception_id)
+    )
+    rec_items = items_result.scalars().all()
     today = date.today()
     items = []
-    for item in rec.items or []:
+    for item in rec_items:
         flower_result = await session.execute(select(Flower).where(Flower.id == item.flower_id))
         flower = flower_result.scalar_one_or_none()
         flower_name = flower.name if flower else str(item.flower_id)
@@ -117,11 +143,42 @@ async def get_reception(
             "days_left": days_left,
         })
     return {
-        "id": rec.id,
-        "name": rec.name,
-        "reception_date": rec.reception_date.isoformat() if rec.reception_date else None,
+        "id": rec_id,
+        "name": rec_name,
+        "reception_date": rec_date.isoformat() if rec_date else None,
+        "is_closed": False,
+        "supplier": None,
+        "invoice_number": None,
         "items": items,
     }
+
+
+async def update_reception(
+    session: AsyncSession,
+    reception_id: int,
+    seller_id: int,
+    *,
+    is_closed: Optional[bool] = None,
+    supplier: Optional[str] = None,
+    invoice_number: Optional[str] = None,
+) -> Optional[Reception]:
+    result = await session.execute(
+        select(Reception).where(
+            Reception.id == reception_id, Reception.seller_id == seller_id
+        )
+    )
+    rec = result.scalar_one_or_none()
+    if not rec:
+        return None
+    if is_closed is not None:
+        rec.is_closed = is_closed
+    if supplier is not None:
+        rec.supplier = supplier
+    if invoice_number is not None:
+        rec.invoice_number = invoice_number
+    await session.commit()
+    await session.refresh(rec)
+    return rec
 
 
 async def add_reception_item(
@@ -139,8 +196,11 @@ async def add_reception_item(
             Reception.id == reception_id, Reception.seller_id == seller_id
         )
     )
-    if rec_result.scalar_one_or_none() is None:
+    rec = rec_result.scalar_one_or_none()
+    if rec is None:
         return None
+    if getattr(rec, "is_closed", False):
+        raise ReceptionClosedError()
     flower_result = await session.execute(
         select(Flower).where(Flower.id == flower_id, Flower.seller_id == seller_id)
     )
@@ -233,6 +293,36 @@ def _reception_item_to_dict(item: ReceptionItem, flower_name: str) -> Dict[str, 
     }
 
 
+async def get_expiring_items(
+    session: AsyncSession, seller_id: int, days_left_max: int = 2
+) -> List[Dict[str, Any]]:
+    """Return reception items with days_left <= days_left_max (for dashboard alerts)."""
+    result = await session.execute(
+        select(ReceptionItem, Flower.name, Reception.name.label("reception_name"))
+        .join(Flower, ReceptionItem.flower_id == Flower.id)
+        .join(Reception, ReceptionItem.reception_id == Reception.id)
+        .where(Reception.seller_id == seller_id, ReceptionItem.remaining_quantity > 0)
+    )
+    rows = result.all()
+    today = date.today()
+    out = []
+    for item, flower_name, reception_name in rows:
+        arrival = item.arrival_date
+        if arrival is None:
+            continue
+        expiry = arrival + timedelta(days=item.shelf_life_days)
+        days_left = (expiry - today).days
+        if days_left <= days_left_max:
+            out.append({
+                "reception_id": item.reception_id,
+                "reception_name": reception_name,
+                "flower_name": flower_name,
+                "days_left": days_left,
+                "remaining_quantity": item.remaining_quantity,
+            })
+    return out
+
+
 async def get_reception_items_for_inventory(
     session: AsyncSession, reception_id: int, seller_id: int
 ) -> List[Dict[str, Any]]:
@@ -297,3 +387,34 @@ async def inventory_check(
             "loss_amount": float(loss),
         })
     return {"lines": results, "total_loss": float(total_loss)}
+
+
+async def inventory_apply(
+    session: AsyncSession,
+    reception_id: int,
+    seller_id: int,
+    lines: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Apply actual quantities to reception items. lines: [{"reception_item_id": int, "actual_quantity": int}, ...].
+    Updates remaining_quantity to actual_quantity for each line. Returns applied count."""
+    rec_result = await get_reception(session, reception_id, seller_id)
+    if not rec_result:
+        return {"applied": 0, "error": "reception_not_found"}
+    items = await get_reception_items_for_inventory(session, reception_id, seller_id)
+    by_id = {it["id"]: it for it in items}
+    applied = 0
+    for line in lines:
+        item_id = line.get("reception_item_id") or line.get("id")
+        actual = int(line.get("actual_quantity", 0))
+        if item_id not in by_id:
+            continue
+        result = await session.execute(
+            select(ReceptionItem)
+            .where(ReceptionItem.id == item_id, ReceptionItem.reception_id == reception_id)
+        )
+        item = result.scalar_one_or_none()
+        if not item:
+            continue
+        item.remaining_quantity = actual
+        applied += 1
+    return {"applied": applied}

@@ -28,15 +28,37 @@ export function useTelegramWebApp() {
   }, []);
 
   const showAlert = useCallback((message: string) => {
-    WebApp.showAlert(message);
+    try {
+      if (typeof WebApp.showAlert === 'function') {
+        WebApp.showAlert(message);
+      } else {
+        window.alert(message);
+      }
+    } catch {
+      window.alert(message);
+    }
   }, []);
 
   const showConfirm = useCallback((message: string, callback: (confirmed: boolean) => void) => {
-    WebApp.showConfirm(message, callback);
+    try {
+      if (typeof WebApp.showConfirm === 'function') {
+        WebApp.showConfirm(message, callback);
+      } else {
+        callback(window.confirm(message));
+      }
+    } catch {
+      callback(window.confirm(message));
+    }
   }, []);
 
   const hapticFeedback = useCallback((type: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => {
-    WebApp.HapticFeedback.impactOccurred(type);
+    try {
+      if (WebApp.HapticFeedback?.impactOccurred) {
+        WebApp.HapticFeedback.impactOccurred(type);
+      }
+    } catch {
+      // ignore when not supported (e.g. outside Telegram)
+    }
   }, []);
 
   const setMainButton = useCallback((

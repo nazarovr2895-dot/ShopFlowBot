@@ -1,6 +1,15 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import './BottomNav.css';
 
+const FlowerIcon = ({ className }: { className?: string }) => (
+  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    <path d="M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12" />
+    <path d="M12 8a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4z" />
+  </svg>
+);
+
 const BagIcon = ({ className }: { className?: string }) => (
   <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
@@ -32,7 +41,8 @@ const PersonIcon = ({ className }: { className?: string }) => (
 );
 
 const tabs = [
-  { path: '/', label: 'Каталог', Icon: BagIcon },
+  { path: '/', label: 'Мои цветочные', Icon: FlowerIcon },
+  { path: '/catalog', label: 'Каталог', Icon: BagIcon },
   { path: '/visited', label: 'Вы смотрели', Icon: ClockIcon },
   { path: '/cart', label: 'Корзина', Icon: CartIcon },
   { path: '/profile', label: 'Профиль', Icon: PersonIcon },
@@ -45,13 +55,13 @@ export function BottomNav() {
   return (
     <nav className="bottom-nav" role="navigation">
       {tabs.map(({ path, label, Icon }) => {
-        const isActive = path === '/' ? pathname === '/' : pathname.startsWith(path);
+        const isActive = path === '/' ? pathname === '/' : path === '/catalog' ? pathname === '/catalog' : pathname.startsWith(path);
         return (
           <NavLink
             key={path}
             to={path}
             className={() => `bottom-nav__item ${isActive ? 'bottom-nav__item--active' : ''}`}
-            end={path === '/'}
+            end={path === '/' || path === '/catalog'}
           >
             <span className="bottom-nav__icon">
               <Icon />

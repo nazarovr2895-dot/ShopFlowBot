@@ -3,12 +3,13 @@ import io
 import os
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
 from PIL import Image, ImageOps
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,7 @@ from backend.app.schemas import (
     ProductUpdate,
     FlowerCreate,
     ReceptionCreate,
+    ReceptionUpdate,
     ReceptionItemCreate,
     ReceptionItemUpdate,
     InventoryCheckLine,
@@ -40,12 +42,16 @@ from backend.app.services.receptions import (
     delete_flower,
     list_receptions,
     create_reception,
+    update_reception,
     get_reception,
     add_reception_item,
     update_reception_item,
     delete_reception_item,
     get_reception_items_for_inventory,
+    get_expiring_items,
     inventory_check,
+    inventory_apply,
+    ReceptionClosedError,
 )
 from backend.app.services.referrals import accrue_commissions
 from backend.app.services.loyalty import (
@@ -82,8 +88,14 @@ def _get_seller_id(seller_id: int = Depends(require_seller_token)) -> int:
 
 # --- SELLER INFO ---
 class UpdateMeBody(BaseModel):
-    """Optional profile fields for seller (e.g. hashtags)."""
+    """Optional profile fields for seller (e.g. hashtags, preorder schedule)."""
     hashtags: Optional[str] = None
+    preorder_enabled: Optional[bool] = None
+    preorder_schedule_type: Optional[str] = None  # 'weekly' | 'interval_days' | 'custom_dates'
+    preorder_weekday: Optional[int] = None  # 0=Mon, 6=Sun
+    preorder_interval_days: Optional[int] = None
+    preorder_base_date: Optional[str] = None  # YYYY-MM-DD
+    preorder_custom_dates: Optional[List[str]] = None  # List of YYYY-MM-DD dates
 
 
 @router.get("/me")
@@ -92,16 +104,55 @@ async def get_me(
     session: AsyncSession = Depends(get_session),
 ):
     """Get current seller info including shop link and hashtags."""
-    service = SellerService(session)
-    data = await service.get_seller(seller_id)
-    if not data:
-        return {}
-    bot_username = os.getenv("BOT_USERNAME", "")
-    if bot_username:
-        data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}"
-    else:
-        data["shop_link"] = None
-    return data
+    # #region agent log
+    import json
+    try:
+        with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id": f"log_get_me_entry_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "seller_web.py:102", "message": "get_me endpoint entry", "data": {"seller_id": seller_id}, "runId": "run1", "hypothesisId": "A"}) + "\n")
+    except: pass
+    # #endregion
+    try:
+        service = SellerService(session)
+        data = await service.get_seller(seller_id)
+        # #region agent log
+        try:
+            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id": f"log_get_me_success_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "seller_web.py:108", "message": "get_seller returned data", "data": {"has_data": data is not None}, "runId": "run1", "hypothesisId": "A"}) + "\n")
+        except: pass
+        # #endregion
+        if not data:
+            return {}
+        bot_username = os.getenv("BOT_USERNAME", "")
+        if bot_username:
+            data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}"
+        else:
+            data["shop_link"] = None
+        return data
+    except (ProgrammingError, OperationalError) as e:
+        # #region agent log
+        try:
+            error_msg = str(e).lower()
+            is_column_error = 'column' in error_msg and ('does not exist' in error_msg or 'не существует' in error_msg or 'preorder_custom_dates' in error_msg)
+            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id": f"log_get_me_db_error_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "seller_web.py:116", "message": "Database error in get_me", "data": {"error_type": type(e).__name__, "error_msg": str(e), "is_column_error": is_column_error}, "runId": "run1", "hypothesisId": "A"}) + "\n")
+        except: pass
+        # #endregion
+        # If it's a column error (preorder_custom_dates doesn't exist), return error suggesting migration
+        error_msg = str(e).lower()
+        if 'column' in error_msg and ('does not exist' in error_msg or 'не существует' in error_msg or 'preorder_custom_dates' in error_msg):
+            raise HTTPException(
+                status_code=500,
+                detail="Database schema mismatch: preorder_custom_dates column missing. Please run migration: alembic upgrade head"
+            )
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        # #region agent log
+        try:
+            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id": f"log_get_me_error_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "seller_web.py:125", "message": "get_me endpoint error", "data": {"error_type": type(e).__name__, "error_msg": str(e), "error_repr": repr(e)}, "runId": "run1", "hypothesisId": "E"}) + "\n")
+        except: pass
+        # #endregion
+        raise
 
 
 @router.put("/me")
@@ -110,10 +161,43 @@ async def update_me(
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    """Update current seller profile (e.g. hashtags)."""
+    """Update current seller profile (e.g. hashtags, preorder schedule)."""
+    from backend.app.models.seller import Seller
     service = SellerService(session)
     if body.hashtags is not None:
         await service.update_field(seller_id, "hashtags", body.hashtags)
+    result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
+    seller = result.scalar_one_or_none()
+    if seller:
+        if body.preorder_enabled is not None:
+            seller.preorder_enabled = body.preorder_enabled
+        if body.preorder_schedule_type is not None:
+            seller.preorder_schedule_type = body.preorder_schedule_type
+        if body.preorder_weekday is not None:
+            seller.preorder_weekday = body.preorder_weekday
+        if body.preorder_interval_days is not None:
+            seller.preorder_interval_days = body.preorder_interval_days
+        if body.preorder_base_date is not None:
+            if body.preorder_base_date and body.preorder_base_date.strip():
+                try:
+                    seller.preorder_base_date = datetime.strptime(body.preorder_base_date[:10], "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    seller.preorder_base_date = None
+            else:
+                seller.preorder_base_date = None
+        if body.preorder_custom_dates is not None:
+            # Column temporarily commented out in model until migration is applied
+            # After migration: alembic upgrade head, uncomment the column in seller.py model
+            # Validate dates are YYYY-MM-DD format
+            validated_dates = []
+            for d_str in body.preorder_custom_dates:
+                try:
+                    datetime.strptime(d_str[:10], "%Y-%m-%d")
+                    validated_dates.append(d_str[:10])
+                except (ValueError, TypeError):
+                    continue
+            seller.preorder_custom_dates = validated_dates if validated_dates else None  # Uncomment after migration
+        await session.commit()
     data = await service.get_seller(seller_id)
     if not data:
         return {}
@@ -122,19 +206,36 @@ async def update_me(
     return data
 
 
+@router.get("/dashboard/alerts")
+async def get_dashboard_alerts(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Low stock bouquets (can_assemble_count <= 2) and expiring reception items (days_left <= 2)."""
+    bouquets = await list_bouquets_with_totals(session, seller_id)
+    low_stock_bouquets = [
+        {"id": b["id"], "name": b["name"], "can_assemble_count": b.get("can_assemble_count", 0)}
+        for b in bouquets
+        if b.get("can_assemble_count", 0) <= 2
+    ]
+    expiring_items = await get_expiring_items(session, seller_id, days_left_max=2)
+    return {"low_stock_bouquets": low_stock_bouquets, "expiring_items": expiring_items}
+
+
 # --- ORDERS ---
 @router.get("/orders")
 async def get_orders(
     status: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    preorder: Optional[bool] = Query(None, description="Filter by is_preorder: true=preorders only"),
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
     """Get orders for current seller. status=pending|accepted|assembling|in_transit|done|completed|rejected.
-    For history (done/completed): use date_from, date_to."""
+    For history (done/completed): use date_from, date_to. preorder=true for preorders only."""
     service = OrderService(session)
-    orders = await service.get_seller_orders(seller_id, status)
+    orders = await service.get_seller_orders(seller_id, status, preorder=preorder)
     # Filter by date if provided (for order history)
     if date_from or date_to:
         result = []
@@ -150,6 +251,20 @@ async def get_orders(
             result.append(o)
         return result
     return orders
+
+
+@router.get("/orders/{order_id}")
+async def get_order(
+    order_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    service = OrderService(session)
+    order = await service.get_seller_order_by_id(seller_id, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    return order
 
 
 @router.post("/orders/{order_id}/accept")
@@ -305,10 +420,13 @@ async def get_stats(
 # --- PRODUCTS ---
 @router.get("/products")
 async def get_products(
+    preorder: Optional[bool] = Query(None, description="Filter by is_preorder: true=preorder only, false=regular only"),
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    products = await get_products_by_seller_service(session, seller_id, only_available=False)
+    products = await get_products_by_seller_service(
+        session, seller_id, only_available=False, preorder=preorder
+    )
     return products or []
 
 
@@ -327,6 +445,7 @@ async def add_product(
         "description": data.description,
         "price": data.price,
         "quantity": data.quantity,
+        "is_preorder": getattr(data, "is_preorder", False),
     }
     if data.photo_ids is not None:
         product_data["photo_ids"] = data.photo_ids
@@ -418,7 +537,7 @@ def _handle_crm_db_error(e: Exception) -> None:
     logger.exception("CRM API error: %s", e)
     if isinstance(e, (OperationalError, ProgrammingError)):
         msg = str(e).lower()
-        if "does not exist" in msg or "undefined_table" in msg or "relation" in msg:
+        if "does not exist" in msg or "undefined_table" in msg or "relation" in msg or "column" in msg:
             raise HTTPException(
                 status_code=503,
                 detail="CRM tables not found. Run migrations in backend: cd backend && alembic upgrade head",
@@ -495,11 +614,39 @@ async def api_create_reception(
             rec_date = datetime.strptime(data.reception_date, "%Y-%m-%d").date()
         except ValueError:
             pass
-    rec = await create_reception(session, seller_id, data.name, rec_date)
+    rec = await create_reception(
+        session, seller_id, data.name, rec_date,
+        supplier=data.supplier, invoice_number=data.invoice_number,
+    )
     return {
         "id": rec.id,
         "name": rec.name,
         "reception_date": rec.reception_date.isoformat() if rec.reception_date else None,
+        "is_closed": getattr(rec, "is_closed", False),
+        "supplier": getattr(rec, "supplier", None),
+        "invoice_number": getattr(rec, "invoice_number", None),
+    }
+
+
+@router.put("/receptions/{reception_id}")
+async def api_update_reception(
+    reception_id: int,
+    data: ReceptionUpdate,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    kwargs = data.model_dump(exclude_unset=True)
+    rec = await update_reception(session, reception_id, seller_id, **kwargs)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Приёмка не найдена")
+    return {
+        "id": rec.id,
+        "name": rec.name,
+        "reception_date": rec.reception_date.isoformat() if rec.reception_date else None,
+        "is_closed": getattr(rec, "is_closed", False),
+        "supplier": getattr(rec, "supplier", None),
+        "invoice_number": getattr(rec, "invoice_number", None),
     }
 
 
@@ -531,16 +678,19 @@ async def api_add_reception_item(
             arr_date = datetime.strptime(data.arrival_date, "%Y-%m-%d").date()
         except ValueError:
             pass
-    item = await add_reception_item(
-        session,
-        reception_id,
-        seller_id,
-        data.flower_id,
-        data.quantity_initial,
-        arr_date,
-        data.shelf_life_days,
-        data.price_per_unit,
-    )
+    try:
+        item = await add_reception_item(
+            session,
+            reception_id,
+            seller_id,
+            data.flower_id,
+            data.quantity_initial,
+            arr_date,
+            data.shelf_life_days,
+            data.price_per_unit,
+        )
+    except ReceptionClosedError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not item:
         raise HTTPException(status_code=400, detail="Приёмка или цветок не найдены")
     return {
@@ -701,6 +851,23 @@ async def api_inventory_check(
     return await inventory_check(session, reception_id, seller_id, lines)
 
 
+@router.post("/receptions/{reception_id}/inventory/apply")
+async def api_inventory_apply(
+    reception_id: int,
+    body: list[InventoryCheckLine],
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    rec_result = await get_reception(session, reception_id, seller_id)
+    if not rec_result:
+        raise HTTPException(status_code=404, detail="Приёмка не найдена")
+    lines = [{"reception_item_id": x.reception_item_id, "actual_quantity": x.actual_quantity} for x in body]
+    result = await inventory_apply(session, reception_id, seller_id, lines)
+    await session.commit()
+    return result
+
+
 # --- LOYALTY / CUSTOMERS ---
 class LoyaltySettingsBody(BaseModel):
     points_percent: float
@@ -714,6 +881,10 @@ class CreateCustomerBody(BaseModel):
 
 class RecordSaleBody(BaseModel):
     amount: float
+
+
+class DeductPointsBody(BaseModel):
+    points: float
 
 
 @router.get("/loyalty/settings")
@@ -785,7 +956,34 @@ async def get_customer(
     data = await svc.get_customer(customer_id, seller_id)
     if not data:
         raise HTTPException(status_code=404, detail="Клиент не найден")
+    order_svc = OrderService(session)
+    orders = await order_svc.get_seller_orders_by_buyer_phone(seller_id, data.get("phone") or "")
+    completed = [o for o in orders if o.get("status") in ("done", "completed")]
+    total_purchases = sum(float(o.get("total_price") or 0) for o in completed)
+    last_order_at = None
+    if completed:
+        dates = [o.get("created_at") for o in completed if o.get("created_at")]
+        if dates:
+            last_order_at = max(dates)
+    data["total_purchases"] = round(total_purchases, 2)
+    data["last_order_at"] = last_order_at
+    data["completed_orders_count"] = len(completed)
     return data
+
+
+@router.get("/customers/{customer_id}/orders")
+async def get_customer_orders(
+    customer_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    svc = LoyaltyService(session)
+    customer = await svc.get_customer(customer_id, seller_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    order_svc = OrderService(session)
+    return await order_svc.get_seller_orders_by_buyer_phone(seller_id, customer.get("phone") or "")
 
 
 @router.post("/customers/{customer_id}/sales")
@@ -804,6 +1002,26 @@ async def record_customer_sale(
         await session.commit()
         return result
     except CustomerNotFoundError as e:
+        await session.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/customers/{customer_id}/deduct")
+async def deduct_customer_points(
+    customer_id: int,
+    body: DeductPointsBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    if body.points <= 0:
+        raise HTTPException(status_code=400, detail="Укажите положительное количество баллов")
+    svc = LoyaltyService(session)
+    try:
+        result = await svc.deduct_points(seller_id, customer_id, body.points)
+        await session.commit()
+        return result
+    except (CustomerNotFoundError, LoyaltyServiceError) as e:
         await session.rollback()
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

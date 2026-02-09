@@ -5,8 +5,10 @@ import {
   deleteFlower,
   getReceptions,
   createReception,
+  updateReception,
   getReception,
   addReceptionItem,
+  updateReceptionItem,
   deleteReceptionItem,
   type Flower,
   type ReceptionBrief,
@@ -26,7 +28,16 @@ export function SellerReceptions() {
   const [showAddReception, setShowAddReception] = useState(false);
   const [newReceptionName, setNewReceptionName] = useState('');
   const [newReceptionDate, setNewReceptionDate] = useState('');
+  const [newReceptionSupplier, setNewReceptionSupplier] = useState('');
+  const [newReceptionInvoice, setNewReceptionInvoice] = useState('');
   const [showAddItem, setShowAddItem] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editItem, setEditItem] = useState({
+    remaining_quantity: '',
+    price_per_unit: '',
+    shelf_life_days: '',
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
   const [newItem, setNewItem] = useState({
     flower_id: 0,
     quantity_initial: '1',
@@ -106,13 +117,28 @@ export function SellerReceptions() {
       const rec = await createReception({
         name: newReceptionName.trim(),
         reception_date: newReceptionDate || undefined,
+        supplier: newReceptionSupplier.trim() || undefined,
+        invoice_number: newReceptionInvoice.trim() || undefined,
       });
       setNewReceptionName('');
       setNewReceptionDate('');
+      setNewReceptionSupplier('');
+      setNewReceptionInvoice('');
       setShowAddReception(false);
       await loadReceptions();
       setSelectedReception({ ...rec, items: [] });
       await loadSelectedReception(rec.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка');
+    }
+  };
+
+  const handleToggleReceptionClosed = async () => {
+    if (!selectedReception) return;
+    try {
+      await updateReception(selectedReception.id, { is_closed: !selectedReception.is_closed });
+      await loadReceptions();
+      await loadSelectedReception(selectedReception.id);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка');
     }
@@ -151,6 +177,41 @@ export function SellerReceptions() {
       if (selectedReception) await loadSelectedReception(selectedReception.id);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка');
+    }
+  };
+
+  const startEditItem = (row: ReceptionItemRow) => {
+    setEditingItemId(row.id);
+    setEditItem({
+      remaining_quantity: String(row.remaining_quantity),
+      price_per_unit: String(row.price_per_unit),
+      shelf_life_days: String(row.shelf_life_days),
+    });
+  };
+
+  const handleSaveEditItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingItemId == null || !selectedReception) return;
+    const remaining = parseInt(editItem.remaining_quantity, 10);
+    const price = parseFloat(editItem.price_per_unit.replace(',', '.'));
+    const shelf = parseInt(editItem.shelf_life_days, 10);
+    if (isNaN(remaining) || remaining < 0 || isNaN(price) || price < 0 || isNaN(shelf) || shelf < 1) {
+      alert('Проверьте остаток, цену и срок жизни');
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await updateReceptionItem(editingItemId, {
+        remaining_quantity: remaining,
+        price_per_unit: price,
+        shelf_life_days: shelf,
+      });
+      setEditingItemId(null);
+      await loadSelectedReception(selectedReception.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка');
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -230,6 +291,26 @@ export function SellerReceptions() {
               className="form-input"
             />
           </div>
+          <div className="form-group">
+            <label>Поставщик</label>
+            <input
+              type="text"
+              value={newReceptionSupplier}
+              onChange={(e) => setNewReceptionSupplier(e.target.value)}
+              className="form-input"
+              placeholder="необязательно"
+            />
+          </div>
+          <div className="form-group">
+            <label>Номер накладной</label>
+            <input
+              type="text"
+              value={newReceptionInvoice}
+              onChange={(e) => setNewReceptionInvoice(e.target.value)}
+              className="form-input"
+              placeholder="необязательно"
+            />
+          </div>
           <div className="form-actions">
             <button type="button" className="btn btn-secondary" onClick={() => setShowAddReception(false)}>
               Отмена
@@ -272,10 +353,10 @@ export function SellerReceptions() {
               <button
                 key={r.id}
                 type="button"
-                className={`reception-tab ${selectedReception?.id === r.id ? 'active' : ''}`}
+                className={`reception-tab ${selectedReception?.id === r.id ? 'active' : ''} ${r.is_closed ? 'reception-closed' : ''}`}
                 onClick={() => loadSelectedReception(r.id)}
               >
-                {r.name} {r.reception_date ? ` — ${r.reception_date}` : ''}
+                {r.name} {r.reception_date ? ` — ${r.reception_date}` : ''} {r.is_closed ? ' (закрыта)' : ''}
               </button>
             ))}
           </div>
@@ -288,13 +369,25 @@ export function SellerReceptions() {
               {selectedReception.reception_date && (
                 <span className="reception-date">{selectedReception.reception_date}</span>
               )}
+              {selectedReception.is_closed && <span className="reception-status-badge">Закрыта</span>}
+              {selectedReception.supplier && <span className="reception-meta">Поставщик: {selectedReception.supplier}</span>}
+              {selectedReception.invoice_number && <span className="reception-meta">Накладная: {selectedReception.invoice_number}</span>}
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => setShowAddItem(true)}
+                className="btn btn-secondary btn-sm"
+                onClick={handleToggleReceptionClosed}
               >
-                Добавить позицию
+                {selectedReception.is_closed ? 'Открыть приёмку' : 'Закрыть приёмку'}
               </button>
+              {!selectedReception.is_closed && (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowAddItem(true)}
+                >
+                  Добавить позицию
+                </button>
+              )}
             </div>
 
             {showAddItem && (
@@ -394,19 +487,88 @@ export function SellerReceptions() {
                       <td>{row.flower_name}</td>
                       <td>{row.quantity_initial}</td>
                       <td>{row.arrival_date ?? '—'}</td>
-                      <td>{row.shelf_life_days}</td>
-                      <td>{row.price_per_unit} ₽</td>
-                      <td>{row.remaining_quantity}</td>
+                      <td>
+                        {editingItemId === row.id ? (
+                          <input
+                            type="number"
+                            min={1}
+                            value={editItem.shelf_life_days}
+                            onChange={(e) => setEditItem((p) => ({ ...p, shelf_life_days: e.target.value }))}
+                            className="form-input input-sm"
+                            style={{ width: '4rem' }}
+                          />
+                        ) : (
+                          row.shelf_life_days
+                        )}
+                      </td>
+                      <td>
+                        {editingItemId === row.id ? (
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={editItem.price_per_unit}
+                            onChange={(e) => setEditItem((p) => ({ ...p, price_per_unit: e.target.value }))}
+                            className="form-input input-sm"
+                            style={{ width: '5rem' }}
+                          />
+                        ) : (
+                          `${row.price_per_unit} ₽`
+                        )}
+                      </td>
+                      <td>
+                        {editingItemId === row.id ? (
+                          <input
+                            type="number"
+                            min={0}
+                            value={editItem.remaining_quantity}
+                            onChange={(e) => setEditItem((p) => ({ ...p, remaining_quantity: e.target.value }))}
+                            className="form-input input-sm"
+                            style={{ width: '4rem' }}
+                          />
+                        ) : (
+                          row.remaining_quantity
+                        )}
+                      </td>
                       <td>{row.days_left != null ? row.days_left : '—'}</td>
                       <td>{row.sold_quantity} / {row.sold_amount.toFixed(0)} ₽</td>
                       <td>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => handleDeleteReceptionItem(row.id)}
-                        >
-                          Удалить
-                        </button>
+                        {editingItemId === row.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary"
+                              onClick={handleSaveEditItem}
+                              disabled={editSubmitting}
+                            >
+                              {editSubmitting ? '…' : 'Сохранить'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => setEditingItemId(null)}
+                            >
+                              Отмена
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => startEditItem(row)}
+                            >
+                              Изменить
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => handleDeleteReceptionItem(row.id)}
+                            >
+                              Удалить
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

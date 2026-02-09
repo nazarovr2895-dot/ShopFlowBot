@@ -12,9 +12,11 @@ export function ProductDetail() {
   const { setBackButton, hapticFeedback, showAlert } = useTelegramWebApp();
   const [product, setProduct] = useState<Product | null>(null);
   const [shopName, setShopName] = useState<string>('');
+  const [sellerDetail, setSellerDetail] = useState<PublicSellerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [selectedPreorderDate, setSelectedPreorderDate] = useState<string | null>(null);
   const scrollTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,11 +31,14 @@ export function ProductDetail() {
       try {
         const id = parseInt(sellerId, 10);
         const data: PublicSellerDetail = await api.getSellerDetail(id);
+        setSellerDetail(data);
         setShopName(data.shop_name || 'Магазин');
-        const p = data.products.find((x) => x.id === parseInt(productId, 10));
+        const pid = parseInt(productId, 10);
+        const p = data.products.find((x) => x.id === pid) ?? (data.preorder_products ?? []).find((x) => x.id === pid) ?? null;
         setProduct(p ?? null);
       } catch {
         setProduct(null);
+        setSellerDetail(null);
       } finally {
         setLoading(false);
       }
@@ -45,15 +50,21 @@ export function ProductDetail() {
     setPhotoIndex(0);
   }, [productId]);
 
-  const addToCart = async () => {
+  const addToCart = async (preorderDate?: string | null) => {
     if (!product) return;
     setAdding(true);
     try {
       hapticFeedback('medium');
-      await api.addCartItem(product.id, 1);
-      showAlert('Добавлено в корзину');
+      await api.addCartItem(product.id, 1, preorderDate);
+      showAlert(preorderDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
+      setSelectedPreorderDate(null);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : 'Ошибка');
+      const msg = e instanceof Error ? e.message : 'Ошибка';
+      if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('Missing') || msg.includes('X-Telegram')) {
+        showAlert('Добавление в корзину доступно только в приложении Telegram. Откройте магазин через бота.');
+      } else {
+        showAlert(msg);
+      }
     } finally {
       setAdding(false);
     }
@@ -70,7 +81,9 @@ export function ProductDetail() {
 
   const photoIds = (product.photo_ids && product.photo_ids.length) ? product.photo_ids : (product.photo_id ? [product.photo_id] : []);
   const hasMultiplePhotos = photoIds.length > 1;
-  const inStock = (product.quantity ?? 0) > 0;
+  const isPreorder = product.is_preorder === true;
+  const inStock = !isPreorder && (product.quantity ?? 0) > 0;
+  const availableDates = sellerDetail?.preorder_available_dates ?? [];
   const formatPrice = (n: number) =>
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
@@ -148,18 +161,53 @@ export function ProductDetail() {
         {product.description && (
           <p className="product-detail__description">{product.description}</p>
         )}
-        {typeof product.quantity === 'number' && (
+        {isPreorder ? (
+          <p className="product-detail__qty">Товар по предзаказу</p>
+        ) : typeof product.quantity === 'number' && (
           <p className="product-detail__qty">В наличии: {product.quantity} шт.</p>
         )}
         <div className="product-detail__price">{formatPrice(product.price)}</div>
-        <button
-          type="button"
-          className="product-detail__add-btn"
-          disabled={!inStock || adding}
-          onClick={addToCart}
-        >
-          {adding ? '…' : inStock ? 'В корзину' : 'Нет в наличии'}
-        </button>
+        {isPreorder && availableDates.length > 0 ? (
+          <div className="product-detail__preorder">
+            {selectedPreorderDate === 'pick' ? (
+              <div className="product-detail__preorder-dates">
+                <span className="product-detail__preorder-label">Выберите дату поставки:</span>
+                {availableDates.slice(0, 4).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className="product-detail__preorder-date-btn"
+                    disabled={adding}
+                    onClick={() => addToCart(d)}
+                  >
+                    {new Date(d).toLocaleDateString('ru-RU')}
+                  </button>
+                ))}
+                <button type="button" className="product-detail__preorder-cancel" onClick={() => setSelectedPreorderDate(null)}>
+                  Отмена
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="product-detail__add-btn"
+                disabled={adding}
+                onClick={() => setSelectedPreorderDate('pick')}
+              >
+                {adding ? '…' : 'Заказать на дату'}
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="product-detail__add-btn"
+            disabled={!inStock || adding}
+            onClick={() => addToCart()}
+          >
+            {adding ? '…' : inStock ? 'В корзину' : 'Нет в наличии'}
+          </button>
+        )}
       </div>
     </div>
   );

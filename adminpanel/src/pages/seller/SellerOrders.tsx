@@ -27,9 +27,10 @@ function formatItemsInfo(itemsInfo: string): string {
 export function SellerOrders() {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'pending';
-  const [activeTab, setActiveTab] = useState<'pending' | 'active' | 'history'>(() => {
+  const [activeTab, setActiveTab] = useState<'pending' | 'active' | 'history' | 'preorder'>(() => {
     if (initialTab === 'active') return 'active';
     if (initialTab === 'history') return 'history';
+    if (initialTab === 'preorder') return 'preorder';
     return 'pending';
   });
   const [orders, setOrders] = useState<SellerOrder[]>([]);
@@ -45,7 +46,11 @@ export function SellerOrders() {
       let status: string | undefined;
       let date_from: string | undefined;
       let date_to: string | undefined;
-      if (activeTab === 'pending') {
+      let preorder: boolean | undefined;
+      if (activeTab === 'preorder') {
+        preorder = true;
+        status = 'pending,accepted,assembling,in_transit,done,completed';
+      } else if (activeTab === 'pending') {
         status = 'pending';
       } else if (activeTab === 'active') {
         status = 'accepted,assembling,in_transit';
@@ -54,7 +59,7 @@ export function SellerOrders() {
         if (dateFrom) date_from = dateFrom;
         if (dateTo) date_to = dateTo;
       }
-      const data = await getOrders({ status, date_from, date_to });
+      const data = await getOrders({ status, date_from, date_to, preorder });
       setOrders(data || []);
     } catch {
       setOrders([]);
@@ -147,6 +152,12 @@ export function SellerOrders() {
         >
           📋 История заказов
         </button>
+        <button
+          className={`orders-tab ${activeTab === 'preorder' ? 'active' : ''}`}
+          onClick={() => setActiveTab('preorder')}
+        >
+          📅 Предзаказы
+        </button>
       </div>
 
       {activeTab === 'pending' && orders.length > 0 && (
@@ -229,6 +240,9 @@ export function SellerOrders() {
                 </p>
                 <p><strong>Доставка:</strong> {order.delivery_type === 'delivery' ? 'Доставка' : 'Самовывоз'}</p>
                 {order.address && <p><strong>Адрес:</strong> {order.address}</p>}
+                {order.is_preorder && order.preorder_delivery_date && (
+                  <p><strong>Дата поставки:</strong> {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU')}</p>
+                )}
                 <p className="order-date">Создан: {formatDate(order.created_at)}</p>
               </div>
               {activeTab === 'pending' && (

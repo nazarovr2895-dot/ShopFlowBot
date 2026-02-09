@@ -44,6 +44,7 @@ export interface Product {
   /** До 3 фото (пути /static/...). Для отображения использовать первый или карусель */
   photo_ids?: string[] | null;
   quantity?: number;
+  is_preorder?: boolean;
 }
 
 // Cart (backend)
@@ -52,6 +53,8 @@ export interface CartItemEntry {
   name: string;
   price: number;
   quantity: number;
+  is_preorder?: boolean;
+  preorder_delivery_date?: string | null;
 }
 
 export interface CartSellerGroup {
@@ -96,6 +99,9 @@ export interface PublicSellerDetail {
   metro_line_color?: string;
   available_slots: number;
   products: Product[];
+  preorder_products?: Product[];
+  preorder_available_dates?: string[];
+  preorder_enabled?: boolean;
 }
 
 export interface PublicSellersResponse {

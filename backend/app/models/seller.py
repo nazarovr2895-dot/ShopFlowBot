@@ -1,7 +1,7 @@
-from sqlalchemy import BigInteger, String, ForeignKey, Text, Boolean, Integer, DateTime, Date, Index, DECIMAL
+from sqlalchemy import BigInteger, String, ForeignKey, Text, Boolean, Integer, DateTime, Date, Index, DECIMAL, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, List
 from backend.app.core.base import Base
 
 
@@ -30,6 +30,14 @@ class Seller(Base):
     web_password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     # Loyalty / club card: percent of purchase amount accrued as points (e.g. 5.00 = 5%)
     loyalty_points_percent: Mapped[float] = mapped_column(DECIMAL(5, 2), default=0)
+    # Preorder schedule
+    preorder_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    preorder_schedule_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'weekly' | 'interval_days' | 'custom_dates'
+    preorder_weekday: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 0=Mon, 6=Sun
+    preorder_interval_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    preorder_base_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    # Temporarily commented out until migration is applied - uncomment after running: alembic upgrade head
+    preorder_custom_dates: Mapped[Optional[List[str]]] = mapped_column(JSON(), nullable=True)  # List of YYYY-MM-DD dates
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

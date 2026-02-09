@@ -7,6 +7,7 @@ from sqlalchemy import (
     Integer,
     Date,
     DECIMAL,
+    Boolean,
     Index,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,12 +27,15 @@ class Flower(Base):
 
 
 class Reception(Base):
-    """Reception batch (name + date)."""
+    """Reception batch (name + date). Closed receptions are read-only for new items."""
     __tablename__ = 'receptions'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
     name: Mapped[str] = mapped_column(String(255))
     reception_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    is_closed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    supplier: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    invoice_number: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
     items: Mapped[list["ReceptionItem"]] = relationship(
         "ReceptionItem", back_populates="reception", lazy="selectin"

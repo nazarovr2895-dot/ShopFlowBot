@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { PublicSellerDetail } from '../types';
+import type { PublicSellerDetail, Product } from '../types';
 import { api, hasTelegramAuth } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { Loader, EmptyState, ProductImage } from '../components';
 import './ShopDetails.css';
+
+type ProductTab = 'regular' | 'preorder';
 
 export function ShopDetails() {
   const { sellerId } = useParams<{ sellerId: string }>();
@@ -14,6 +16,11 @@ export function ShopDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
+  const [productTab, setProductTab] = useState<ProductTab>('regular');
+  const [preorderDateForProductId, setPreorderDateForProductId] = useState<number | null>(null);
+  const [isInFavorites, setIsInFavorites] = useState(false);
+  const [togglingFavorite, setTogglingFavorite] = useState(false);
+  const [loyalty, setLoyalty] = useState<{ points_balance: number; linked: boolean } | null>(null);
 
   // Set up back button
   useEffect(() => {
@@ -56,17 +63,87 @@ export function ShopDetails() {
     loadSeller();
   }, [sellerId]);
 
-  const addToCart = async (productId: number) => {
+  // Load favorite state when seller is loaded (try always; 401 → not in favorites)
+  useEffect(() => {
+    if (!seller) return;
+    const check = async () => {
+      try {
+        const list = await api.getFavoriteSellers();
+        setIsInFavorites(list.some((s) => s.seller_id === seller.seller_id));
+      } catch {
+        setIsInFavorites(false);
+      }
+    };
+    check();
+  }, [seller?.seller_id, seller]);
+
+  // Load loyalty (programme participation and points) when seller is loaded and user is authenticated
+  useEffect(() => {
+    if (!seller || !hasTelegramAuth()) {
+      setLoyalty(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getMyLoyaltyAtSeller(seller.seller_id)
+      .then((data) => {
+        if (!cancelled) setLoyalty({ points_balance: data.points_balance, linked: data.linked });
+      })
+      .catch(() => {
+        if (!cancelled) setLoyalty({ points_balance: 0, linked: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [seller?.seller_id]);
+
+  const toggleFavorite = async () => {
+    if (!seller || togglingFavorite) return;
+    setTogglingFavorite(true);
+    try {
+      hapticFeedback('light');
+      if (isInFavorites) {
+        await api.removeFavoriteSeller(seller.seller_id);
+        setIsInFavorites(false);
+        showAlert('Убрано из моих цветочных');
+      } else {
+        await api.addFavoriteSeller(seller.seller_id);
+        setIsInFavorites(true);
+        showAlert('Добавлено в мои цветочные');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Ошибка';
+      if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('аутентификац')) {
+        showAlert('Откройте приложение в Telegram, чтобы добавлять магазины в «Мои цветочные».');
+      } else {
+        showAlert(msg);
+      }
+    } finally {
+      setTogglingFavorite(false);
+    }
+  };
+
+  const addToCart = async (productId: number, preorderDeliveryDate?: string | null) => {
     setAddingId(productId);
     try {
       hapticFeedback('light');
-      await api.addCartItem(productId, 1);
-      showAlert('Добавлено в корзину');
+      await api.addCartItem(productId, 1, preorderDeliveryDate);
+      showAlert(preorderDeliveryDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
     } catch (err) {
-      showAlert(err instanceof Error ? err.message : 'Ошибка');
+      const msg = err instanceof Error ? err.message : 'Ошибка';
+      if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('Missing') || msg.includes('X-Telegram')) {
+        showAlert('Добавление в корзину доступно только в приложении Telegram. Откройте магазин через бота.');
+      } else {
+        showAlert(msg);
+      }
     } finally {
       setAddingId(null);
+      setPreorderDateForProductId(null);
     }
+  };
+
+  const confirmPreorderDate = (productId: number, dateStr: string) => {
+    addToCart(productId, dateStr);
   };
 
   const formatPrice = (price: number) => {
@@ -106,6 +183,8 @@ export function ShopDetails() {
     );
   }
 
+  const showFavoriteBtn = true;
+
   return (
     <div className="shop-details">
       <header className="shop-details__header">
@@ -120,6 +199,31 @@ export function ShopDetails() {
             : 'Нет свободных слотов'}
         </span>
       </header>
+
+      {showFavoriteBtn && (
+        <button
+          type="button"
+          className="shop-details__favorite-btn"
+          onClick={toggleFavorite}
+          disabled={togglingFavorite}
+        >
+          {togglingFavorite ? '…' : isInFavorites ? 'Убрать из моих цветочных' : 'Добавить в мои цветочные'}
+        </button>
+      )}
+
+      {loyalty !== null && (
+        <div className="shop-details__loyalty">
+          {loyalty.linked ? (
+            <p className="shop-details__loyalty-text shop-details__loyalty-text_linked">
+              Вы участвуете в программе накопления баллов. Баланс: {loyalty.points_balance} баллов
+            </p>
+          ) : (
+            <p className="shop-details__loyalty-text">
+              Ваш номер не участвует в программе накопления баллов. Укажите номер телефона в разделе «Мои данные» в профиле, чтобы участвовать в программе.
+            </p>
+          )}
+        </div>
+      )}
 
       {seller.description && (
         <p className="shop-details__description">{seller.description}</p>
@@ -159,28 +263,50 @@ export function ShopDetails() {
         )}
       </div>
 
-      {seller.products.length > 0 && (
+      {(seller.products.length > 0 || (seller.preorder_enabled && (seller.preorder_products?.length ?? 0) > 0)) && (
         <div className="shop-details__products">
+          {seller.products.length > 0 && (seller.preorder_products?.length ?? 0) > 0 && seller.preorder_enabled && (
+            <div className="shop-details__product-tabs">
+              <button
+                type="button"
+                className={`shop-details__product-tab ${productTab === 'regular' ? 'active' : ''}`}
+                onClick={() => setProductTab('regular')}
+              >
+                В наличии
+              </button>
+              <button
+                type="button"
+                className={`shop-details__product-tab ${productTab === 'preorder' ? 'active' : ''}`}
+                onClick={() => setProductTab('preorder')}
+              >
+                По предзаказу
+              </button>
+            </div>
+          )}
           <h2 className="shop-details__products-title">
-            Товары ({seller.products.length})
+            {productTab === 'preorder' ? 'Товары по предзаказу' : 'Товары'}
+            ({productTab === 'preorder' ? (seller.preorder_products?.length ?? 0) : seller.products.length})
           </h2>
           <div className="shop-details__products-grid">
-            {seller.products.map((product) => {
-              const inStock = (product.quantity ?? 0) > 0;
+            {(productTab === 'preorder' ? (seller.preorder_products ?? []) : seller.products).map((product: Product) => {
+              const isPreorder = productTab === 'preorder' || product.is_preorder;
+              const inStock = !isPreorder && (product.quantity ?? 0) > 0;
               const isAdding = addingId === product.id;
+              const showDatePicker = preorderDateForProductId === product.id;
               const firstPhotoId = (product.photo_ids && product.photo_ids[0]) || product.photo_id;
               const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
+              const availableDates = seller.preorder_available_dates ?? [];
               return (
                 <div
                   key={product.id}
                   className="shop-details__product-card"
-                  onClick={() => navigate(`/shop/${seller.seller_id}/product/${product.id}`)}
+                  onClick={() => !showDatePicker && navigate(`/shop/${seller.seller_id}/product/${product.id}`)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      navigate(`/shop/${seller.seller_id}/product/${product.id}`);
+                      if (!showDatePicker) navigate(`/shop/${seller.seller_id}/product/${product.id}`);
                     }
                   }}
                 >
@@ -197,17 +323,45 @@ export function ShopDetails() {
                     <span className="shop-details__product-card-price">
                       {formatPrice(product.price)}
                     </span>
-                    <button
-                      type="button"
-                      className="shop-details__product-card-add"
-                      disabled={!inStock || isAdding}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product.id);
-                      }}
-                    >
-                      {isAdding ? '…' : inStock ? 'В корзину' : 'Нет'}
-                    </button>
+                    {showDatePicker && availableDates.length > 0 ? (
+                      <div className="shop-details__preorder-dates" onClick={(e) => e.stopPropagation()}>
+                        <span className="shop-details__preorder-dates-label">Выберите дату:</span>
+                        {availableDates.slice(0, 4).map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            className="shop-details__preorder-date-btn"
+                            onClick={() => confirmPreorderDate(product.id, d)}
+                            disabled={isAdding}
+                          >
+                            {new Date(d).toLocaleDateString('ru-RU')}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="shop-details__preorder-date-cancel"
+                          onClick={() => setPreorderDateForProductId(null)}
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="shop-details__product-card-add"
+                        disabled={(!inStock && !isPreorder) || isAdding}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isPreorder && availableDates.length > 0) {
+                            setPreorderDateForProductId(product.id);
+                          } else {
+                            addToCart(product.id);
+                          }
+                        }}
+                      >
+                        {isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

@@ -5,6 +5,8 @@ Seller service - handles all seller-related business logic.
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
+from sqlalchemy.exc import ProgrammingError, OperationalError
+from sqlalchemy.orm import defer
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
@@ -33,6 +35,53 @@ def _today_6am_utc() -> datetime:
     local_6am = datetime(d.year, d.month, d.day, LIMIT_DAY_START_HOUR, 0, 0, tzinfo=LIMIT_TIMEZONE)
     utc = local_6am.astimezone(ZoneInfo("UTC"))
     return utc.replace(tzinfo=None)
+
+
+def get_preorder_available_dates(
+    preorder_enabled: bool,
+    preorder_schedule_type: Optional[str],
+    preorder_weekday: Optional[int],
+    preorder_interval_days: Optional[int],
+    preorder_base_date: Optional[date],
+    preorder_custom_dates: Optional[List[str]] = None,
+    count: int = 4,
+) -> List[str]:
+    """Compute next available delivery dates for preorder (YYYY-MM-DD)."""
+    if not preorder_enabled or not preorder_schedule_type:
+        return []
+    today = _today_6am_date()
+    result: List[str] = []
+    if preorder_schedule_type == "custom_dates" and preorder_custom_dates:
+        # Return custom dates that are >= today, sorted, limited to count
+        for d_str in sorted(preorder_custom_dates):
+            try:
+                d = date.fromisoformat(d_str[:10])
+                if d >= today:
+                    result.append(d.isoformat())
+                    if len(result) >= count:
+                        break
+            except (ValueError, TypeError):
+                continue
+    elif preorder_schedule_type == "weekly" and preorder_weekday is not None:
+        # 0=Monday, 6=Sunday
+        current = today
+        while len(result) < count:
+            # weekday() in Python: 0=Mon, 6=Sun
+            if current.weekday() == preorder_weekday:
+                result.append(current.isoformat())
+            current += timedelta(days=1)
+            if (current - today).days > 365:
+                break
+    elif preorder_schedule_type == "interval_days" and preorder_interval_days and preorder_base_date:
+        k = 0
+        while len(result) < count:
+            d = preorder_base_date + timedelta(days=k * preorder_interval_days)
+            if d >= today:
+                result.append(d.isoformat())
+            k += 1
+            if k > 52:
+                break
+    return result[:count]
 
 
 class SellerServiceError(Exception):
@@ -108,11 +157,70 @@ class SellerService:
     
     async def get_seller(self, seller_id: int) -> Optional[Dict[str, Any]]:
         """Get seller data for display. Включает orders_used_today, limit_set_for_today, fio, phone from User."""
-        result = await self.session.execute(
-            select(User, Seller)
-            .join(Seller, User.tg_id == Seller.seller_id)
-            .where(Seller.seller_id == seller_id)
-        )
+        # #region agent log
+        import json
+        try:
+            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id": f"log_get_seller_entry_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:156", "message": "get_seller entry", "data": {"seller_id": seller_id}, "runId": "run1", "hypothesisId": "A"}) + "\n")
+        except: pass
+        # #endregion
+        # Try to load seller, handling missing preorder_custom_dates column gracefully
+        try:
+            result = await self.session.execute(
+                select(User, Seller)
+                .join(Seller, User.tg_id == Seller.seller_id)
+                .where(Seller.seller_id == seller_id)
+            )
+            # #region agent log
+            try:
+                with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"id": f"log_query_executed_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:163", "message": "Query executed successfully", "data": {}, "runId": "run1", "hypothesisId": "A"}) + "\n")
+            except: pass
+            # #endregion
+        except (ProgrammingError, OperationalError) as e:
+            # #region agent log
+            try:
+                error_msg = str(e).lower()
+                is_column_error = 'column' in error_msg and ('does not exist' in error_msg or 'не существует' in error_msg or 'preorder_custom_dates' in error_msg)
+                with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"id": f"log_query_db_error_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:178", "message": "Database error - possibly missing column", "data": {"error_type": type(e).__name__, "error_msg": str(e), "is_column_error": is_column_error}, "runId": "run1", "hypothesisId": "A"}) + "\n")
+            except: pass
+            # #endregion
+            # If it's a column error (likely preorder_custom_dates doesn't exist), retry without that column
+            error_msg = str(e).lower()
+            if 'column' in error_msg and ('does not exist' in error_msg or 'не существует' in error_msg or 'preorder_custom_dates' in error_msg):
+                # Retry query deferring the problematic column
+                try:
+                    result = await self.session.execute(
+                        select(User, Seller)
+                        .options(defer(Seller.preorder_custom_dates))
+                        .join(Seller, User.tg_id == Seller.seller_id)
+                        .where(Seller.seller_id == seller_id)
+                    )
+                    # #region agent log
+                    try:
+                        with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                            f.write(json.dumps({"id": f"log_retry_success_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:188", "message": "Retry with defer succeeded", "data": {}, "runId": "run1", "hypothesisId": "A"}) + "\n")
+                    except: pass
+                    # #endregion
+                except Exception as retry_e:
+                    # #region agent log
+                    try:
+                        with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                            f.write(json.dumps({"id": f"log_retry_failed_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:193", "message": "Retry with defer failed", "data": {"error_type": type(retry_e).__name__, "error_msg": str(retry_e)}, "runId": "run1", "hypothesisId": "A"}) + "\n")
+                    except: pass
+                    # #endregion
+                    raise e  # Raise original error
+            else:
+                raise
+        except Exception as e:
+            # #region agent log
+            try:
+                with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"id": f"log_query_other_error_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:200", "message": "Query execution other error", "data": {"error_type": type(e).__name__, "error_msg": str(e)}, "runId": "run1", "hypothesisId": "E"}) + "\n")
+            except: pass
+            # #endregion
+            raise
         row = result.first()
         if not row:
             return None
@@ -123,6 +231,22 @@ class SellerService:
         completed_today = await self._count_completed_since(seller_id, _today_6am_utc()) if limit_set_for_today else 0
         orders_used_today = completed_today + seller.active_orders + seller.pending_requests
 
+        # #region agent log
+        try:
+            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id": f"log_before_getattr_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:173", "message": "Before getattr preorder_custom_dates", "data": {"has_attr": hasattr(seller, "preorder_custom_dates")}, "runId": "run1", "hypothesisId": "C"}) + "\n")
+        except: pass
+        # #endregion
+        # Column temporarily commented out in model until migration is applied
+        preorder_custom_dates = None  # Will be available after migration: alembic upgrade head
+        preorder_available_dates = get_preorder_available_dates(
+            getattr(seller, "preorder_enabled", False),
+            getattr(seller, "preorder_schedule_type", None),
+            getattr(seller, "preorder_weekday", None),
+            getattr(seller, "preorder_interval_days", None),
+            getattr(seller, "preorder_base_date", None),
+            preorder_custom_dates,
+        )
         return {
             "seller_id": seller.seller_id,
             "fio": user.fio,
@@ -147,6 +271,13 @@ class SellerService:
             "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
             "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
             "is_deleted": seller.deleted_at is not None,
+            "preorder_enabled": getattr(seller, "preorder_enabled", False),
+            "preorder_schedule_type": getattr(seller, "preorder_schedule_type", None),
+            "preorder_weekday": getattr(seller, "preorder_weekday", None),
+            "preorder_interval_days": getattr(seller, "preorder_interval_days", None),
+            "preorder_base_date": seller.preorder_base_date.isoformat() if getattr(seller, "preorder_base_date", None) else None,
+            "preorder_custom_dates": preorder_custom_dates if preorder_custom_dates else [],
+            "preorder_available_dates": preorder_available_dates,
         }
     
     async def create_seller(

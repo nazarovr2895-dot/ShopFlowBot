@@ -1,6 +1,7 @@
 # Файл: backend/app/services/products.py
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from typing import Optional
 from backend.app.models.product import Product
 from backend.app.schemas import MAX_PRODUCT_PHOTOS
 
@@ -28,18 +29,26 @@ async def create_product_service(session: AsyncSession, data: dict):
     await session.commit()
     return new_product
 
-async def get_products_by_seller_service(session: AsyncSession, seller_id: int, only_available: bool = False):
+async def get_products_by_seller_service(
+    session: AsyncSession,
+    seller_id: int,
+    only_available: bool = False,
+    preorder: Optional[bool] = None,
+):
     """
     Получить товары продавца.
-    
+
     Args:
         session: Сессия БД
         seller_id: ID продавца
         only_available: Если True, возвращает только товары с quantity > 0
+        preorder: Если True — только предзаказные, если False — только обычные, если None — все
     """
     query = select(Product).where(Product.seller_id == seller_id)
     if only_available:
         query = query.where(Product.quantity > 0)
+    if preorder is not None:
+        query = query.where(Product.is_preorder == preorder)
     result = await session.execute(query)
     return result.scalars().all()
 

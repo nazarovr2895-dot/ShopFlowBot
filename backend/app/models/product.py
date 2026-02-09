@@ -16,6 +16,7 @@ class Product(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     quantity: Mapped[int] = mapped_column(Integer, default=0)
     bouquet_id: Mapped[Optional[int]] = mapped_column(ForeignKey('bouquets.id'), nullable=True)
+    is_preorder: Mapped[bool] = mapped_column(Boolean, default=False)
 
     __table_args__ = (
         Index('ix_products_seller_id', 'seller_id'),

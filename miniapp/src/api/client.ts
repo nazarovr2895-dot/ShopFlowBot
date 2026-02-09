@@ -27,8 +27,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 function getTelegramInitData(): string | null {
   try {
     const data = WebApp.initData;
-    return data && data.length > 0 ? data : null;
-  } catch {
+    const result = data && data.length > 0 ? data : null;
+    return result;
+  } catch (e) {
     return null;
   }
 }
@@ -197,15 +198,39 @@ class ApiClient {
     });
   }
 
+  async updateProfile(data: { fio?: string; phone?: string }): Promise<{
+    tg_id: number;
+    username?: string;
+    fio?: string;
+    phone?: string;
+    role: string;
+    city_id?: number;
+    district_id?: number;
+  }> {
+    return this.fetch('/buyers/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Cart API
   async getCart(): Promise<CartSellerGroup[]> {
     return this.fetch<CartSellerGroup[]>('/buyers/me/cart');
   }
 
-  async addCartItem(productId: number, quantity: number = 1): Promise<{ product_id: number; quantity: number; seller_id: number }> {
+  async addCartItem(
+    productId: number,
+    quantity: number = 1,
+    preorderDeliveryDate?: string | null
+  ): Promise<{ product_id: number; quantity: number; seller_id: number }> {
+    const body: { product_id: number; quantity: number; preorder_delivery_date?: string } = {
+      product_id: productId,
+      quantity,
+    };
+    if (preorderDeliveryDate) body.preorder_delivery_date = preorderDeliveryDate;
     return this.fetch('/buyers/me/cart/items', {
       method: 'POST',
-      body: JSON.stringify({ product_id: productId, quantity }),
+      body: JSON.stringify(body),
     });
   }
 
@@ -241,6 +266,22 @@ class ApiClient {
 
   async getVisitedSellers(): Promise<VisitedSeller[]> {
     return this.fetch<VisitedSeller[]>('/buyers/me/visited-sellers');
+  }
+
+  // Favorite sellers / Мои цветочные API
+  async getFavoriteSellers(): Promise<VisitedSeller[]> {
+    return this.fetch<VisitedSeller[]>('/buyers/me/favorite-sellers');
+  }
+
+  async addFavoriteSeller(sellerId: number): Promise<{ status: string }> {
+    return this.fetch('/buyers/me/favorite-sellers', {
+      method: 'POST',
+      body: JSON.stringify({ seller_id: sellerId }),
+    });
+  }
+
+  async removeFavoriteSeller(sellerId: number): Promise<{ status: string }> {
+    return this.fetch(`/buyers/me/favorite-sellers/${sellerId}`, { method: 'DELETE' });
   }
 
   // Orders API (buyer)

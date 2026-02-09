@@ -79,6 +79,9 @@ class PublicSellerDetail(BaseModel):
     metro_line_color: Optional[str] = None
     available_slots: int
     products: List[dict]
+    preorder_products: List[dict] = []
+    preorder_available_dates: List[str] = []
+    preorder_enabled: bool = False
 
 
 class PublicSellersResponse(BaseModel):
@@ -373,45 +376,75 @@ async def get_public_seller_detail(
         completed_today = completed_result.scalar() or 0
         available_slots = max(0, seller.max_orders - completed_today - seller.active_orders - seller.pending_requests)
     
-    # Получаем товары (только с количеством > 0)
+    # Regular products (in stock, is_preorder=False)
     products_query = (
         select(Product)
         .where(
             Product.seller_id == seller_id,
             Product.is_active == True,
-            Product.quantity > 0  # Только товары в наличии
+            Product.quantity > 0,
+            Product.is_preorder == False,
         )
         .order_by(Product.price.asc())
     )
     products_result = await session.execute(products_query)
     products = list(products_result.scalars().all())
-    # Товары-букеты скрываем из каталога, если в приёмке не хватает цветов (букет неактивен)
     active_bouquet_ids = await get_active_bouquet_ids(session, seller_id)
     products = [
         p for p in products
         if getattr(p, "bouquet_id", None) is None or p.bouquet_id in active_bouquet_ids
     ]
-    # Не показываем магазин, если нет ни одного товара в наличии
-    if not products:
+    # Preorder products (is_preorder=True, active)
+    preorder_query = (
+        select(Product)
+        .where(
+            Product.seller_id == seller_id,
+            Product.is_active == True,
+            Product.is_preorder == True,
+        )
+        .order_by(Product.price.asc())
+    )
+    preorder_result = await session.execute(preorder_query)
+    preorder_products = list(preorder_result.scalars().all())
+    preorder_products = [
+        p for p in preorder_products
+        if getattr(p, "bouquet_id", None) is None or p.bouquet_id in active_bouquet_ids
+    ]
+    if not products and not preorder_products:
         raise HTTPException(status_code=404, detail="Продавец не найден")
+    from backend.app.services.sellers import get_preorder_available_dates
+    # Column temporarily commented out in model until migration is applied
+    preorder_custom_dates = None  # Will be available after migration: alembic upgrade head
+    preorder_available_dates = get_preorder_available_dates(
+        getattr(seller, "preorder_enabled", False),
+        getattr(seller, "preorder_schedule_type", None),
+        getattr(seller, "preorder_weekday", None),
+        getattr(seller, "preorder_interval_days", None),
+        getattr(seller, "preorder_base_date", None),
+        preorder_custom_dates,
+    )
+    preorder_enabled = bool(getattr(seller, "preorder_enabled", False) and preorder_available_dates and preorder_products)
+
     def _photo_ids(p):
         if p.photo_ids:
             return p.photo_ids
         return [p.photo_id] if p.photo_id else []
 
-    products_list = [
-        {
+    def _product_dict(p):
+        return {
             "id": p.id,
             "name": p.name,
             "description": p.description,
             "price": float(p.price),
             "photo_id": (p.photo_ids or [p.photo_id] if p.photo_id else [None])[0] if (p.photo_ids or p.photo_id) else None,
             "photo_ids": _photo_ids(p),
-            "quantity": p.quantity
+            "quantity": p.quantity,
+            "is_preorder": getattr(p, "is_preorder", False),
         }
-        for p in products
-    ]
-    
+
+    products_list = [_product_dict(p) for p in products]
+    preorder_products_list = [_product_dict(p) for p in preorder_products]
+
     return PublicSellerDetail(
         seller_id=seller.seller_id,
         shop_name=seller.shop_name,
@@ -425,7 +458,10 @@ async def get_public_seller_detail(
         metro_walk_minutes=seller.metro_walk_minutes,
         metro_line_color=row.metro_line_color,
         available_slots=available_slots,
-        products=products_list
+        products=products_list,
+        preorder_products=preorder_products_list,
+        preorder_available_dates=preorder_available_dates,
+        preorder_enabled=preorder_enabled,
     )
 
 

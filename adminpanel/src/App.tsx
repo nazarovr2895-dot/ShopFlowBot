@@ -18,6 +18,8 @@ import { SellerStats } from './pages/seller/SellerStats';
 import { SellerProfile } from './pages/seller/SellerProfile';
 import { SellerSecurity } from './pages/seller/SellerSecurity';
 import { SellerCustomers } from './pages/seller/SellerCustomers';
+import { SellerOrderDetail } from './pages/seller/SellerOrderDetail';
+import { SellerShowcase } from './pages/seller/SellerShowcase';
 import './index.css';
 import './App.css';
 
@@ -60,9 +62,11 @@ function AppRoutes() {
         {isSeller && (
           <>
             <Route path="orders" element={<SellerOrders />} />
+            <Route path="orders/:orderId" element={<SellerOrderDetail />} />
             <Route path="customers" element={<SellerCustomers />} />
             <Route path="customers/:id" element={<SellerCustomers />} />
             <Route path="shop" element={<SellerShop />} />
+            <Route path="showcase" element={<SellerShowcase />} />
             <Route path="receptions" element={<SellerReceptions />} />
             <Route path="bouquets" element={<SellerBouquets />} />
             <Route path="inventory" element={<SellerInventory />} />

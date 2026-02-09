@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   getLoyaltySettings,
   updateLoyaltySettings,
@@ -7,8 +8,10 @@ import {
   createCustomer,
   getCustomer,
   recordSale,
+  getCustomerOrders,
+  deductPoints,
 } from '../../api/sellerClient';
-import type { SellerCustomerBrief, SellerCustomerDetail } from '../../api/sellerClient';
+import type { SellerCustomerBrief, SellerCustomerDetail, SellerOrder } from '../../api/sellerClient';
 import './SellerCustomers.css';
 
 function formatDate(iso: string | null): string {
@@ -44,6 +47,16 @@ function phoneToDigits(display: string): string {
   return ('7' + digits).slice(0, 11);
 }
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: 'Ожидает',
+  accepted: 'Принят',
+  assembling: 'Собирается',
+  in_transit: 'В пути',
+  done: 'Выполнен',
+  completed: 'Завершён',
+  rejected: 'Отклонён',
+};
+
 export function SellerCustomers() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -56,6 +69,9 @@ export function SellerCustomers() {
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [saleAmount, setSaleAmount] = useState('');
   const [saleSubmitting, setSaleSubmitting] = useState(false);
+  const [deductPointsAmount, setDeductPointsAmount] = useState('');
+  const [deductSubmitting, setDeductSubmitting] = useState(false);
+  const [customerOrders, setCustomerOrders] = useState<SellerOrder[]>([]);
   const [search, setSearch] = useState('');
 
   const loadList = useCallback(async () => {
@@ -73,10 +89,15 @@ export function SellerCustomers() {
   const loadDetail = useCallback(async (customerId: number) => {
     setLoading(true);
     try {
-      const data = await getCustomer(customerId);
+      const [data, orders] = await Promise.all([
+        getCustomer(customerId),
+        getCustomerOrders(customerId),
+      ]);
       setDetail(data);
+      setCustomerOrders(orders || []);
     } catch {
       setDetail(null);
+      setCustomerOrders([]);
     } finally {
       setLoading(false);
     }
@@ -122,8 +143,13 @@ export function SellerCustomers() {
       await createCustomer({ phone: digits, first_name: first_name.trim(), last_name: last_name.trim() });
       setAddForm({ phone: '', first_name: '', last_name: '' });
       loadList();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Ошибка';
+      if (typeof msg === 'string' && (msg.includes('уже есть') || msg.includes('409'))) {
+        alert('Клиент с таким номером телефона уже есть. Проверьте список или поиск по телефону.');
+      } else {
+        alert(msg);
+      }
     } finally {
       setAddSubmitting(false);
     }
@@ -148,6 +174,25 @@ export function SellerCustomers() {
     }
   };
 
+  const handleDeductPoints = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const points = parseFloat(deductPointsAmount.replace(',', '.'));
+    if (isNaN(points) || points <= 0 || !detail) {
+      alert('Введите положительное количество баллов');
+      return;
+    }
+    setDeductSubmitting(true);
+    try {
+      const result = await deductPoints(detail.id, points);
+      setDeductPointsAmount('');
+      setDetail((d) => (d ? { ...d, points_balance: result.new_balance, transactions: [{ id: 0, amount: 0, points_accrued: -result.points_deducted, order_id: null, created_at: new Date().toISOString() }, ...d.transactions] } : null));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setDeductSubmitting(false);
+    }
+  };
+
   const filteredCustomers = search.trim()
     ? customers.filter(
         (c) =>
@@ -156,6 +201,26 @@ export function SellerCustomers() {
           c.card_number.toLowerCase().includes(search.toLowerCase())
       )
     : customers;
+
+  const handleExportCustomers = () => {
+    const headers = ['Телефон', 'Имя', 'Фамилия', 'Номер карты', 'Баллы', 'Дата регистрации'];
+    const rows = filteredCustomers.map((c) => [
+      c.phone,
+      c.first_name,
+      c.last_name,
+      c.card_number,
+      String(c.points_balance ?? 0),
+      c.created_at ? formatDate(c.created_at) : '',
+    ]);
+    const csv = [headers.join(';'), ...rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clients_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (id) {
     if (loading) {
@@ -187,6 +252,21 @@ export function SellerCustomers() {
           </div>
           <div className="row">Телефон: {detail.phone}</div>
           <div className="balance">Баланс: {detail.points_balance} баллов</div>
+          {(detail.total_purchases != null && detail.total_purchases > 0) && (
+            <div className="row customer-analytics">
+              Сумма покупок: <strong>{detail.total_purchases.toLocaleString('ru')} ₽</strong>
+            </div>
+          )}
+          {detail.last_order_at && (
+            <div className="row customer-analytics">
+              Последний заказ: <strong>{formatDate(detail.last_order_at)}</strong>
+            </div>
+          )}
+          {(detail.completed_orders_count != null && detail.completed_orders_count > 0) && (
+            <div className="row customer-analytics">
+              Выполнено заказов: <strong>{detail.completed_orders_count}</strong>
+            </div>
+          )}
         </div>
         <div className="record-sale">
           <h3>Внести продажу</h3>
@@ -203,6 +283,35 @@ export function SellerCustomers() {
             </button>
           </form>
         </div>
+        <div className="deduct-points">
+          <h3>Списать баллы</h3>
+          <form onSubmit={handleDeductPoints}>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Баллы"
+              value={deductPointsAmount}
+              onChange={(e) => setDeductPointsAmount(e.target.value)}
+            />
+            <button type="submit" disabled={deductSubmitting}>
+              {deductSubmitting ? '…' : 'Списать'}
+            </button>
+          </form>
+        </div>
+        {customerOrders.length > 0 && (
+          <div className="customer-orders-list">
+            <h3>Заказы</h3>
+            <ul>
+              {customerOrders.map((o) => (
+                <li key={o.id}>
+                  <Link to={`/orders/${o.id}`}>
+                    Заказ #{o.id} — {o.total_price} ₽ — {ORDER_STATUS_LABELS[o.status] || o.status} — {formatDate(o.created_at)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="transactions-list">
           <h3>История покупок</h3>
           {detail.transactions.length === 0 ? (
@@ -211,8 +320,13 @@ export function SellerCustomers() {
             detail.transactions.map((t) => (
               <div key={t.id} className="transaction-item">
                 <span className="date">{formatDate(t.created_at)}</span>
-                <span className="amount">{t.amount} ₽</span>
-                <span className="points">+{t.points_accrued} баллов</span>
+                <span className="amount">{t.amount > 0 ? `${t.amount} ₽` : ''}</span>
+                <span className="points">
+                  {t.points_accrued >= 0 ? `+${t.points_accrued}` : t.points_accrued} баллов
+                  {t.order_id != null && (
+                    <> — <Link to={`/orders/${t.order_id}`}>Заказ #{t.order_id}</Link></>
+                  )}
+                </span>
               </div>
             ))
           )}
@@ -277,13 +391,16 @@ export function SellerCustomers() {
           </button>
         </form>
       </div>
-      <div className="customers-search">
+      <div className="customers-search-and-export">
         <input
           type="search"
           placeholder="Поиск по имени, телефону или номеру карты"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button type="button" className="btn btn-secondary" onClick={handleExportCustomers}>
+          Экспорт CSV
+        </button>
       </div>
       {loading ? (
         <div className="customers-loading">Загрузка...</div>

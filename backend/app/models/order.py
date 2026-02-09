@@ -1,6 +1,6 @@
-from sqlalchemy import BigInteger, String, ForeignKey, DateTime, DECIMAL, Text, Index
+from sqlalchemy import BigInteger, String, ForeignKey, DateTime, DECIMAL, Text, Index, Boolean, Date
 from sqlalchemy.orm import Mapped, mapped_column
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 from backend.app.core.base import Base
 
@@ -18,6 +18,8 @@ class Order(Base):
     address: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_preorder: Mapped[bool] = mapped_column(Boolean, default=False)
+    preorder_delivery_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     __table_args__ = (
         Index('ix_orders_seller_id', 'seller_id'),

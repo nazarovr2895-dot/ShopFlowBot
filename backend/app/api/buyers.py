@@ -17,11 +17,12 @@ from backend.app.services.buyers import (
     BuyerServiceError,
     UserNotFoundError,
 )
-from backend.app.services.cart import CartService, VisitedSellersService, CartServiceError
+from backend.app.services.cart import CartService, VisitedSellersService, FavoriteSellersService, CartServiceError
 from backend.app.services.orders import OrderService, OrderNotFoundError, InvalidOrderStatusError
 from backend.app.services.referrals import accrue_commissions
 from backend.app.services.loyalty import LoyaltyService
 from backend.app.models.order import Order
+from backend.app.models.loyalty import normalize_phone
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -116,6 +117,12 @@ class LocationUpdate(BaseModel):
     district_id: Optional[int] = None
 
 
+class ProfileUpdate(BaseModel):
+    """Схема для обновления профиля покупателя (ФИО, телефон)."""
+    fio: Optional[str] = None
+    phone: Optional[str] = None
+
+
 class AgentUpgrade(BaseModel):
     tg_id: int
     fio: str
@@ -195,10 +202,52 @@ async def update_location(
         _handle_service_error(e)
 
 
+@router.put("/me", response_model=BuyerResponse)
+async def update_profile(
+    data: ProfileUpdate,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Обновить профиль текущего пользователя (ФИО, телефон).
+    Телефон нормализуется и должен быть в формате +7 и 11 цифр для совпадения с программой лояльности.
+    """
+    tg_id = current_user.user.id
+    service = BuyerService(session)
+
+    update_kwargs: dict = {}
+    if data.fio is not None:
+        update_kwargs["fio"] = data.fio.strip() if isinstance(data.fio, str) else data.fio
+
+    if data.phone is not None:
+        normalized = normalize_phone(data.phone)
+        if not normalized or len(normalized) != 11 or normalized[0] != "7":
+            raise HTTPException(
+                status_code=400,
+                detail="Неверный формат телефона. Ожидается +7 000 000 00 00",
+            )
+        update_kwargs["phone"] = normalized
+
+    if not update_kwargs:
+        user_info = await service.get_buyer_info(tg_id)
+        if user_info:
+            user_info["id"] = user_info["tg_id"]
+        return user_info
+
+    try:
+        updated_user = await service.update_profile(tg_id=tg_id, **update_kwargs)
+        updated_user["id"] = updated_user["tg_id"]
+        return updated_user
+    except BuyerServiceError as e:
+        logger.warning("Profile update failed", tg_id=tg_id, error=e.message)
+        _handle_service_error(e)
+
+
 # --- Cart (Mini App) ---
 class CartItemAdd(BaseModel):
     product_id: int
     quantity: int = 1
+    preorder_delivery_date: Optional[str] = None  # YYYY-MM-DD for preorder products
 
 
 class CartItemUpdate(BaseModel):
@@ -236,7 +285,10 @@ async def add_cart_item(
     service = CartService(session)
     try:
         result = await service.add_item(
-            current_user.user.id, data.product_id, data.quantity
+            current_user.user.id,
+            data.product_id,
+            data.quantity,
+            preorder_delivery_date=data.preorder_delivery_date,
         )
         await session.commit()
         return result
@@ -329,6 +381,47 @@ async def get_visited_sellers(
     """Список недавно посещённых магазинов."""
     visited = VisitedSellersService(session)
     return await visited.get_visited_sellers(current_user.user.id)
+
+
+# --- Favorite sellers / Мои цветочные (Mini App) ---
+@router.get("/me/favorite-sellers")
+async def get_favorite_sellers(
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Список избранных магазинов (мои цветочные)."""
+    fav = FavoriteSellersService(session)
+    return await fav.get_favorite_sellers(current_user.user.id)
+
+
+@router.post("/me/favorite-sellers")
+async def add_favorite_seller(
+    data: VisitedSellerRecord,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Добавить магазин в «Мои цветочные»."""
+    fav = FavoriteSellersService(session)
+    try:
+        await fav.add(current_user.user.id, data.seller_id)
+        await session.commit()
+        return {"status": "ok"}
+    except CartServiceError as e:
+        await session.rollback()
+        _handle_cart_error(e)
+
+
+@router.delete("/me/favorite-sellers/{seller_id}")
+async def remove_favorite_seller(
+    seller_id: int,
+    current_user: TelegramInitData = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Убрать магазин из «Мои цветочные»."""
+    fav = FavoriteSellersService(session)
+    await fav.remove(current_user.user.id, seller_id)
+    await session.commit()
+    return {"status": "ok"}
 
 
 # --- Loyalty (Mini App: мой баланс у продавца) ---

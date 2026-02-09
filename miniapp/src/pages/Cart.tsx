@@ -83,6 +83,11 @@ export function Cart() {
               <li key={item.product_id} className="cart-item">
                 <div className="cart-item__info">
                   <span className="cart-item__name">{item.name}</span>
+                  {item.is_preorder && item.preorder_delivery_date && (
+                    <span className="cart-item__preorder-date">
+                      Предзаказ на {new Date(item.preorder_delivery_date).toLocaleDateString('ru-RU')}
+                    </span>
+                  )}
                   <span className="cart-item__price">{formatPrice(item.price)}</span>
                 </div>
                 <div className="cart-item__actions">

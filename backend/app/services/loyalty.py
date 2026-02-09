@@ -212,3 +212,35 @@ class LoyaltyService:
         if not customer:
             return None
         return await self.accrue_points(seller_id, customer.id, amount, order_id)
+
+    async def deduct_points(
+        self, seller_id: int, customer_id: int, points: float
+    ) -> Dict[str, Any]:
+        """Deduct points from customer (manual spend). points must be > 0."""
+        customer = await self.session.get(SellerCustomer, customer_id)
+        if not customer or customer.seller_id != seller_id:
+            raise CustomerNotFoundError(customer_id)
+        points_decimal = Decimal(str(points))
+        if points_decimal <= 0:
+            raise LoyaltyServiceError("Укажите положительное количество баллов", 400)
+        balance = customer.points_balance or Decimal("0")
+        if balance < points_decimal:
+            raise LoyaltyServiceError(
+                f"Недостаточно баллов. Баланс: {balance}, запрошено: {points}",
+                400,
+            )
+        tx = SellerLoyaltyTransaction(
+            seller_id=seller_id,
+            customer_id=customer_id,
+            order_id=None,
+            amount=Decimal("0"),
+            points_accrued=-points_decimal,
+        )
+        self.session.add(tx)
+        customer.points_balance = balance - points_decimal
+        await self.session.flush()
+        return {
+            "customer_id": customer_id,
+            "points_deducted": float(points_decimal),
+            "new_balance": float(customer.points_balance),
+        }

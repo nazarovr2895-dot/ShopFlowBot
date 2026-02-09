@@ -23,6 +23,20 @@
   margin-bottom: 1rem;
 }
 
+.shop-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+
+.section-label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
 .limit-row {
   display: flex;
   gap: 0.75rem;
@@ -50,129 +64,3 @@
   word-break: break-all;
 }
 
-.add-product-choice {
-  padding: 1rem;
-  margin-bottom: 1rem;
-  background: var(--bg);
-}
-
-.choice-buttons {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-.bouquet-choice-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1rem 0;
-}
-
-.bouquet-choice-list li {
-  margin-bottom: 0.5rem;
-}
-
-.form-input-readonly {
-  background: var(--bg);
-  cursor: default;
-}
-
-.form-hint {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
-}
-
-.product-photos-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.product-photo-preview-wrap {
-  position: relative;
-}
-
-.product-photo-preview-wrap img {
-  max-width: 100px;
-  max-height: 100px;
-  object-fit: contain;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  display: block;
-}
-
-.product-photo-remove {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 50%;
-  background: var(--danger, #c00);
-  color: #fff;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.add-product-form {
-  padding: 1rem;
-  margin-bottom: 1rem;
-  background: var(--bg);
-}
-
-.form-row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.form-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.products-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.product-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 1rem;
-  background: var(--bg);
-  border-radius: var(--radius);
-}
-
-.product-info {
-  flex: 1;
-}
-
-.product-desc {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  margin: 0.25rem 0;
-}
-
-.product-price {
-  font-weight: 600;
-}
-
-.product-qty {
-  margin-top: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}

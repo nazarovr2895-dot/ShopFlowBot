@@ -43,6 +43,8 @@ class OrderCreate(BaseModel):
     delivery_type: str
     address: Optional[str] = None
     agent_id: Optional[int] = None
+    is_preorder: bool = False
+    preorder_delivery_date: Optional[str] = None  # YYYY-MM-DD
 
 class OrderResponse(BaseModel):
     id: int
@@ -61,6 +63,7 @@ class ProductCreate(BaseModel):
     photo_ids: Optional[List[str]] = None  # up to MAX_PRODUCT_PHOTOS
     quantity: int = 0
     bouquet_id: Optional[int] = None
+    is_preorder: bool = False
 
     @model_validator(mode="after")
     def truncate_photo_ids(self):
@@ -78,6 +81,8 @@ class ProductUpdate(BaseModel):
     photo_ids: Optional[List[str]] = None
     quantity: Optional[int] = None
     bouquet_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    is_preorder: Optional[bool] = None
 
 
 class ProductResponse(BaseModel):
@@ -92,6 +97,8 @@ class ProductResponse(BaseModel):
     photo_ids: Optional[List[str]] = None
     quantity: int
     bouquet_id: Optional[int] = None
+    is_active: Optional[bool] = True
+    is_preorder: bool = False
 
     @model_validator(mode="after")
     def fill_photo_ids(self):
@@ -109,6 +116,14 @@ class FlowerCreate(BaseModel):
 class ReceptionCreate(BaseModel):
     name: str
     reception_date: Optional[str] = None  # YYYY-MM-DD
+    supplier: Optional[str] = None
+    invoice_number: Optional[str] = None
+
+
+class ReceptionUpdate(BaseModel):
+    is_closed: Optional[bool] = None
+    supplier: Optional[str] = None
+    invoice_number: Optional[str] = None
 
 
 class ReceptionItemCreate(BaseModel):

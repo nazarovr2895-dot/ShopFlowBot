@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getMe, getStats, getOrders } from '../../api/sellerClient';
-import type { SellerMe, SellerStats } from '../../api/sellerClient';
+import { getMe, getStats, getOrders, getDashboardAlerts } from '../../api/sellerClient';
+import type { SellerMe, SellerStats, DashboardAlerts } from '../../api/sellerClient';
 import '../Dashboard.css';
 
 export function SellerDashboard() {
@@ -9,24 +9,28 @@ export function SellerDashboard() {
   const [stats, setStats] = useState<SellerStats | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
+  const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [meData, statsData, pendingOrders, activeOrders] = await Promise.all([
+        const [meData, statsData, pendingOrders, activeOrders, alertsData] = await Promise.all([
           getMe(),
           getStats(),
           getOrders({ status: 'pending' }),
           getOrders({ status: 'accepted,assembling,in_transit' }),
+          getDashboardAlerts(),
         ]);
         setMe(meData);
         setStats(statsData);
         setPendingCount(pendingOrders?.length ?? 0);
         setActiveCount(activeOrders?.length ?? 0);
+        setAlerts(alertsData);
       } catch {
         setMe(null);
         setStats(null);
+        setAlerts(null);
       } finally {
         setLoading(false);
       }
@@ -50,6 +54,34 @@ export function SellerDashboard() {
           {me.shop_name || 'Мой магазин'}
         </p>
       )}
+
+      {(alerts?.low_stock_bouquets?.length ?? 0) + (alerts?.expiring_items?.length ?? 0) > 0 && (
+        <div className="card dashboard-alerts">
+          <h3>Внимание</h3>
+          {alerts?.low_stock_bouquets?.length ? (
+            <p>
+              Букеты с низким остатком:{' '}
+              {alerts.low_stock_bouquets.map((b) => (
+                <Link key={b.id} to="/bouquets">{b.name} (можно собрать: {b.can_assemble_count})</Link>
+              )).reduce((prev, curr, i) => (i === 0 ? [curr] : [...prev, ', ', curr]), [] as React.ReactNode[])}
+            </p>
+          ) : null}
+          {alerts?.expiring_items?.length ? (
+            <p>
+              Цветы с истекающим сроком (≤2 дн.):{' '}
+              {alerts.expiring_items.slice(0, 5).map((e, i) => (
+                <span key={i}>{e.flower_name} в «{e.reception_name}» ({e.days_left} дн.)</span>
+              )).reduce((prev, curr, i) => (i === 0 ? [curr] : [...prev, ', ', curr]), [] as React.ReactNode[])}
+              {' '}<Link to="/receptions">→ Приёмка</Link>
+            </p>
+          ) : null}
+        </div>
+      )}
+
+      <div className="dashboard-quick-actions">
+        <Link to="/receptions" className="btn btn-primary">Приёмка</Link>
+        <Link to="/customers" className="btn btn-secondary">Добавить клиента</Link>
+      </div>
 
       <div className="stats-grid">
         <Link to="/orders?tab=pending" className="stat-card" style={{ textDecoration: 'none' }}>

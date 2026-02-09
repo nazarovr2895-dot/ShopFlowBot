@@ -209,6 +209,23 @@ export function SellerStats() {
               <span className="summary-value">{formatCurrency(stats?.total_revenue ?? 0, true)}</span>
             </div>
             <div className="summary-item">
+              <span className="summary-label">Средний чек</span>
+              <span className="summary-value">{formatCurrency(stats?.average_check ?? 0, true)}</span>
+            </div>
+            {stats?.previous_period_revenue != null && stats?.previous_period_revenue > 0 && (
+              <div className="summary-item">
+                <span className="summary-label">К выручке за тот же период ранее</span>
+                <span className="summary-value">
+                  {(() => {
+                    const prev = stats.previous_period_revenue ?? 0;
+                    const curr = stats.total_revenue ?? 0;
+                    const pct = prev ? Math.round(((curr - prev) / prev) * 100) : 0;
+                    return pct >= 0 ? `+${pct}%` : `${pct}%`;
+                  })()}
+                </span>
+              </div>
+            )}
+            <div className="summary-item">
               <span className="summary-label">Комиссия платформы (18%)</span>
               <span className="summary-value">{formatCurrency(stats?.commission_18 ?? 0, true)}</span>
             </div>
@@ -268,6 +285,56 @@ export function SellerStats() {
                 </tr>
               </thead>
               <tbody>{statusRows}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {(stats?.top_products?.length ?? 0) > 0 && (
+        <div className="card seller-stats-top">
+          <h3>Популярные товары (за период)</h3>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Товар</th>
+                  <th>Продано (шт)</th>
+                  <th>В заказах</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats?.top_products?.map((p) => (
+                  <tr key={p.product_id}>
+                    <td>{p.product_name}</td>
+                    <td>{p.quantity_sold}</td>
+                    <td>{p.order_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {(stats?.top_bouquets?.length ?? 0) > 0 && (
+        <div className="card seller-stats-top">
+          <h3>Популярные букеты (за период)</h3>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Букет</th>
+                  <th>Продано (шт)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats?.top_bouquets?.map((b) => (
+                  <tr key={b.bouquet_id}>
+                    <td>{b.bouquet_name}</td>
+                    <td>{b.quantity_sold}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         </div>
