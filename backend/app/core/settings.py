@@ -3,9 +3,21 @@ Application settings with validation using pydantic-settings.
 Validates all required environment variables at startup.
 """
 import os
+import socket
+from urllib.parse import quote_plus
 from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _resolve_db_host(host: str) -> str:
+    """Resolve DB host to IP so asyncpg avoids getaddrinfo in asyncio context (e.g. in Docker)."""
+    if not host or host in ("localhost", "127.0.0.1"):
+        return host
+    try:
+        return socket.gethostbyname(host)
+    except socket.gaierror:
+        return host
 
 
 class Settings(BaseSettings):
@@ -100,8 +112,10 @@ class Settings(BaseSettings):
     
     @property
     def db_url(self) -> str:
-        """Get database URL."""
-        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        """Get database URL. Resolve host to IP so connections work in Docker/async context."""
+        host = _resolve_db_host(self.DB_HOST)
+        password = quote_plus(self.DB_PASSWORD)
+        return f"postgresql+asyncpg://{self.DB_USER}:{password}@{host}:{self.DB_PORT}/{self.DB_NAME}"
     
     @property
     def is_production(self) -> bool:
