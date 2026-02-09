@@ -1,0 +1,19 @@
+# Telegram bot: needs backend (DB, models) + bot code + aiogram
+FROM python:3.11
+
+WORKDIR /src
+
+# Backend dependencies (DB, Redis, etc.)
+COPY backend/requirements.txt backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# Bot dependencies
+RUN pip install --no-cache-dir aiogram==3.10.0 redis==5.0.4 aiohttp==3.9.3
+
+# Code: backend (for database, models) and bot
+COPY backend ./backend
+COPY bot ./bot
+
+ENV PYTHONPATH=/src
+
+CMD ["python", "-m", "bot.main"]

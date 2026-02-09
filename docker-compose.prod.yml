@@ -152,6 +152,36 @@ services:
       - backend
     # SSL certificates should be mounted from external source
 
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    restart: always
+    networks:
+      - app_net
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - BACKEND_URL=http://backend:8000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - MASTER_ADMIN_ID=${MASTER_ADMIN_ID}
+      - MINI_APP_URL=${MINI_APP_URL:-https://flowshop-miniapp.vercel.app}
+    env_file:
+      - .env
+    depends_on:
+      backend:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
   pgdata-replica:
