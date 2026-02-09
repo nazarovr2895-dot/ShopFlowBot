@@ -1,5 +1,6 @@
 import asyncio
 import os
+import socket
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -13,13 +14,19 @@ from alembic import context
 # Добавляем корневую директорию проекта в sys.path для импорта модулей
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-# URL БД из переменных окружения (как в контейнере), без зависимости от .env/конфига
+# URL БД из переменных окружения; хост резолвим в IP (обход проблем резолва в asyncio/контейнере)
 def _get_db_url():
     user = os.environ.get("DB_USER", "postgres")
     password = os.environ.get("DB_PASSWORD", "")
     host = os.environ.get("DB_HOST", "localhost")
     port = os.environ.get("DB_PORT", "5432")
     name = os.environ.get("DB_NAME", "postgres")
+    # В Docker резолв по имени из asyncio иногда падает; подставляем IP
+    if host and host != "localhost" and host != "127.0.0.1":
+        try:
+            host = socket.gethostbyname(host)
+        except socket.gaierror:
+            pass
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
 
 DB_URL = _get_db_url()
