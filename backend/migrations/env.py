@@ -33,7 +33,8 @@ from backend.app.models import user, seller, order, product, referral, settings,
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option("sqlalchemy.url", SYNC_DB_URL)
+# ConfigParser трактует % как интерполяцию; экранируем для записи в конфиг
+config.set_main_option("sqlalchemy.url", SYNC_DB_URL.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
