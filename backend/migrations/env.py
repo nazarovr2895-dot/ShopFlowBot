@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -12,8 +13,16 @@ from alembic import context
 # Добавляем корневую директорию проекта в sys.path для импорта модулей
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-# Импортируем конфиг базы данных
-from backend.app.core.config import DB_URL
+# URL БД из переменных окружения (как в контейнере), без зависимости от .env/конфига
+def _get_db_url():
+    user = os.environ.get("DB_USER", "postgres")
+    password = os.environ.get("DB_PASSWORD", "")
+    host = os.environ.get("DB_HOST", "localhost")
+    port = os.environ.get("DB_PORT", "5432")
+    name = os.environ.get("DB_NAME", "postgres")
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+
+DB_URL = _get_db_url()
 
 # Импортируем Base и все модели для автогенерации миграций
 from backend.app.core.base import Base
