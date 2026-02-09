@@ -6,8 +6,9 @@ asyncpg==0.29.0
 python-dotenv==1.0.1
 pydantic==2.6.0
 pydantic-settings==2.1.0
-# Миграции
+# Миграции (sync для alembic upgrade в контейнере)
 alembic==1.13.1
+psycopg2-binary==2.9.9
 # Redis для кэширования
 redis==5.0.1
 # JWT и пароли для веб-панели продавцов

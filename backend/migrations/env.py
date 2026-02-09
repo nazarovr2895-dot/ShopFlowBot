@@ -1,35 +1,27 @@
-import asyncio
 import os
-import socket
 import sys
 from logging.config import fileConfig
 from pathlib import Path
+from urllib.parse import quote_plus
 
-from sqlalchemy import pool
+from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
 # Добавляем корневую директорию проекта в sys.path для импорта модулей
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-# URL БД из переменных окружения; хост резолвим в IP (обход проблем резолва в asyncio/контейнере)
-def _get_db_url():
+# Синхронный URL для миграций (psycopg2) — без asyncio/asyncpg, стабильно в контейнере
+def _get_sync_db_url():
     user = os.environ.get("DB_USER", "postgres")
-    password = os.environ.get("DB_PASSWORD", "")
+    password = quote_plus(os.environ.get("DB_PASSWORD", ""))
     host = os.environ.get("DB_HOST", "localhost")
     port = os.environ.get("DB_PORT", "5432")
     name = os.environ.get("DB_NAME", "postgres")
-    # В Docker резолв по имени из asyncio иногда падает; подставляем IP
-    if host and host != "localhost" and host != "127.0.0.1":
-        try:
-            host = socket.gethostbyname(host)
-        except socket.gaierror:
-            pass
-    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
 
-DB_URL = _get_db_url()
+SYNC_DB_URL = _get_sync_db_url()
 
 # Импортируем Base и все модели для автогенерации миграций
 from backend.app.core.base import Base
@@ -41,9 +33,6 @@ from backend.app.models import user, seller, order, product, referral, settings,
 # access to the values within the .ini file in use.
 config = context.config
 
-# Устанавливаем URL базы данных из переменных окружения
-# Заменяем asyncpg на psycopg2 для синхронных миграций Alembic
-SYNC_DB_URL = DB_URL.replace("postgresql+asyncpg://", "postgresql://")
 config.set_main_option("sqlalchemy.url", SYNC_DB_URL)
 
 # Interpret the config file for Python logging.
@@ -87,30 +76,12 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
-async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode using async engine.
-
-    In this scenario we need to create an async Engine
-    and associate a connection with the context.
-
-    """
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-        # Используем asyncpg для асинхронных операций
-        url=DB_URL,
-    )
-
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
-
-
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-    asyncio.run(run_async_migrations())
+    """Run migrations in 'online' mode using sync engine (psycopg2)."""
+    connectable = create_engine(SYNC_DB_URL, poolclass=pool.NullPool)
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
+    connectable.dispose()
 
 
 if context.is_offline_mode():
