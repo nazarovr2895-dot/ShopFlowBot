@@ -23,7 +23,7 @@ import backend.app.models.product
 # import backend.app.models.settings
 
 # Импортируем роутеры
-from bot.handlers import start, seller, buyer, agent
+from bot.handlers import start, buyer
 
 async def main():
     # Включаем подробное логирование
@@ -45,9 +45,7 @@ async def main():
 
     # 3. Регистрация роутеров (ПОРЯДОК ВАЖЕН!)
     dp.include_router(start.router)   # <--- START ПЕРВЫЙ!
-    dp.include_router(seller.router)
     dp.include_router(buyer.router)
-    dp.include_router(agent.router)
 
     # Удаляем старые апдейты (чтобы бот не отвечал на старые сообщения)
     await bot.delete_webhook(drop_pending_updates=True)

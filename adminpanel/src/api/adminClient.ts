@@ -1,4 +1,4 @@
-import type { Seller, SellerStats, AgentStats, Agent, City, District, MetroStation } from '../types';
+import type { Seller, SellerStats, City, District, MetroStation } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -133,45 +133,6 @@ export async function getSellerStats(fio: string): Promise<SellerStats | null> {
     return await fetchAdmin<SellerStats>(`/admin/stats/seller?fio=${encodeURIComponent(fio)}`);
   } catch {
     return null;
-  }
-}
-
-export async function getAgentsStats(): Promise<AgentStats[]> {
-  return fetchAdmin<AgentStats[]>('/admin/stats/agents');
-}
-
-// Agents
-export async function getAllAgents(): Promise<Agent[]> {
-  return fetchAdmin<Agent[]>('/admin/agents/all');
-}
-
-export async function searchAgents(query: string): Promise<Agent[]> {
-  const params = new URLSearchParams({ query });
-  return fetchAdmin<Agent[]>(`/admin/agents/search?${params}`);
-}
-
-export async function getAgentDetails(tgId: number): Promise<Agent | { status: string }> {
-  return fetchAdmin(`/admin/agents/${tgId}`);
-}
-
-export async function removeAgentStatus(tgId: number): Promise<{ status?: string }> {
-  return fetchAdmin(`/admin/agents/${tgId}/remove`, { method: 'PUT' });
-}
-
-export async function setAgentBalance(tgId: number, newBalance: number): Promise<{ status?: string }> {
-  return fetchAdmin(`/admin/agents/${tgId}/set_balance?new_balance=${newBalance}`, {
-    method: 'PUT',
-  });
-}
-
-export async function getAgentReferrals(tgId: number): Promise<unknown[]> {
-  try {
-    const data = await fetchAdmin<{ status?: string } | unknown[]>(
-      `/admin/agents/${tgId}/referrals`
-    );
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
   }
 }
 

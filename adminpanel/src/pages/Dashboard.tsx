@@ -1,29 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllStats, getAgentsStats, getAllSellers } from '../api/adminClient';
-import type { SellerStats, AgentStats } from '../types';
+import { getAllStats, getAllSellers } from '../api/adminClient';
+import type { SellerStats } from '../types';
 import './Dashboard.css';
 
 export function Dashboard() {
   const [sellerStats, setSellerStats] = useState<SellerStats[]>([]);
-  const [agentStats, setAgentStats] = useState<AgentStats[]>([]);
   const [sellersCount, setSellersCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [stats, agents, sellers] = await Promise.all([
+        const [stats, sellers] = await Promise.all([
           getAllStats(),
-          getAgentsStats(),
           getAllSellers(),
         ]);
         setSellerStats(stats || []);
-        setAgentStats(agents || []);
         setSellersCount(sellers?.length || 0);
       } catch {
         setSellerStats([]);
-        setAgentStats([]);
         setSellersCount(0);
       } finally {
         setLoading(false);
@@ -97,35 +93,6 @@ export function Dashboard() {
             </div>
           )}
           <Link to="/stats" className="card-footer-link">Вся статистика →</Link>
-        </div>
-
-        <div className="card">
-          <h3>Агенты</h3>
-          {agentStats.length === 0 ? (
-            <p className="empty-text">Нет данных</p>
-          ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>ФИО</th>
-                    <th>Заказов</th>
-                    <th>Оборот</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agentStats.slice(0, 5).map((s) => (
-                    <tr key={s.fio}>
-                      <td>{s.fio}</td>
-                      <td>{s.orders_count}</td>
-                      <td>{s.total_sales.toLocaleString('ru')} ₽</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <Link to="/agents" className="card-footer-link">Управление агентами →</Link>
         </div>
       </div>
     </div>

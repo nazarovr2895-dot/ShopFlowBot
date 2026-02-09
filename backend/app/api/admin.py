@@ -14,12 +14,6 @@ from backend.app.services.sellers import (
     SellerNotFoundError,
 )
 from backend.app.services.orders import OrderService
-from backend.app.services.agents import (
-    AgentService,
-    AgentServiceError,
-    AgentNotFoundError,
-    NotAnAgentError,
-)
 from backend.app.services.cache import CacheService
 
 router = APIRouter()
@@ -39,11 +33,6 @@ async def require_admin_token(x_admin_token: Optional[str] = Header(None, alias=
 
 def _handle_seller_error(e: SellerServiceError):
     """Convert seller service exceptions to HTTP exceptions."""
-    raise HTTPException(status_code=e.status_code, detail=e.message)
-
-
-def _handle_agent_error(e: AgentServiceError):
-    """Convert agent service exceptions to HTTP exceptions."""
     raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
@@ -77,17 +66,6 @@ class SellerStatsResponse(BaseModel):
     orders_count: int
     total_sales: float
     platform_profit: float
-
-
-class AgentResponse(BaseModel):
-    tg_id: int
-    fio: Optional[str]
-    phone: Optional[str]
-    age: Optional[int]
-    is_self_employed: bool
-    balance: float
-    referrals_count: int
-    created_at: Optional[str]
 
 
 # ============================================
@@ -361,99 +339,6 @@ async def get_seller_stats(fio: str, session: AsyncSession = Depends(get_session
     """Статистика конкретного продавца по ФИО"""
     service = SellerService(session)
     return await service.get_seller_stats_by_fio(fio)
-
-
-@router.get("/stats/agents")
-async def get_agents_stats(session: AsyncSession = Depends(get_session)):
-    """Статистика по агентам"""
-    service = AgentService(session)
-    return await service.get_agents_stats()
-
-
-# ============================================
-# УПРАВЛЕНИЕ АГЕНТАМИ (ПОСРЕДНИКАМИ)
-# ============================================
-
-@router.get("/agents/all", response_model=List[AgentResponse])
-async def list_all_agents(session: AsyncSession = Depends(get_session)):
-    """Получить список всех агентов (пользователей с role='AGENT')"""
-    service = AgentService(session)
-    return await service.list_all_agents()
-
-
-@router.get("/agents/search")
-async def search_agents(
-    query: str,
-    session: AsyncSession = Depends(get_session)
-):
-    """Поиск агентов по ФИО или Telegram ID"""
-    service = AgentService(session)
-    return await service.search_agents(query)
-
-
-@router.get("/agents/{tg_id}")
-async def get_agent_details(tg_id: int, session: AsyncSession = Depends(get_session)):
-    """Получить детальную информацию об агенте"""
-    service = AgentService(session)
-    
-    try:
-        return await service.get_agent_details(tg_id)
-    except AgentNotFoundError:
-        return {"status": "not_found"}
-
-
-@router.put("/agents/{tg_id}/remove")
-async def remove_agent_status(tg_id: int, session: AsyncSession = Depends(get_session)):
-    """
-    Снять статус агента (переводит role на BUYER).
-    Не удаляет пользователя, только меняет роль.
-    """
-    logger.info("Removing agent status", tg_id=tg_id)
-    service = AgentService(session)
-    
-    try:
-        result = await service.remove_agent_status(tg_id)
-        logger.info("Agent status removed", tg_id=tg_id)
-        return result
-    except AgentNotFoundError:
-        logger.warning("Remove agent failed: not found", tg_id=tg_id)
-        return {"status": "not_found"}
-    except NotAnAgentError:
-        logger.warning("Remove agent failed: not an agent", tg_id=tg_id)
-        return {"status": "not_agent", "message": "Пользователь не является агентом"}
-
-
-@router.put("/agents/{tg_id}/set_balance")
-async def set_agent_balance(
-    tg_id: int,
-    new_balance: float,
-    session: AsyncSession = Depends(get_session)
-):
-    """Установить баланс агента (для корректировок)"""
-    logger.info("Setting agent balance", tg_id=tg_id, new_balance=new_balance)
-    service = AgentService(session)
-    
-    try:
-        result = await service.set_balance(tg_id, new_balance)
-        logger.info("Agent balance updated", tg_id=tg_id, new_balance=new_balance)
-        return result
-    except AgentNotFoundError:
-        logger.warning("Set balance failed: agent not found", tg_id=tg_id)
-        return {"status": "not_found"}
-    except AgentServiceError as e:
-        logger.error("Set balance failed", tg_id=tg_id, error=e.message)
-        return {"status": "error", "message": e.message}
-
-
-@router.get("/agents/{tg_id}/referrals")
-async def get_agent_referrals(tg_id: int, session: AsyncSession = Depends(get_session)):
-    """Получить список рефералов агента"""
-    service = AgentService(session)
-    
-    try:
-        return await service.get_agent_referrals(tg_id)
-    except AgentNotFoundError:
-        return {"status": "not_found"}
 
 
 # ============================================

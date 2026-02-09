@@ -92,7 +92,6 @@ class OrderService:
         total_price: Decimal,
         delivery_type: str,
         address: Optional[str] = None,
-        agent_id: Optional[int] = None,
         is_preorder: bool = False,
         preorder_delivery_date: Optional[date] = None,
     ) -> Order:
@@ -106,7 +105,6 @@ class OrderService:
             total_price: Total order price
             delivery_type: Delivery method
             address: Delivery address (optional)
-            agent_id: Referral agent ID (optional)
             
         Returns:
             Created Order object
@@ -137,7 +135,6 @@ class OrderService:
             total_price=total_price,
             delivery_type=delivery_type,
             address=address,
-            agent_id=agent_id,
             status="pending",
             is_preorder=is_preorder,
             preorder_delivery_date=preorder_delivery_date,
@@ -857,6 +854,5 @@ async def create_new_order(session: AsyncSession, order_data: dict):
         items_info=order_data['items_info'],
         total_price=order_data['total_price'],
         delivery_type=order_data.get('delivery_type'),
-        address=order_data.get('address'),
-        agent_id=order_data.get('agent_id')
+        address=order_data.get('address')
     )

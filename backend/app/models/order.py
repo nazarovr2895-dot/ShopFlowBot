@@ -9,7 +9,6 @@ class Order(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
     seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
-    agent_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
     items_info: Mapped[str] = mapped_column(Text)
     total_price: Mapped[float] = mapped_column(DECIMAL(10, 2))
     original_price: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True)

@@ -2,7 +2,7 @@
 # В боте остаются только редирект в Mini App и обработка "Подтвердить получение" из уведомлений.
 from aiogram import Router, F, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
-from bot.api_client.sellers import api_update_order_status
+from bot.api_client.orders import api_update_order_status
 from bot.config import MINI_APP_URL
 
 router = Router()

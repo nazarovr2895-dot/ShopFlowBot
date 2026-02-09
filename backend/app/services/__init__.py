@@ -30,12 +30,6 @@ from backend.app.services.buyers import (
     get_buyer,
     create_buyer,
 )
-from backend.app.services.agents import (
-    AgentService,
-    AgentServiceError,
-    AgentNotFoundError,
-    NotAnAgentError,
-)
 from backend.app.services.referrals import (
     register_referral,
     calculate_rewards,
@@ -75,11 +69,6 @@ __all__ = [
     "UserNotFoundError",
     "get_buyer",
     "create_buyer",
-    # Agent service
-    "AgentService",
-    "AgentServiceError",
-    "AgentNotFoundError",
-    "NotAnAgentError",
     # Referral functions
     "register_referral",
     "calculate_rewards",

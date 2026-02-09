@@ -8,11 +8,6 @@ class UserObj:
         self.fio = data.get("fio")
         self.balance = data.get("balance", 0)
         self.role = data.get("role", "BUYER")
-        self._db_role = self.role
-
-    @property
-    def is_agent(self) -> bool:
-        return self._db_role == "AGENT"
 
 async def api_get_user(tg_id: int):
     data = await make_request("GET", f"/buyers/{tg_id}")

@@ -219,7 +219,6 @@ class CartService:
                         total_price=total,
                         delivery_type=delivery_type,
                         address=addr,
-                        agent_id=None,
                         is_preorder=is_preorder,
                         preorder_delivery_date=preorder_date,
                     )

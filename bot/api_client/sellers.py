@@ -298,11 +298,6 @@ async def api_get_seller_stats(fio: str):
     """Получить статистику продавца"""
     return await make_request("GET", "/admin/stats/seller", params={"fio": fio})
 
-async def api_get_agents_stats():
-    """Получить статистику по агентам"""
-    return await make_request("GET", "/admin/stats/agents")
-
-
 # --- ЗАКАЗЫ ПРОДАВЦА ---
 
 async def api_get_seller_orders(seller_id: int, status: str = None):
@@ -393,38 +388,3 @@ async def api_update_order_price(order_id: int, new_price: float):
     """Изменить цену заказа"""
     return await make_request("PUT", f"/orders/{order_id}/price", params={"new_price": new_price})
 
-
-# ============================================
-# УПРАВЛЕНИЕ АГЕНТАМИ (ПОСРЕДНИКАМИ)
-# ============================================
-
-async def api_get_all_agents():
-    """Получить список всех агентов"""
-    return await make_request("GET", "/admin/agents/all")
-
-
-async def api_search_agents(query: str):
-    """Поиск агентов по ФИО или Telegram ID"""
-    return await make_request("GET", "/admin/agents/search", params={"query": query})
-
-
-async def api_get_agent_details(tg_id: int):
-    """Получить детальную информацию об агенте"""
-    return await make_request("GET", f"/admin/agents/{tg_id}")
-
-
-async def api_remove_agent_status(tg_id: int):
-    """Снять статус агента (переводит на BUYER)"""
-    resp = await make_request("PUT", f"/admin/agents/{tg_id}/remove")
-    return resp and resp.get("status") == "ok"
-
-
-async def api_set_agent_balance(tg_id: int, new_balance: float):
-    """Установить баланс агента"""
-    resp = await make_request("PUT", f"/admin/agents/{tg_id}/set_balance", params={"new_balance": new_balance})
-    return resp and resp.get("status") == "ok"
-
-
-async def api_get_agent_referrals(tg_id: int):
-    """Получить список рефералов агента"""
-    return await make_request("GET", f"/admin/agents/{tg_id}/referrals")

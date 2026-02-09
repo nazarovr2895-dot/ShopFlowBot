@@ -117,50 +117,6 @@ class BuyerService:
         
         return new_user
     
-    async def upgrade_to_agent(
-        self,
-        tg_id: int,
-        fio: str,
-        phone: str,
-        age: int,
-        is_self_employed: bool
-    ) -> Dict[str, str]:
-        """
-        Upgrade a buyer to agent role.
-        
-        Args:
-            tg_id: Telegram user ID
-            fio: Full name
-            phone: Phone number
-            age: User's age
-            is_self_employed: Self-employment status
-            
-        Returns:
-            {"status": "ok", "role": "AGENT"}
-            
-        Raises:
-            UserNotFoundError: If user doesn't exist
-        """
-        result = await self.session.execute(
-            select(User).where(User.tg_id == tg_id)
-        )
-        user = result.scalar_one_or_none()
-        
-        if not user:
-            raise UserNotFoundError(tg_id)
-        
-        # Update profile data
-        user.fio = fio
-        user.phone = phone
-        user.age = age
-        user.is_self_employed = is_self_employed
-        
-        # Change role
-        user.role = "AGENT"
-        
-        await self.session.commit()
-        return {"status": "ok", "role": "AGENT"}
-    
     async def update_profile(
         self,
         tg_id: int,
@@ -183,7 +139,7 @@ class BuyerService:
         if not user:
             raise UserNotFoundError(tg_id)
         
-        allowed_fields = {"fio", "phone", "username", "age", "is_self_employed", "city_id", "district_id"}
+        allowed_fields = {"fio", "phone", "username", "city_id", "district_id"}
         
         for field, value in fields.items():
             if field in allowed_fields and value is not None:

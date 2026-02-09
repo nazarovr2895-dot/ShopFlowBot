@@ -5,10 +5,8 @@ import './Layout.css';
 const adminNav = [
   { to: '/', label: 'Дашборд', icon: '📊' },
   { to: '/sellers', label: 'Продавцы', icon: '🏪' },
-  { to: '/agents', label: 'Посредники', icon: '👥' },
   { to: '/stats', label: 'Статистика', icon: '📈' },
   { to: '/stats/sellers', label: 'Статистика продавцов', icon: '📋' },
-  { to: '/stats/agents', label: 'Статистика по агентам', icon: '👥' },
 ];
 
 const sellerNav = [

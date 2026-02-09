@@ -23,5 +23,5 @@ REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
 
-# Master Admin ID — может войти в режим продавца без регистрации (для тестирования)
+# Master Admin ID (зарезервировано для будущего использования)
 MASTER_ADMIN_ID = int(os.getenv("MASTER_ADMIN_ID", "0"))

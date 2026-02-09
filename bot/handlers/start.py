@@ -19,12 +19,7 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
     target_seller_id = None
 
     if args:
-        if args.startswith("agent_"):
-            try:
-                r_id = int(args.replace("agent_", ""))
-                if r_id != tg_id: referrer_id = r_id
-            except: pass
-        elif args.startswith("seller_"):
+        if args.startswith("seller_"):
             try:
                 target_seller_id = int(args.replace("seller_", ""))
             except: pass
@@ -53,19 +48,7 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
 
     # 5. Обычный вход (Главное меню)
     menu = kb.get_main_kb(tg_id, role)
-    
-    if role == 'SELLER':
-        await message.answer("📦 Режим ПРОДАВЦА.", reply_markup=menu)
-    elif role == 'AGENT':
-        await message.answer("🤝 Режим ПОСРЕДНИКА.", reply_markup=menu)
-    else:
-        await message.answer("🛒 Режим ПОКУПАТЕЛЯ.", reply_markup=menu)
+    await message.answer("🛒 Режим ПОКУПАТЕЛЯ.", reply_markup=menu)
 
 
 # --- ПЕРЕКЛЮЧЕНИЯ ---
-
-@router.message(F.text.in_({"🛍 Режим покупателя", "🔁 Режим покупателя"}))
-async def switch_to_buyer(message: types.Message, state: FSMContext):
-    await state.clear()
-    menu = kb.get_main_kb(message.from_user.id, "BUYER")
-    await message.answer("Переключено в режим покупателя.", reply_markup=menu)

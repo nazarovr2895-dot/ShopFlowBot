@@ -17,10 +17,6 @@ class User(Base):
     referrer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=True)
     balance: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0)
 
-    # --- НОВЫЕ ПОЛЯ ДЛЯ АГЕНТА ---
-    age: Mapped[int] = mapped_column(Integer, nullable=True)
-    is_self_employed: Mapped[bool] = mapped_column(Boolean, default=False)
-
     # --- ПОЛЯ ДЛЯ ЛОКАЦИИ ---
     city_id: Mapped[int] = mapped_column(ForeignKey('cities.id'), nullable=True)
     district_id: Mapped[int] = mapped_column(ForeignKey('districts.id'), nullable=True)

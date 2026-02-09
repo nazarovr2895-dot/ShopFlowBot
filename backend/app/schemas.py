@@ -42,7 +42,6 @@ class OrderCreate(BaseModel):
     total_price: Decimal 
     delivery_type: str
     address: Optional[str] = None
-    agent_id: Optional[int] = None
     is_preorder: bool = False
     preorder_delivery_date: Optional[str] = None  # YYYY-MM-DD
 

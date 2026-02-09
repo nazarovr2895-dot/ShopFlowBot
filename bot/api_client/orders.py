@@ -29,3 +29,7 @@ async def api_reject_order(order_id: int):
 
 async def api_done_order(order_id: int):
     return await make_request("POST", f"/orders/{order_id}/done")
+
+async def api_update_order_status(order_id: int, status: str):
+    """Изменить статус заказа"""
+    return await make_request("PUT", f"/orders/{order_id}/status", params={"status": status})

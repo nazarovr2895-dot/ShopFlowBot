@@ -26,23 +26,6 @@ export interface SellerStats {
   platform_profit: number
 }
 
-export interface AgentStats {
-  fio: string
-  orders_count: number
-  total_sales: number
-}
-
-export interface Agent {
-  tg_id: number
-  fio?: string
-  phone?: string
-  age?: number
-  is_self_employed?: boolean
-  balance: number
-  referrals_count: number
-  created_at?: string
-}
-
 export interface City {
   id: number
   name: string

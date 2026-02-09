@@ -123,49 +123,6 @@ class ProfileUpdate(BaseModel):
     phone: Optional[str] = None
 
 
-class AgentUpgrade(BaseModel):
-    tg_id: int
-    fio: str
-    phone: str
-    age: int
-    is_self_employed: bool
-
-
-@router.post("/upgrade_to_agent")
-async def upgrade_to_agent(
-    data: AgentUpgrade,
-    session: AsyncSession = Depends(get_session),
-    current_user: Optional[TelegramInitData] = Depends(get_current_user_optional),
-):
-    """
-    Превращает покупателя в Агента.
-    
-    Если запрос приходит от аутентифицированного пользователя (Mini App),
-    проверяем что tg_id совпадает с ID пользователя Telegram.
-    """
-    logger.info("Upgrading buyer to agent", tg_id=data.tg_id)
-    
-    # Validate that authenticated user can only upgrade themselves
-    if current_user:
-        verify_user_id(current_user, data.tg_id)
-    
-    service = BuyerService(session)
-    
-    try:
-        result = await service.upgrade_to_agent(
-            tg_id=data.tg_id,
-            fio=data.fio,
-            phone=data.phone,
-            age=data.age,
-            is_self_employed=data.is_self_employed
-        )
-        logger.info("Buyer upgraded to agent", tg_id=data.tg_id)
-        return result
-    except BuyerServiceError as e:
-        logger.warning("Agent upgrade failed", tg_id=data.tg_id, error=e.message)
-        _handle_service_error(e)
-
-
 @router.put("/me/location", response_model=BuyerResponse)
 async def update_location(
     data: LocationUpdate,

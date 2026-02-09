@@ -65,7 +65,6 @@ async def create_order(
             total_price=data.total_price,
             delivery_type=data.delivery_type,
             address=data.address,
-            agent_id=data.agent_id,
         )
         await session.commit()
         logger.info("Order created successfully", order_id=order.id, buyer_id=data.buyer_id)

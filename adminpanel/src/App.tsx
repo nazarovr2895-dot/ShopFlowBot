@@ -4,10 +4,8 @@ import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Sellers } from './pages/Sellers';
-import { Agents } from './pages/Agents';
 import { Stats } from './pages/Stats';
 import { StatsSellers } from './pages/StatsSellers';
-import { StatsAgents } from './pages/StatsAgents';
 import { SellerDashboard } from './pages/seller/SellerDashboard';
 import { SellerOrders } from './pages/seller/SellerOrders';
 import { SellerShop } from './pages/seller/SellerShop';
@@ -53,10 +51,8 @@ function AppRoutes() {
         {isAdmin && (
           <>
             <Route path="sellers" element={<Sellers />} />
-            <Route path="agents" element={<Agents />} />
             <Route path="stats" element={<Stats />} />
             <Route path="stats/sellers" element={<StatsSellers />} />
-            <Route path="stats/agents" element={<StatsAgents />} />
           </>
         )}
         {isSeller && (
