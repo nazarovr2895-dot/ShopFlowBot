@@ -2,9 +2,8 @@
 import os
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 
 router = APIRouter()
 
@@ -19,10 +18,9 @@ if not ADMIN_LOGIN or not ADMIN_PASSWORD or not ADMIN_SECRET:
     print("ERROR: ADMIN_LOGIN, ADMIN_PASSWORD, and ADMIN_SECRET must be set in environment variables", file=sys.stderr)
     sys.exit(1)
 
-# Rate limiter for login endpoint
+# Rate limiter for login endpoint (exception handler is registered on the app in main.py)
 limiter = Limiter(key_func=get_remote_address)
 router.state.limiter = limiter
-router.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 class LoginRequest(BaseModel):
