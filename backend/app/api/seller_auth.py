@@ -9,9 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+from backend.app.core.limiter import limiter
 
 from backend.app.api.deps import get_session
 from backend.app.core.password_utils import verify_password
@@ -32,10 +30,7 @@ if not JWT_SECRET:
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24 * 7  # 7 days
 
-# Rate limiter for login endpoint
-limiter = Limiter(key_func=get_remote_address)
-router.state.limiter = limiter
-router.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Rate limit uses app.state.limiter (set in main.py); exception handler in main.py
 
 
 class SellerLoginRequest(BaseModel):

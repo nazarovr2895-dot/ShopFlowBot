@@ -6,9 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+
+from backend.app.core.limiter import limiter
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -63,8 +64,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FlowShop Backend", lifespan=lifespan)
 
-# Initialize rate limiter
-limiter = Limiter(key_func=get_remote_address)
+# Use shared limiter (routers use the same instance for @limiter.limit)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
