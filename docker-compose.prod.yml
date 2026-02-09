@@ -3,10 +3,18 @@ version: '3.8'
 # Production Docker Compose configuration
 # For horizontal scaling, use: docker-compose -f docker-compose.prod.yml up --scale backend=5
 
+networks:
+  app_net:
+    driver: bridge
+
 services:
   db:
     image: postgres:15
     restart: always
+    networks:
+      app_net:
+        aliases:
+          - db
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_DB: ${DB_NAME}
@@ -32,6 +40,8 @@ services:
       - replica
     image: postgres:15
     restart: always
+    networks:
+      - app_net
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_DB: ${DB_NAME}
@@ -45,6 +55,10 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
+    networks:
+      app_net:
+        aliases:
+          - redis
     volumes:
       - redis_data:/data
     command: >
@@ -65,6 +79,8 @@ services:
       - sentinel
     image: redis:7-alpine
     restart: always
+    networks:
+      - app_net
     command: redis-sentinel /etc/redis/sentinel.conf
     volumes:
       - ./redis-sentinel.conf:/etc/redis/sentinel.conf
@@ -72,6 +88,8 @@ services:
   backend:
     build: ./backend
     restart: always
+    networks:
+      - app_net
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -121,6 +139,8 @@ services:
   nginx:
     image: nginx:alpine
     restart: always
+    networks:
+      - app_net
     ports:
       - "80:80"
       - "443:443"
