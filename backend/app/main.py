@@ -75,9 +75,7 @@ app.add_middleware(PrometheusMiddleware)
 # Use settings for CORS configuration
 ALLOWED_ORIGINS = settings.allowed_origins_list
 # #region agent log
-import json
-with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-    f.write(json.dumps({"id":"log_cors_config","timestamp":int(__import__('time').time()*1000),"location":"main.py:76","message":"CORS configuration","data":{"allowed_origins":ALLOWED_ORIGINS,"is_production":settings.is_production,"raw_allowed_origins":settings.ALLOWED_ORIGINS},"runId":"debug","hypothesisId":"A"})+"\n")
+logger.info("CORS configuration", allowed_origins=ALLOWED_ORIGINS, is_production=settings.is_production, raw_allowed_origins=settings.ALLOWED_ORIGINS, hypothesisId="A")
 # #endregion
 if not ALLOWED_ORIGINS:
     # In production, require ALLOWED_ORIGINS to be set
