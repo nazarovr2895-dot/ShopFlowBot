@@ -10,7 +10,7 @@ interface CachedLocation {
   metro_id?: number;
   delivery_type?: 'delivery' | 'pickup' | 'both';
   sort_price?: 'asc' | 'desc';
-  sort_mode?: string;
+  sort_mode?: 'all_city' | 'nearby';
   free_delivery?: boolean;
   search?: string;
   timestamp: number;

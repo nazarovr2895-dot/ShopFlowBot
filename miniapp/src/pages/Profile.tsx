@@ -6,7 +6,6 @@ import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import './Profile.css';
 
 const PHONE_PREFIX = '+7 ';
-const PHONE_DIGITS_LEN = 10;
 
 function formatPhoneForDisplay(phone: string | undefined): string {
   if (!phone) return '';
