@@ -1,6 +1,6 @@
 """add_active_orders_and_pending_requests
 
-Revision ID: add_active_orders_and_pending_requests
+Revision ID: add_seller_counters
 Revises: add_preorder_custom_dates
 Create Date: 2026-02-10
 
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = 'add_active_orders_and_pending_requests'
+revision: str = 'add_seller_counters'
 down_revision: Union[str, None] = 'add_preorder_custom_dates'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
