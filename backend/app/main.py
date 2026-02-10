@@ -68,15 +68,10 @@ app = FastAPI(title="FlowShop Backend", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Add Prometheus metrics middleware
-app.add_middleware(PrometheusMiddleware)
-
-# CORS middleware для Mini App
+# CORS middleware для Mini App - ДОЛЖЕН БЫТЬ ПЕРВЫМ (выполняется последним при ответе)
 # Use settings for CORS configuration
 ALLOWED_ORIGINS = settings.allowed_origins_list
-# #region agent log
-logger.info("CORS configuration", allowed_origins=ALLOWED_ORIGINS, is_production=settings.is_production, raw_allowed_origins=settings.ALLOWED_ORIGINS, hypothesisId="A")
-# #endregion
+logger.info("CORS configuration", allowed_origins=ALLOWED_ORIGINS, is_production=settings.is_production, raw_allowed_origins=settings.ALLOWED_ORIGINS)
 if not ALLOWED_ORIGINS:
     # In production, require ALLOWED_ORIGINS to be set
     if settings.is_production:
@@ -94,6 +89,9 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
+# Add Prometheus metrics middleware AFTER CORS (выполняется раньше при ответе)
+app.add_middleware(PrometheusMiddleware)
 
 # Подключаем роутеры (части нашего приложения)
 app.include_router(public.router, prefix="/public", tags=["public"])  # Публичный API для Mini App
