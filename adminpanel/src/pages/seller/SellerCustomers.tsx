@@ -305,7 +305,7 @@ export function SellerCustomers() {
               {customerOrders.map((o) => (
                 <li key={o.id}>
                   <Link to={`/orders/${o.id}`}>
-                    Заказ #{o.id} — {o.total_price} ₽ — {ORDER_STATUS_LABELS[o.status] || o.status} — {formatDate(o.created_at)}
+                    Заказ #{o.id} — {o.total_price} ₽ — {ORDER_STATUS_LABELS[o.status] || o.status} — {formatDate(o.created_at ?? null)}
                   </Link>
                 </li>
               ))}

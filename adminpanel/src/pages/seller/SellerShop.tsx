@@ -95,9 +95,9 @@ export function SellerShop() {
     try {
       await updateMe({
         preorder_enabled: preorderEnabled,
-        preorder_schedule_type: preorderEnabled ? preorderScheduleType : null,
-        preorder_weekday: preorderEnabled && preorderScheduleType === 'weekly' ? preorderWeekday : null,
-        preorder_interval_days: preorderEnabled && preorderScheduleType === 'interval_days' ? preorderIntervalDays : null,
+        preorder_schedule_type: preorderEnabled ? preorderScheduleType : undefined,
+        preorder_weekday: preorderEnabled && preorderScheduleType === 'weekly' ? preorderWeekday : undefined,
+        preorder_interval_days: preorderEnabled && preorderScheduleType === 'interval_days' ? preorderIntervalDays : undefined,
         preorder_base_date: preorderEnabled && preorderScheduleType === 'interval_days' && preorderBaseDate ? preorderBaseDate : null,
         preorder_custom_dates: preorderEnabled && preorderScheduleType === 'custom_dates' && preorderCustomDates.length > 0 ? preorderCustomDates : null,
       });

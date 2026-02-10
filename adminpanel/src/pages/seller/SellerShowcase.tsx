@@ -196,7 +196,6 @@ export function SellerShowcase() {
 
   const handleEditNewPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
-    const currentTotal = editKeptPhotoIds.length + editNewPhotoFiles.length;
     const next = editNewPhotoFiles.concat(files).slice(0, Math.max(0, 3 - editKeptPhotoIds.length));
     setEditNewPhotoFiles(next);
     setEditNewPhotoPreviews((prev) => {

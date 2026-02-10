@@ -7,7 +7,6 @@ import {
   createBouquet,
   updateBouquet,
   deleteBouquet,
-  type Flower,
   type BouquetDetail,
   type FlowerStock,
 } from '../../api/sellerClient';
