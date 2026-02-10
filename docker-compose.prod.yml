@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Production Docker Compose configuration
 # For horizontal scaling, use: docker-compose -f docker-compose.prod.yml up --scale backend=5
 
