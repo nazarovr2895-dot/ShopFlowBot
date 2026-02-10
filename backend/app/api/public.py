@@ -4,13 +4,15 @@ Public API endpoints for Mini App
 - Read-only access to public seller data
 - Reference data (cities, districts, metro) is cached in Redis
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from sqlalchemy.sql.expression import func as sql_func
 from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
+import json
+import traceback
 
 from backend.app.api.deps import get_session, get_cache
 from backend.app.models.seller import Seller, City, District, Metro
@@ -96,6 +98,7 @@ class PublicSellersResponse(BaseModel):
 
 @router.get("/sellers", response_model=PublicSellersResponse)
 async def get_public_sellers(
+    request: Request,
     session: AsyncSession = Depends(get_session),
     search: Optional[str] = Query(None, min_length=1, description="Поиск по названию магазина и хештегам"),
     city_id: Optional[int] = Query(None, description="Фильтр по городу"),
@@ -117,7 +120,13 @@ async def get_public_sellers(
     - Лимит на сегодня задан и есть свободные слоты
     - Есть хотя бы один товар в наличии (is_active=True, quantity > 0)
     """
-    now = datetime.utcnow()
+    # #region agent log
+    import time
+    with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"id":"log_endpoint_entry","timestamp":int(time.time()*1000),"location":"public.py:97","message":"Endpoint called","data":{"origin":request.headers.get("origin"),"referer":request.headers.get("referer"),"page":page,"per_page":per_page},"runId":"debug","hypothesisId":"B"})+"\n")
+    # #endregion
+    try:
+        now = datetime.utcnow()
     today = _today_6am_date()
     since_6am = _today_6am_utc()
     
@@ -308,12 +317,24 @@ async def get_public_sellers(
             product_count=row.product_count or 0
         ))
     
-    return PublicSellersResponse(
-        sellers=sellers,
-        total=total,
-        page=page,
-        per_page=per_page
-    )
+        # #region agent log
+        import time
+        with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_endpoint_success","timestamp":int(time.time()*1000),"location":"public.py:311","message":"Endpoint success","data":{"sellers_count":len(sellers),"total":total},"runId":"debug","hypothesisId":"B"})+"\n")
+        # #endregion
+        return PublicSellersResponse(
+            sellers=sellers,
+            total=total,
+            page=page,
+            per_page=per_page
+        )
+    except Exception as e:
+        # #region agent log
+        import time
+        with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_endpoint_error","timestamp":int(time.time()*1000),"location":"public.py:97","message":"Endpoint error","data":{"error_type":type(e).__name__,"error_message":str(e),"traceback":traceback.format_exc()},"runId":"debug","hypothesisId":"C"})+"\n")
+        # #endregion
+        raise
 
 
 @router.get("/sellers/{seller_id}", response_model=PublicSellerDetail)

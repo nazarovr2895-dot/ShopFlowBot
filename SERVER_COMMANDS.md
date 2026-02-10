@@ -8,7 +8,7 @@ ssh yandex-cloud
 # или
 ssh ubuntu@51.250.112.85 -i ~/.ssh/yandex_cloud
 ```
-
+./deploy.sh
 ---
 
 ## Управление Docker Compose
