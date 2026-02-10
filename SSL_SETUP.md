@@ -3,12 +3,15 @@
 ## Предварительные требования
 
 1. **DNS записи настроены** в reg.ru:
+   - `flowshow.ru` → IP вашего сервера (опционально, но рекомендуется)
+   - `www.flowshow.ru` → IP вашего сервера (опционально)
    - `api.flowshow.ru` → IP вашего сервера
    - `admin.flowshow.ru` → IP вашего сервера
    - `app.flowshow.ru` → IP вашего сервера
 
 2. **Проверка DNS** (выполните на своём Mac):
    ```bash
+   dig flowshow.ru +short
    dig api.flowshow.ru +short
    dig admin.flowshow.ru +short
    dig app.flowshow.ru +short
@@ -114,6 +117,15 @@ sudo certbot certonly --standalone \
     --agree-tos \
     --non-interactive
 
+# Получите сертификат для flowshow.ru и www.flowshow.ru (вместе)
+sudo certbot certonly --standalone \
+    --preferred-challenges http \
+    -d flowshow.ru \
+    -d www.flowshow.ru \
+    --email your-email@example.com \
+    --agree-tos \
+    --non-interactive
+
 # Скопируйте сертификаты в нужную директорию
 sudo mkdir -p ~/shopflowbot/nginx/ssl/api.flowshow.ru
 sudo cp /etc/letsencrypt/live/api.flowshow.ru/fullchain.pem ~/shopflowbot/nginx/ssl/api.flowshow.ru/fullchain.pem
@@ -126,6 +138,10 @@ sudo cp /etc/letsencrypt/live/admin.flowshow.ru/privkey.pem ~/shopflowbot/nginx/
 sudo mkdir -p ~/shopflowbot/nginx/ssl/app.flowshow.ru
 sudo cp /etc/letsencrypt/live/app.flowshow.ru/fullchain.pem ~/shopflowbot/nginx/ssl/app.flowshow.ru/fullchain.pem
 sudo cp /etc/letsencrypt/live/app.flowshow.ru/privkey.pem ~/shopflowbot/nginx/ssl/app.flowshow.ru/privkey.pem
+
+sudo mkdir -p ~/shopflowbot/nginx/ssl/flowshow.ru
+sudo cp /etc/letsencrypt/live/flowshow.ru/fullchain.pem ~/shopflowbot/nginx/ssl/flowshow.ru/fullchain.pem
+sudo cp /etc/letsencrypt/live/flowshow.ru/privkey.pem ~/shopflowbot/nginx/ssl/flowshow.ru/privkey.pem
 
 # Измените владельца файлов
 sudo chown -R $USER:$USER ~/shopflowbot/nginx/ssl
@@ -153,19 +169,24 @@ docker compose -f docker-compose.prod.yml restart nginx
 ### 3.3. Проверьте доступность HTTPS
 ```bash
 # На сервере
+curl -I https://flowshow.ru
 curl -I https://api.flowshow.ru/health
 curl -I https://admin.flowshow.ru
 curl -I https://app.flowshow.ru
 
 # Или с вашего Mac
+curl -I https://flowshow.ru
 curl -I https://api.flowshow.ru/health
 ```
 
 Должен вернуться статус `200 OK` или `301 Moved Permanently` (редирект).
 
+**Примечание:** `flowshow.ru` будет редиректить на `app.flowshow.ru` (Mini App).
+
 ### 3.4. Проверьте в браузере
 
 Откройте в браузере:
+- `https://flowshow.ru` (должен редиректить на `app.flowshow.ru`)
 - `https://api.flowshow.ru/health`
 - `https://admin.flowshow.ru`
 - `https://app.flowshow.ru`
@@ -296,6 +317,16 @@ docker compose -f docker-compose.prod.yml logs nginx
 # Проверить SSL сертификат
 openssl s_client -connect api.flowshow.ru:443 -servername api.flowshow.ru
 ```
+
+---
+
+## Важно: поведение корневого домена
+
+**`flowshow.ru`** настроен на редирект на **`app.flowshow.ru`** (Mini App). Это означает:
+- `http://flowshow.ru` → `https://app.flowshow.ru`
+- `https://flowshow.ru` → `https://app.flowshow.ru`
+
+Если вы хотите изменить это поведение (например, редиректить на `admin.flowshow.ru` или проксировать на backend), отредактируйте `nginx/nginx.conf` и измените блок для `flowshow.ru`.
 
 ---
 

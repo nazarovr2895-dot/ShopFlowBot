@@ -35,7 +35,7 @@ echo "📁 Создание директории для SSL сертификат
 mkdir -p nginx/ssl
 
 # 3. Получение сертификатов для каждого домена
-DOMAINS=("api.flowshow.ru" "admin.flowshow.ru" "app.flowshow.ru")
+DOMAINS=("api.flowshow.ru" "admin.flowshow.ru" "app.flowshow.ru" "flowshow.ru")
 EMAIL="${SSL_EMAIL:-your-email@example.com}"
 
 echo ""
@@ -43,34 +43,58 @@ echo "📧 Email для уведомлений Let's Encrypt: $EMAIL"
 echo "   (можно изменить через переменную SSL_EMAIL)"
 echo ""
 
+# Останавливаем nginx контейнер временно (один раз для всех доменов)
+echo "⏸️  Временно останавливаем nginx..."
+docker compose -f docker-compose.prod.yml stop nginx || true
+
 for DOMAIN in "${DOMAINS[@]}"; do
     echo "🔐 Получение сертификата для $DOMAIN..."
     
-    # Certbot в standalone режиме (нужно, чтобы порт 80 был свободен)
-    # Останавливаем nginx контейнер временно
-    echo "   ⏸️  Временно останавливаем nginx..."
-    docker compose -f docker-compose.prod.yml stop nginx || true
-    
-    # Получаем сертификат
-    sudo certbot certonly \
-        --standalone \
-        --preferred-challenges http \
-        -d "$DOMAIN" \
-        --email "$EMAIL" \
-        --agree-tos \
-        --non-interactive \
-        --keep-until-expiring || {
-        echo "❌ Ошибка при получении сертификата для $DOMAIN"
-        docker compose -f docker-compose.prod.yml start nginx || true
-        exit 1
-    }
-    
-    # Копируем сертификаты в нужную директорию
-    echo "   📋 Копирование сертификатов..."
-    sudo mkdir -p "nginx/ssl/$DOMAIN"
-    sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "nginx/ssl/$DOMAIN/fullchain.pem"
-    sudo cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "nginx/ssl/$DOMAIN/privkey.pem"
-    sudo chown -R "$USER:$USER" "nginx/ssl/$DOMAIN"
+    # Для flowshow.ru добавляем www.flowshow.ru в один сертификат
+    if [ "$DOMAIN" = "flowshow.ru" ]; then
+        # Получаем сертификат для flowshow.ru и www.flowshow.ru вместе
+        sudo certbot certonly \
+            --standalone \
+            --preferred-challenges http \
+            -d "flowshow.ru" \
+            -d "www.flowshow.ru" \
+            --email "$EMAIL" \
+            --agree-tos \
+            --non-interactive \
+            --keep-until-expiring || {
+            echo "❌ Ошибка при получении сертификата для $DOMAIN"
+            docker compose -f docker-compose.prod.yml start nginx || true
+            exit 1
+        }
+        
+        # Копируем сертификаты (используем flowshow.ru как базовое имя)
+        echo "   📋 Копирование сертификатов..."
+        sudo mkdir -p "nginx/ssl/flowshow.ru"
+        sudo cp "/etc/letsencrypt/live/flowshow.ru/fullchain.pem" "nginx/ssl/flowshow.ru/fullchain.pem"
+        sudo cp "/etc/letsencrypt/live/flowshow.ru/privkey.pem" "nginx/ssl/flowshow.ru/privkey.pem"
+        sudo chown -R "$USER:$USER" "nginx/ssl/flowshow.ru"
+    else
+        # Для остальных доменов - обычная процедура
+        sudo certbot certonly \
+            --standalone \
+            --preferred-challenges http \
+            -d "$DOMAIN" \
+            --email "$EMAIL" \
+            --agree-tos \
+            --non-interactive \
+            --keep-until-expiring || {
+            echo "❌ Ошибка при получении сертификата для $DOMAIN"
+            docker compose -f docker-compose.prod.yml start nginx || true
+            exit 1
+        }
+        
+        # Копируем сертификаты в нужную директорию
+        echo "   📋 Копирование сертификатов..."
+        sudo mkdir -p "nginx/ssl/$DOMAIN"
+        sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "nginx/ssl/$DOMAIN/fullchain.pem"
+        sudo cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "nginx/ssl/$DOMAIN/privkey.pem"
+        sudo chown -R "$USER:$USER" "nginx/ssl/$DOMAIN"
+    fi
     
     echo "   ✅ Сертификат для $DOMAIN получен и скопирован"
     echo ""
@@ -95,12 +119,21 @@ cd ~/shopflowbot
 sudo certbot renew --quiet
 
 # Копируем обновлённые сертификаты
-DOMAINS=("api.flowshow.ru" "admin.flowshow.ru" "app.flowshow.ru")
+DOMAINS=("api.flowshow.ru" "admin.flowshow.ru" "app.flowshow.ru" "flowshow.ru")
 for DOMAIN in "${DOMAINS[@]}"; do
-    if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-        sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "nginx/ssl/$DOMAIN/fullchain.pem"
-        sudo cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "nginx/ssl/$DOMAIN/privkey.pem"
-        sudo chown -R "$USER:$USER" "nginx/ssl/$DOMAIN"
+    if [ "$DOMAIN" = "flowshow.ru" ]; then
+        # Для flowshow.ru используем то же имя директории
+        if [ -f "/etc/letsencrypt/live/flowshow.ru/fullchain.pem" ]; then
+            sudo cp "/etc/letsencrypt/live/flowshow.ru/fullchain.pem" "nginx/ssl/flowshow.ru/fullchain.pem"
+            sudo cp "/etc/letsencrypt/live/flowshow.ru/privkey.pem" "nginx/ssl/flowshow.ru/privkey.pem"
+            sudo chown -R "$USER:$USER" "nginx/ssl/flowshow.ru"
+        fi
+    else
+        if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+            sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "nginx/ssl/$DOMAIN/fullchain.pem"
+            sudo cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "nginx/ssl/$DOMAIN/privkey.pem"
+            sudo chown -R "$USER:$USER" "nginx/ssl/$DOMAIN"
+        fi
     fi
 done
 
