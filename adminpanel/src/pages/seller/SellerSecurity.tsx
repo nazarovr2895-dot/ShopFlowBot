@@ -11,6 +11,9 @@ export function SellerSecurity() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,14 +73,24 @@ export function SellerSecurity() {
           </div>
           <div className="form-group">
             <label className="form-label">Текущий пароль</label>
-            <input
-              type="password"
-              className="form-input"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showOldPassword ? "text" : "password"}
+                className="form-input"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowOldPassword(!showOldPassword)}
+                aria-label={showOldPassword ? "Скрыть пароль" : "Показать пароль"}
+              >
+                {showOldPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
           <h3 className="form-section-title">Новые данные</h3>
@@ -95,27 +108,47 @@ export function SellerSecurity() {
           </div>
           <div className="form-group">
             <label className="form-label">Новый пароль</label>
-            <input
-              type="password"
-              className="form-input"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={4}
-              autoComplete="new-password"
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                className="form-input"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={4}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                aria-label={showNewPassword ? "Скрыть пароль" : "Показать пароль"}
+              >
+                {showNewPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
           <div className="form-group">
             <label className="form-label">Подтвердите новый пароль</label>
-            <input
-              type="password"
-              className="form-input"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={4}
-              autoComplete="new-password"
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                className="form-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={4}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? "Скрыть пароль" : "Показать пароль"}
+              >
+                {showConfirmPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
           {error && <div className="security-error">{error}</div>}

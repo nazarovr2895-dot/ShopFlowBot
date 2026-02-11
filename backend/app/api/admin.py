@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from backend.app.api.deps import get_session, get_cache
 from backend.app.core.logging import get_logger
@@ -54,6 +54,38 @@ class SellerCreateSchema(BaseModel):
     delivery_type: str
     delivery_price: float = 0.0
     placement_expired_at: Optional[datetime] = None
+    
+    @field_validator('placement_expired_at', mode='before')
+    @classmethod
+    def parse_placement_expired_at(cls, v):
+        """Parse date string in YYYY-MM-DD format to datetime without timezone (database column is TIMESTAMP WITHOUT TIME ZONE)."""
+        if v is None or v == '':
+            return None
+        if isinstance(v, datetime):
+            # Remove timezone if present (database column is TIMESTAMP WITHOUT TIME ZONE)
+            if v.tzinfo is not None:
+                # Convert to UTC first, then remove timezone
+                return v.astimezone(timezone.utc).replace(tzinfo=None)
+            return v
+        if isinstance(v, str):
+            # Handle YYYY-MM-DD format
+            if '-' in v:
+                try:
+                    dt = datetime.strptime(v[:10], "%Y-%m-%d")
+                    return dt  # Return naive datetime (no timezone)
+                except ValueError:
+                    pass
+            # Handle DD.MM.YYYY format
+            if '.' in v:
+                try:
+                    parts = v.split('.')
+                    if len(parts) == 3:
+                        d, m, y = int(parts[0]), int(parts[1]), int(parts[2])
+                        dt = datetime(y, m, d)
+                        return dt  # Return naive datetime (no timezone)
+                except (ValueError, IndexError):
+                    pass
+        return v
 
 
 class SellerUpdateSchema(BaseModel):
@@ -93,30 +125,36 @@ async def get_districts(city_id: int, session: AsyncSession = Depends(get_sessio
 @router.post("/create_seller")
 async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = Depends(get_session)):
     """Создать продавца с полными данными. Автоматически генерирует логин и пароль для веб-панели."""
-    logger.info(
-        "Creating seller",
-        tg_id=data.tg_id,
-        shop_name=data.shop_name,
-        city_id=data.city_id,
-    )
-    service = SellerService(session)
-    result = await service.create_seller(
-        tg_id=data.tg_id,
-        fio=data.fio,
-        phone=data.phone,
-        shop_name=data.shop_name,
-        description=data.description,
-        city_id=data.city_id,
-        district_id=data.district_id,
-        map_url=data.map_url,
-        metro_id=data.metro_id,
-        metro_walk_minutes=data.metro_walk_minutes,
-        delivery_type=data.delivery_type,
-        delivery_price=data.delivery_price,
-        placement_expired_at=data.placement_expired_at,
-    )
-    logger.info("Seller created", tg_id=data.tg_id, shop_name=data.shop_name)
-    return result
+    try:
+        logger.info(
+            "Creating seller",
+            tg_id=data.tg_id,
+            shop_name=data.shop_name,
+            city_id=data.city_id,
+        )
+        service = SellerService(session)
+        result = await service.create_seller(
+            tg_id=data.tg_id,
+            fio=data.fio,
+            phone=data.phone,
+            shop_name=data.shop_name,
+            description=data.description,
+            city_id=data.city_id,
+            district_id=data.district_id,
+            map_url=data.map_url,
+            metro_id=data.metro_id,
+            metro_walk_minutes=data.metro_walk_minutes,
+            delivery_type=data.delivery_type,
+            delivery_price=data.delivery_price,
+            placement_expired_at=data.placement_expired_at,
+        )
+        logger.info("Seller created", tg_id=data.tg_id, shop_name=data.shop_name)
+        return result
+    except SellerServiceError as e:
+        _handle_seller_error(e)
+    except Exception as e:
+        logger.error("Unexpected error creating seller", exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Ошибка при создании продавца: {str(e)}")
 
 
 @router.get("/sellers/search")
