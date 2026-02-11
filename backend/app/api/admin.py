@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, field_validator
 
 from backend.app.api.deps import get_session, get_cache
@@ -15,6 +15,7 @@ from backend.app.services.sellers import (
 )
 from backend.app.services.orders import OrderService
 from backend.app.services.cache import CacheService
+from backend.app.services.dadata import validate_inn
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -41,19 +42,34 @@ def _handle_seller_error(e: SellerServiceError):
 # ============================================
 
 class SellerCreateSchema(BaseModel):
-    tg_id: int
+    tg_id: Optional[int] = None
     fio: str
     phone: str
     shop_name: str
+    inn: Optional[str] = None
     description: Optional[str] = None
     city_id: Optional[int] = None
     district_id: Optional[int] = None
+    address_name: Optional[str] = None
     map_url: Optional[str] = None
     metro_id: Optional[int] = None
     metro_walk_minutes: Optional[int] = None
     delivery_type: str
     delivery_price: float = 0.0
     placement_expired_at: Optional[datetime] = None
+    
+    @field_validator('inn')
+    @classmethod
+    def validate_inn_format(cls, v):
+        """Validate INN format: must be 10 or 12 digits."""
+        if v is None or v == '':
+            return None
+        v_clean = v.strip()
+        if not v_clean.isdigit():
+            raise ValueError('ИНН должен содержать только цифры')
+        if len(v_clean) not in (10, 12):
+            raise ValueError('ИНН должен содержать 10 цифр (для юрлиц) или 12 цифр (для ИП)')
+        return v_clean
     
     @field_validator('placement_expired_at', mode='before')
     @classmethod
@@ -118,13 +134,93 @@ async def get_districts(city_id: int, session: AsyncSession = Depends(get_sessio
     return await service.get_districts(city_id)
 
 
+@router.get("/inn/{inn}")
+async def get_inn_data(inn: str, _token: None = Depends(require_admin_token)):
+    """Получить данные организации по ИНН из DaData API"""
+    try:
+        org_data = await validate_inn(inn)
+        if org_data is None:
+            raise HTTPException(status_code=404, detail="Организация с таким ИНН не найдена")
+        
+        # Extract OKVED codes
+        okved = org_data.get("okved")
+        okveds = org_data.get("okveds")  # Array of additional OKVED codes
+        okved_type = org_data.get("okved_type")
+        
+        # Extract registration date (timestamp in milliseconds)
+        state = org_data.get("state", {})
+        registration_timestamp = state.get("registration_date")
+        registration_date = None
+        if registration_timestamp:
+            # Convert milliseconds to datetime, then to ISO string
+            from datetime import datetime
+            registration_date = datetime.fromtimestamp(registration_timestamp / 1000).isoformat()
+        
+        # Compare OKVED with target codes (47.76 and 47.91)
+        def check_okved_match(code: str, target_codes: list[str]) -> bool:
+            """Check if OKVED code matches any target code (exact or starts with)"""
+            if not code:
+                return False
+            for target in target_codes:
+                if code == target or code.startswith(target + "."):
+                    return True
+            return False
+        
+        matches_47_76 = False
+        matches_47_91 = False
+        
+        if okved:
+            matches_47_76 = check_okved_match(okved, ["47.76"])
+            matches_47_91 = check_okved_match(okved, ["47.91"])
+        
+        # Check additional OKVED codes
+        if okveds and isinstance(okveds, list):
+            for additional_okved in okveds:
+                if isinstance(additional_okved, str):
+                    if not matches_47_76:
+                        matches_47_76 = check_okved_match(additional_okved, ["47.76"])
+                    if not matches_47_91:
+                        matches_47_91 = check_okved_match(additional_okved, ["47.91"])
+        
+        # Extract relevant fields from DaData response
+        result = {
+            "inn": org_data.get("inn"),
+            "kpp": org_data.get("kpp"),
+            "ogrn": org_data.get("ogrn"),
+            "name": org_data.get("name", {}).get("full_with_opf") or org_data.get("name", {}).get("short_with_opf") or org_data.get("name", {}).get("full") or "",
+            "short_name": org_data.get("name", {}).get("short") or "",
+            "type": org_data.get("type"),  # LEGAL or INDIVIDUAL
+            "address": org_data.get("address", {}).get("value") or "",
+            "management": org_data.get("management", {}).get("name") if org_data.get("management") else None,
+            "state": {
+                "status": state.get("status"),
+                "actuality_date": state.get("actuality_date"),
+            },
+            "okved": okved,
+            "okveds": okveds if okveds else None,
+            "okved_type": okved_type,
+            "registration_date": registration_date,
+            "okved_match": {
+                "matches_47_76": matches_47_76,
+                "matches_47_91": matches_47_91,
+                "main_okved": okved or "",
+            }
+        }
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error fetching INN data: {e}", exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении данных ИНН: {str(e)}")
+
+
 # ============================================
 # УПРАВЛЕНИЕ ПРОДАВЦАМИ
 # ============================================
 
 @router.post("/create_seller")
 async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = Depends(get_session)):
-    """Создать продавца с полными данными. Автоматически генерирует логин и пароль для веб-панели."""
+    """Создать продавца с полными данными. Автоматически генерирует ID, логин и пароль для веб-панели."""
     try:
         logger.info(
             "Creating seller",
@@ -138,9 +234,11 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
             fio=data.fio,
             phone=data.phone,
             shop_name=data.shop_name,
+            inn=data.inn,
             description=data.description,
             city_id=data.city_id,
             district_id=data.district_id,
+            address_name=data.address_name,
             map_url=data.map_url,
             metro_id=data.metro_id,
             metro_walk_minutes=data.metro_walk_minutes,
@@ -148,7 +246,8 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
             delivery_price=data.delivery_price,
             placement_expired_at=data.placement_expired_at,
         )
-        logger.info("Seller created", tg_id=data.tg_id, shop_name=data.shop_name)
+        created_tg_id = result.get("tg_id") or data.tg_id
+        logger.info("Seller created", tg_id=created_tg_id, shop_name=data.shop_name)
         return result
     except SellerServiceError as e:
         _handle_seller_error(e)

@@ -10,11 +10,18 @@ from sqlalchemy.orm import defer
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
+import time
+import secrets
+import string
 
 from backend.app.models.seller import Seller, City, District
 from backend.app.models.user import User
 from backend.app.models.order import Order
 from backend.app.core.password_utils import hash_password, verify_password
+from backend.app.core.logging import get_logger
+from backend.app.services.dadata import validate_inn
+
+logger = get_logger(__name__)
 
 # Московское время, «день» начинается в 6:00
 LIMIT_TIMEZONE = ZoneInfo("Europe/Moscow")
@@ -282,13 +289,15 @@ class SellerService:
     
     async def create_seller(
         self,
-        tg_id: int,
-        fio: str,
-        phone: str,
-        shop_name: str,
+        tg_id: Optional[int] = None,
+        fio: str = "",
+        phone: str = "",
+        shop_name: str = "",
+        inn: Optional[str] = None,
         description: Optional[str] = None,
         city_id: Optional[int] = None,
         district_id: Optional[int] = None,
+        address_name: Optional[str] = None,
         map_url: Optional[str] = None,
         metro_id: Optional[int] = None,
         metro_walk_minutes: Optional[int] = None,
@@ -298,12 +307,23 @@ class SellerService:
     ) -> Dict[str, Any]:
         """
         Create a new seller with associated user record.
-        Web credentials auto-generated: login=Seller{tg_id}, password={tg_id}.
+        If tg_id is not provided, generates a unique ID based on timestamp.
+        Web credentials auto-generated: login=Seller{tg_id}, password={random}.
         
         Returns:
-            {"status": "ok", "web_login": str, "web_password": str} on success
+            {"status": "ok", "web_login": str, "web_password": str, "tg_id": int} on success
             {"status": "exists"} if seller exists
         """
+        # Generate tg_id if not provided
+        if tg_id is None:
+            # Use timestamp-based ID: current timestamp in milliseconds
+            # Add random component to avoid collisions
+            timestamp_ms = int(time.time() * 1000)
+            random_component = secrets.randbelow(1000)
+            tg_id = timestamp_ms * 1000 + random_component
+            # Ensure it's positive and fits in BigInteger range
+            tg_id = abs(tg_id) % (2**63 - 1)
+        
         # Check if seller already exists
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == tg_id)
@@ -342,16 +362,40 @@ class SellerService:
         if metro_id is not None and metro_walk_minutes is not None and metro_walk_minutes <= 0:
             raise SellerServiceError("Время до метро должно быть больше 0 минут")
         
-        # Auto web credentials: login=Seller{tg_id}, password={tg_id}
+        # Validate INN through DaData API if provided
+        if inn:
+            try:
+                org_data = await validate_inn(inn)
+                if org_data is None:
+                    raise SellerServiceError("Организация с таким ИНН не найдена в базе DaData")
+            except ValueError as e:
+                # ValueError from validate_inn contains user-friendly message
+                raise SellerServiceError(str(e))
+            except Exception as e:
+                # Log unexpected errors but provide user-friendly message
+                logger.error(f"Error validating INN {inn}: {e}", exc_info=e)
+                raise SellerServiceError("Ошибка при проверке ИНН. Попробуйте позже или обратитесь к администратору.")
+        
+        # Combine address_name with description if provided
+        final_description = description or ""
+        if address_name:
+            if final_description:
+                final_description = f"{address_name}\n\n{final_description}"
+            else:
+                final_description = address_name
+        
+        # Auto web credentials: login=Seller{tg_id}, password=random
         web_login = f"Seller{tg_id}"
-        web_password = str(tg_id)
+        # Generate random password (12 characters: letters and digits)
+        web_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
         password_hash = hash_password(web_password)
 
         # Create seller
         new_seller = Seller(
             seller_id=tg_id,
             shop_name=shop_name,
-            description=description,
+            inn=inn,
+            description=final_description,
             city_id=city_id,
             district_id=district_id,
             map_url=map_url,
@@ -370,7 +414,7 @@ class SellerService:
         self.session.add(new_seller)
         
         await self.session.commit()
-        return {"status": "ok", "web_login": web_login, "web_password": web_password}
+        return {"status": "ok", "web_login": web_login, "web_password": web_password, "tg_id": tg_id}
     
     async def _ensure_city_exists(self, city_id: Optional[int]) -> None:
         """Ensure city record exists."""

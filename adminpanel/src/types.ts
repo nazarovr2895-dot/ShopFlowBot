@@ -3,6 +3,7 @@ export interface Seller {
   fio: string
   phone?: string
   shop_name: string
+  inn?: string
   description?: string
   city_id?: number
   district_id?: number

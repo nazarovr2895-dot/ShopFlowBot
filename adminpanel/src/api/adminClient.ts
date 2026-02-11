@@ -45,6 +45,34 @@ export async function searchMetro(query: string): Promise<MetroStation[]> {
   return res.ok ? res.json() : [];
 }
 
+export interface InnData {
+  inn: string;
+  kpp?: string;
+  ogrn?: string;
+  name: string;
+  short_name?: string;
+  type: string;
+  address: string;
+  management?: string;
+  state: {
+    status: string;
+    actuality_date?: number;
+  };
+  okved?: string;
+  okveds?: string[];
+  okved_type?: string;
+  registration_date?: string;
+  okved_match?: {
+    matches_47_76: boolean;
+    matches_47_91: boolean;
+    main_okved: string;
+  };
+}
+
+export async function getInnData(inn: string): Promise<InnData> {
+  return fetchAdmin<InnData>(`/admin/inn/${encodeURIComponent(inn)}`);
+}
+
 // Sellers
 export async function createSeller(data: Record<string, unknown>): Promise<{ status?: string }> {
   return fetchAdmin('/admin/create_seller', {

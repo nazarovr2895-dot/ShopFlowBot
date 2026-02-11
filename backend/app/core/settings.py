@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     BOT_USERNAME: Optional[str] = Field(default=None, description="Telegram bot username")
     MASTER_ADMIN_ID: Optional[int] = Field(default=None, description="Master admin Telegram ID")
     
+    # DaData API configuration
+    DADATA_API_KEY: Optional[str] = Field(default=None, description="DaData API key for INN validation")
+    
     # Database pool configuration
     DB_POOL_SIZE: int = Field(default=50, description="Database connection pool size")
     DB_MAX_OVERFLOW: int = Field(default=100, description="Database max overflow connections")

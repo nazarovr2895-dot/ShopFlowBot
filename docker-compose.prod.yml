@@ -104,6 +104,7 @@ services:
       - ADMIN_SECRET=${ADMIN_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - BOT_TOKEN=${BOT_TOKEN}
+      - DADATA_API_KEY=${DADATA_API_KEY}
       - ENVIRONMENT=production
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - WORKERS=${WORKERS:-4}

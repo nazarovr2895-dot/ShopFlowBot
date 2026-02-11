@@ -10,6 +10,8 @@ import {
   searchMetro,
   getSellerWebCredentials,
   setSellerWebCredentials,
+  getInnData,
+  type InnData,
 } from '../api/adminClient';
 import type { Seller, MetroStation } from '../types';
 import './Sellers.css';
@@ -64,12 +66,61 @@ function placementExpiredToISO(value: string): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString().slice(0, 10);
 }
 
+/** Форматирование телефона: "+7 000 000 00 00" */
+function formatPhoneInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  let num = digits;
+  if (num.startsWith('8')) num = '7' + num.slice(1);
+  else if (!num.startsWith('7')) num = '7' + num;
+  num = num.slice(0, 11);
+  if (num.length <= 1) return '+7';
+  if (num.length <= 4) return `+7 ${num.slice(1)}`;
+  if (num.length <= 7) return `+7 ${num.slice(1, 4)} ${num.slice(4)}`;
+  if (num.length <= 9) return `+7 ${num.slice(1, 4)} ${num.slice(4, 7)} ${num.slice(7)}`;
+  return `+7 ${num.slice(1, 4)} ${num.slice(4, 7)} ${num.slice(7, 9)} ${num.slice(9, 11)}`;
+}
+
+/** Из отображаемого значения в цифры для API (7 + 10 цифр) */
+function phoneToDigits(display: string): string {
+  const digits = display.replace(/\D/g, '');
+  if (digits.startsWith('8')) return '7' + digits.slice(1, 11);
+  if (digits.startsWith('7')) return digits.slice(0, 11);
+  return ('7' + digits).slice(0, 11);
+}
+
+/** Форматирование даты: "ДД.ММ.ГГГГ" */
+function formatDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4, 8)}`;
+}
+
+/** Форматирование ISO даты в ДД.ММ.ГГГГ */
+function formatISODate(isoDate: string | undefined): string {
+  if (!isoDate) return '—';
+  try {
+    const d = new Date(isoDate);
+    if (Number.isNaN(d.getTime())) return '—';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+  } catch {
+    return isoDate;
+  }
+}
+
 export function Sellers() {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showInnVerification, setShowInnVerification] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
+  const [innData, setInnData] = useState<{ inn: string; data: InnData } | null>(null);
 
   const loadSellers = async () => {
     setLoading(true);
@@ -95,7 +146,7 @@ export function Sellers() {
     <div className="sellers-page">
       <div className="page-header">
         <h1 className="page-title">Продавцы</h1>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+        <button className="btn btn-primary" onClick={() => setShowInnVerification(true)}>
           ➕ Добавить продавца
         </button>
       </div>
@@ -163,13 +214,32 @@ export function Sellers() {
         </div>
       )}
 
+      {showInnVerification && (
+        <InnVerificationModal
+          onClose={() => {
+            setShowInnVerification(false);
+            setInnData(null);
+          }}
+          onNext={(inn, data) => {
+            setInnData({ inn, data });
+            setShowInnVerification(false);
+            setShowAdd(true);
+          }}
+        />
+      )}
       {showAdd && (
         <AddSellerModal
-          onClose={() => setShowAdd(false)}
+          onClose={() => {
+            setShowAdd(false);
+            setInnData(null);
+          }}
           onSuccess={() => {
             setShowAdd(false);
+            setInnData(null);
             loadSellers();
           }}
+          initialInn={innData?.inn}
+          initialInnData={innData?.data}
         />
       )}
       {selectedSeller && (
@@ -186,47 +256,313 @@ export function Sellers() {
   );
 }
 
+function InnVerificationModal({
+  onClose,
+  onNext,
+}: {
+  onClose: () => void;
+  onNext: (inn: string, innData: InnData) => void;
+}) {
+  const [inn, setInn] = useState('');
+  const [innError, setInnError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [innData, setInnData] = useState<InnData | null>(null);
+  const [error, setError] = useState('');
+
+  const validateInn = (value: string): string => {
+    if (!value.trim()) return '';
+    const clean = value.trim().replace(/\s/g, '');
+    if (!/^\d+$/.test(clean)) {
+      return 'ИНН должен содержать только цифры';
+    }
+    if (clean.length !== 10 && clean.length !== 12) {
+      return 'ИНН должен содержать 10 цифр (для юрлиц) или 12 цифр (для ИП)';
+    }
+    return '';
+  };
+
+  const handleInnChange = (value: string) => {
+    setInn(value);
+    setInnError(validateInn(value));
+    setInnData(null);
+    setError('');
+  };
+
+  const handleGetData = async () => {
+    setError('');
+    const validationError = validateInn(inn);
+    if (validationError) {
+      setInnError(validationError);
+      return;
+    }
+    setInnError('');
+    setLoading(true);
+    try {
+      const cleanInn = inn.trim().replace(/\s/g, '');
+      const data = await getInnData(cleanInn);
+      setInnData(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка при получении данных');
+      setInnData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (!innData) {
+      setError('Сначала получите данные по ИНН');
+      return;
+    }
+    onNext(inn.trim().replace(/\s/g, ''), innData);
+  };
+
+  return (
+    <Modal title="Проверка ИНН" onClose={onClose}>
+      <div>
+        <div className="form-group">
+          <label className="form-label">ИНН *</label>
+          <input
+            type="text"
+            className={`form-input ${innError ? 'error' : ''}`}
+            value={inn}
+            onChange={(e) => handleInnChange(e.target.value)}
+            placeholder="10 или 12 цифр"
+            maxLength={12}
+            onKeyDown={(e) => e.key === 'Enter' && !loading && handleGetData()}
+          />
+          {innError && <div className="form-error">{innError}</div>}
+          <small className="form-hint">ИНН организации или ИП (10 цифр для юрлиц, 12 для ИП)</small>
+        </div>
+
+        <div className="modal-actions" style={{ marginTop: '1rem' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleGetData}
+            disabled={loading || !!innError || !inn.trim()}
+          >
+            {loading ? 'Загрузка...' : 'Получить данные'}
+          </button>
+        </div>
+
+        {error && <div className="modal-error" style={{ marginTop: '1rem' }}>{error}</div>}
+
+        {innData && (
+          <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', color: '#0070e0' }}>Данные организации</h4>
+            <div className="seller-info-grid">
+              <div className="info-row">
+                <span className="info-label">Название</span>
+                <span className="info-value" style={{ color: '#0070e0' }}>{innData.name}</span>
+              </div>
+              {innData.short_name && (
+                <div className="info-row">
+                  <span className="info-label">Краткое название</span>
+                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.short_name}</span>
+                </div>
+              )}
+              <div className="info-row">
+                <span className="info-label">ИНН</span>
+                <span className="info-value" style={{ color: '#0070e0' }}>{innData.inn}</span>
+              </div>
+              {innData.kpp && (
+                <div className="info-row">
+                  <span className="info-label">КПП</span>
+                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.kpp}</span>
+                </div>
+              )}
+              {innData.ogrn && (
+                <div className="info-row">
+                  <span className="info-label">ОГРН</span>
+                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.ogrn}</span>
+                </div>
+              )}
+              <div className="info-row">
+                <span className="info-label">Тип</span>
+                <span className="info-value" style={{ color: '#0070e0' }}>{innData.type === 'LEGAL' ? 'Юридическое лицо' : 'Индивидуальный предприниматель'}</span>
+              </div>
+              {innData.address && (
+                <div className="info-row">
+                  <span className="info-label">Адрес</span>
+                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.address}</span>
+                </div>
+              )}
+              {innData.management && (
+                <div className="info-row">
+                  <span className="info-label">Руководитель</span>
+                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.management}</span>
+                </div>
+              )}
+              {innData.registration_date && (
+                <div className="info-row">
+                  <span className="info-label">Дата регистрации</span>
+                  <span className="info-value" style={{ color: '#0070e0' }}>{formatISODate(innData.registration_date)}</span>
+                </div>
+              )}
+              {innData.okved && (
+                <div className="info-row">
+                  <span className="info-label">ОКВЭД {innData.okved_type ? `(${innData.okved_type})` : ''}</span>
+                  <span className="info-value" style={{ color: '#0070e0' }}>
+                    <strong>{innData.okved}</strong>
+                    {innData.okveds && innData.okveds.length > 0 && (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.9em', color: '#0070e0', opacity: 0.8 }}>
+                        Дополнительные: {innData.okveds.join(', ')}
+                      </div>
+                    )}
+                  </span>
+                </div>
+              )}
+              {innData.okved_match && (
+                <div className="info-row">
+                  <span className="info-label">Соответствие ОКВЭД</span>
+                  <span className="info-value" style={{ color: '#0070e0' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ 
+                          display: 'inline-block', 
+                          width: '12px', 
+                          height: '12px', 
+                          borderRadius: '50%', 
+                          backgroundColor: innData.okved_match.matches_47_76 ? '#28a745' : '#dc3545' 
+                        }}></span>
+                        <span style={{ color: '#0070e0' }}>47.76 (Торговля розничная цветами и другими растениями, семенами и удобрениями в специализированных магазинах)</span>
+                        {innData.okved_match.matches_47_76 && (
+                          <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Совпадает</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ 
+                          display: 'inline-block', 
+                          width: '12px', 
+                          height: '12px', 
+                          borderRadius: '50%', 
+                          backgroundColor: innData.okved_match.matches_47_91 ? '#28a745' : '#dc3545' 
+                        }}></span>
+                        <span style={{ color: '#0070e0' }}>47.91 (Торговля розничная по почте или по информационно-коммуникационной сети Интернет)</span>
+                        {innData.okved_match.matches_47_91 && (
+                          <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Совпадает</span>
+                        )}
+                      </div>
+                    </div>
+                  </span>
+                </div>
+              )}
+              <div className="info-row">
+                <span className="info-label">Статус</span>
+                <span className="info-value">
+                  <span className="badge badge-success">Активна</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Отмена
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleNext}
+            disabled={!innData}
+          >
+            Далее
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function AddSellerModal({
   onClose,
   onSuccess,
+  initialInn,
+  initialInnData,
 }: {
   onClose: () => void;
   onSuccess: () => void;
+  initialInn?: string;
+  initialInnData?: InnData;
 }) {
   const [fio, setFio] = useState('');
-  const [tgId, setTgId] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneDisplay, setPhoneDisplay] = useState('');
   const [shopName, setShopName] = useState('');
+  const [inn] = useState(initialInn || '');
   const [description, setDescription] = useState('');
   const [districtId, setDistrictId] = useState(1);
-  const [mapUrl, setMapUrl] = useState('');
+  const [addressName, setAddressName] = useState('');
+  const [addressLink, setAddressLink] = useState('');
   const [deliveryType, setDeliveryType] = useState('both');
   const [deliveryPrice, setDeliveryPrice] = useState('0');
-  const [expiryDate, setExpiryDate] = useState('');
+  const [expiryDateDisplay, setExpiryDateDisplay] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [credentials, setCredentials] = useState<{ web_login: string; web_password: string } | null>(null);
 
+  useEffect(() => {
+    if (initialInnData) {
+      // Pre-fill shop name from INN data if available
+      if (initialInnData.name && !shopName) {
+        setShopName(initialInnData.short_name || initialInnData.name);
+      }
+      // Pre-fill address name from INN data if available
+      if (initialInnData.address && !addressName) {
+        setAddressName(initialInnData.address);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialInnData]);
+
+  const handlePhoneChange = (value: string) => {
+    const formatted = formatPhoneInput(value);
+    setPhoneDisplay(formatted);
+  };
+
+  const handleDateChange = (value: string) => {
+    const formatted = formatDateInput(value);
+    setExpiryDateDisplay(formatted);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate phone
+    const phoneDigits = phoneToDigits(phoneDisplay);
+    if (phoneDigits.length !== 11) {
+      setError('Введите номер телефона в формате +7 000 000 00 00');
+      return;
+    }
+
+    // Validate date format if provided
+    if (expiryDateDisplay && expiryDateDisplay.length !== 10) {
+      setError('Введите дату в формате ДД.ММ.ГГГГ');
+      return;
+    }
+    
     setSubmitting(true);
     setCredentials(null);
     try {
       const payload: Record<string, unknown> = {
-        tg_id: parseInt(tgId, 10),
         fio,
-        phone,
+        phone: phoneDigits,
         shop_name: shopName,
         description: description || undefined,
         city_id: 1,
         district_id: districtId,
-        map_url: mapUrl || undefined,
+        address_name: addressName || undefined,
+        map_url: addressLink || undefined,
         delivery_type: deliveryType,
         delivery_price: parseFloat(deliveryPrice) || 0,
       };
-      if (expiryDate) {
-        const [d, m, y] = expiryDate.split('.');
+      if (inn.trim()) {
+        payload.inn = inn.trim().replace(/\s/g, '');
+      }
+      if (expiryDateDisplay) {
+        const [d, m, y] = expiryDateDisplay.split('.');
         if (d && m && y) payload.placement_expired_at = `${y}-${m}-${d}`;
       }
       const res = await createSeller(payload) as { status?: string; web_login?: string; web_password?: string };
@@ -238,7 +574,7 @@ function AddSellerModal({
           onClose();
         }
       } else if (res?.status === 'exists') {
-        setError('Продавец с таким Telegram ID уже существует.');
+        setError('Продавец уже существует.');
       } else {
         setError('Ошибка создания. Проверьте данные.');
       }
@@ -280,9 +616,32 @@ function AddSellerModal({
         </div>
       ) : (
       <form onSubmit={handleSubmit}>
+        {inn && (
+          <div className="form-group">
+            <label className="form-label">ИНН</label>
+            <input
+              type="text"
+              className="form-input"
+              value={inn}
+              disabled
+            />
+            <small className="form-hint">ИНН проверен на предыдущем шаге</small>
+          </div>
+        )}
         <FormRow label="ФИО" value={fio} onChange={setFio} required />
-        <FormRow label="Telegram ID" value={tgId} onChange={setTgId} required type="number" />
-        <FormRow label="Телефон" value={phone} onChange={setPhone} required />
+        <div className="form-group">
+          <label className="form-label">Телефон *</label>
+          <input
+            type="tel"
+            className="form-input"
+            value={phoneDisplay}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            placeholder="+7 000 000 00 00"
+            maxLength={17}
+            required
+          />
+          <small className="form-hint">Формат: +7 000 000 00 00</small>
+        </div>
         <FormRow label="Название магазина" value={shopName} onChange={setShopName} required />
         <FormRow label="Описание" value={description} onChange={setDescription} textarea />
         <FormRow label="Округ" render={
@@ -292,7 +651,8 @@ function AddSellerModal({
             ))}
           </select>
         } />
-        <FormRow label="Адрес (Яндекс.Карты)" value={mapUrl} onChange={setMapUrl} />
+        <FormRow label="Название адреса" value={addressName} onChange={setAddressName} />
+        <FormRow label="Ссылка на адрес (Яндекс.Карты)" value={addressLink} onChange={setAddressLink} />
         <FormRow label="Тип доставки" render={
           <select className="form-input" value={deliveryType} onChange={(e) => setDeliveryType(e.target.value)}>
             {DELIVERY_TYPES.map((t) => (
@@ -301,7 +661,32 @@ function AddSellerModal({
           </select>
         } />
         <FormRow label="Стоимость доставки (₽)" value={deliveryPrice} onChange={setDeliveryPrice} type="number" />
-        <FormRow label="Дата окончания размещения (ДД.ММ.ГГГГ)" value={expiryDate} onChange={setExpiryDate} />
+        <div className="form-group">
+          <label className="form-label">Дата окончания размещения</label>
+          <input
+            type="text"
+            className="form-input"
+            value={expiryDateDisplay}
+            onChange={(e) => handleDateChange(e.target.value)}
+            placeholder="ДД.ММ.ГГГГ"
+            maxLength={10}
+          />
+          <small className="form-hint">Формат: ДД.ММ.ГГГГ или выберите дату</small>
+          <input
+            type="date"
+            className="form-input"
+            style={{ marginTop: '0.5rem' }}
+            onChange={(e) => {
+              if (e.target.value) {
+                const date = new Date(e.target.value);
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                setExpiryDateDisplay(`${day}.${month}.${year}`);
+              }
+            }}
+          />
+        </div>
         {error && <div className="modal-error">{error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button>
