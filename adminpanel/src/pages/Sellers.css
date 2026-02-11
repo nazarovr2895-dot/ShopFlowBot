@@ -341,3 +341,70 @@
   font-size: 0.9rem;
   word-break: break-all;
 }
+
+.info-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-section:last-of-type {
+  border-bottom: none;
+}
+
+.info-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edit-icon {
+  display: inline-block;
+  margin-right: 0.25rem;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.info-row {
+  display: flex;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  flex: 0 0 180px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.info-value {
+  flex: 1;
+  font-size: 0.9375rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+}
+
+.info-value .form-input {
+  width: 100%;
+  max-width: 400px;
+}
+
+.info-value textarea.form-input {
+  min-height: 80px;
+  resize: vertical;
+}

@@ -711,7 +711,7 @@ function SellerDetailsModal({
   onSuccess: () => void;
   onUpdate: (seller: Seller) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'info' | 'edit' | 'manage'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'manage'>('info');
   const [limit, setLimit] = useState(String(seller.max_orders ?? ''));
   const [manageExpiryDate, setManageExpiryDate] = useState(formatPlacementExpired(seller.placement_expired_at));
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -722,29 +722,43 @@ function SellerDetailsModal({
   const [currentCredentials, setCurrentCredentials] = useState<{ web_login: string | null; web_password: string | null } | null>(null);
   const [credentialsLoading, setCredentialsLoading] = useState(false);
 
-  // Edit state
-  const [editField, setEditField] = useState('');
-  const [editValue, setEditValue] = useState('');
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedFields, setEditedFields] = useState<Record<string, string>>({});
+  
+  // INN data state
+  const [innData, setInnData] = useState<InnData | null>(null);
+  const [loadingInnData, setLoadingInnData] = useState(false);
+
+  // Metro search state (for edit mode)
   const [metroQuery, setMetroQuery] = useState('');
   const [metroResults, setMetroResults] = useState<MetroStation[]>([]);
   const [metroSearching, setMetroSearching] = useState(false);
   const [metroDropdownOpen, setMetroDropdownOpen] = useState(false);
 
-  const fields = [
-    { id: 'fio', label: 'ФИО' },
-    { id: 'phone', label: 'Телефон' },
-    { id: 'shop_name', label: 'Название магазина' },
-    { id: 'description', label: 'Описание' },
-    { id: 'map_url', label: 'Адрес' },
-    { id: 'metro_id', label: 'Станция метро' },
-    { id: 'metro_walk_minutes', label: 'Время до метро (мин)' },
-    { id: 'delivery_type', label: 'Тип доставки' },
-    { id: 'delivery_price', label: 'Стоимость доставки' },
-    { id: 'placement_expired_at', label: 'Дата окончания размещения (ДД.ММ.ГГГГ)' },
-  ];
-
+  // Load INN data when modal opens
   useEffect(() => {
-    if (editField !== 'metro_id' || metroQuery.trim().length < 2) {
+    if (seller.inn) {
+      setLoadingInnData(true);
+      getInnData(seller.inn)
+        .then((data) => {
+          setInnData(data);
+        })
+        .catch((err) => {
+          console.error('Failed to load INN data:', err);
+          setInnData(null);
+        })
+        .finally(() => {
+          setLoadingInnData(false);
+        });
+    } else {
+      setInnData(null);
+    }
+  }, [seller.inn]);
+
+  // Metro search for edit mode
+  useEffect(() => {
+    if (!isEditMode || metroQuery.trim().length < 2) {
       setMetroResults([]);
       return;
     }
@@ -757,7 +771,7 @@ function SellerDetailsModal({
       }
     }).finally(() => { if (!cancelled) setMetroSearching(false); });
     return () => { cancelled = true; };
-  }, [editField, metroQuery]);
+  }, [isEditMode, metroQuery]);
 
   useEffect(() => {
     setManageExpiryDate(formatPlacementExpired(seller.placement_expired_at));
@@ -771,22 +785,30 @@ function SellerDetailsModal({
     }
   }, [activeTab, seller.tg_id]);
 
+  // Initialize editedFields when entering edit mode
   useEffect(() => {
-    if (!editField) return;
-    const raw =
-      editField === 'metro_id' ? seller.metro_id
-      : editField === 'metro_walk_minutes' ? seller.metro_walk_minutes
-      : editField === 'fio' ? seller.fio
-      : editField === 'phone' ? seller.phone
-      : editField === 'shop_name' ? seller.shop_name
-      : editField === 'description' ? seller.description
-      : editField === 'map_url' ? seller.map_url
-      : editField === 'delivery_type' ? seller.delivery_type
-      : editField === 'delivery_price' ? seller.delivery_price
-      : editField === 'placement_expired_at' ? formatPlacementExpired(seller.placement_expired_at)
-      : undefined;
-    setEditValue(raw !== undefined && raw !== null ? String(raw) : '');
-  }, [editField, seller]);
+    if (isEditMode) {
+      const initialFields: Record<string, string> = {
+        fio: seller.fio || '',
+        phone: seller.phone || '',
+        shop_name: seller.shop_name || '',
+        description: seller.description || '',
+        district_id: seller.district_id ? String(seller.district_id) : '1',
+        map_url: seller.map_url || '',
+        metro_id: seller.metro_id ? String(seller.metro_id) : '',
+        metro_walk_minutes: seller.metro_walk_minutes ? String(seller.metro_walk_minutes) : '',
+        delivery_type: seller.delivery_type || 'both',
+        delivery_price: seller.delivery_price ? String(seller.delivery_price) : '0',
+        placement_expired_at: formatPlacementExpired(seller.placement_expired_at),
+      };
+      setEditedFields(initialFields);
+      setMetroQuery(''); // Reset metro query when entering edit mode
+    } else {
+      setEditedFields({});
+      setMetroQuery('');
+      setMetroDropdownOpen(false);
+    }
+  }, [isEditMode, seller]);
 
   const showMessage = (text: string, type: 'error' | 'success' = 'error') => {
     setMsg(text);
@@ -796,31 +818,89 @@ function SellerDetailsModal({
     }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editField) return;
+  const handleFieldChange = (field: string, value: string) => {
+    setEditedFields(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveAll = async () => {
     setLoading(true);
     setMsg('');
     try {
-      const res = await updateSellerField(seller.tg_id, editField, editValue);
-      if (res?.status === 'ok') {
-        showMessage('Поле обновлено', 'success');
-        const newValue = editField === 'placement_expired_at'
-          ? (editValue?.trim() ? placementExpiredToISO(editValue) : undefined)
-          : editValue;
-        const updatedSeller = { ...seller, [editField]: newValue };
-        onUpdate(updatedSeller);
-        onSuccess();
-        setEditField('');
-        setEditValue('');
-      } else {
-        showMessage('Ошибка обновления');
+      const updates: Promise<{ status?: string }>[] = [];
+      
+      for (const [field, value] of Object.entries(editedFields)) {
+        const originalValue = 
+          field === 'fio' ? seller.fio
+          : field === 'phone' ? seller.phone
+          : field === 'shop_name' ? seller.shop_name
+          : field === 'description' ? seller.description
+          : field === 'district_id' ? seller.district_id
+          : field === 'map_url' ? seller.map_url
+          : field === 'metro_id' ? seller.metro_id
+          : field === 'metro_walk_minutes' ? seller.metro_walk_minutes
+          : field === 'delivery_type' ? seller.delivery_type
+          : field === 'delivery_price' ? seller.delivery_price
+          : field === 'placement_expired_at' ? formatPlacementExpired(seller.placement_expired_at)
+          : undefined;
+        
+        const stringOriginal = originalValue !== undefined && originalValue !== null ? String(originalValue) : '';
+        const stringValue = value || '';
+        
+        // Normalize phone for comparison
+        if (field === 'phone') {
+          const originalDigits = phoneToDigits(stringOriginal);
+          const newDigits = phoneToDigits(stringValue);
+          if (originalDigits !== newDigits) {
+            updates.push(updateSellerField(seller.tg_id, field, newDigits));
+          }
+        } else if (stringValue !== stringOriginal) {
+          updates.push(updateSellerField(seller.tg_id, field, stringValue));
+        }
       }
+
+      if (updates.length === 0) {
+        setIsEditMode(false);
+        return;
+      }
+
+      const results = await Promise.all(updates);
+      const hasErrors = results.some(r => r?.status !== 'ok' && r?.status !== undefined);
+      
+      if (hasErrors) {
+        showMessage('Некоторые поля не удалось сохранить');
+      } else {
+        showMessage('Изменения сохранены', 'success');
+      }
+      
+      setIsEditMode(false);
+      onSuccess();
+      
+      // Reload seller data
+      const updatedSeller = { ...seller };
+      Object.entries(editedFields).forEach(([field, value]) => {
+        if (field === 'district_id' || field === 'metro_id' || field === 'metro_walk_minutes') {
+          (updatedSeller as any)[field] = value ? parseInt(value, 10) : undefined;
+        } else if (field === 'delivery_price') {
+          (updatedSeller as any)[field] = value ? parseFloat(value) : 0;
+        } else if (field === 'placement_expired_at') {
+          (updatedSeller as any)[field] = value ? placementExpiredToISO(value) : undefined;
+        } else if (field === 'phone') {
+          (updatedSeller as any)[field] = phoneToDigits(value);
+        } else {
+          (updatedSeller as any)[field] = value;
+        }
+      });
+      onUpdate(updatedSeller);
     } catch (err) {
-      showMessage(err instanceof Error ? err.message : 'Ошибка');
+      showMessage(err instanceof Error ? err.message : 'Ошибка сохранения');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditedFields({});
   };
 
   const handleBlock = async () => {
@@ -947,19 +1027,19 @@ function SellerDetailsModal({
         <div className="modal-tabs">
           <button
             className={`modal-tab ${activeTab === 'info' ? 'active' : ''}`}
-            onClick={() => setActiveTab('info')}
+            onClick={() => {
+              setActiveTab('info');
+              setIsEditMode(false);
+            }}
           >
             Информация
           </button>
           <button
-            className={`modal-tab ${activeTab === 'edit' ? 'active' : ''}`}
-            onClick={() => setActiveTab('edit')}
-          >
-            Изменить
-          </button>
-          <button
             className={`modal-tab ${activeTab === 'manage' ? 'active' : ''}`}
-            onClick={() => setActiveTab('manage')}
+            onClick={() => {
+              setActiveTab('manage');
+              setIsEditMode(false);
+            }}
           >
             Управление
           </button>
@@ -973,158 +1053,485 @@ function SellerDetailsModal({
           )}
 
           {activeTab === 'info' && (
-            <div className="seller-info-grid">
-              <div className="info-row">
-                <span className="info-label">Telegram ID</span>
-                <span className="info-value"><code>{seller.tg_id}</code></span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">ФИО</span>
-                <span className="info-value">{seller.fio || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Телефон</span>
-                <span className="info-value">{seller.phone || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Магазин</span>
-                <span className="info-value">{seller.shop_name || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Описание</span>
-                <span className="info-value">{seller.description || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Округ</span>
-                <span className="info-value">{getDistrictName(seller.district_id)}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Адрес</span>
-                <span className="info-value">
-                  {seller.map_url ? (
-                    <a href={seller.map_url} target="_blank" rel="noopener noreferrer">
-                      Открыть карту
-                    </a>
-                  ) : '—'}
-                </span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Тип доставки</span>
-                <span className="info-value">{getDeliveryTypeLabel(seller.delivery_type)}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Стоимость доставки</span>
-                <span className="info-value">{seller.delivery_price ?? 0} ₽</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Лимит заказов</span>
-                <span className="info-value">{seller.max_orders != null && seller.max_orders > 0 ? seller.max_orders : 'Не задан'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Дата окончания размещения</span>
-                <span className="info-value">{formatPlacementExpired(seller.placement_expired_at)}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Статус</span>
-                <span className="info-value">
-                  {seller.is_deleted ? (
-                    <span className="badge badge-warning">Удалён</span>
-                  ) : seller.is_blocked ? (
-                    <span className="badge badge-danger">Заблокирован</span>
-                  ) : isPlacementExpired(seller.placement_expired_at) ? (
-                    <span className="badge badge-warning">Срок истёк</span>
-                  ) : (
-                    <span className="badge badge-success">Активен</span>
-                  )}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'edit' && (
-            <form onSubmit={handleEditSubmit}>
-              <FormRow label="Поле для изменения" render={
-                <select className="form-input" value={editField} onChange={(e) => setEditField(e.target.value)}>
-                  <option value="">Выберите поле...</option>
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>{f.label}</option>
-                  ))}
-                </select>
-              } />
-              {editField && (
-                <>
-                  {editField === 'delivery_type' ? (
-                    <FormRow label="Новое значение" render={
-                      <select className="form-input" value={editValue} onChange={(e) => setEditValue(e.target.value)}>
-                        {DELIVERY_TYPES.map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                      </select>
-                    } />
-                  ) : editField === 'metro_id' ? (
-                    <div className="form-group">
-                      <label className="form-label">Станция метро</label>
-                      <div className="edit-metro-wrap">
+            <div>
+              {/* Основная информация */}
+              <div className="info-section">
+                <h3 className="info-section-title">Основная информация</h3>
+                <div className="seller-info-grid">
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Telegram ID
+                    </span>
+                    <span className="info-value"><code>{seller.tg_id}</code></span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      ФИО
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
                         <input
                           type="text"
                           className="form-input"
-                          placeholder="Поиск станции (минимум 2 символа)..."
-                          value={metroQuery}
-                          onChange={(e) => setMetroQuery(e.target.value)}
-                          onFocus={() => metroResults.length > 0 && setMetroDropdownOpen(true)}
+                          value={editedFields.fio || ''}
+                          onChange={(e) => handleFieldChange('fio', e.target.value)}
                         />
-                        {metroDropdownOpen && (
-                          <div className="edit-metro-dropdown">
-                            {metroQuery.trim().length < 2 ? (
-                              <div className="edit-metro-hint">Введите минимум 2 символа</div>
-                            ) : metroSearching ? (
-                              <div className="edit-metro-hint">Поиск...</div>
-                            ) : metroResults.length === 0 ? (
-                              <div className="edit-metro-hint">Станции не найдены</div>
-                            ) : (
-                              metroResults.map((m) => (
-                                <button
-                                  type="button"
-                                  key={m.id}
-                                  className="edit-metro-option"
-                                  onClick={() => {
-                                    setEditValue(String(m.id));
-                                    setMetroQuery(m.name);
-                                    setMetroDropdownOpen(false);
-                                  }}
-                                >
-                                  {m.line_color && (
-                                    <span
-                                      className="edit-metro-line"
-                                      style={{ backgroundColor: m.line_color || '#999' }}
-                                    />
+                      ) : (
+                        seller.fio || '—'
+                      )}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Телефон
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <input
+                          type="tel"
+                          className="form-input"
+                          value={editedFields.phone || ''}
+                          onChange={(e) => handleFieldChange('phone', formatPhoneInput(e.target.value))}
+                          placeholder="+7 000 000 00 00"
+                          maxLength={17}
+                        />
+                      ) : (
+                        seller.phone || '—'
+                      )}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Магазин
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={editedFields.shop_name || ''}
+                          onChange={(e) => handleFieldChange('shop_name', e.target.value)}
+                        />
+                      ) : (
+                        seller.shop_name || '—'
+                      )}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Описание
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <textarea
+                          className="form-input"
+                          rows={3}
+                          value={editedFields.description || ''}
+                          onChange={(e) => handleFieldChange('description', e.target.value)}
+                        />
+                      ) : (
+                        seller.description || '—'
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Адресная информация */}
+              <div className="info-section">
+                <h3 className="info-section-title">Адресная информация</h3>
+                <div className="seller-info-grid">
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Округ
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <select
+                          className="form-input"
+                          value={editedFields.district_id || '1'}
+                          onChange={(e) => handleFieldChange('district_id', e.target.value)}
+                        >
+                          {DISTRICTS_MSK.map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        getDistrictName(seller.district_id)
+                      )}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Ссылка на адрес
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <input
+                          type="url"
+                          className="form-input"
+                          value={editedFields.map_url || ''}
+                          onChange={(e) => handleFieldChange('map_url', e.target.value)}
+                          placeholder="https://..."
+                        />
+                      ) : (
+                        seller.map_url ? (
+                          <a href={seller.map_url} target="_blank" rel="noopener noreferrer">
+                            Открыть карту
+                          </a>
+                        ) : '—'
+                      )}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Станция метро
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <div className="edit-metro-wrap">
+                          <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Поиск станции (минимум 2 символа)..."
+                            value={metroQuery}
+                            onChange={(e) => {
+                              setMetroQuery(e.target.value);
+                            }}
+                            onFocus={() => metroResults.length > 0 && setMetroDropdownOpen(true)}
+                          />
+                          {metroDropdownOpen && (
+                            <div className="edit-metro-dropdown">
+                              {metroQuery.trim().length < 2 ? (
+                                <div className="edit-metro-hint">Введите минимум 2 символа</div>
+                              ) : metroSearching ? (
+                                <div className="edit-metro-hint">Поиск...</div>
+                              ) : metroResults.length === 0 ? (
+                                <div className="edit-metro-hint">Станции не найдены</div>
+                              ) : (
+                                metroResults.map((m) => (
+                                  <button
+                                    type="button"
+                                    key={m.id}
+                                    className="edit-metro-option"
+                                    onClick={() => {
+                                      handleFieldChange('metro_id', String(m.id));
+                                      setMetroQuery(m.name);
+                                      setMetroDropdownOpen(false);
+                                    }}
+                                  >
+                                    {m.line_color && (
+                                      <span
+                                        className="edit-metro-line"
+                                        style={{ backgroundColor: m.line_color || '#999' }}
+                                      />
+                                    )}
+                                    {m.name}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        seller.metro_id ? `ID: ${seller.metro_id}` : '—'
+                      )}
+                    </span>
+                  </div>
+                  {isEditMode && editedFields.metro_id && (
+                    <div className="info-row">
+                      <span className="info-label">
+                        {isEditMode && <span className="edit-icon">✏️</span>}
+                        Время до метро (мин)
+                      </span>
+                      <span className="info-value">
+                        <input
+                          type="number"
+                          className="form-input"
+                          value={editedFields.metro_walk_minutes || ''}
+                          onChange={(e) => handleFieldChange('metro_walk_minutes', e.target.value)}
+                          min="1"
+                        />
+                      </span>
+                    </div>
+                  )}
+                  {!isEditMode && seller.metro_walk_minutes && (
+                    <div className="info-row">
+                      <span className="info-label">Время до метро</span>
+                      <span className="info-value">{seller.metro_walk_minutes} мин</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Доставка */}
+              <div className="info-section">
+                <h3 className="info-section-title">Доставка</h3>
+                <div className="seller-info-grid">
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Тип доставки
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <select
+                          className="form-input"
+                          value={editedFields.delivery_type || 'both'}
+                          onChange={(e) => handleFieldChange('delivery_type', e.target.value)}
+                        >
+                          {DELIVERY_TYPES.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        getDeliveryTypeLabel(seller.delivery_type)
+                      )}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Стоимость доставки
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <input
+                          type="number"
+                          className="form-input"
+                          value={editedFields.delivery_price || '0'}
+                          onChange={(e) => handleFieldChange('delivery_price', e.target.value)}
+                          min="0"
+                          step="0.01"
+                        />
+                      ) : (
+                        `${seller.delivery_price ?? 0} ₽`
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Данные ИНН */}
+              {seller.inn && (
+                <div className="info-section">
+                  <h3 className="info-section-title">Данные организации (ИНН)</h3>
+                  {loadingInnData ? (
+                    <div className="loading-row"><div className="loader" /></div>
+                  ) : innData ? (
+                    <div style={{ padding: '1rem', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                      <div className="seller-info-grid">
+                        <div className="info-row">
+                          <span className="info-label">Название</span>
+                          <span className="info-value" style={{ color: '#0070e0' }}>{innData.name}</span>
+                        </div>
+                        {innData.short_name && (
+                          <div className="info-row">
+                            <span className="info-label">Краткое название</span>
+                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.short_name}</span>
+                          </div>
+                        )}
+                        <div className="info-row">
+                          <span className="info-label">ИНН</span>
+                          <span className="info-value" style={{ color: '#0070e0' }}>{innData.inn}</span>
+                        </div>
+                        {innData.kpp && (
+                          <div className="info-row">
+                            <span className="info-label">КПП</span>
+                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.kpp}</span>
+                          </div>
+                        )}
+                        {innData.ogrn && (
+                          <div className="info-row">
+                            <span className="info-label">ОГРН</span>
+                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.ogrn}</span>
+                          </div>
+                        )}
+                        <div className="info-row">
+                          <span className="info-label">Тип</span>
+                          <span className="info-value" style={{ color: '#0070e0' }}>
+                            {innData.type === 'LEGAL' ? 'Юридическое лицо' : 'Индивидуальный предприниматель'}
+                          </span>
+                        </div>
+                        {innData.address && (
+                          <div className="info-row">
+                            <span className="info-label">Адрес</span>
+                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.address}</span>
+                          </div>
+                        )}
+                        {innData.management && (
+                          <div className="info-row">
+                            <span className="info-label">Руководитель</span>
+                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.management}</span>
+                          </div>
+                        )}
+                        {innData.registration_date && (
+                          <div className="info-row">
+                            <span className="info-label">Дата регистрации</span>
+                            <span className="info-value" style={{ color: '#0070e0' }}>
+                              {formatISODate(innData.registration_date)}
+                            </span>
+                          </div>
+                        )}
+                        {innData.okved && (
+                          <div className="info-row">
+                            <span className="info-label">ОКВЭД {innData.okved_type ? `(${innData.okved_type})` : ''}</span>
+                            <span className="info-value" style={{ color: '#0070e0' }}>
+                              <strong>{innData.okved}</strong>
+                              {innData.okveds && innData.okveds.length > 0 && (
+                                <div style={{ marginTop: '0.5rem', fontSize: '0.9em', opacity: 0.8 }}>
+                                  Дополнительные: {innData.okveds.join(', ')}
+                                </div>
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {innData.okved_match && (
+                          <div className="info-row">
+                            <span className="info-label">Соответствие ОКВЭД</span>
+                            <span className="info-value" style={{ color: '#0070e0' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    width: '12px',
+                                    height: '12px',
+                                    borderRadius: '50%',
+                                    backgroundColor: innData.okved_match.matches_47_76 ? '#28a745' : '#dc3545'
+                                  }}></span>
+                                  <span>47.76</span>
+                                  {innData.okved_match.matches_47_76 && (
+                                    <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Совпадает</span>
                                   )}
-                                  {m.name}
-                                </button>
-                              ))
-                            )}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    width: '12px',
+                                    height: '12px',
+                                    borderRadius: '50%',
+                                    backgroundColor: innData.okved_match.matches_47_91 ? '#28a745' : '#dc3545'
+                                  }}></span>
+                                  <span>47.91</span>
+                                  {innData.okved_match.matches_47_91 && (
+                                    <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Совпадает</span>
+                                  )}
+                                </div>
+                              </div>
+                            </span>
                           </div>
                         )}
                       </div>
-                      {editValue && <p className="form-hint">Выбрано: ID {editValue}</p>}
                     </div>
-                  ) : editField === 'metro_walk_minutes' || editField === 'delivery_price' ? (
-                    <FormRow label="Новое значение" value={editValue} onChange={setEditValue} type="number" />
-                  ) : editField === 'placement_expired_at' ? (
-                    <FormRow label="Новое значение (ДД.ММ.ГГГГ или пусто)" value={editValue} onChange={setEditValue} />
-                  ) : editField === 'description' ? (
-                    <FormRow label="Новое значение" value={editValue} onChange={setEditValue} textarea />
                   ) : (
-                    <FormRow label="Новое значение" value={editValue} onChange={setEditValue} />
+                    <p className="text-muted">Не удалось загрузить данные ИНН</p>
                   )}
-                  <div className="modal-actions">
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                </div>
+              )}
+
+              {/* Системная информация */}
+              <div className="info-section">
+                <h3 className="info-section-title">Системная информация</h3>
+                <div className="seller-info-grid">
+                  <div className="info-row">
+                    <span className="info-label">
+                      {isEditMode && <span className="edit-icon">✏️</span>}
+                      Дата окончания размещения
+                    </span>
+                    <span className="info-value">
+                      {isEditMode ? (
+                        <div>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={editedFields.placement_expired_at || ''}
+                            onChange={(e) => handleFieldChange('placement_expired_at', formatDateInput(e.target.value))}
+                            placeholder="ДД.ММ.ГГГГ"
+                            maxLength={10}
+                          />
+                          <input
+                            type="date"
+                            className="form-input"
+                            style={{ marginTop: '0.5rem' }}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                const date = new Date(e.target.value);
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const year = date.getFullYear();
+                                handleFieldChange('placement_expired_at', `${day}.${month}.${year}`);
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        formatPlacementExpired(seller.placement_expired_at)
+                      )}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Лимит заказов</span>
+                    <span className="info-value">
+                      {seller.max_orders != null && seller.max_orders > 0 ? seller.max_orders : 'Не задан'}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Статус</span>
+                    <span className="info-value">
+                      {seller.is_deleted ? (
+                        <span className="badge badge-warning">Удалён</span>
+                      ) : seller.is_blocked ? (
+                        <span className="badge badge-danger">Заблокирован</span>
+                      ) : isPlacementExpired(seller.placement_expired_at) ? (
+                        <span className="badge badge-warning">Срок истёк</span>
+                      ) : (
+                        <span className="badge badge-success">Активен</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Кнопки действий */}
+              <div className="modal-actions" style={{ marginTop: '2rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                {isEditMode ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleCancelEdit}
+                      disabled={loading}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleSaveAll}
+                      disabled={loading}
+                    >
                       {loading ? 'Сохранение...' : 'Сохранить'}
                     </button>
-                  </div>
-                </>
-              )}
-            </form>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    Изменить
+                  </button>
+                )}
+              </div>
+            </div>
           )}
 
           {activeTab === 'manage' && (
