@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { Loader } from '../components';
+import { Loader, TelegramAuth } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
+import { isBrowser } from '../utils/environment';
+import { REQUIRE_AUTH_FROM_CHECKOUT, REQUIRE_AUTH_FROM_ORDERS } from '../components/ProtectedRoute';
 import './Profile.css';
 
 const PHONE_PREFIX = '+7 ';
@@ -31,6 +33,8 @@ function normalizePhone(phone: string): string {
 
 export function Profile() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromParam = searchParams.get('from');
   const { showAlert, requestContact, user: telegramUser } = useTelegramWebApp();
   const [user, setUser] = useState<{
     tg_id: number;
@@ -49,7 +53,8 @@ export function Profile() {
       const data = await api.getCurrentUser();
       setUser(data);
     } catch (e) {
-      console.error(e);
+      // 401 or other: treat as not authenticated (browser without login)
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -87,6 +92,15 @@ export function Profile() {
     }
   }, [telegramUser, user?.phone, handleSavePhone]);
 
+  const handleAuthSuccess = useCallback(() => {
+    loadUser();
+    if (fromParam === REQUIRE_AUTH_FROM_CHECKOUT) {
+      navigate('/cart/checkout', { replace: true });
+    } else if (fromParam === REQUIRE_AUTH_FROM_ORDERS) {
+      navigate('/orders', { replace: true });
+    }
+  }, [fromParam, loadUser, navigate]);
+
   const handleRequestContact = async () => {
     setRequestingContact(true);
     setSaveError(null);
@@ -108,9 +122,20 @@ export function Profile() {
 
   if (loading) return <Loader centered />;
 
+  const showAuthBlock = isBrowser() && !user;
+
   return (
     <div className="profile-page">
       <h1 className="profile-page__title">Профиль</h1>
+
+      {showAuthBlock && (
+        <section className="profile-auth-block">
+          <p className="profile-auth-block__text">
+            Войдите через Telegram, чтобы сохранять избранные магазины, оформлять заказы и видеть историю.
+          </p>
+          <TelegramAuth onAuthSuccess={handleAuthSuccess} onAuthError={(err) => showAlert(err)} />
+        </section>
+      )}
 
       {user && (
         <>
@@ -166,17 +191,19 @@ export function Profile() {
         </>
       )}
 
-      <nav className="profile-nav">
-        <button
-          type="button"
-          className="profile-nav__item"
-          onClick={() => navigate('/orders')}
-        >
-          <span className="profile-nav__icon">📦</span>
-          <span>Мои заказы</span>
-          <span className="profile-nav__arrow">›</span>
-        </button>
-      </nav>
+      {user && (
+        <nav className="profile-nav">
+          <button
+            type="button"
+            className="profile-nav__item"
+            onClick={() => navigate('/orders')}
+          >
+            <span className="profile-nav__icon">📦</span>
+            <span>Мои заказы</span>
+            <span className="profile-nav__arrow">›</span>
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

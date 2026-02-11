@@ -109,6 +109,95 @@
   }
 }
 
+/* Desktop adaptive styles */
+@media (min-width: 768px) {
+  .shops-list {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .shops-list__header {
+    margin-bottom: 24px;
+  }
+
+  .shops-list__title {
+    font-size: 32px;
+  }
+
+  .shops-list__search-wrap {
+    margin-bottom: 24px;
+  }
+
+  .shops-list__search-input {
+    padding: 14px 16px 14px 48px;
+    font-size: 16px;
+    border-radius: 16px;
+  }
+
+  /* Desktop: filters sidebar layout */
+  .shops-list__filters-container {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+
+    .shops-list__filters-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 24px;
+    display: none; /* Hidden on mobile by default */
+  }
+
+  .shops-list__filters-sidebar--visible {
+    display: block; /* Shown when toggle is clicked on mobile */
+  }
+
+  .shops-list__content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Hide filter toggle on desktop, show filters always */
+  .shops-list__filter-toggle {
+    display: none;
+  }
+
+  /* Always show filters sidebar on desktop */
+  .shops-list__filters-sidebar {
+    display: block !important;
+  }
+
+  /* Grid layout for desktop */
+  .shops-list__grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  .shops-list__info {
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .shops-list__grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  .shops-list__filters-sidebar {
+    width: 320px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .shops-list__grid {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  }
+}
+
 .shops-list__load-more {
   width: 100%;
   margin-top: 16px;

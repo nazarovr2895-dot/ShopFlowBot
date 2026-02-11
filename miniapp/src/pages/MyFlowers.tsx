@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { VisitedSeller } from '../types';
 import { api } from '../api/client';
 import { Loader, EmptyState } from '../components';
+import { isBrowser } from '../utils/environment';
 import './MyFlowers.css';
 
 export function MyFlowers() {
@@ -28,20 +29,31 @@ export function MyFlowers() {
   if (loading) return <Loader centered />;
 
   if (sellers.length === 0) {
+    const needsAuth = isBrowser() && !api.isAuthenticated();
     return (
       <div className="my-flowers-page">
         <EmptyState
           title="Здесь появятся ваши цветочные"
-          description="Добавляйте их из каталога — нажимайте «Добавить в мои цветочные» на странице магазина"
+          description={needsAuth ? 'Войдите, чтобы сохранять любимые магазины' : 'Добавляйте их из каталога — нажимайте «Добавить в мои цветочные» на странице магазина'}
           icon="🌸"
         />
-        <button
-          type="button"
-          className="my-flowers-page__catalog-link"
-          onClick={() => navigate('/catalog')}
-        >
-          Перейти в каталог
-        </button>
+        {needsAuth ? (
+          <button
+            type="button"
+            className="my-flowers-page__catalog-link"
+            onClick={() => navigate('/profile')}
+          >
+            Войти в профиль
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="my-flowers-page__catalog-link"
+            onClick={() => navigate('/catalog')}
+          >
+            Перейти в каталог
+          </button>
+        )}
       </div>
     );
   }

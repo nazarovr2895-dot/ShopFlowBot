@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api import buyers, sellers, orders, admin, public
-from backend.app.api import admin_auth, seller_auth, seller_web
+from backend.app.api import admin_auth, seller_auth, seller_web, auth
 from backend.app.api.admin import require_admin_token
 from backend.app.api.deps import get_session
 from backend.app.services.cache import CacheService
@@ -94,6 +94,7 @@ app.add_middleware(
 app.add_middleware(PrometheusMiddleware)
 
 # Подключаем роутеры (части нашего приложения)
+app.include_router(auth.router, prefix="/auth", tags=["auth"])  # Authentication endpoints
 app.include_router(public.router, prefix="/public", tags=["public"])  # Публичный API для Mini App
 app.include_router(buyers.router, prefix="/buyers", tags=["buyers"])
 app.include_router(sellers.router, prefix="/sellers", tags=["sellers"])

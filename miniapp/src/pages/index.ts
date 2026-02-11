@@ -1,3 +1,4 @@
+export { Landing } from './Landing';
 export { ShopsList } from './ShopsList';
 export { MyFlowers } from './MyFlowers';
 export { ShopDetails } from './ShopDetails';

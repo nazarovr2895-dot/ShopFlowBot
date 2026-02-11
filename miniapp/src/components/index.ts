@@ -6,3 +6,5 @@ export { LocationSetup } from './LocationSetup';
 export { BottomNav } from './BottomNav';
 export { MainLayout } from './MainLayout';
 export { ProductImage } from './ProductImage';
+export { TelegramAuth } from './TelegramAuth';
+export { ProtectedRoute, RequireAuth } from './ProtectedRoute';

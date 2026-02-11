@@ -10,6 +10,7 @@ from backend.app.core.auth import (
     TelegramInitData,
     get_current_user_optional,
     get_current_user,
+    get_current_user_hybrid,
     verify_user_id,
 )
 from backend.app.services.buyers import (
@@ -39,7 +40,7 @@ def _handle_cart_error(e: CartServiceError):
 
 @router.get("/me", response_model=BuyerResponse)
 async def get_current_buyer(
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Получить информацию о текущем пользователе (для Mini App)"""
@@ -126,7 +127,7 @@ class ProfileUpdate(BaseModel):
 @router.put("/me/location", response_model=BuyerResponse)
 async def update_location(
     data: LocationUpdate,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -162,7 +163,7 @@ async def update_location(
 @router.put("/me", response_model=BuyerResponse)
 async def update_profile(
     data: ProfileUpdate,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -224,7 +225,7 @@ class VisitedSellerRecord(BaseModel):
 
 @router.get("/me/cart")
 async def get_cart(
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Корзина текущего пользователя (сгруппировано по продавцам)."""
@@ -235,7 +236,7 @@ async def get_cart(
 @router.post("/me/cart/items")
 async def add_cart_item(
     data: CartItemAdd,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Добавить товар в корзину."""
@@ -258,7 +259,7 @@ async def add_cart_item(
 async def update_cart_item(
     product_id: int,
     data: CartItemUpdate,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Изменить количество (0 = удалить)."""
@@ -271,7 +272,7 @@ async def update_cart_item(
 @router.delete("/me/cart/items/{product_id}")
 async def remove_cart_item(
     product_id: int,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Удалить товар из корзины."""
@@ -283,7 +284,7 @@ async def remove_cart_item(
 
 @router.delete("/me/cart")
 async def clear_cart(
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Очистить корзину."""
@@ -296,7 +297,7 @@ async def clear_cart(
 @router.post("/me/cart/checkout")
 async def checkout_cart(
     data: CheckoutBody,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Оформить заказы из корзины (один заказ на каждого продавца), очистить корзину."""
@@ -328,7 +329,7 @@ async def checkout_cart(
 @router.post("/me/visited-sellers")
 async def record_visited_seller(
     data: VisitedSellerRecord,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Записать посещение магазина (для раздела «Недавно просмотренные»)."""
@@ -340,7 +341,7 @@ async def record_visited_seller(
 
 @router.get("/me/visited-sellers")
 async def get_visited_sellers(
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Список недавно посещённых магазинов."""
@@ -351,7 +352,7 @@ async def get_visited_sellers(
 # --- Favorite sellers / Мои цветочные (Mini App) ---
 @router.get("/me/favorite-sellers")
 async def get_favorite_sellers(
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Список избранных магазинов (мои цветочные)."""
@@ -362,7 +363,7 @@ async def get_favorite_sellers(
 @router.post("/me/favorite-sellers")
 async def add_favorite_seller(
     data: VisitedSellerRecord,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Добавить магазин в «Мои цветочные»."""
@@ -379,7 +380,7 @@ async def add_favorite_seller(
 @router.delete("/me/favorite-sellers/{seller_id}")
 async def remove_favorite_seller(
     seller_id: int,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Убрать магазин из «Мои цветочные»."""
@@ -393,7 +394,7 @@ async def remove_favorite_seller(
 @router.get("/me/loyalty/{seller_id}")
 async def get_my_loyalty_at_seller(
     seller_id: int,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Баланс баллов клубной карты у данного продавца (по телефону покупателя)."""
@@ -418,7 +419,7 @@ async def get_my_loyalty_at_seller(
 # --- Orders (Mini App: мои заказы) ---
 @router.get("/me/orders")
 async def get_my_orders(
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Заказы текущего пользователя (для Mini App)."""
@@ -429,7 +430,7 @@ async def get_my_orders(
 @router.post("/me/orders/{order_id}/confirm")
 async def confirm_order_received(
     order_id: int,
-    current_user: TelegramInitData = Depends(get_current_user),
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
     """Подтвердить получение заказа (статус -> completed). Доступно только покупателю этого заказа."""

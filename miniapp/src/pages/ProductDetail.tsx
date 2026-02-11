@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { PublicSellerDetail, Product } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
+import { isBrowser } from '../utils/environment';
 import { Loader, EmptyState, ProductImage } from '../components';
 import './ProductDetail.css';
 
@@ -60,8 +61,14 @@ export function ProductDetail() {
       setSelectedPreorderDate(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка';
-      if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('Missing') || msg.includes('X-Telegram')) {
-        showAlert('Добавление в корзину доступно только в приложении Telegram. Откройте магазин через бота.');
+      const isAuthError = msg.includes('401') || msg.includes('Unauthorized') || msg.includes('Missing') || msg.includes('X-Telegram');
+      if (isAuthError) {
+        if (isBrowser()) {
+          showAlert('Войдите в профиле, чтобы добавлять товары в корзину');
+          navigate('/profile');
+        } else {
+          showAlert('Добавление в корзину доступно только в приложении Telegram. Откройте магазин через бота.');
+        }
       } else {
         showAlert(msg);
       }

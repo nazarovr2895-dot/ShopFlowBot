@@ -8,11 +8,14 @@ import hmac
 import hashlib
 import json
 import os
+import sys
 import time
+from datetime import datetime, timedelta
 from urllib.parse import parse_qsl
 from typing import Optional
 from fastapi import HTTPException, Header, Depends
 from pydantic import BaseModel
+import jwt
 
 
 # Get BOT_TOKEN from environment
@@ -24,6 +27,18 @@ DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() == "true"
 
 # Maximum age of init data in seconds (default: 1 hour)
 MAX_DATA_AGE = int(os.getenv("TELEGRAM_DATA_MAX_AGE", 3600))
+
+# JWT configuration for user authentication
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    # Fallback to ADMIN_SECRET only if explicitly set
+    JWT_SECRET = os.getenv("ADMIN_SECRET")
+    if not JWT_SECRET:
+        print("ERROR: JWT_SECRET or ADMIN_SECRET must be set in environment variables", file=sys.stderr)
+        sys.exit(1)
+
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_HOURS = 24 * 7  # 7 days
 
 
 class TelegramUser(BaseModel):
@@ -229,3 +244,153 @@ def verify_user_id(user: TelegramInitData, expected_user_id: int) -> bool:
             detail="You can only access your own data"
         )
     return True
+
+
+# --- JWT Token Functions for User Authentication ---
+
+def create_user_jwt(telegram_id: int) -> str:
+    """
+    Create JWT token for user authentication.
+    
+    Args:
+        telegram_id: Telegram user ID
+        
+    Returns:
+        JWT token string
+    """
+    payload = {
+        "sub": str(telegram_id),
+        "role": "buyer",
+        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
+        "iat": datetime.utcnow(),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def decode_user_jwt(token: str) -> Optional[int]:
+    """
+    Decode JWT token and return telegram_id or None.
+    
+    Args:
+        token: JWT token string
+        
+    Returns:
+        Telegram user ID or None if token is invalid
+    """
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("role") != "buyer":
+            return None
+        return int(payload["sub"])
+    except (jwt.InvalidTokenError, ValueError, KeyError):
+        return None
+
+
+async def get_current_user_jwt(
+    authorization: Optional[str] = Header(None)
+) -> int:
+    """
+    FastAPI dependency to get and validate current user from JWT token.
+    
+    Expects Authorization header in format: "Bearer <token>"
+    
+    Use in endpoints that require JWT authentication:
+    
+        @router.get("/protected")
+        async def protected_endpoint(
+            telegram_id: int = Depends(get_current_user_jwt)
+        ):
+            ...
+    
+    Raises:
+        HTTPException 401: If authentication fails
+    """
+    if DISABLE_AUTH:
+        return 0
+    
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing Authorization header"
+        )
+    
+    # Extract token from "Bearer <token>"
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header format. Expected: Bearer <token>"
+        )
+    
+    token = parts[1]
+    telegram_id = decode_user_jwt(token)
+    
+    if not telegram_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+    
+    return telegram_id
+
+
+async def get_current_user_hybrid(
+    authorization: Optional[str] = Header(None),
+    x_telegram_init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data")
+) -> TelegramInitData:
+    """
+    Universal dependency that supports both JWT and Telegram initData authentication.
+    
+    Priority:
+    1. JWT token from Authorization header (for browser)
+    2. Telegram initData from X-Telegram-Init-Data header (for Mini App)
+    
+    Returns TelegramInitData for compatibility with existing code.
+    Creates a minimal TelegramInitData from JWT if JWT is used.
+    
+    Use in endpoints that need to support both authentication methods:
+    
+        @router.get("/me")
+        async def get_me(
+            user: TelegramInitData = Depends(get_current_user_hybrid)
+        ):
+            tg_id = user.user.id
+            ...
+    """
+    if DISABLE_AUTH:
+        return TelegramInitData(
+            user=TelegramUser(
+                id=0,
+                first_name="DevUser",
+                username="devuser"
+            ),
+            auth_date=int(time.time()),
+            hash="dev_hash"
+        )
+    
+    # Try JWT first (for browser)
+    if authorization:
+        parts = authorization.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            token = parts[1]
+            telegram_id = decode_user_jwt(token)
+            if telegram_id:
+                # Create TelegramInitData from JWT for compatibility
+                return TelegramInitData(
+                    user=TelegramUser(
+                        id=telegram_id,
+                        first_name="User",
+                        username=None
+                    ),
+                    auth_date=int(time.time()),
+                    hash="jwt_auth"
+                )
+    
+    # Fall back to Telegram initData (for Mini App)
+    if not x_telegram_init_data:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing authentication. Provide either Authorization header (JWT) or X-Telegram-Init-Data header"
+        )
+    
+    return validate_telegram_data(x_telegram_init_data)

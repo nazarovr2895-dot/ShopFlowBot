@@ -101,3 +101,119 @@ textarea {
   font-family: inherit;
   font-size: inherit;
 }
+
+/* ============================================
+   Adaptive Design (Desktop - inspired by Ozon.ru)
+   ============================================ */
+
+/* Desktop breakpoint */
+@media (min-width: 768px) {
+  /* Container max-width for desktop */
+  .main-layout {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-bottom: 0; /* Remove bottom padding on desktop (no BottomNav) */
+  }
+
+  .main-layout__content {
+    padding-top: 24px;
+  }
+
+  /* Typography adjustments for desktop */
+  body {
+    font-size: 16px;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  /* Grid layout for cards (like Ozon.ru product grid) */
+  .shops-grid,
+  .products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 20px 0;
+  }
+
+  /* Wider cards on desktop */
+  .shop-card,
+  .product-card {
+    max-width: none;
+  }
+
+  /* Filters sidebar for desktop */
+  .filters-container {
+    display: flex;
+    gap: 24px;
+  }
+
+  .filters-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+  }
+
+  .filters-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Better spacing for desktop */
+  .page-container {
+    padding: 24px;
+  }
+
+  /* Header improvements */
+  .page-header {
+    margin-bottom: 32px;
+  }
+
+  /* Button sizes */
+  button,
+  .button {
+    padding: 12px 24px;
+    font-size: 16px;
+  }
+
+  /* Form inputs */
+  input,
+  select,
+  textarea {
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+}
+
+/* Large desktop (1200px+) */
+@media (min-width: 1200px) {
+  .main-layout {
+    max-width: 1600px;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .shops-grid,
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+}
+
+/* Extra large desktop (1400px+) */
+@media (min-width: 1400px) {
+  .main-layout {
+    max-width: 1800px;
+  }
+
+  .shops-grid,
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  }
+}

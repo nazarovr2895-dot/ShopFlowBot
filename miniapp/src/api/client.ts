@@ -1,4 +1,4 @@
-import WebApp from '@twa-dev/sdk';
+import { getTelegramInitData } from '../utils/environment';
 import type {
   City,
   District,
@@ -20,19 +20,8 @@ export function setApiBaseUrl(url: string): void {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-/**
- * Get Telegram WebApp init data for authentication.
- * Uses the same source as the rest of the app (@twa-dev/sdk).
- */
-function getTelegramInitData(): string | null {
-  try {
-    const data = WebApp.initData;
-    const result = data && data.length > 0 ? data : null;
-    return result;
-  } catch (e) {
-    return null;
-  }
-}
+// JWT token storage key
+const JWT_TOKEN_KEY = 'flowshop_jwt_token';
 
 /** True if we have Telegram init data (e.g. app opened inside Telegram). */
 export function hasTelegramAuth(): boolean {
@@ -48,6 +37,88 @@ class ApiClient {
 
   private getBaseUrl(): string {
     return runtimeApiUrl != null && runtimeApiUrl !== '' ? runtimeApiUrl : this.baseUrl;
+  }
+
+  // JWT Token management
+  private getJwtToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(JWT_TOKEN_KEY);
+  }
+
+  private setJwtToken(token: string): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(JWT_TOKEN_KEY, token);
+  }
+
+  private clearJwtToken(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(JWT_TOKEN_KEY);
+  }
+
+  /**
+   * Check if user is authenticated (has JWT token or Telegram initData)
+   */
+  isAuthenticated(): boolean {
+    return this.getJwtToken() != null || hasTelegramAuth();
+  }
+
+  /**
+   * Authenticate using Telegram Mini App initData
+   */
+  async authWithMiniApp(initData: string): Promise<{ token: string; telegram_id: number; username?: string; first_name: string }> {
+    const response = await fetch(`${this.getBaseUrl()}/auth/telegram-mini-app`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ init_data: initData }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    this.setJwtToken(data.token);
+    return data;
+  }
+
+  /**
+   * Authenticate using Telegram Widget data
+   */
+  async authWithWidget(widgetData: {
+    id: number;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    photo_url?: string;
+    auth_date: number;
+    hash: string;
+  }): Promise<{ token: string; telegram_id: number; username?: string; first_name: string }> {
+    const response = await fetch(`${this.getBaseUrl()}/auth/telegram-widget`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(widgetData),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    this.setJwtToken(data.token);
+    return data;
+  }
+
+  /**
+   * Logout - clear JWT token
+   */
+  logout(): void {
+    this.clearJwtToken();
   }
 
   /** Полный URL фото товара (photo_id с бэкенда — путь вида /static/... или полный URL) */
@@ -84,16 +155,22 @@ class ApiClient {
     const url = `${this.getBaseUrl()}${endpoint}`;
     console.log('[API] Fetching:', url);
     
-    // Build headers with optional Telegram auth
+    // Build headers with authentication
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'ngrok-skip-browser-warning': 'true',  // Bypass ngrok interstitial page
     };
     
-    // Add Telegram authentication if available
-    const initData = getTelegramInitData();
-    if (initData) {
-      headers['X-Telegram-Init-Data'] = initData;
+    // Priority: JWT token first (for browser), then Telegram initData (for Mini App)
+    const jwtToken = this.getJwtToken();
+    if (jwtToken) {
+      headers['Authorization'] = `Bearer ${jwtToken}`;
+    } else {
+      // Fallback to Telegram initData if no JWT
+      const initData = getTelegramInitData();
+      if (initData) {
+        headers['X-Telegram-Init-Data'] = initData;
+      }
     }
     
     try {
@@ -108,6 +185,10 @@ class ApiClient {
       console.log('[API] Response status:', response.status);
 
       if (!response.ok) {
+        // If 401, clear JWT token (might be expired)
+        if (response.status === 401) {
+          this.clearJwtToken();
+        }
         const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
         throw new Error(error.detail || `HTTP ${response.status}`);
       }

@@ -142,47 +142,52 @@ export function ShopsList() {
         />
       </div>
 
-      {showFilters && (
-        <Filters filters={filters} onFiltersChange={handleFiltersChange} />
-      )}
+      {/* Desktop: filters sidebar, Mobile: conditional filters */}
+      <div className="shops-list__filters-container">
+        <div className={`shops-list__filters-sidebar ${showFilters ? 'shops-list__filters-sidebar--visible' : ''}`}>
+          <Filters filters={filters} onFiltersChange={handleFiltersChange} />
+        </div>
 
-      {loading && sellers.length === 0 ? (
-        <Loader centered />
-      ) : error ? (
-        <EmptyState
-          title="Ошибка загрузки"
-          description={error}
-          icon="⚠️"
-        />
-      ) : sellers.length === 0 ? (
-        <EmptyState
-          title="Магазины не найдены"
-          description="Попробуйте изменить параметры фильтра"
-          illustration="shops"
-        />
-      ) : (
-        <>
-          <div className="shops-list__info">
-            Найдено: {total} {getShopWord(total)}
-          </div>
+        <div className="shops-list__content">
+          {loading && sellers.length === 0 ? (
+            <Loader centered />
+          ) : error ? (
+            <EmptyState
+              title="Ошибка загрузки"
+              description={error}
+              icon="⚠️"
+            />
+          ) : sellers.length === 0 ? (
+            <EmptyState
+              title="Магазины не найдены"
+              description="Попробуйте изменить параметры фильтра"
+              illustration="shops"
+            />
+          ) : (
+            <>
+              <div className="shops-list__info">
+                Найдено: {total} {getShopWord(total)}
+              </div>
 
-          <div className="shops-list__grid">
-            {sellers.map((seller) => (
-              <ShopCard key={seller.seller_id} seller={seller} />
-            ))}
-          </div>
+              <div className="shops-list__grid">
+                {sellers.map((seller) => (
+                  <ShopCard key={seller.seller_id} seller={seller} />
+                ))}
+              </div>
 
-          {hasMore && (
-            <button
-              className="shops-list__load-more"
-              onClick={handleLoadMore}
-              disabled={loading}
-            >
-              {loading ? <Loader size="small" /> : 'Загрузить ещё'}
-            </button>
+              {hasMore && (
+                <button
+                  className="shops-list__load-more"
+                  onClick={handleLoadMore}
+                  disabled={loading}
+                >
+                  {loading ? <Loader size="small" /> : 'Загрузить ещё'}
+                </button>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

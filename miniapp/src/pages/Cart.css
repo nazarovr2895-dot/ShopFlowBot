@@ -170,3 +170,21 @@
 .cart-page__checkout-btn:active {
   opacity: 0.9;
 }
+
+.cart-page__profile-link {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--app-accent-text, #fff);
+  background: var(--app-accent);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.cart-page__profile-link:active {
+  opacity: 0.9;
+}

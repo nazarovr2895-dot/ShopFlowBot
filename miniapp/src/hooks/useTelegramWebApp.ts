@@ -1,15 +1,24 @@
 import { useEffect, useCallback } from 'react';
 import WebApp from '@twa-dev/sdk';
+import { isTelegram } from '../utils/environment';
 
 let telegramWebAppInitialized = false;
 
 function initTelegramWebAppOnce() {
   if (telegramWebAppInitialized) return;
   telegramWebAppInitialized = true;
-  WebApp.ready();
-  WebApp.expand();
-  WebApp.setHeaderColor('secondary_bg_color');
-  WebApp.enableClosingConfirmation();
+  
+  // Only initialize if in Telegram
+  if (isTelegram()) {
+    try {
+      WebApp.ready();
+      WebApp.expand();
+      WebApp.setHeaderColor('secondary_bg_color');
+      WebApp.enableClosingConfirmation();
+    } catch (e) {
+      console.warn('[useTelegramWebApp] Failed to initialize Telegram WebApp:', e);
+    }
+  }
 }
 
 export function useTelegramWebApp() {
@@ -22,9 +31,20 @@ export function useTelegramWebApp() {
     const botUsername = import.meta.env.VITE_BOT_USERNAME || 'FlowShopBot';
     const deepLink = `https://t.me/${botUsername}?start=seller_${sellerId}`;
     
-    // Close Mini App and open deep link
-    WebApp.openTelegramLink(deepLink);
-    WebApp.close();
+    if (isTelegram()) {
+      try {
+        // Close Mini App and open deep link
+        WebApp.openTelegramLink(deepLink);
+        WebApp.close();
+      } catch (e) {
+        console.warn('[useTelegramWebApp] Failed to open Telegram link:', e);
+        // Fallback: open in new window
+        window.open(deepLink, '_blank');
+      }
+    } else {
+      // In browser, just open the link
+      window.open(deepLink, '_blank');
+    }
   }, []);
 
   const showAlert = useCallback((message: string) => {
@@ -71,29 +91,47 @@ export function useTelegramWebApp() {
       isVisible?: boolean;
     }
   ) => {
-    WebApp.MainButton.setText(text);
-    WebApp.MainButton.onClick(onClick);
+    // Only work in Telegram
+    if (!isTelegram() || !WebApp.MainButton) return;
     
-    if (options?.color) WebApp.MainButton.setParams({ color: options.color });
-    if (options?.textColor) WebApp.MainButton.setParams({ text_color: options.textColor });
-    if (options?.isActive !== undefined) {
-      options.isActive ? WebApp.MainButton.enable() : WebApp.MainButton.disable();
-    }
-    if (options?.isVisible !== undefined) {
-      options.isVisible ? WebApp.MainButton.show() : WebApp.MainButton.hide();
+    try {
+      WebApp.MainButton.setText(text);
+      WebApp.MainButton.onClick(onClick);
+      
+      if (options?.color) WebApp.MainButton.setParams({ color: options.color });
+      if (options?.textColor) WebApp.MainButton.setParams({ text_color: options.textColor });
+      if (options?.isActive !== undefined) {
+        options.isActive ? WebApp.MainButton.enable() : WebApp.MainButton.disable();
+      }
+      if (options?.isVisible !== undefined) {
+        options.isVisible ? WebApp.MainButton.show() : WebApp.MainButton.hide();
+      }
+    } catch (e) {
+      console.warn('[useTelegramWebApp] Failed to set MainButton:', e);
     }
   }, []);
 
   const hideMainButton = useCallback(() => {
-    WebApp.MainButton.hide();
+    if (!isTelegram() || !WebApp.MainButton) return;
+    try {
+      WebApp.MainButton.hide();
+    } catch (e) {
+      console.warn('[useTelegramWebApp] Failed to hide MainButton:', e);
+    }
   }, []);
 
   const setBackButton = useCallback((visible: boolean, onClick?: () => void) => {
-    if (visible && onClick) {
-      WebApp.BackButton.show();
-      WebApp.BackButton.onClick(onClick);
-    } else {
-      WebApp.BackButton.hide();
+    if (!isTelegram() || !WebApp.BackButton) return;
+    
+    try {
+      if (visible && onClick) {
+        WebApp.BackButton.show();
+        WebApp.BackButton.onClick(onClick);
+      } else {
+        WebApp.BackButton.hide();
+      }
+    } catch (e) {
+      console.warn('[useTelegramWebApp] Failed to set BackButton:', e);
     }
   }, []);
 

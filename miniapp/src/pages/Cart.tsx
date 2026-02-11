@@ -4,6 +4,7 @@ import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { Loader, EmptyState } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
+import { isBrowser } from '../utils/environment';
 import './Cart.css';
 
 export function Cart() {
@@ -59,13 +60,23 @@ export function Cart() {
   if (loading) return <Loader centered />;
 
   if (cart.length === 0) {
+    const needsAuth = isBrowser() && !api.isAuthenticated();
     return (
       <div className="cart-page">
         <EmptyState
           title="Корзина пуста"
-          description="Добавьте товары из каталога"
+          description={needsAuth ? 'Войдите в аккаунт, чтобы добавлять товары в корзину' : 'Добавьте товары из каталога'}
           icon="🛒"
         />
+        {needsAuth && (
+          <button
+            type="button"
+            className="cart-page__profile-link"
+            onClick={() => navigate('/profile')}
+          >
+            Перейти в профиль
+          </button>
+        )}
       </div>
     );
   }
