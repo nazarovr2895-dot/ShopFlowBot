@@ -212,7 +212,7 @@ class CartItemUpdate(BaseModel):
 
 
 class CheckoutBody(BaseModel):
-    fio: str
+    fio: Optional[str] = None
     phone: str
     delivery_type: str  # "Доставка" | "Самовывоз"
     address: str
@@ -302,9 +302,17 @@ async def checkout_cart(
     """Оформить заказы из корзины (один заказ на каждого продавца), очистить корзину."""
     service = CartService(session)
     try:
+        # Use Telegram first_name if fio is not provided
+        fio = data.fio
+        if not fio:
+            fio = current_user.user.first_name
+            if current_user.user.last_name:
+                fio = f"{fio} {current_user.user.last_name}"
+            fio = fio.strip() if fio else "Покупатель"
+        
         orders = await service.checkout(
             current_user.user.id,
-            fio=data.fio,
+            fio=fio,
             phone=data.phone,
             delivery_type=data.delivery_type,
             address=data.address,

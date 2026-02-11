@@ -97,6 +97,24 @@ export function useTelegramWebApp() {
     }
   }, []);
 
+  const requestContact = useCallback((): Promise<string | null> => {
+    return new Promise((resolve) => {
+      try {
+        if (typeof WebApp.requestContact === 'function') {
+          WebApp.requestContact((contact: any) => {
+            resolve(contact?.phone_number || null);
+          });
+        } else {
+          // Fallback if requestContact is not available
+          resolve(null);
+        }
+      } catch (error) {
+        console.error('Error requesting contact:', error);
+        resolve(null);
+      }
+    });
+  }, []);
+
   return {
     webApp: WebApp,
     user: WebApp.initDataUnsafe.user,
@@ -109,5 +127,6 @@ export function useTelegramWebApp() {
     setMainButton,
     hideMainButton,
     setBackButton,
+    requestContact,
   };
 }

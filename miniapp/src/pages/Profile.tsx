@@ -21,32 +21,17 @@ function formatPhoneForDisplay(phone: string | undefined): string {
     : '';
 }
 
-function normalizePhoneInput(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length === 0) return '';
-  const normalized = digits.startsWith('8') ? '7' + digits.slice(1) : digits.startsWith('7') ? digits : '7' + digits;
-  return normalized.slice(0, 11);
-}
-
-function validatePhone(phone: string): boolean {
+function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
-  const n = digits.startsWith('8') ? '7' + digits.slice(1) : digits.startsWith('7') ? digits : '7' + digits;
-  return n.length === 11 && n[0] === '7';
-}
-
-function parseFio(fio: string | undefined): { lastName: string; firstName: string; patronymic: string } {
-  if (!fio || !fio.trim()) return { lastName: '', firstName: '', patronymic: '' };
-  const parts = fio.trim().split(/\s+/);
-  return {
-    lastName: parts[0] ?? '',
-    firstName: parts[1] ?? '',
-    patronymic: parts[2] ?? '',
-  };
+  if (digits.length === 0) return '';
+  let normalized = digits.startsWith('8') ? '7' + digits.slice(1) : digits.startsWith('7') ? digits : '7' + digits;
+  normalized = normalized.slice(0, 11);
+  return normalized;
 }
 
 export function Profile() {
   const navigate = useNavigate();
-  const { showAlert } = useTelegramWebApp();
+  const { showAlert, requestContact, user: telegramUser } = useTelegramWebApp();
   const [user, setUser] = useState<{
     tg_id: number;
     fio?: string;
@@ -56,22 +41,13 @@ export function Profile() {
     district_id?: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastName, setLastName] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [patronymic, setPatronymic] = useState('');
-  const [phoneDisplay, setPhoneDisplay] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [requestingContact, setRequestingContact] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const loadUser = useCallback(async () => {
     try {
       const data = await api.getCurrentUser();
       setUser(data);
-      const { lastName: l, firstName: f, patronymic: p } = parseFio(data.fio);
-      setLastName(l);
-      setFirstName(f);
-      setPatronymic(p);
-      setPhoneDisplay(formatPhoneForDisplay(data.phone));
     } catch (e) {
       console.error(e);
     } finally {
@@ -79,54 +55,54 @@ export function Profile() {
     }
   }, []);
 
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    let digits = raw.startsWith('8') ? '7' + raw.slice(1) : raw.startsWith('7') ? raw : raw ? '7' + raw : '';
-    digits = digits.slice(0, 11);
-    const rest = digits.startsWith('7') ? digits.slice(1) : digits;
-    const part1 = rest.slice(0, 3);
-    const part2 = rest.slice(3, 6);
-    const part3 = rest.slice(6, 8);
-    const part4 = rest.slice(8, 10);
-    const formatted = rest.length === 0 ? '' : PHONE_PREFIX + [part1, part2, part3, part4].filter(Boolean).join(' ');
-    setPhoneDisplay(formatted);
-  };
-
-  const handleSave = async () => {
-    setSaveError(null);
-    const fio = [lastName, firstName, patronymic].map((s) => s.trim()).filter(Boolean).join(' ');
-    const phoneNorm = normalizePhoneInput(phoneDisplay);
-    if (phoneNorm && !validatePhone(phoneDisplay)) {
-      setSaveError('Неверный формат телефона. Ожидается +7 000 000 00 00');
+  const handleSavePhone = useCallback(async (phone: string) => {
+    const normalized = normalizePhone(phone);
+    if (normalized.length !== 11 || normalized[0] !== '7') {
+      showAlert('Неверный формат телефона');
       return;
     }
-    setSaving(true);
+
     try {
-      const payload: { fio?: string; phone?: string } = {};
-      if (fio !== (user?.fio ?? '')) payload.fio = fio;
-      if (phoneNorm) {
-        const normalized = phoneNorm.startsWith('7') ? phoneNorm : '7' + phoneNorm;
-        if (normalized.length === 11) payload.phone = normalized;
-      }
-      if (Object.keys(payload).length === 0) {
-        showAlert('Нет изменений для сохранения');
-        return;
-      }
-      const updated = await api.updateProfile(payload);
+      const updated = await api.updateProfile({ phone: normalized });
       setUser(updated);
-      setPhoneDisplay(formatPhoneForDisplay(updated.phone));
-      showAlert('Данные сохранены');
+      showAlert('Номер телефона сохранен');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ошибка сохранения';
       const detail = typeof (err as { detail?: string }).detail === 'string' ? (err as { detail: string }).detail : message;
       setSaveError(detail);
       showAlert(detail);
+    }
+  }, [showAlert]);
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
+
+  // Check if phone number is available from Telegram initData
+  useEffect(() => {
+    const phoneFromTelegram = (telegramUser as any)?.phone_number;
+    if (phoneFromTelegram && phoneFromTelegram !== user?.phone) {
+      // Auto-save phone from Telegram if available
+      handleSavePhone(phoneFromTelegram);
+    }
+  }, [telegramUser, user?.phone, handleSavePhone]);
+
+  const handleRequestContact = async () => {
+    setRequestingContact(true);
+    setSaveError(null);
+    try {
+      const phoneNumber = await requestContact();
+      if (!phoneNumber) {
+        showAlert('Номер телефона не получен');
+        return;
+      }
+      await handleSavePhone(phoneNumber);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Ошибка запроса контакта';
+      setSaveError(message);
+      showAlert(message);
     } finally {
-      setSaving(false);
+      setRequestingContact(false);
     }
   };
 
@@ -145,64 +121,38 @@ export function Profile() {
                 <span className="profile-data__label">Telegram ID</span>
                 <span className="profile-data__value profile-data__value_readonly">{user.tg_id}</span>
               </div>
+              {telegramUser?.first_name && (
+                <div className="profile-data__row">
+                  <span className="profile-data__label">Имя</span>
+                  <span className="profile-data__value profile-data__value_readonly">
+                    {telegramUser.first_name} {telegramUser.last_name || ''}
+                  </span>
+                </div>
+              )}
               <div className="profile-data__row">
-                <label className="profile-data__label" htmlFor="profile-lastname">Фамилия</label>
-                <input
-                  id="profile-lastname"
-                  type="text"
-                  className="profile-data__input"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Фамилия"
-                  autoComplete="family-name"
-                />
-              </div>
-              <div className="profile-data__row">
-                <label className="profile-data__label" htmlFor="profile-firstname">Имя</label>
-                <input
-                  id="profile-firstname"
-                  type="text"
-                  className="profile-data__input"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Имя"
-                  autoComplete="given-name"
-                />
-              </div>
-              <div className="profile-data__row">
-                <label className="profile-data__label" htmlFor="profile-patronymic">Отчество</label>
-                <input
-                  id="profile-patronymic"
-                  type="text"
-                  className="profile-data__input"
-                  value={patronymic}
-                  onChange={(e) => setPatronymic(e.target.value)}
-                  placeholder="Отчество"
-                  autoComplete="additional-name"
-                />
-              </div>
-              <div className="profile-data__row">
-                <label className="profile-data__label" htmlFor="profile-phone">Номер телефона</label>
-                <input
-                  id="profile-phone"
-                  type="tel"
-                  className="profile-data__input"
-                  value={phoneDisplay}
-                  onChange={handlePhoneChange}
-                  placeholder="+7 000 000 00 00"
-                  maxLength={PHONE_PREFIX.length + 3 + 1 + 3 + 1 + 2 + 1 + 2}
-                />
+                <span className="profile-data__label">Номер телефона</span>
+                {user.phone ? (
+                  <span className="profile-data__value profile-data__value_readonly">
+                    {formatPhoneForDisplay(user.phone)}
+                  </span>
+                ) : (
+                  <span className="profile-data__value profile-data__value_readonly" style={{ color: '#999' }}>
+                    Не указан
+                  </span>
+                )}
               </div>
             </div>
             {saveError && <p className="profile-data__error">{saveError}</p>}
-            <button
-              type="button"
-              className="profile-data__save"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? 'Сохранение…' : 'Сохранить'}
-            </button>
+            {!user.phone && (
+              <button
+                type="button"
+                className="profile-data__save"
+                onClick={handleRequestContact}
+                disabled={requestingContact}
+              >
+                {requestingContact ? 'Запрос…' : 'Поделиться номером телефона'}
+              </button>
+            )}
           </section>
 
           <div className="profile-card">

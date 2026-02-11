@@ -36,6 +36,7 @@ class TelegramUser(BaseModel):
     is_premium: Optional[bool] = None
     allows_write_to_pm: Optional[bool] = None
     photo_url: Optional[str] = None
+    phone_number: Optional[str] = None
 
 
 class TelegramInitData(BaseModel):

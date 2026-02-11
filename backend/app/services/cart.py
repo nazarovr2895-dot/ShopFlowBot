@@ -183,6 +183,11 @@ class CartService:
         groups = await self.get_cart(buyer_id)
         if not groups:
             raise CartServiceError("Cart is empty", 400)
+        
+        # Ensure fio has a value (should be set by API, but add fallback for safety)
+        if not fio or not fio.strip():
+            fio = "Покупатель"
+        
         order_service = OrderService(self.session)
         created = []
         for group in groups:

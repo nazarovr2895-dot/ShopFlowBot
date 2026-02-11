@@ -51,7 +51,13 @@ docker compose -f docker-compose.prod.yml down
 # Запустить все сервисы
 docker compose -f docker-compose.prod.yml up -d
 ```
+docker compose -f docker-compose.prod.yml build miniapp
 
+# Перезапустить контейнер
+docker compose -f docker-compose.prod.yml up -d miniapp
+
+# Если были изменения в backend, перезапустить его тоже
+docker compose -f docker-compose.prod.yml restart backend
 ### Пересборка и обновление
 ```bash
 # Пересобрать образ (после изменений в коде)
