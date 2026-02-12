@@ -200,7 +200,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         </div>
       )}
 
-      <div className="filters__row">
+      <div className="filters__item">
         <select
           className="filters__select"
           value={filters.city_id || ''}
@@ -213,7 +213,9 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
             </option>
           ))}
         </select>
+      </div>
 
+      <div className="filters__item">
         <select
           className="filters__select"
           value={filters.district_id || ''}
@@ -229,7 +231,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         </select>
       </div>
 
-      <div className="filters__row filters__metro-search" ref={metroSearchRef}>
+      <div className="filters__item filters__metro-search" ref={metroSearchRef}>
         <div className="filters__metro-input-wrap">
           <input
             type="text"
@@ -279,7 +281,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         )}
       </div>
 
-      <div className="filters__row">
+      <div className="filters__item">
         <select
           className="filters__select"
           value={filters.delivery_type || ''}
@@ -290,7 +292,9 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
           <option value="pickup">Самовывоз</option>
           <option value="both">Доставка и самовывоз</option>
         </select>
+      </div>
 
+      <div className="filters__item">
         <select
           className="filters__select"
           value={filters.free_delivery === undefined ? '' : filters.free_delivery.toString()}
@@ -302,7 +306,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         </select>
       </div>
 
-      <div className="filters__row">
+      <div className="filters__item">
         <select
           className="filters__select"
           value={filters.sort_price || ''}

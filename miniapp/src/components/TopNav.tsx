@@ -4,12 +4,14 @@ import { isTelegram } from '../utils/environment';
 import './TopNav.css';
 
 const FlowerIcon = ({ className }: { className?: string }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-    <path d="M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12" />
-    <path d="M12 8a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4z" />
-  </svg>
+  <img 
+    src="/favicon-32x32.png" 
+    alt="Мои цветочные"
+    className={className}
+    width="24"
+    height="24"
+    style={{ display: 'block' }}
+  />
 );
 
 const BagIcon = ({ className }: { className?: string }) => (
