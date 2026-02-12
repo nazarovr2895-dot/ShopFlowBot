@@ -1,5 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import './BottomNav.css';
+import { LiquidGlassCard } from './LiquidGlassCard';
+import { isTelegram } from '../utils/environment';
+import './TopNav.css';
 
 const FlowerIcon = ({ className }: { className?: string }) => (
   <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -47,28 +49,31 @@ const tabs = [
   { path: '/profile', label: 'Профиль', Icon: PersonIcon },
 ] as const;
 
-export function BottomNav() {
+export function TopNav() {
   const location = useLocation();
   const pathname = location.pathname;
+  const isTelegramEnv = isTelegram();
 
   return (
-    <nav className="bottom-nav" role="navigation">
-      {tabs.map(({ path, label, Icon }) => {
-        const isActive = path === '/' ? pathname === '/' : path === '/catalog' ? pathname === '/catalog' : pathname.startsWith(path);
-        return (
-          <NavLink
-            key={path}
-            to={path}
-            className={() => `bottom-nav__item ${isActive ? 'bottom-nav__item--active' : ''}`}
-            end={path === '/' || path === '/catalog'}
-          >
-            <span className="bottom-nav__icon">
-              <Icon />
-            </span>
-            <span className="bottom-nav__label">{label}</span>
-          </NavLink>
-        );
-      })}
+    <nav className={`top-nav ${isTelegramEnv ? 'top-nav--telegram' : ''}`} role="navigation" data-telegram={isTelegramEnv}>
+      <LiquidGlassCard className="top-nav__container">
+        {tabs.map(({ path, label, Icon }) => {
+          const isActive = path === '/' ? pathname === '/' : path === '/catalog' ? pathname === '/catalog' : pathname.startsWith(path);
+          return (
+            <NavLink
+              key={path}
+              to={path}
+              className={() => `top-nav__item ${isActive ? 'top-nav__item--active' : ''}`}
+              end={path === '/' || path === '/catalog'}
+            >
+              <span className="top-nav__icon">
+                <Icon />
+              </span>
+              <span className="top-nav__label">{label}</span>
+            </NavLink>
+          );
+        })}
+      </LiquidGlassCard>
     </nav>
   );
 }

@@ -3,7 +3,7 @@
   flex-direction: column;
   min-height: 100vh;
   padding: 24px 16px;
-  background: var(--tg-theme-bg-color, #fff);
+  background: var(--app-bg);
 }
 
 .location-setup__content {
@@ -24,14 +24,14 @@
 .location-setup__title {
   font-size: 24px;
   font-weight: 600;
-  color: var(--tg-theme-text-color, #000);
+  color: var(--app-text);
   text-align: center;
   margin: 0 0 12px 0;
 }
 
 .location-setup__description {
   font-size: 14px;
-  color: var(--tg-theme-hint-color, #888);
+  color: var(--app-text-secondary);
   text-align: center;
   margin: 0 0 32px 0;
   line-height: 1.5;
@@ -53,29 +53,33 @@
 .location-setup__label {
   font-size: 14px;
   font-weight: 500;
-  color: var(--tg-theme-text-color, #000);
+  color: var(--app-text);
 }
 
 .location-setup__select {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+  border: 1px solid var(--app-border);
   border-radius: 12px;
-  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
-  color: var(--tg-theme-text-color, #000);
+  background: var(--app-bg-elevated);
+  color: var(--app-text);
   font-size: 16px;
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23666666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 16px center;
   padding-right: 40px;
   transition: border-color 0.2s ease;
 }
 
+[data-theme="dark"] .location-setup__select {
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23999999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
 .location-setup__select:focus {
   outline: none;
-  border-color: var(--tg-theme-button-color, #2196f3);
+  border-color: var(--app-accent);
 }
 
 .location-setup__select:disabled {

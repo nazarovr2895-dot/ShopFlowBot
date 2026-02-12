@@ -1,26 +1,49 @@
-/* FlowShop app theme (light, soft pastels) */
-:root {
-  --app-bg: #f5f3f8;
-  --app-bg-elevated: #ffffff;
-  --app-text: #2d2a35;
-  --app-text-secondary: #6b6578;
-  --app-accent: #9b87c4;
-  --app-accent-dark: #7c6b9e;
-  --app-accent-muted: rgba(155, 135, 196, 0.18);
-  --app-border: rgba(0, 0, 0, 0.06);
-  --app-surface: rgba(0, 0, 0, 0.03);
-  --app-loader-track: #e8e4ef;
+/* FlowShop app theme - Black & White palette */
+
+/* Light theme (default) */
+:root,
+:root[data-theme="light"] {
+  --app-bg: #ffffff;
+  --app-bg-elevated: #f5f5f5;
+  --app-text: #000000;
+  --app-text-secondary: #666666;
+  --app-accent: #000000;
+  --app-accent-dark: #000000;
+  --app-accent-muted: rgba(0, 0, 0, 0.1);
+  --app-border: rgba(0, 0, 0, 0.1);
+  --app-surface: rgba(0, 0, 0, 0.05);
+  --app-loader-track: #e0e0e0;
+  --app-error: #d32f2f;
+  --app-error-bg: rgba(211, 47, 47, 0.1);
 }
 
-/* Telegram theme fallbacks (overridden by our dark theme in miniapp) */
-:root {
+/* Dark theme */
+:root[data-theme="dark"] {
+  --app-bg: #000000;
+  --app-bg-elevated: #1a1a1a;
+  --app-text: #ffffff;
+  --app-text-secondary: #999999;
+  --app-accent: #ffffff;
+  --app-accent-dark: #ffffff;
+  --app-accent-muted: rgba(255, 255, 255, 0.1);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-surface: rgba(255, 255, 255, 0.05);
+  --app-loader-track: #333333;
+  --app-error: #ff5252;
+  --app-error-bg: rgba(255, 82, 82, 0.15);
+}
+
+/* Telegram theme fallbacks */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
   --tg-theme-bg-color: var(--app-bg);
   --tg-theme-text-color: var(--app-text);
   --tg-theme-hint-color: var(--app-text-secondary);
   --tg-theme-link-color: var(--app-accent);
   --tg-theme-button-color: var(--app-accent);
-  --tg-theme-button-text-color: #fff;
-  --tg-theme-secondary-bg-color: var(--app-bg);
+  --tg-theme-button-text-color: var(--app-bg);
+  --tg-theme-secondary-bg-color: var(--app-bg-elevated);
 }
 
 /* Reset */
@@ -61,7 +84,7 @@ html {
 /* Selection color */
 ::selection {
   background: var(--app-accent);
-  color: #fff;
+  color: var(--app-bg);
 }
 
 /* Focus outline */

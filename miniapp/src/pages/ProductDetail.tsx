@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { PublicSellerDetail, Product } from '../types';
-import { api } from '../api/client';
+import { api, hasTelegramAuth } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
-import { Loader, EmptyState, ProductImage } from '../components';
+import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
 import './ProductDetail.css';
 
 export function ProductDetail() {
@@ -18,6 +18,8 @@ export function ProductDetail() {
   const [adding, setAdding] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [selectedPreorderDate, setSelectedPreorderDate] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [togglingFavorite, setTogglingFavorite] = useState(false);
   const scrollTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,6 +52,54 @@ export function ProductDetail() {
   useEffect(() => {
     setPhotoIndex(0);
   }, [productId]);
+
+  // Load favorite state when product is loaded
+  useEffect(() => {
+    if (!product || !hasTelegramAuth()) {
+      setIsFavorite(false);
+      return;
+    }
+    const check = async () => {
+      try {
+        const favorites = await api.getFavoriteProducts();
+        setIsFavorite(favorites.some((p) => p.product_id === product.id));
+      } catch {
+        setIsFavorite(false);
+      }
+    };
+    check();
+  }, [product?.id, product]);
+
+  const toggleFavorite = async () => {
+    if (!product || togglingFavorite) return;
+    setTogglingFavorite(true);
+    const wasFavorite = isFavorite;
+    
+    // Optimistic update
+    setIsFavorite(!wasFavorite);
+    
+    try {
+      hapticFeedback('light');
+      if (wasFavorite) {
+        await api.removeFavoriteProduct(product.id);
+        showAlert('Убрано из избранного');
+      } else {
+        await api.addFavoriteProduct(product.id);
+        showAlert('Добавлено в избранное');
+      }
+    } catch (err) {
+      // Rollback on error
+      setIsFavorite(wasFavorite);
+      const msg = err instanceof Error ? err.message : 'Ошибка';
+      if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('аутентификац')) {
+        showAlert('Откройте приложение в Telegram, чтобы добавлять товары в избранное.');
+      } else {
+        showAlert(msg);
+      }
+    } finally {
+      setTogglingFavorite(false);
+    }
+  };
 
   const addToCart = async (preorderDate?: string | null) => {
     if (!product) return;
@@ -157,6 +207,15 @@ export function ProductDetail() {
                 aria-label={`Фото ${i + 1}`}
               />
             ))}
+          </div>
+        )}
+        {hasTelegramAuth() && (
+          <div className="product-detail__heart">
+            <HeartIcon
+              isFavorite={isFavorite}
+              onClick={toggleFavorite}
+              size={28}
+            />
           </div>
         )}
       </div>

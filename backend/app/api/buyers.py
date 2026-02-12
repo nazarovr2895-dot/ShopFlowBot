@@ -18,7 +18,7 @@ from backend.app.services.buyers import (
     BuyerServiceError,
     UserNotFoundError,
 )
-from backend.app.services.cart import CartService, VisitedSellersService, FavoriteSellersService, CartServiceError
+from backend.app.services.cart import CartService, FavoriteSellersService, FavoriteProductsService, CartServiceError
 from backend.app.services.orders import OrderService, OrderNotFoundError, InvalidOrderStatusError
 from backend.app.services.referrals import accrue_commissions
 from backend.app.services.loyalty import LoyaltyService
@@ -223,6 +223,10 @@ class VisitedSellerRecord(BaseModel):
     seller_id: int
 
 
+class FavoriteProductRecord(BaseModel):
+    product_id: int
+
+
 @router.get("/me/cart")
 async def get_cart(
     current_user: TelegramInitData = Depends(get_current_user_hybrid),
@@ -325,30 +329,6 @@ async def checkout_cart(
         _handle_cart_error(e)
 
 
-# --- Visited sellers (Mini App) ---
-@router.post("/me/visited-sellers")
-async def record_visited_seller(
-    data: VisitedSellerRecord,
-    current_user: TelegramInitData = Depends(get_current_user_hybrid),
-    session: AsyncSession = Depends(get_session),
-):
-    """Записать посещение магазина (для раздела «Недавно просмотренные»)."""
-    visited = VisitedSellersService(session)
-    await visited.record_visit(current_user.user.id, data.seller_id)
-    await session.commit()
-    return {"status": "ok"}
-
-
-@router.get("/me/visited-sellers")
-async def get_visited_sellers(
-    current_user: TelegramInitData = Depends(get_current_user_hybrid),
-    session: AsyncSession = Depends(get_session),
-):
-    """Список недавно посещённых магазинов."""
-    visited = VisitedSellersService(session)
-    return await visited.get_visited_sellers(current_user.user.id)
-
-
 # --- Favorite sellers / Мои цветочные (Mini App) ---
 @router.get("/me/favorite-sellers")
 async def get_favorite_sellers(
@@ -386,6 +366,47 @@ async def remove_favorite_seller(
     """Убрать магазин из «Мои цветочные»."""
     fav = FavoriteSellersService(session)
     await fav.remove(current_user.user.id, seller_id)
+    await session.commit()
+    return {"status": "ok"}
+
+
+# --- Favorite products / Избранные товары (Mini App) ---
+@router.get("/me/favorite-products")
+async def get_favorite_products(
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
+    session: AsyncSession = Depends(get_session),
+):
+    """Список избранных товаров."""
+    fav = FavoriteProductsService(session)
+    return await fav.get_favorite_products(current_user.user.id)
+
+
+@router.post("/me/favorite-products")
+async def add_favorite_product(
+    data: FavoriteProductRecord,
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
+    session: AsyncSession = Depends(get_session),
+):
+    """Добавить товар в избранное."""
+    fav = FavoriteProductsService(session)
+    try:
+        await fav.add(current_user.user.id, data.product_id)
+        await session.commit()
+        return {"status": "ok"}
+    except CartServiceError as e:
+        await session.rollback()
+        _handle_cart_error(e)
+
+
+@router.delete("/me/favorite-products/{product_id}")
+async def remove_favorite_product(
+    product_id: int,
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
+    session: AsyncSession = Depends(get_session),
+):
+    """Убрать товар из избранного."""
+    fav = FavoriteProductsService(session)
+    await fav.remove(current_user.user.id, product_id)
     await session.commit()
     return {"status": "ok"}
 

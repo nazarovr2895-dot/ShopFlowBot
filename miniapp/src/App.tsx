@@ -7,23 +7,24 @@ import {
   ShopDetails,
   Cart,
   Checkout,
-  VisitedSellers,
+  FavoriteProducts,
   Profile,
-  OrdersList,
   OrderDetail,
   ProductDetail,
 } from './pages';
 import { MainLayout, RequireAuth } from './components';
-import { useTelegramWebApp } from './hooks/useTelegramWebApp';
+import { useTheme } from './hooks/useTheme';
 import { api } from './api/client';
 import { useLocationCache } from './hooks/useLocationCache';
 import { isTelegram, getTelegramInitData } from './utils/environment';
 import './App.css';
 
 function AppContent() {
-  const { webApp } = useTelegramWebApp();
   const { setFilters } = useLocationCache();
   const [authInitialized, setAuthInitialized] = useState(false);
+  
+  // Initialize theme system (integrates with Telegram colorScheme internally)
+  useTheme();
 
   // Auto-authenticate in Telegram using initData
   useEffect(() => {
@@ -45,10 +46,7 @@ function AppContent() {
     initAuth();
   }, []);
 
-  // Use FlowShop dark theme from App.css; skip Telegram theme to keep consistent design
-  useEffect(() => {
-    // Optional: could respect Telegram theme here by setting --app-* from theme
-  }, [webApp.themeParams]);
+  // Theme is now managed by useTheme hook which integrates with Telegram colorScheme
 
   // Sync filters from user profile if they have city_id (non-blocking; no prompt on entry)
   useEffect(() => {
@@ -93,7 +91,7 @@ function AppContent() {
       <Route element={<MainLayout />}>
         <Route index element={<MyFlowers />} />
         <Route path="catalog" element={<ShopsList />} />
-        <Route path="visited" element={<VisitedSellers />} />
+        <Route path="favorites" element={<FavoriteProducts />} />
         <Route path="cart" element={<Cart />} />
         <Route path="profile" element={<Profile />} />
       </Route>
@@ -101,7 +99,6 @@ function AppContent() {
       <Route path="/cart/checkout" element={<RequireAuth from="checkout"><Checkout /></RequireAuth>} />
       <Route path="/shop/:sellerId" element={<ShopDetails />} />
       <Route path="/shop/:sellerId/product/:productId" element={<ProductDetail />} />
-      <Route path="/orders" element={<RequireAuth from="orders"><OrdersList /></RequireAuth>} />
       <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
       
       {/* Redirect root to appropriate page */}

@@ -4,7 +4,7 @@ import type { PublicSellerDetail, Product } from '../types';
 import { api, hasTelegramAuth } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
-import { Loader, EmptyState, ProductImage } from '../components';
+import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
 import './ShopDetails.css';
 
 type ProductTab = 'regular' | 'preorder';
@@ -21,6 +21,8 @@ export function ShopDetails() {
   const [preorderDateForProductId, setPreorderDateForProductId] = useState<number | null>(null);
   const [isInFavorites, setIsInFavorites] = useState(false);
   const [togglingFavorite, setTogglingFavorite] = useState(false);
+  const [favoriteProductIds, setFavoriteProductIds] = useState<Set<number>>(new Set());
+  const [togglingProductFavorite, setTogglingProductFavorite] = useState<number | null>(null);
   const [loyalty, setLoyalty] = useState<{ points_balance: number; linked: boolean } | null>(null);
 
   // Set up back button
@@ -46,14 +48,6 @@ export function ShopDetails() {
         const id = parseInt(sellerId, 10);
         const data = await api.getSellerDetail(id);
         setSeller(data);
-        // Запись посещения только при наличии Telegram init data (внутри Mini App). Иначе не дергаем API — избегаем 401 в консоли.
-        if (hasTelegramAuth()) {
-          try {
-            await api.recordVisitedSeller(data.seller_id);
-          } catch {
-            // игнорируем сбой записи
-          }
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка загрузки');
       } finally {
@@ -76,6 +70,24 @@ export function ShopDetails() {
       }
     };
     check();
+  }, [seller?.seller_id, seller]);
+
+  // Load favorite products when seller is loaded
+  useEffect(() => {
+    if (!seller || !hasTelegramAuth()) {
+      setFavoriteProductIds(new Set());
+      return;
+    }
+    const loadFavorites = async () => {
+      try {
+        const favorites = await api.getFavoriteProducts();
+        const productIds = new Set(favorites.map((p) => p.product_id));
+        setFavoriteProductIds(productIds);
+      } catch {
+        setFavoriteProductIds(new Set());
+      }
+    };
+    loadFavorites();
   }, [seller?.seller_id, seller]);
 
   // Load loyalty (programme participation and points) when seller is loaded and user is authenticated
@@ -121,6 +133,45 @@ export function ShopDetails() {
       }
     } finally {
       setTogglingFavorite(false);
+    }
+  };
+
+  const toggleProductFavorite = async (productId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (togglingProductFavorite === productId) return;
+    
+    const isFavorite = favoriteProductIds.has(productId);
+    setTogglingProductFavorite(productId);
+    
+    // Optimistic update
+    const newFavorites = new Set(favoriteProductIds);
+    if (isFavorite) {
+      newFavorites.delete(productId);
+    } else {
+      newFavorites.add(productId);
+    }
+    setFavoriteProductIds(newFavorites);
+    
+    try {
+      hapticFeedback('light');
+      if (isFavorite) {
+        await api.removeFavoriteProduct(productId);
+        showAlert('Убрано из избранного');
+      } else {
+        await api.addFavoriteProduct(productId);
+        showAlert('Добавлено в избранное');
+      }
+    } catch (err) {
+      // Rollback on error
+      setFavoriteProductIds(favoriteProductIds);
+      const msg = err instanceof Error ? err.message : 'Ошибка';
+      if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('аутентификац')) {
+        showAlert('Откройте приложение в Telegram, чтобы добавлять товары в избранное.');
+      } else {
+        showAlert(msg);
+      }
+    } finally {
+      setTogglingProductFavorite(null);
     }
   };
 
@@ -324,6 +375,15 @@ export function ShopDetails() {
                       className="shop-details__product-card-image"
                       placeholderClassName="shop-details__product-card-image-placeholder"
                     />
+                    {hasTelegramAuth() && (
+                      <div className="shop-details__product-card-heart">
+                        <HeartIcon
+                          isFavorite={favoriteProductIds.has(product.id)}
+                          onClick={(e) => toggleProductFavorite(product.id, e)}
+                          size={20}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="shop-details__product-card-info">
                     <span className="shop-details__product-card-name">{product.name}</span>

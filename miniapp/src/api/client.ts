@@ -8,6 +8,7 @@ import type {
   SellerFilters,
   CartSellerGroup,
   VisitedSeller,
+  FavoriteProduct,
   BuyerOrder,
 } from '../types';
 
@@ -337,16 +338,20 @@ class ApiClient {
     });
   }
 
-  // Visited sellers API
-  async recordVisitedSeller(sellerId: number): Promise<{ status: string }> {
-    return this.fetch('/buyers/me/visited-sellers', {
+  // Favorite products API
+  async getFavoriteProducts(): Promise<FavoriteProduct[]> {
+    return this.fetch<FavoriteProduct[]>('/buyers/me/favorite-products');
+  }
+
+  async addFavoriteProduct(productId: number): Promise<{ status: string }> {
+    return this.fetch('/buyers/me/favorite-products', {
       method: 'POST',
-      body: JSON.stringify({ seller_id: sellerId }),
+      body: JSON.stringify({ product_id: productId }),
     });
   }
 
-  async getVisitedSellers(): Promise<VisitedSeller[]> {
-    return this.fetch<VisitedSeller[]>('/buyers/me/visited-sellers');
+  async removeFavoriteProduct(productId: number): Promise<{ status: string }> {
+    return this.fetch(`/buyers/me/favorite-products/${productId}`, { method: 'DELETE' });
   }
 
   // Favorite sellers / Мои цветочные API

@@ -1,4 +1,4 @@
-"""Cart and visited sellers models for Mini App."""
+"""Cart and favorites models for Mini App."""
 from sqlalchemy import BigInteger, Integer, ForeignKey, DateTime, DECIMAL, String, Index, UniqueConstraint, Boolean, Date
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, date
@@ -27,20 +27,6 @@ class CartItem(Base):
     )
 
 
-class BuyerVisitedSeller(Base):
-    """Track which sellers a buyer has opened in Mini App (for "recent" list)."""
-    __tablename__ = 'buyer_visited_sellers'
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
-    visited_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    __table_args__ = (
-        UniqueConstraint('buyer_id', 'seller_id', name='uq_visited_buyer_seller'),
-        Index('ix_visited_buyer_visited_at', 'buyer_id', 'visited_at'),
-    )
-
-
 class BuyerFavoriteSeller(Base):
     """Track which sellers a buyer has added to "My Flowers" (favorites)."""
     __tablename__ = 'buyer_favorite_sellers'
@@ -51,4 +37,17 @@ class BuyerFavoriteSeller(Base):
     __table_args__ = (
         UniqueConstraint('buyer_id', 'seller_id', name='uq_favorite_buyer_seller'),
         Index('ix_favorite_buyer_seller', 'buyer_id', 'seller_id'),
+    )
+
+
+class BuyerFavoriteProduct(Base):
+    """Track which products a buyer has added to favorites."""
+    __tablename__ = 'buyer_favorite_products'
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    product_id: Mapped[int] = mapped_column(ForeignKey('products.id'), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('buyer_id', 'product_id', name='uq_favorite_buyer_product'),
+        Index('ix_favorite_buyer_product', 'buyer_id', 'product_id'),
     )

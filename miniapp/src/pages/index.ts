@@ -4,7 +4,7 @@ export { MyFlowers } from './MyFlowers';
 export { ShopDetails } from './ShopDetails';
 export { Cart } from './Cart';
 export { Checkout } from './Checkout';
-export { VisitedSellers } from './VisitedSellers';
+export { FavoriteProducts } from './FavoriteProducts';
 export { Profile } from './Profile';
 export { OrdersList } from './OrdersList';
 export { OrderDetail } from './OrderDetail';

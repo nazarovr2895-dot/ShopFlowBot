@@ -1,13 +1,17 @@
 .my-flowers-page {
   padding: 16px;
+  padding-top: calc(16px + 56px);
   background: var(--app-bg);
+  min-height: 100vh;
 }
 
-.my-flowers-page__title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 16px;
-  color: var(--app-text);
+/* Telegram version */
+.my-flowers-page[data-telegram="true"] {
+  padding-top: calc(12px + 48px);
+}
+
+.my-flowers-page__content {
+  width: 100%;
 }
 
 .my-flowers-page__catalog-link {
@@ -17,7 +21,7 @@
   padding: 14px 16px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--app-accent-text, #fff);
+  color: var(--app-bg);
   background: var(--app-accent);
   border: none;
   border-radius: 12px;
@@ -61,4 +65,77 @@
 .my-flowers-card__owner {
   font-size: 13px;
   color: var(--app-text-secondary);
+}
+
+/* Orders styles */
+.orders-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-card {
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  background: var(--app-bg-elevated);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.order-card:active {
+  opacity: 0.9;
+}
+
+.order-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.order-card__id {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.order-card__status {
+  font-size: 13px;
+  color: var(--app-text-secondary);
+}
+
+.order-card__items {
+  font-size: 13px;
+  color: var(--app-text);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-card__footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.order-card__date {
+  font-weight: 400;
+  color: var(--app-text-secondary);
+}
+
+/* Desktop adjustments */
+@media (min-width: 768px) {
+  .my-flowers-page {
+    padding: 24px;
+    padding-top: calc(24px + 56px);
+    max-width: 1400px;
+    margin: 0 auto;
+  }
 }

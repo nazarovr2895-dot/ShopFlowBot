@@ -3,7 +3,8 @@ import type { PublicSellerListItem, SellerFilters } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { useLocationCache } from '../hooks/useLocationCache';
-import { ShopCard, Filters, Loader, EmptyState } from '../components';
+import { isTelegram } from '../utils/environment';
+import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal } from '../components';
 import './ShopsList.css';
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -11,6 +12,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 export function ShopsList() {
   const { setBackButton, hideMainButton } = useTelegramWebApp();
   const { filters, setFilters, isInitialized } = useLocationCache();
+  const isTelegramEnv = isTelegram();
   
   const [sellers, setSellers] = useState<PublicSellerListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,7 @@ export function ShopsList() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(() => filters.search ?? '');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -94,61 +96,27 @@ export function ShopsList() {
     setFilters(newFilters);
   };
 
-  const toggleFilters = () => {
-    setShowFilters((prev) => !prev);
-  };
-
   const activeFiltersCount = Object.entries(filters).filter(
     ([k, v]) => k !== 'search' && v !== undefined && v !== ''
   ).length;
 
   return (
-    <div className="shops-list">
-      <header className="shops-list__header">
-        <h1 className="shops-list__title">FlowShop</h1>
-        <button 
-          className={`shops-list__filter-toggle ${activeFiltersCount > 0 ? 'active' : ''}`}
-          onClick={toggleFilters}
-        >
-          <svg className="shops-list__filter-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="4" y1="12" x2="20" y2="12" />
-            <line x1="4" y1="18" x2="20" y2="18" />
-            <circle cx="8" cy="6" r="1.5" fill="currentColor" />
-            <circle cx="15" cy="12" r="1.5" fill="currentColor" />
-            <circle cx="12" cy="18" r="1.5" fill="currentColor" />
-          </svg>
-          Фильтры
-          {activeFiltersCount > 0 && (
-            <span className="shops-list__filter-badge">{activeFiltersCount}</span>
-          )}
-        </button>
-      </header>
+    <div className={`shops-list ${isTelegramEnv ? 'shops-list--telegram' : ''}`} data-telegram={isTelegramEnv}>
+      <CatalogNavBar
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        onFilterClick={() => setIsFilterModalOpen(true)}
+        activeFiltersCount={activeFiltersCount}
+      />
 
-      <div className="shops-list__search-wrap">
-        <span className="shops-list__search-icon" aria-hidden>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-        </span>
-        <input
-          type="search"
-          className="shops-list__search-input"
-          placeholder="Поиск по названию и хештегам (например: 101 роза)"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          autoComplete="off"
-        />
-      </div>
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+      />
 
-      {/* Desktop: filters sidebar, Mobile: conditional filters */}
-      <div className="shops-list__filters-container">
-        <div className={`shops-list__filters-sidebar ${showFilters ? 'shops-list__filters-sidebar--visible' : ''}`}>
-          <Filters filters={filters} onFiltersChange={handleFiltersChange} />
-        </div>
-
-        <div className="shops-list__content">
+      <div className="shops-list__content">
           {loading && sellers.length === 0 ? (
             <Loader centered />
           ) : error ? (
@@ -186,7 +154,6 @@ export function ShopsList() {
               )}
             </>
           )}
-        </div>
       </div>
     </div>
   );

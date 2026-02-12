@@ -97,7 +97,7 @@ export function Profile() {
     if (fromParam === REQUIRE_AUTH_FROM_CHECKOUT) {
       navigate('/cart/checkout', { replace: true });
     } else if (fromParam === REQUIRE_AUTH_FROM_ORDERS) {
-      navigate('/orders', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [fromParam, loadUser, navigate]);
 
@@ -189,20 +189,6 @@ export function Profile() {
             )}
           </div>
         </>
-      )}
-
-      {user && (
-        <nav className="profile-nav">
-          <button
-            type="button"
-            className="profile-nav__item"
-            onClick={() => navigate('/orders')}
-          >
-            <span className="profile-nav__icon">📦</span>
-            <span>Мои заказы</span>
-            <span className="profile-nav__arrow">›</span>
-          </button>
-        </nav>
       )}
     </div>
   );

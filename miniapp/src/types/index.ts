@@ -72,6 +72,20 @@ export interface VisitedSeller {
   visited_at: string | null;
 }
 
+// Favorite products
+export interface FavoriteProduct {
+  product_id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  photo_id: string | null;
+  photo_ids?: string[] | null;
+  quantity?: number;
+  is_preorder?: boolean;
+  seller_id: number;
+  shop_name: string;
+}
+
 // Orders
 export interface BuyerOrder {
   id: number;

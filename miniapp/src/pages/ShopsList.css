@@ -2,94 +2,19 @@
   min-height: 100vh;
   background: var(--app-bg);
   padding: 12px;
+  padding-top: calc(12px + 56px);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-.shops-list__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding: 0 4px;
+/* Telegram version: full width cards, padding matches navigation */
+.shops-list--telegram,
+.shops-list[data-telegram="true"] {
+  padding: 0 14px;
+  padding-top: calc(12px + 48px);
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-.shops-list__title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--app-text);
-}
-
-.shops-list__filter-toggle {
-  padding: 8px 14px;
-  border: none;
-  border-radius: 20px;
-  background: var(--app-accent);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: opacity 0.15s ease;
-  box-shadow: 0 2px 8px rgba(155, 135, 196, 0.35);
-}
-
-.shops-list__filter-toggle:active {
-  opacity: 0.9;
-}
-
-.shops-list__filter-icon {
-  flex-shrink: 0;
-}
-
-.shops-list__filter-badge {
-  background: var(--app-accent-dark);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 50%;
-  min-width: 18px;
-  text-align: center;
-  box-shadow: 0 1px 3px rgba(124, 107, 158, 0.4);
-}
-
-.shops-list__search-wrap {
-  position: relative;
-  margin-bottom: 12px;
-}
-
-.shops-list__search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--app-text-secondary);
-  pointer-events: none;
-}
-
-.shops-list__search-input {
-  width: 100%;
-  padding: 10px 14px 10px 40px;
-  border: 1px solid var(--app-border, rgba(0, 0, 0, 0.1));
-  border-radius: 12px;
-  font-size: 15px;
-  color: var(--app-text);
-  background: var(--app-bg-elevated, #fff);
-  box-sizing: border-box;
-}
-
-.shops-list__search-input::placeholder {
-  color: var(--app-text-secondary);
-}
-
-.shops-list__search-input:focus {
-  outline: none;
-  border-color: var(--app-accent);
-  box-shadow: 0 0 0 2px rgba(155, 135, 196, 0.2);
-}
+/* Old header and search styles removed - now using CatalogNavBar */
 
 .shops-list__info {
   padding: 8px 4px;
@@ -103,6 +28,13 @@
   gap: 10px;
 }
 
+/* Telegram version: one card per row, full width */
+.shops-list--telegram .shops-list__grid,
+.shops-list[data-telegram="true"] .shops-list__grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
 @media (max-width: 360px) {
   .shops-list__grid {
     grid-template-columns: 1fr;
@@ -113,61 +45,12 @@
 @media (min-width: 768px) {
   .shops-list {
     padding: 24px;
+    padding-top: calc(24px + 56px);
     max-width: 1400px;
     margin: 0 auto;
   }
 
-  .shops-list__header {
-    margin-bottom: 24px;
-  }
-
-  .shops-list__title {
-    font-size: 32px;
-  }
-
-  .shops-list__search-wrap {
-    margin-bottom: 24px;
-  }
-
-  .shops-list__search-input {
-    padding: 14px 16px 14px 48px;
-    font-size: 16px;
-    border-radius: 16px;
-  }
-
-  /* Desktop: filters sidebar layout */
-  .shops-list__filters-container {
-    display: flex;
-    gap: 24px;
-    align-items: flex-start;
-  }
-
-    .shops-list__filters-sidebar {
-    width: 280px;
-    flex-shrink: 0;
-    position: sticky;
-    top: 24px;
-    display: none; /* Hidden on mobile by default */
-  }
-
-  .shops-list__filters-sidebar--visible {
-    display: block; /* Shown when toggle is clicked on mobile */
-  }
-
-  .shops-list__content {
-    flex: 1;
-    min-width: 0;
-  }
-
-  /* Hide filter toggle on desktop, show filters always */
-  .shops-list__filter-toggle {
-    display: none;
-  }
-
-  /* Always show filters sidebar on desktop */
-  .shops-list__filters-sidebar {
-    display: block !important;
-  }
+  /* Desktop: filters are now in modal, no sidebar needed */
 
   /* Grid layout for desktop */
   .shops-list__grid {
@@ -185,10 +68,6 @@
   .shops-list__grid {
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 24px;
-  }
-
-  .shops-list__filters-sidebar {
-    width: 320px;
   }
 }
 

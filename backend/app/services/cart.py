@@ -1,12 +1,12 @@
 # backend/app/services/cart.py
-"""Cart and visited sellers services for Mini App."""
+"""Cart and favorites services for Mini App."""
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, and_
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 
-from backend.app.models.cart import CartItem, BuyerVisitedSeller, BuyerFavoriteSeller
+from backend.app.models.cart import CartItem, BuyerFavoriteSeller, BuyerFavoriteProduct
 from backend.app.models.product import Product
 from backend.app.models.seller import Seller
 from backend.app.models.user import User
@@ -234,64 +234,6 @@ class CartService:
         return created
 
 
-class VisitedSellersService:
-    def __init__(self, session: AsyncSession):
-        self.session = session
-
-    async def record_visit(self, buyer_id: int, seller_id: int) -> None:
-        """Record or update visit timestamp (upsert by buyer_id, seller_id)."""
-        result = await self.session.execute(
-            select(BuyerVisitedSeller).where(
-                and_(
-                    BuyerVisitedSeller.buyer_id == buyer_id,
-                    BuyerVisitedSeller.seller_id == seller_id,
-                )
-            )
-        )
-        row = result.scalar_one_or_none()
-        if row:
-            from datetime import datetime
-            row.visited_at = datetime.utcnow()
-        else:
-            self.session.add(BuyerVisitedSeller(buyer_id=buyer_id, seller_id=seller_id))
-        await self.session.flush()
-
-    async def get_visited_sellers(self, buyer_id: int, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get recently visited sellers with shop_name, etc."""
-        from sqlalchemy import desc
-        from backend.app.models.seller import Seller
-        from backend.app.models.user import User
-
-        result = await self.session.execute(
-            select(BuyerVisitedSeller)
-            .where(BuyerVisitedSeller.buyer_id == buyer_id)
-            .order_by(desc(BuyerVisitedSeller.visited_at))
-            .limit(limit)
-        )
-        visits = result.scalars().all()
-        if not visits:
-            return []
-        seller_ids = [v.seller_id for v in visits]
-        sellers_result = await self.session.execute(
-            select(Seller, User.fio).outerjoin(User, Seller.seller_id == User.tg_id).where(
-                Seller.seller_id.in_(seller_ids)
-            )
-        )
-        sellers_map = {}
-        for row in sellers_result.all():
-            s, fio = row[0], row[1]
-            sellers_map[s.seller_id] = {
-                "seller_id": s.seller_id,
-                "shop_name": s.shop_name or "Магазин",
-                "owner_fio": fio,
-                "visited_at": None,
-            }
-        for v in visits:
-            if v.seller_id in sellers_map:
-                sellers_map[v.seller_id]["visited_at"] = v.visited_at.isoformat() if v.visited_at else None
-        return [sellers_map[v.seller_id] for v in visits if v.seller_id in sellers_map]
-
-
 class FavoriteSellersService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -353,3 +295,72 @@ class FavoriteSellersService:
                 "owner_fio": fio,
             }
         return [sellers_map[f.seller_id] for f in favs if f.seller_id in sellers_map]
+
+
+class FavoriteProductsService:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def add(self, buyer_id: int, product_id: int) -> None:
+        """Add product to favorites (idempotent). Validates product exists."""
+        product = await self.session.get(Product, product_id)
+        if not product:
+            raise CartServiceError("Товар не найден", 404)
+        result = await self.session.execute(
+            select(BuyerFavoriteProduct).where(
+                and_(
+                    BuyerFavoriteProduct.buyer_id == buyer_id,
+                    BuyerFavoriteProduct.product_id == product_id,
+                )
+            )
+        )
+        if result.scalar_one_or_none():
+            return  # already in favorites
+        self.session.add(BuyerFavoriteProduct(buyer_id=buyer_id, product_id=product_id))
+        await self.session.flush()
+
+    async def remove(self, buyer_id: int, product_id: int) -> None:
+        """Remove product from favorites."""
+        await self.session.execute(
+            delete(BuyerFavoriteProduct).where(
+                and_(
+                    BuyerFavoriteProduct.buyer_id == buyer_id,
+                    BuyerFavoriteProduct.product_id == product_id,
+                )
+            )
+        )
+
+    async def get_favorite_products(self, buyer_id: int) -> List[Dict[str, Any]]:
+        """Get favorite products with full product and seller information."""
+        result = await self.session.execute(
+            select(BuyerFavoriteProduct).where(BuyerFavoriteProduct.buyer_id == buyer_id)
+        )
+        favs = result.scalars().all()
+        if not favs:
+            return []
+        product_ids = [f.product_id for f in favs]
+        
+        # Get products with their sellers
+        products_result = await self.session.execute(
+            select(Product, Seller.shop_name, Seller.seller_id).join(
+                Seller, Product.seller_id == Seller.seller_id
+            ).where(Product.id.in_(product_ids))
+        )
+        
+        products_map = {}
+        for row in products_result.all():
+            p, shop_name, seller_id = row[0], row[1], row[2]
+            first_photo_id = (p.photo_ids[0] if p.photo_ids and len(p.photo_ids) > 0 else None) or p.photo_id
+            products_map[p.id] = {
+                "product_id": p.id,
+                "name": p.name,
+                "description": p.description,
+                "price": float(p.price),
+                "photo_id": first_photo_id,
+                "photo_ids": p.photo_ids,
+                "quantity": p.quantity,
+                "is_preorder": getattr(p, 'is_preorder', False),
+                "seller_id": seller_id,
+                "shop_name": shop_name or "Магазин",
+            }
+        return [products_map[f.product_id] for f in favs if f.product_id in products_map]

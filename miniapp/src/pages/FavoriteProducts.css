@@ -1,0 +1,109 @@
+.favorite-products-page {
+  padding: 16px;
+  min-height: 100vh;
+}
+
+.favorite-products-page__title {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.favorite-products-page__catalog-link {
+  margin-top: 16px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--app-bg);
+  background: var(--app-accent);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  width: 100%;
+  max-width: 300px;
+}
+
+.favorite-products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.favorite-product-card {
+  background: var(--app-bg-elevated);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--app-border);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="dark"] .favorite-product-card {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.favorite-product-card:active {
+  transform: scale(0.98);
+  opacity: 0.95;
+}
+
+.favorite-product-card__image-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--app-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.favorite-product-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.favorite-product-card__image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  opacity: 0.4;
+}
+
+.favorite-product-card__info {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.favorite-product-card__shop {
+  font-size: 11px;
+  color: var(--app-text-secondary);
+  font-weight: 500;
+}
+
+.favorite-product-card__name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.favorite-product-card__price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-accent);
+  margin-top: 4px;
+}

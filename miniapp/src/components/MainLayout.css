@@ -2,8 +2,14 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0));
+  padding-top: calc(80px + env(safe-area-inset-top, 0));
   background: var(--app-bg);
+}
+
+/* Reduce padding-top by 15% in Telegram version */
+.main-layout--telegram,
+.main-layout[data-telegram="true"] {
+  padding-top: calc(68px + env(safe-area-inset-top, 0));
 }
 
 .main-layout__header {
@@ -39,9 +45,9 @@
   min-height: 0;
 }
 
-/* Desktop: remove bottom padding (no BottomNav) */
+/* Desktop: adjust padding */
 @media (min-width: 768px) {
   .main-layout {
-    padding-bottom: 0;
+    padding-top: calc(88px + env(safe-area-inset-top, 0));
   }
 }

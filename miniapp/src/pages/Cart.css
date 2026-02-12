@@ -59,7 +59,7 @@
 
 .cart-item__preorder-date {
   font-size: 12px;
-  color: var(--tg-theme-link-color, #2196f3);
+  color: var(--app-accent);
 }
 
 .cart-item__price {
@@ -102,7 +102,7 @@
 
 .cart-item__qty-btn:active {
   background: var(--app-accent);
-  color: #fff;
+  color: var(--app-bg);
 }
 
 .cart-item__qty-num {
@@ -160,7 +160,7 @@
   padding: 14px 20px;
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--app-bg);
   background: var(--app-accent);
   border: none;
   border-radius: 12px;
@@ -178,7 +178,7 @@
   padding: 14px 20px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--app-accent-text, #fff);
+  color: var(--app-bg);
   background: var(--app-accent);
   border: none;
   border-radius: 12px;

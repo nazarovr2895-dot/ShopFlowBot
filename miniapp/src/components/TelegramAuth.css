@@ -15,11 +15,11 @@
 }
 
 .telegram-auth__error {
-  color: #d32f2f;
+  color: var(--app-error);
   font-size: 0.9rem;
   text-align: center;
   padding: 0.5rem;
-  background: rgba(211, 47, 47, 0.1);
+  background: var(--app-error-bg);
   border-radius: 4px;
   max-width: 300px;
 }

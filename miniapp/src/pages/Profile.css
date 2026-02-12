@@ -161,7 +161,7 @@
 
 .profile-data__error {
   font-size: 13px;
-  color: var(--app-error, #c00);
+  color: var(--app-error);
   margin: 0 0 10px 0;
 }
 
@@ -170,8 +170,8 @@
   padding: 14px 16px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--app-button-text, #fff);
-  background: var(--app-accent, #2481cc);
+  color: var(--app-bg);
+  background: var(--app-accent);
   border: none;
   border-radius: 12px;
   cursor: pointer;
