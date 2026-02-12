@@ -3,6 +3,8 @@ import type { PublicSellerListItem, SellerFilters } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { useLocationCache } from '../hooks/useLocationCache';
+import { useDesktopLayout } from '../hooks/useDesktopLayout';
+import { useCatalogFilter } from '../contexts/CatalogFilterContext';
 import { isTelegram } from '../utils/environment';
 import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal } from '../components';
 import './ShopsList.css';
@@ -13,6 +15,8 @@ export function ShopsList() {
   const { setBackButton, hideMainButton } = useTelegramWebApp();
   const { filters, setFilters, isInitialized } = useLocationCache();
   const isTelegramEnv = isTelegram();
+  const isDesktop = useDesktopLayout();
+  const { registerOpenFilter } = useCatalogFilter();
   
   const [sellers, setSellers] = useState<PublicSellerListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +33,12 @@ export function ShopsList() {
     setBackButton(false);
     hideMainButton();
   }, [setBackButton, hideMainButton]);
+
+  // Register open-filter callback for desktop (filter button lives in MainLayout)
+  useEffect(() => {
+    registerOpenFilter(() => setIsFilterModalOpen(true));
+    return () => registerOpenFilter(null);
+  }, [registerOpenFilter]);
 
   // Load sellers
   const loadSellers = useCallback(
@@ -102,12 +112,15 @@ export function ShopsList() {
 
   return (
     <div className={`shops-list ${isTelegramEnv ? 'shops-list--telegram' : ''}`} data-telegram={isTelegramEnv}>
-      <CatalogNavBar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        onFilterClick={() => setIsFilterModalOpen(true)}
-        activeFiltersCount={activeFiltersCount}
-      />
+      {!isDesktop && (
+        <CatalogNavBar
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFiltersCount={activeFiltersCount}
+          showFilterButton
+        />
+      )}
 
       <FilterModal
         isOpen={isFilterModalOpen}

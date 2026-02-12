@@ -13,6 +13,7 @@ import {
   ProductDetail,
 } from './pages';
 import { MainLayout, RequireAuth } from './components';
+import { CatalogFilterProvider } from './contexts/CatalogFilterContext';
 import { useTheme } from './hooks/useTheme';
 import { api } from './api/client';
 import { useLocationCache } from './hooks/useLocationCache';
@@ -89,7 +90,7 @@ function AppContent() {
       <Route path="/landing" element={<Landing />} />
       
       {/* Main layout: no auth required in browser; auth offered in Profile */}
-      <Route element={<MainLayout />}>
+      <Route element={<CatalogFilterProvider><MainLayout /></CatalogFilterProvider>}>
         <Route index element={<MyFlowers />} />
         <Route path="catalog" element={<ShopsList />} />
         <Route path="favorites" element={<FavoriteProducts />} />

@@ -132,21 +132,45 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
-/* Desktop adjustments */
+/* Desktop layout: tabs on the right, same size */
+.my-flowers-nav-bar--desktop {
+  top: calc(150px + env(safe-area-inset-top, 0));
+  padding: 0 24px;
+}
+
+.my-flowers-nav-bar--desktop .my-flowers-nav-bar__container {
+  justify-content: flex-end;
+  margin-left: auto;
+  margin-right: 0;
+  max-width: none;
+  width: auto;
+  height: 50px;
+}
+
+.my-flowers-nav-bar--desktop .my-flowers-nav-bar__tab {
+  flex: 0 0 auto;
+  width: 200px;
+  min-width: 200px;
+  height: 40px;
+  font-size: 15px;
+  padding: 0 20px;
+}
+
+/* Desktop adjustments (non--desktop) */
 @media (min-width: 768px) {
-  .my-flowers-nav-bar {
+  .my-flowers-nav-bar:not(.my-flowers-nav-bar--desktop) {
     top: calc(80px + env(safe-area-inset-top, 0));
     padding: 10px 24px;
   }
 
-  .my-flowers-nav-bar__container {
+  .my-flowers-nav-bar:not(.my-flowers-nav-bar--desktop) .my-flowers-nav-bar__container {
     height: 56px;
     padding: 8px;
     max-width: 1400px;
     margin: 0 auto;
   }
 
-  .my-flowers-nav-bar__tab {
+  .my-flowers-nav-bar:not(.my-flowers-nav-bar--desktop) .my-flowers-nav-bar__tab {
     height: 40px;
     padding: 0 20px;
     font-size: 15px;

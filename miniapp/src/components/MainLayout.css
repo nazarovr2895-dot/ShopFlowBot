@@ -6,6 +6,11 @@
   background: var(--app-bg);
 }
 
+/* Browser only: less padding-top to match 20% reduced nav height */
+.main-layout:not([data-telegram="true"]) {
+  padding-top: calc(64px + env(safe-area-inset-top, 0));
+}
+
 /* Reduce padding-top by 15% in Telegram version */
 .main-layout--telegram,
 .main-layout[data-telegram="true"] {
@@ -22,4 +27,13 @@
   .main-layout {
     padding-top: calc(88px + env(safe-area-inset-top, 0));
   }
+
+  .main-layout:not([data-telegram="true"]) {
+    padding-top: calc(70px + env(safe-area-inset-top, 0));
+  }
+}
+
+/* Desktop layout: top nav + search bar (90px + 50px + gap) */
+.main-layout--desktop {
+  padding-top: calc(150px + env(safe-area-inset-top, 0));
 }

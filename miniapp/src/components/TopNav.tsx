@@ -1,6 +1,7 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useSearchParams } from 'react-router-dom';
 import { LiquidGlassCard } from './LiquidGlassCard';
 import { isTelegram } from '../utils/environment';
+import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import './TopNav.css';
 
 const FlowerIcon = ({ className }: { className?: string }) => (
@@ -43,6 +44,16 @@ const PersonIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const OrderListIcon = ({ className }: { className?: string }) => (
+  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <path d="M14 2v6h6" />
+    <path d="M16 13H8" />
+    <path d="M16 17H8" />
+    <path d="M10 9H8" />
+  </svg>
+);
+
 const tabs = [
   { path: '/', label: 'Мои цветочные', Icon: FlowerIcon },
   { path: '/catalog', label: 'Каталог', Icon: BagIcon },
@@ -51,30 +62,92 @@ const tabs = [
   { path: '/profile', label: 'Профиль', Icon: PersonIcon },
 ] as const;
 
+/** Desktop top nav: all except single "My flowers" link (tabs Мои цветочные/Мои заказы rendered separately) */
+const desktopTabs = tabs.filter((t) => t.path !== '/');
+
 export function TopNav() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const pathname = location.pathname;
   const isTelegramEnv = isTelegram();
+  const isDesktop = useDesktopLayout();
+  const homeTab = searchParams.get('tab') === 'orders' ? 'orders' : 'flowers';
 
   return (
-    <nav className={`top-nav ${isTelegramEnv ? 'top-nav--telegram' : ''}`} role="navigation" data-telegram={isTelegramEnv}>
+    <nav
+      className={`top-nav ${isTelegramEnv ? 'top-nav--telegram' : ''} ${isDesktop ? 'top-nav--desktop' : ''}`}
+      role="navigation"
+      data-telegram={isTelegramEnv}
+    >
       <LiquidGlassCard className="top-nav__container">
-        {tabs.map(({ path, label, Icon }) => {
-          const isActive = path === '/' ? pathname === '/' : path === '/catalog' ? pathname === '/catalog' : pathname.startsWith(path);
-          return (
-            <NavLink
-              key={path}
-              to={path}
-              className={() => `top-nav__item ${isActive ? 'top-nav__item--active' : ''}`}
-              end={path === '/' || path === '/catalog'}
-            >
-              <span className="top-nav__icon">
-                <Icon />
-              </span>
-              <span className="top-nav__label">{label}</span>
-            </NavLink>
-          );
-        })}
+        {isDesktop ? (
+          <>
+            <div className="top-nav__brand">
+              <img
+                src="/android-chrome-512x512.png"
+                alt=""
+                className="top-nav__logo"
+                width={40}
+                height={40}
+              />
+              <span className="top-nav__brand-name">flowshow</span>
+            </div>
+            <div className="top-nav__center" aria-hidden />
+            <div className="top-nav__right">
+              <NavLink
+                to="/?tab=flowers"
+                className={() => `top-nav__item ${pathname === '/' && homeTab === 'flowers' ? 'top-nav__item--active' : ''}`}
+              >
+                <span className="top-nav__icon">
+                  <FlowerIcon />
+                </span>
+                <span className="top-nav__label">Мои цветочные</span>
+              </NavLink>
+              <NavLink
+                to="/?tab=orders"
+                className={() => `top-nav__item ${pathname === '/' && homeTab === 'orders' ? 'top-nav__item--active' : ''}`}
+              >
+                <span className="top-nav__icon">
+                  <OrderListIcon />
+                </span>
+                <span className="top-nav__label">Мои заказы</span>
+              </NavLink>
+              {desktopTabs.map(({ path, label, Icon }) => {
+                const isActive = path === '/catalog' ? pathname === '/catalog' : pathname.startsWith(path);
+                return (
+                  <NavLink
+                    key={path}
+                    to={path}
+                    className={() => `top-nav__item ${isActive ? 'top-nav__item--active' : ''}`}
+                    end={path === '/catalog'}
+                  >
+                    <span className="top-nav__icon">
+                      <Icon />
+                    </span>
+                    <span className="top-nav__label">{label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          tabs.map(({ path, label, Icon }) => {
+            const isActive = path === '/' ? pathname === '/' : path === '/catalog' ? pathname === '/catalog' : pathname.startsWith(path);
+            return (
+              <NavLink
+                key={path}
+                to={path}
+                className={() => `top-nav__item ${isActive ? 'top-nav__item--active' : ''}`}
+                end={path === '/' || path === '/catalog'}
+              >
+                <span className="top-nav__icon">
+                  <Icon />
+                </span>
+                <span className="top-nav__label">{label}</span>
+              </NavLink>
+            );
+          })
+        )}
       </LiquidGlassCard>
     </nav>
   );

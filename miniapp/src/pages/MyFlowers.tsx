@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { VisitedSeller, BuyerOrder } from '../types';
 import { api } from '../api/client';
 import { Loader, EmptyState, MyFlowersNavBar } from '../components';
+import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import { isBrowser, isTelegram } from '../utils/environment';
 import './MyFlowers.css';
 
@@ -20,8 +21,10 @@ type TabType = 'flowers' | 'orders';
 
 export function MyFlowers() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabType>('flowers');
-  
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab: TabType = searchParams.get('tab') === 'orders' ? 'orders' : 'flowers';
+  const setActiveTab = (tab: TabType) => setSearchParams({ tab });
+
   // Flowers state
   const [sellers, setSellers] = useState<VisitedSeller[]>([]);
   const [flowersLoading, setFlowersLoading] = useState(true);
@@ -167,14 +170,15 @@ export function MyFlowers() {
   };
 
   const isTelegramEnv = isTelegram();
+  const isDesktop = useDesktopLayout();
 
   return (
     <div 
-      className={`my-flowers-page ${isTelegramEnv ? 'my-flowers-page--telegram' : ''}`}
+      className={`my-flowers-page ${isTelegramEnv ? 'my-flowers-page--telegram' : ''} ${isDesktop ? 'my-flowers-page--desktop' : ''}`}
       data-telegram={isTelegramEnv}
     >
-      <MyFlowersNavBar activeTab={activeTab} onTabChange={setActiveTab} />
-      
+      {!isDesktop && <MyFlowersNavBar activeTab={activeTab} onTabChange={setActiveTab} />}
+
       <div className="my-flowers-page__content">
         {activeTab === 'flowers' ? renderFlowersTab() : renderOrdersTab()}
       </div>

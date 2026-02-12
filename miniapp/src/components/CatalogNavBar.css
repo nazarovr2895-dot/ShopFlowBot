@@ -194,14 +194,36 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
-/* Desktop adjustments */
+/* Desktop layout modifier: centered, max-width 700px */
+.catalog-nav-bar--desktop {
+  top: calc(90px + env(safe-area-inset-top, 0));
+  left: 50%;
+  right: auto;
+  width: 100%;
+  max-width: 700px;
+  transform: translateX(-50%);
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.catalog-nav-bar--desktop .catalog-nav-bar__container {
+  height: 50px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.catalog-nav-bar--desktop .catalog-nav-bar__filter-btn {
+  height: 36px;
+}
+
+/* Desktop adjustments (non--desktop modifier, e.g. on ShopsList page only) */
 @media (min-width: 768px) {
-  .catalog-nav-bar {
+  .catalog-nav-bar:not(.catalog-nav-bar--desktop) {
     top: calc(80px + env(safe-area-inset-top, 0));
     padding: 10px 24px;
   }
 
-  .catalog-nav-bar__container {
+  .catalog-nav-bar:not(.catalog-nav-bar--desktop) .catalog-nav-bar__container {
     height: 56px;
     padding: 10px 14px;
     max-width: 1400px;
@@ -223,3 +245,4 @@
     height: 22px;
   }
 }
+

@@ -1,6 +1,7 @@
 import { LiquidGlassCard } from './LiquidGlassCard';
 import { useSystemTheme } from '../hooks/useSystemTheme';
 import { isTelegram } from '../utils/environment';
+import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import './MyFlowersNavBar.css';
 
 type TabType = 'flowers' | 'orders';
@@ -13,6 +14,7 @@ interface MyFlowersNavBarProps {
 export function MyFlowersNavBar({ activeTab, onTabChange }: MyFlowersNavBarProps) {
   const systemTheme = useSystemTheme();
   const isTelegramEnv = isTelegram();
+  const isDesktop = useDesktopLayout();
 
   // Calculate opposite theme based on system theme
   // System dark → panel light, System light → panel dark
@@ -20,7 +22,7 @@ export function MyFlowersNavBar({ activeTab, onTabChange }: MyFlowersNavBarProps
 
   return (
     <nav
-      className={`my-flowers-nav-bar ${isTelegramEnv ? 'my-flowers-nav-bar--telegram' : ''}`}
+      className={`my-flowers-nav-bar ${isTelegramEnv ? 'my-flowers-nav-bar--telegram' : ''} ${isDesktop ? 'my-flowers-nav-bar--desktop' : ''}`}
       data-telegram={isTelegramEnv}
       data-theme-opposite={oppositeTheme}
     >

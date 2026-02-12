@@ -9,6 +9,12 @@
   pointer-events: none;
 }
 
+/* Browser only: reduce nav height by ~20% */
+.top-nav:not([data-telegram="true"]) {
+  padding: 10px 13px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0));
+}
+
 .top-nav__container {
   max-width: 100%;
   padding: 8px;
@@ -17,6 +23,10 @@
   justify-content: space-around;
   gap: 4px;
   pointer-events: auto;
+}
+
+.top-nav:not([data-telegram="true"]) .top-nav__container {
+  padding: 6px;
 }
 
 .top-nav__item {
@@ -36,6 +46,17 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+}
+
+.top-nav:not([data-telegram="true"]) .top-nav__item {
+  padding: 6px 10px;
+  min-width: 56px;
+  font-size: 10px;
+}
+
+.top-nav:not([data-telegram="true"]) .top-nav__icon {
+  width: 20px;
+  height: 20px;
 }
 
 .top-nav__item::before {
@@ -135,4 +156,61 @@
 .top-nav--telegram .top-nav__container,
 [data-telegram="true"] .top-nav__container {
   padding: 7px;
+}
+
+/* Desktop layout: logo + flowshow left, empty center, nav right; max-width 1500px, centered */
+.top-nav--desktop .top-nav__container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  max-width: 1500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.top-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  text-decoration: none;
+  color: var(--app-text);
+}
+
+.top-nav__logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
+.top-nav--desktop .top-nav__logo {
+  height: 100%;
+  max-height: 50px;
+}
+
+.top-nav__brand-name {
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.top-nav__center {
+  flex: 1;
+  min-width: 0;
+}
+
+.top-nav__right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.top-nav--desktop .top-nav__right .top-nav__item {
+  flex: 0 0 auto;
+  min-width: 120px;
+  width: 120px;
 }

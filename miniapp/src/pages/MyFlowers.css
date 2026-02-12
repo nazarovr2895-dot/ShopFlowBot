@@ -130,11 +130,23 @@
   color: var(--app-text-secondary);
 }
 
+/* Desktop layout: clear fixed MyFlowersNavBar (50px) below main-layout padding */
+.my-flowers-page--desktop {
+  padding-top: calc(16px + 50px);
+}
+
 /* Desktop adjustments */
 @media (min-width: 768px) {
-  .my-flowers-page {
+  .my-flowers-page:not(.my-flowers-page--desktop) {
     padding: 24px;
     padding-top: calc(24px + 56px);
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .my-flowers-page--desktop {
+    padding: 24px;
+    padding-top: calc(24px + 50px);
     max-width: 1400px;
     margin: 0 auto;
   }
