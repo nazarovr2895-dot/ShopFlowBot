@@ -28,7 +28,7 @@ function loadFromStorage(): SellerFilters {
     if (!stored) return {};
 
     const cached: CachedLocation = JSON.parse(stored);
-    
+
     // Check if cache is expired
     if (Date.now() - cached.timestamp > CACHE_TTL) {
       localStorage.removeItem(STORAGE_KEY);
@@ -82,20 +82,20 @@ export function useLocationCache() {
     const syncUserLocation = async () => {
       try {
         const user = await api.getCurrentUser();
-        
+
         // If user has location set, use it (has priority over localStorage)
         if (user?.city_id && user?.district_id) {
           const userFilters = {
             city_id: user.city_id,
             district_id: user.district_id,
           };
-          
+
           // Update state with user's location
           setFiltersState((prev) => ({
             ...prev,
             ...userFilters,
           }));
-          
+
           // Update localStorage to keep in sync
           try {
             const existing = localStorage.getItem(STORAGE_KEY);

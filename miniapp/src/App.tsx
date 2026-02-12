@@ -16,6 +16,7 @@ import { MainLayout, RequireAuth } from './components';
 import { useTheme } from './hooks/useTheme';
 import { api } from './api/client';
 import { useLocationCache } from './hooks/useLocationCache';
+import type { SellerFilters } from './types';
 import { isTelegram, getTelegramInitData } from './utils/environment';
 import './App.css';
 
@@ -62,7 +63,7 @@ function AppContent() {
         city_id: user.city_id,
       };
       if (user.district_id != null) updatedFilters.district_id = user.district_id;
-      setFilters((prev) => ({ ...prev, ...updatedFilters }));
+      setFilters((prev: SellerFilters) => ({ ...prev, ...updatedFilters }));
       try {
         const STORAGE_KEY = 'flowshop_location_filters';
         const existing = localStorage.getItem(STORAGE_KEY);

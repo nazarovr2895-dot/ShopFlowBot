@@ -58,7 +58,7 @@ export function ShopsList() {
 
   // Sync search input from filters (e.g. when loaded from cache)
   useEffect(() => {
-    setSearchInput((prev) => (filters.search ?? '') !== prev ? (filters.search ?? '') : prev);
+    setSearchInput((prev: string) => (filters.search ?? '') !== prev ? (filters.search ?? '') : prev);
   }, [filters.search]);
 
   // Debounce search: apply to filters after user stops typing
@@ -69,7 +69,7 @@ export function ShopsList() {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       searchDebounceRef.current = null;
-      setFilters((prev) => ({
+      setFilters((prev: SellerFilters) => ({
         ...prev,
         search: searchInput.trim() || undefined,
       }));
