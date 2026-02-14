@@ -139,7 +139,7 @@ LOG_LEVEL=INFO
 ```bash
 # Клонировать репозиторий
 git clone <repo-url>
-cd ShopFlowBot
+cd <имя-каталога-репозитория>
 
 # Создать .env файл с переменными окружения
 cp .env.example .env

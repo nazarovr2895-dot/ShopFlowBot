@@ -3,11 +3,11 @@
 ## Текущая архитектура
 
 ```
-Локальный Mac (разработка)
+Локальная машина (разработка)
     ↓ git commit + push
 GitHub
     ↓ git pull
-ВМ Яндекс Cloud (production)
+Сервер (production)
     ↓ docker compose build + up
 Docker контейнеры (backend, bot, admin, miniapp)
 ```
@@ -16,10 +16,10 @@ Docker контейнеры (backend, bot, admin, miniapp)
 
 ## Стандартный workflow разработки
 
-### 1. Разработка на локальном Mac
+### 1. Разработка локально
 
 ```bash
-cd /Users/rus/Applications/ShopFlowBot
+cd ~/shopflowbot   # или путь к вашему клону репозитория
 
 # Внести изменения в код
 # Протестировать локально (если нужно)
@@ -33,11 +33,13 @@ git push
 
 ### 2. Обновление на сервере
 
+Полный список команд для сервера (Docker, БД, логи, бэкапы) — в [SERVER_COMMANDS.md](SERVER_COMMANDS.md).
+
 **Вариант А: Вручную (рекомендуется для начала)**
 
 ```bash
-# На ВМ
-ssh yandex-cloud
+# На сервере (подключение: ssh your-server или ssh user@your-server-ip)
+ssh your-server
 cd ~/shopflowbot
 git pull
 docker compose -f docker-compose.prod.yml build backend  # или bot, admin, miniapp
@@ -51,9 +53,9 @@ docker compose -f docker-compose.prod.yml logs -f backend  # проверить 
 
 ## Автоматизация: скрипт для быстрого деплоя
 
-### Скрипт на Mac (deploy.sh)
+### Скрипт деплоя (deploy.sh)
 
-Создайте файл `/Users/rus/Applications/ShopFlowBot/deploy.sh`:
+Создайте в корне проекта файл `deploy.sh`:
 
 ```bash
 #!/bin/bash
@@ -89,9 +91,9 @@ git push
 
 echo "✅ Код отправлен в GitHub"
 
-# 5. Обновление на сервере
+# 5. Обновление на сервере (подставьте свой хост: алиас из ~/.ssh/config или user@host)
 echo "🔄 Обновляем сервер..."
-ssh yandex-cloud "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
+ssh your-server "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
 
 echo "✅ Деплой завершён!"
 ```
@@ -143,9 +145,9 @@ jobs:
 **Настройка:**
 
 1. В GitHub: Settings → Secrets and variables → Actions
-2. Добавить:
-   - `SERVER_HOST` = `51.250.112.85`
-   - `SSH_PRIVATE_KEY` = содержимое `~/.ssh/yandex_cloud` (приватный ключ)
+2. Добавить секреты:
+   - `SERVER_HOST` — IP или хост вашего сервера
+   - `SSH_PRIVATE_KEY` — содержимое приватного SSH-ключа
 
 После этого каждый `git push` в `main` автоматически обновит сервер.
 
@@ -156,15 +158,15 @@ jobs:
 ### Для небольших изменений (быстрый цикл)
 
 ```bash
-# На Mac
-cd /Users/rus/Applications/ShopFlowBot
+# Локально
+cd ~/shopflowbot
 # Внести изменения
 git add .
 git commit -m "fix: исправил баг X"
 git push
 
-# На ВМ (вручную или через скрипт)
-ssh yandex-cloud
+# На сервере (вручную или через скрипт)
+ssh your-server
 cd ~/shopflowbot
 git pull
 docker compose -f docker-compose.prod.yml build backend
@@ -221,7 +223,7 @@ docker compose -f docker-compose.prod.yml logs backend | grep -i error
 ## Откат изменений (если что-то сломалось)
 
 ```bash
-# На ВМ
+# На сервере
 cd ~/shopflowbot
 
 # Посмотреть историю коммитов
@@ -241,7 +243,7 @@ docker compose -f docker-compose.prod.yml up -d backend
 
 ## Разработка с hot reload (для быстрой итерации)
 
-### Локально (Mac)
+### Локально
 
 ```bash
 # Backend с автоперезагрузкой
@@ -268,15 +270,15 @@ npm run dev
 ### Добавил новую миграцию БД
 
 ```bash
-# На Mac: создать миграцию
+# Локально: создать миграцию
 cd backend
 alembic revision --autogenerate -m "описание"
 git add backend/migrations/versions/...
 git commit -m "migration: описание"
 git push
 
-# На ВМ: применить миграцию
-ssh yandex-cloud
+# На сервере: применить миграцию (см. также SERVER_COMMANDS.md)
+ssh your-server
 cd ~/shopflowbot
 git pull
 docker compose -f docker-compose.prod.yml exec backend bash -c "cd /src/backend && alembic upgrade head"
@@ -285,7 +287,7 @@ docker compose -f docker-compose.prod.yml exec backend bash -c "cd /src/backend 
 ### Изменил переменные окружения
 
 ```bash
-# На ВМ: отредактировать .env
+# На сервере: отредактировать .env
 nano ~/shopflowbot/.env
 
 # Перезапустить сервисы (чтобы подхватили новые переменные)
@@ -295,12 +297,12 @@ docker compose -f docker-compose.prod.yml restart backend bot
 ### Изменил только frontend (admin/miniapp)
 
 ```bash
-# На Mac
+# Локально
 git add adminpanel/ miniapp/
 git commit -m "ui: обновил интерфейс"
 git push
 
-# На ВМ
+# На сервере
 cd ~/shopflowbot
 git pull
 docker compose -f docker-compose.prod.yml build admin miniapp
@@ -322,17 +324,17 @@ docker compose -f docker-compose.prod.yml up -d admin miniapp
 
 ## Полезные алиасы (опционально)
 
-Добавьте в `~/.bashrc` или `~/.zshrc` на Mac:
+Добавьте в `~/.bashrc` или `~/.zshrc` (подставьте свой путь к проекту и хост сервера):
 
 ```bash
 # Быстрый деплой
-alias deploy='cd /Users/rus/Applications/ShopFlowBot && git add . && git commit -m "$1" && git push && ssh yandex-cloud "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot && docker compose -f docker-compose.prod.yml up -d"'
+alias deploy='cd ~/shopflowbot && git add . && git commit -m "$1" && git push && ssh your-server "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot && docker compose -f docker-compose.prod.yml up -d"'
 
 # Подключение к серверу
-alias server='ssh yandex-cloud'
+alias server='ssh your-server'
 
 # Логи backend
-alias logs-backend='ssh yandex-cloud "cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs -f backend"'
+alias logs-backend='ssh your-server "cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs -f backend"'
 ```
 
 Использование: `deploy "описание изменений"`

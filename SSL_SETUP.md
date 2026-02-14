@@ -9,7 +9,7 @@
    - `admin.flowshow.ru` → IP вашего сервера
    - `app.flowshow.ru` → IP вашего сервера
 
-2. **Проверка DNS** (выполните на своём Mac):
+2. **Проверка DNS** (выполните на локальной машине):
    ```bash
    dig flowshow.ru +short
    dig api.flowshow.ru +short
@@ -174,7 +174,7 @@ curl -I https://api.flowshow.ru/health
 curl -I https://admin.flowshow.ru
 curl -I https://app.flowshow.ru
 
-# Или с вашего Mac
+# Или с вашего компьютера
 curl -I https://flowshow.ru
 curl -I https://api.flowshow.ru/health
 ```

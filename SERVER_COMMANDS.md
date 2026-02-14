@@ -3,13 +3,11 @@
 ## Подключение к серверу
 
 ```bash
-# Подключиться по SSH
-ssh yandex-cloud
-# или
-ssh ubuntu@51.250.112.85 -i ~/.ssh/yandex_cloud
+# Подключиться по SSH (подставьте свой хост или алиас из ~/.ssh/config)
+ssh your-server
+# или с указанием пользователя и ключа
+ssh ubuntu@your-server-ip -i ~/.ssh/your_key
 ```
-./deploy.sh
----
 
 ## Управление Docker Compose
 
@@ -51,13 +49,7 @@ docker compose -f docker-compose.prod.yml down
 # Запустить все сервисы
 docker compose -f docker-compose.prod.yml up -d
 ```
-docker compose -f docker-compose.prod.yml build miniapp
 
-# Перезапустить контейнер
-docker compose -f docker-compose.prod.yml up -d miniapp
-
-# Если были изменения в backend, перезапустить его тоже
-docker compose -f docker-compose.prod.yml restart backend
 ### Пересборка и обновление
 ```bash
 # Пересобрать образ (после изменений в коде)
@@ -66,7 +58,13 @@ docker compose -f docker-compose.prod.yml build bot
 docker compose -f docker-compose.prod.yml build admin
 docker compose -f docker-compose.prod.yml build miniapp
 
-# Пересобрать и перезапустить
+# Пересобрать и перезапустить один сервис (например miniapp)
+docker compose -f docker-compose.prod.yml build miniapp
+docker compose -f docker-compose.prod.yml up -d miniapp
+# Если были изменения в backend, перезапустить его тоже
+docker compose -f docker-compose.prod.yml restart backend
+
+# Пересобрать и перезапустить backend
 docker compose -f docker-compose.prod.yml up -d --build backend
 
 # Пересобрать без кэша (если что-то не работает)
@@ -127,6 +125,8 @@ docker compose -f docker-compose.prod.yml exec backend getent hosts redis
 ---
 
 ## Обновление кода с GitHub
+
+Полный workflow с локальной машины (скрипт деплоя, алиасы) описан в [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md).
 
 ### Обновить код и перезапустить
 ```bash

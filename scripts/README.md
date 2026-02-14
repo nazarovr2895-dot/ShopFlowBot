@@ -59,10 +59,10 @@ ALLOWED_ORIGINS=https://ТВОЙ_URL.loophole.site,http://127.0.0.1:3000,http://
 ./scripts/run-two-tunnels.sh
 ```
 
-Или вручную в двух терминалах:
+Или вручную в двух терминалах (команда `loophole` должна быть в PATH, либо укажите полный путь к исполняемому файлу):
 
-- Терминал 1: `~/Downloads/loophole-cli_1.0.0-beta.15_macos_arm64/loophole http 8000` → скопируй **URL бэкенда**
-- Терминал 2: `~/Downloads/loophole-cli_1.0.0-beta.15_macos_arm64/loophole http 3000` → скопируй **URL фронта**
+- Терминал 1: `loophole http 8000` → скопируй **URL бэкенда**
+- Терминал 2: `loophole http 3000` → скопируй **URL фронта**
 
 **3. В корневом `.env`** укажи URL **фронта** (тот, что на 3000):
 
