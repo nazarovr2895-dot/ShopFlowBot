@@ -459,6 +459,7 @@ docker compose exec backend bash -c "cd /src/backend && alembic downgrade -1 && 
 - **Мониторинг:** `backend/MONITORING.md`
 - **Тестирование:** `backend/TESTING.md`
 - **Использование deploy.sh:** `SIMPLE_SOLUTION.md`
+- **Автоматизация документации:** `AUTO_UPDATE_DOCS.md` 🤖
 
 ## Соглашения по коду
 
