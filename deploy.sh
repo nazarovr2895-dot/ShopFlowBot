@@ -33,7 +33,7 @@ echo "✅ Код отправлен в GitHub"
 
 # Обновление на сервере
 echo "🔄 Обновляем сервер..."
-ssh yandex-cloud "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
+ssh yandex-cloud "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d && docker compose -f docker-compose.prod.yml up -d --build miniapp"
 
 echo "✅ Деплой завершён!"
 echo ""
