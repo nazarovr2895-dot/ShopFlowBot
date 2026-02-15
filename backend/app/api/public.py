@@ -99,6 +99,20 @@ class PublicSellersResponse(BaseModel):
     per_page: int
 
 
+def _normalize_delivery_type(value: Optional[str]) -> Optional[str]:
+    """Нормализует delivery_type из БД (русский/английский) в enum для публичного API."""
+    if not value or not str(value).strip():
+        return None
+    v = str(value).strip().lower()
+    if v in ("доставка", "delivery"):
+        return "delivery"
+    if v in ("самовывоз", "pickup"):
+        return "pickup"
+    if v in ("доставка и самовывоз", "both"):
+        return "both"
+    return None
+
+
 # --- Endpoints ---
 
 @router.get("/sellers", response_model=PublicSellersResponse)
@@ -201,13 +215,19 @@ async def get_public_sellers(
         if metro_id:
             base_conditions.append(Seller.metro_id == metro_id)
         if delivery_type:
-            # delivery_type может быть "delivery", "pickup" или "both"
-            if delivery_type in ("delivery", "pickup"):
+            # delivery_type из query: "delivery", "pickup" или "both"; в БД могут быть русские значения
+            if delivery_type == "delivery":
                 base_conditions.append(
-                    (Seller.delivery_type == delivery_type) | (Seller.delivery_type == "both")
+                    Seller.delivery_type.in_(["delivery", "доставка", "both", "доставка и самовывоз"])
+                )
+            elif delivery_type == "pickup":
+                base_conditions.append(
+                    Seller.delivery_type.in_(["pickup", "самовывоз", "both", "доставка и самовывоз"])
                 )
             elif delivery_type == "both":
-                base_conditions.append(Seller.delivery_type == "both")
+                base_conditions.append(
+                    Seller.delivery_type.in_(["both", "доставка и самовывоз"])
+                )
         
         # Фильтр по бесплатной/платной доставке
         if free_delivery is not None:
@@ -307,7 +327,7 @@ async def get_public_sellers(
                 seller_id=seller.seller_id,
                 shop_name=seller.shop_name,
                 owner_fio=row.owner_fio,
-                delivery_type=seller.delivery_type,
+                delivery_type=_normalize_delivery_type(seller.delivery_type),
                 delivery_price=float(seller.delivery_price) if seller.delivery_price else 0.0,
                 city_name=row.city_name,
                 district_name=row.district_name,
@@ -465,11 +485,13 @@ async def get_public_seller_detail(
     products_list = [_product_dict(p) for p in products]
     preorder_products_list = [_product_dict(p) for p in preorder_products]
 
+    delivery_type_normalized = _normalize_delivery_type(seller.delivery_type)
+
     return PublicSellerDetail(
         seller_id=seller.seller_id,
         shop_name=seller.shop_name,
         description=seller.description,
-        delivery_type=seller.delivery_type,
+        delivery_type=delivery_type_normalized,
         delivery_price=float(seller.delivery_price) if seller.delivery_price else 0.0,
         address_name=getattr(seller, "address_name", None),
         map_url=seller.map_url,
