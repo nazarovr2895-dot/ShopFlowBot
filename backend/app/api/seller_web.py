@@ -272,6 +272,15 @@ async def accept_order(
     try:
         result = await service.accept_order(order_id, verify_seller_id=seller_id)
         await session.commit()
+        from backend.app.services.telegram_notify import notify_buyer_order_status
+        await notify_buyer_order_status(
+            buyer_id=result["buyer_id"],
+            order_id=order_id,
+            new_status=result["new_status"],
+            seller_id=result["seller_id"],
+            items_info=result.get("items_info"),
+            total_price=result.get("total_price"),
+        )
         return result
     except OrderServiceError as e:
         await session.rollback()
@@ -293,6 +302,15 @@ async def reject_order(
     try:
         result = await service.reject_order(order_id, verify_seller_id=seller_id)
         await session.commit()
+        from backend.app.services.telegram_notify import notify_buyer_order_status
+        await notify_buyer_order_status(
+            buyer_id=result["buyer_id"],
+            order_id=order_id,
+            new_status=result["new_status"],
+            seller_id=result["seller_id"],
+            items_info=result.get("items_info"),
+            total_price=result.get("total_price"),
+        )
         return result
     except OrderServiceError as e:
         await session.rollback()
@@ -319,9 +337,16 @@ async def update_order_status(
             buyer_id=result["buyer_id"],
             order_id=order_id,
             new_status=result["new_status"],
+            seller_id=result["seller_id"],
             items_info=result.get("items_info"),
             total_price=result.get("total_price"),
         )
+        if result["new_status"] == "completed":
+            from backend.app.services.telegram_notify import notify_seller_order_completed
+            await notify_seller_order_completed(
+                seller_id=result["seller_id"],
+                order_id=order_id,
+            )
         return result
     except OrderServiceError as e:
         await session.rollback()
@@ -345,6 +370,14 @@ async def update_order_price(
     try:
         result = await service.update_order_price(order_id, Decimal(str(new_price)), seller_id)
         await session.commit()
+        from backend.app.services.telegram_notify import notify_buyer_order_price_changed
+        await notify_buyer_order_price_changed(
+            buyer_id=result["buyer_id"],
+            order_id=result["order_id"],
+            seller_id=result["seller_id"],
+            new_price=result["total_price"],
+            items_info=result.get("items_info", ""),
+        )
         return result
     except OrderServiceError as e:
         await session.rollback()

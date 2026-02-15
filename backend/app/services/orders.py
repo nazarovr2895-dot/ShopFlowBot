@@ -562,8 +562,10 @@ class OrderService:
         return {
             "order_id": order.id,
             "buyer_id": order.buyer_id,
+            "seller_id": order.seller_id,
             "total_price": total,
             "original_price": orig,
+            "items_info": order.items_info or "",
         }
 
     COMPLETED_ORDER_STATUSES = ("done", "completed")

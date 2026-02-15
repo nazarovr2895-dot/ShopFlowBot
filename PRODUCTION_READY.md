@@ -99,6 +99,9 @@
 # Bot
 BOT_TOKEN=your_telegram_bot_token
 
+# Mini App URL (backend uses for "Open order" button in Telegram order notifications)
+MINI_APP_URL=https://your-miniapp-domain.com
+
 # Database
 DB_USER=postgres
 DB_PASSWORD=strong_password

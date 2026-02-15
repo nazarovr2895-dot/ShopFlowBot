@@ -68,6 +68,24 @@ async def create_order(
         )
         await session.commit()
         logger.info("Order created successfully", order_id=order.id, buyer_id=data.buyer_id)
+        from backend.app.services.telegram_notify import (
+            notify_buyer_order_status,
+            notify_seller_new_order,
+        )
+        await notify_buyer_order_status(
+            buyer_id=data.buyer_id,
+            order_id=order.id,
+            new_status="pending",
+            seller_id=data.seller_id,
+            items_info=data.items_info,
+            total_price=float(order.total_price) if order.total_price is not None else None,
+        )
+        await notify_seller_new_order(
+            seller_id=data.seller_id,
+            order_id=order.id,
+            items_info=data.items_info,
+            total_price=float(order.total_price) if order.total_price is not None else None,
+        )
         return order
     except OrderServiceError as e:
         await session.rollback()
@@ -88,6 +106,15 @@ async def accept_order(order_id: int, session: AsyncSession = Depends(get_sessio
     try:
         result = await service.accept_order(order_id)
         await session.commit()
+        from backend.app.services.telegram_notify import notify_buyer_order_status
+        await notify_buyer_order_status(
+            buyer_id=result["buyer_id"],
+            order_id=order_id,
+            new_status=result["new_status"],
+            seller_id=result["seller_id"],
+            items_info=result.get("items_info"),
+            total_price=result.get("total_price"),
+        )
         return {
             "status": "ok",
             "new_status": result["new_status"],
@@ -108,6 +135,15 @@ async def reject_order(order_id: int, session: AsyncSession = Depends(get_sessio
     try:
         result = await service.reject_order(order_id)
         await session.commit()
+        from backend.app.services.telegram_notify import notify_buyer_order_status
+        await notify_buyer_order_status(
+            buyer_id=result["buyer_id"],
+            order_id=order_id,
+            new_status=result["new_status"],
+            seller_id=result["seller_id"],
+            items_info=result.get("items_info"),
+            total_price=result.get("total_price"),
+        )
         return {
             "status": "ok",
             "new_status": result["new_status"],
@@ -127,6 +163,15 @@ async def done_order(order_id: int, session: AsyncSession = Depends(get_session)
     try:
         result = await service.complete_order(order_id)
         await session.commit()
+        from backend.app.services.telegram_notify import notify_buyer_order_status
+        await notify_buyer_order_status(
+            buyer_id=result["buyer_id"],
+            order_id=order_id,
+            new_status=result["new_status"],
+            seller_id=result["seller_id"],
+            items_info=result.get("items_info"),
+            total_price=result.get("total_price"),
+        )
         return {
             "status": "ok",
             "new_status": result["new_status"],
@@ -193,14 +238,23 @@ async def update_order_status(
             new_status=result["new_status"],
             commissions_accrued=result["commissions_accrued"],
         )
-        from backend.app.services.telegram_notify import notify_buyer_order_status
+        from backend.app.services.telegram_notify import (
+            notify_buyer_order_status,
+            notify_seller_order_completed,
+        )
         await notify_buyer_order_status(
             buyer_id=result["buyer_id"],
             order_id=order_id,
             new_status=result["new_status"],
+            seller_id=result["seller_id"],
             items_info=result.get("items_info"),
             total_price=result.get("total_price"),
         )
+        if result["new_status"] == "completed":
+            await notify_seller_order_completed(
+                seller_id=result["seller_id"],
+                order_id=order_id,
+            )
         return {
             "status": "ok",
             "new_status": result["new_status"],
@@ -242,6 +296,14 @@ async def update_order_price(
             order_id=order_id,
             old_price=result.get("original_price"),
             new_price=result["total_price"]
+        )
+        from backend.app.services.telegram_notify import notify_buyer_order_price_changed
+        await notify_buyer_order_price_changed(
+            buyer_id=result["buyer_id"],
+            order_id=result["order_id"],
+            seller_id=result["seller_id"],
+            new_price=result["total_price"],
+            items_info=result.get("items_info", ""),
         )
         return {
             "status": "ok",
