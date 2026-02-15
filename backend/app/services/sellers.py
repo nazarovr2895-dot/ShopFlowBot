@@ -478,7 +478,12 @@ class SellerService:
         elif field == "delivery_type":
             seller.delivery_type = value
         elif field == "delivery_price":
-            seller.delivery_price = float(value) if value.replace('.', '', 1).isdigit() else 0.0
+            if isinstance(value, (int, float)):
+                seller.delivery_price = float(value)
+            elif isinstance(value, str):
+                seller.delivery_price = float(value) if value.replace('.', '', 1).isdigit() else 0.0
+            else:
+                seller.delivery_price = 0.0
         elif field == "city_id":
             seller.city_id = int(value) if value.isdigit() else None
         elif field == "district_id":
