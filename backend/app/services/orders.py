@@ -566,7 +566,7 @@ class OrderService:
             "original_price": orig,
         }
 
-    COMPLETED_ORDER_STATUSES = ("done", "completed", "delivered")
+    COMPLETED_ORDER_STATUSES = ("done", "completed")
 
     async def get_seller_stats(
         self,

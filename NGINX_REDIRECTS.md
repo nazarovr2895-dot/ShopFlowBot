@@ -151,6 +151,64 @@ docker compose exec nginx cat /etc/nginx/conf.d/default.conf | grep "return 30"
 
 ---
 
+## 🔍 Troubleshooting: CORS ошибки при старте
+
+### Проблема: "Failed to fetch" первые 10 секунд после деплоя
+
+**Симптомы:**
+- После деплоя admin.flowshow.ru показывает CORS ошибки
+- В консоли браузера: `Access to fetch at 'https://flowshow.ru/admin/login' has been blocked by CORS policy`
+- Через 10-15 секунд всё начинает работать нормально
+
+**Причина:**
+- Nginx перезапускается быстрее чем backend полностью инициализируется
+- Backend "прогревается" первые 5-10 секунд (SQLAlchemy, Redis, middleware)
+- Race condition между nginx и backend при деплое
+
+**Решение:**
+Nginx теперь настроен на автоматический retry при ошибках upstream:
+
+```nginx
+# В каждом location блоке для backend:
+proxy_next_upstream error timeout http_502 http_503 http_504;
+proxy_next_upstream_tries 3;           # До 3 попыток
+proxy_next_upstream_timeout 10s;       # В течение 10 секунд
+
+# Keepalive соединения для переиспользования:
+keepalive 32;
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+
+# Увеличенные таймауты:
+proxy_connect_timeout 15s;  # Было 10s
+```
+
+**Что это даёт:**
+- Если backend вернул 502/503/504 → nginx автоматически повторяет запрос
+- Клиент (браузер) не видит ошибку если retry успешен
+- Keepalive соединения предотвращают "холодный старт" backend
+
+**Проверить что исправление работает:**
+```bash
+# Сразу после деплоя открыть admin.flowshow.ru
+# Должно работать без CORS ошибок!
+
+# Проверить логи nginx
+ssh yandex-cloud "docker compose -f ~/shopflowbot/docker-compose.prod.yml logs nginx | grep upstream | tail -20"
+
+# Проверить keepalive соединения
+ssh yandex-cloud "docker compose exec nginx netstat -tnp | grep :8000"
+# Должны быть ESTABLISHED соединения даже без активных запросов
+```
+
+**Если проблема сохраняется:**
+1. Проверить healthcheck backend: `curl https://flowshow.ru/health`
+2. Проверить логи backend: `docker compose logs backend | grep -E '(startup|CORS)'`
+3. Увеличить `start_period` в `docker-compose.prod.yml` (сейчас 60s)
+4. Добавить startup delay для nginx (см. альтернативный подход в плане)
+
+---
+
 ## 🎯 Workflow
 
 ### Разработка новой функции:

@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getMe, getStats, getOrders, getDashboardAlerts } from '../../api/sellerClient';
 import type { SellerMe, SellerStats, DashboardAlerts } from '../../api/sellerClient';
 import '../Dashboard.css';
+
+const PENDING_POLL_INTERVAL_MS = 45 * 1000;
+const NOTIFICATION_TITLE = 'ShopFlow';
 
 export function SellerDashboard() {
   const [me, setMe] = useState<SellerMe | null>(null);
@@ -11,6 +14,7 @@ export function SellerDashboard() {
   const [activeCount, setActiveCount] = useState(0);
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastPendingCountRef = useRef<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -24,7 +28,9 @@ export function SellerDashboard() {
         ]);
         setMe(meData);
         setStats(statsData);
-        setPendingCount(pendingOrders?.length ?? 0);
+        const pending = pendingOrders?.length ?? 0;
+        setPendingCount(pending);
+        lastPendingCountRef.current = pending;
         setActiveCount(activeOrders?.length ?? 0);
         setAlerts(alertsData);
       } catch {
@@ -36,6 +42,36 @@ export function SellerDashboard() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const tick = async () => {
+      try {
+        const pendingOrders = await getOrders({ status: 'pending' });
+        const count = pendingOrders?.length ?? 0;
+        const prev = lastPendingCountRef.current;
+        const isHidden = document.visibilityState === 'hidden';
+        if (isHidden && prev !== null && count > prev && Notification.permission === 'granted') {
+          const text = count - prev === 1
+            ? 'Новый запрос на покупку'
+            : `Новых запросов на покупку: ${count - prev}`;
+          new Notification(NOTIFICATION_TITLE, { body: text });
+        }
+        lastPendingCountRef.current = count;
+        setPendingCount(count);
+      } catch {
+        // ignore poll errors
+      }
+    };
+    const id = setInterval(tick, PENDING_POLL_INTERVAL_MS);
+    return () => clearInterval(id);
   }, []);
 
   if (loading) {
@@ -81,6 +117,8 @@ export function SellerDashboard() {
       <div className="dashboard-quick-actions">
         <Link to="/receptions" className="btn btn-primary">Приёмка</Link>
         <Link to="/customers" className="btn btn-secondary">Добавить клиента</Link>
+        <Link to="/showcase" className="btn btn-secondary">Витрина</Link>
+        <Link to="/inventory" className="btn btn-secondary">Инвентаризация</Link>
       </div>
 
       <div className="stats-grid">

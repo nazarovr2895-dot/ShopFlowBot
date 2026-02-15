@@ -72,12 +72,38 @@ export function SellerOrderDetail() {
     );
   }
 
+  const deliveryLabel = order.delivery_type === 'delivery' ? 'Доставка' : 'Самовывоз';
+
   return (
     <div className="seller-orders-page seller-order-detail">
-      <button type="button" className="back" onClick={() => navigate('/orders')}>
+      <button type="button" className="back no-print" onClick={() => navigate('/orders')}>
         ← К списку заказов
       </button>
       <div className="order-card card order-detail-card">
+        <div className="order-print-area">
+          <div className="print-label-header">
+            <span className="print-order-id">Заказ #{order.id}</span>
+          </div>
+          {order.address && (
+            <div className="print-address">
+              <strong>Адрес:</strong> {order.address}
+            </div>
+          )}
+          <div className="print-items">
+            <strong>Состав:</strong> {formatItemsInfo(order.items_info)}
+          </div>
+          <div className="print-delivery">
+            <strong>Доставка:</strong> {deliveryLabel}
+          </div>
+          <div className="print-meta">
+            <span>Сумма: {order.total_price} ₽</span>
+            <span>Создан: {formatDate(order.created_at)}</span>
+          </div>
+          <div className="print-label-footer">
+            <span className="print-order-id">Заказ #{order.id}</span>
+          </div>
+        </div>
+
         <div className="order-header">
           <span className="order-id">Заказ #{order.id}</span>
           <span className={`order-status status-${order.status}`}>
@@ -106,14 +132,14 @@ export function SellerOrderDetail() {
             </>
           )}
           <h3>Доставка</h3>
-          <p><strong>Способ:</strong> {order.delivery_type === 'delivery' ? 'Доставка' : 'Самовывоз'}</p>
+          <p><strong>Способ:</strong> {deliveryLabel}</p>
           {order.address && <p><strong>Адрес:</strong> {order.address}</p>}
           <p className="order-date"><strong>Создан:</strong> {formatDate(order.created_at)}</p>
           {order.completed_at && (
             <p className="order-date"><strong>Завершён:</strong> {formatDate(order.completed_at)}</p>
           )}
         </div>
-        <div className="order-detail-actions">
+        <div className="order-detail-actions no-print">
           <button
             type="button"
             className="btn btn-secondary"

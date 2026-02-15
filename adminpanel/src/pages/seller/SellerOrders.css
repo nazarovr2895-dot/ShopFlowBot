@@ -111,3 +111,72 @@
   gap: 0.5rem;
   align-items: center;
 }
+
+/* Скрыть блок этикетки на экране — показывать только при печати */
+.order-print-area .print-label-header,
+.order-print-area .print-address,
+.order-print-area .print-items,
+.order-print-area .print-delivery,
+.order-print-area .print-meta,
+.order-print-area .print-label-footer {
+  display: none;
+}
+
+@media print {
+  .no-print,
+  .back,
+  .order-detail-actions,
+  .order-detail-card .order-header,
+  .order-detail-card .order-body {
+    display: none !important;
+  }
+  .order-print-area {
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .order-print-area .print-label-header,
+  .order-print-area .print-address,
+  .order-print-area .print-items,
+  .order-print-area .print-delivery,
+  .order-print-area .print-meta,
+  .order-print-area .print-label-footer {
+    display: block !important;
+  }
+  .print-order-id {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+  }
+  .print-label-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #333;
+  }
+  .print-address {
+    margin-bottom: 0.5rem;
+  }
+  .print-items {
+    margin-bottom: 0.5rem;
+  }
+  .print-delivery {
+    margin-bottom: 0.5rem;
+  }
+  .print-meta {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+    font-size: 12px;
+    color: #555;
+  }
+  .print-label-footer {
+    padding-top: 0.5rem;
+    border-top: 1px dashed #999;
+    font-size: 16px;
+  }
+  .order-card.order-detail-card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
