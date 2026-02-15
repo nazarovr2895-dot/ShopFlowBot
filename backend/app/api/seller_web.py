@@ -609,41 +609,19 @@ async def delete_product(
 
 
 def _validate_image_content(content: bytes) -> bool:
-    """Validate that content is actually an image by checking magic bytes."""
-    if content.startswith(b'\xff\xd8\xff'):  # JPEG
-        return True
-    if content.startswith(b'\x89PNG\r\n\x1a\n'):  # PNG
-        return True
-    if content.startswith(b'RIFF') and b'WEBP' in content[:12]:  # WebP
-        return True
-    if content.startswith(b'GIF87a') or content.startswith(b'GIF89a'):  # GIF
-        return True
-    return False
+    """Validate that content is actually an image (delegate to core)."""
+    from backend.app.core.image_convert import validate_image_content
+    return validate_image_content(content)
 
 
 def _convert_image_to_webp(content: bytes, max_side_px: int) -> bytes:
-    """Общий конвертер: валидация, EXIF-поворот, ресайз по длинной стороне, сохранение в WebP.
-    Используется и для фото товара, и для баннера магазина (тяжёлые PNG/JPG и т.д. сжимаются)."""
-    if not _validate_image_content(content):
-        raise HTTPException(status_code=400, detail="Файл не является изображением")
+    """Общий конвертер (делегирует в core); при ошибке — HTTPException 400."""
+    from backend.app.core.image_convert import convert_image_to_webp
     try:
-        img = Image.open(io.BytesIO(content))
-        img.verify()
-        img = Image.open(io.BytesIO(content))
-        img = ImageOps.exif_transpose(img)
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        w, h = img.size
-        if max(w, h) > max_side_px:
-            ratio = max_side_px / max(w, h)
-            new_size = (int(w * ratio), int(h * ratio))
-            img = img.resize(new_size, Image.Resampling.LANCZOS)
-        out = io.BytesIO()
-        img.save(out, "WEBP", quality=UPLOAD_OUTPUT_QUALITY)
-        return out.getvalue()
-    except Exception as e:
+        return convert_image_to_webp(content, max_side_px, quality=UPLOAD_OUTPUT_QUALITY)
+    except ValueError as e:
         logger.warning("Image conversion failed: %s", e)
-        raise HTTPException(status_code=400, detail="Не удалось обработать изображение") from e
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/upload-photo")
