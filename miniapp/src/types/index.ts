@@ -55,6 +55,7 @@ export interface CartItemEntry {
   quantity: number;
   is_preorder?: boolean;
   preorder_delivery_date?: string | null;
+  photo_id?: string | null;
 }
 
 export interface CartSellerGroup {

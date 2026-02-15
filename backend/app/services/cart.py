@@ -44,6 +44,20 @@ class CartService:
         sellers_result = await self.session.execute(select(Seller).where(Seller.seller_id.in_(seller_ids)))
         sellers = {s.seller_id: s for s in sellers_result.scalars().all()}
 
+        # Load products for photo_id (one query)
+        product_ids = list({it.product_id for it in rows})
+        products_result = await self.session.execute(select(Product).where(Product.id.in_(product_ids)))
+        products = {p.id: p for p in products_result.scalars().all()}
+
+        def _photo_id_for(product_id: int):
+            p = products.get(product_id)
+            if not p:
+                return None
+            ids = getattr(p, "photo_ids", None)
+            if ids and len(ids) > 0:
+                return ids[0]
+            return getattr(p, "photo_id", None)
+
         out = []
         for seller_id, items in by_seller.items():
             seller = sellers.get(seller_id)
@@ -61,6 +75,7 @@ class CartService:
                         "quantity": it.quantity,
                         "is_preorder": getattr(it, "is_preorder", False),
                         "preorder_delivery_date": it.preorder_delivery_date.isoformat() if getattr(it, "preorder_delivery_date", None) else None,
+                        "photo_id": _photo_id_for(it.product_id),
                     }
                     for it in items
                 ],

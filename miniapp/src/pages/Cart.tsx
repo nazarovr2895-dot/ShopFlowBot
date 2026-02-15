@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
-import { Loader, EmptyState } from '../components';
+import { Loader, EmptyState, ProductImage } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import './Cart.css';
@@ -84,6 +84,13 @@ export function Cart() {
   const grandTotalGoods = cart.reduce((sum, g) => sum + g.total, 0);
   const totalDelivery = cart.reduce((sum, g) => sum + (g.delivery_price ?? 0), 0);
   const grandTotalWithDelivery = grandTotalGoods + totalDelivery;
+  const totalItemCount = cart.reduce((s, g) => s + g.items.length, 0);
+
+  const itemCountLabel = (n: number) => {
+    if (n === 1) return '1 товар';
+    if (n >= 2 && n <= 4) return `${n} товара`;
+    return `${n} товаров`;
+  };
 
   return (
     <div className="cart-page">
@@ -94,46 +101,55 @@ export function Cart() {
           <ul className="cart-group__list">
             {group.items.map((item) => (
               <li key={item.product_id} className="cart-item">
-                <div className="cart-item__info">
+                <div className="cart-item__image-wrap">
+                  <ProductImage
+                    src={api.getProductImageUrl(item.photo_id ?? null)}
+                    alt={item.name}
+                    className="cart-item__image"
+                    placeholderClassName="cart-item__image-placeholder"
+                    placeholderIconClassName="cart-item__image-placeholder-icon"
+                  />
+                </div>
+                <div className="cart-item__body">
+                  <span className="cart-item__price">{formatPrice(item.price)}</span>
                   <span className="cart-item__name">{item.name}</span>
                   {item.is_preorder && item.preorder_delivery_date && (
-                    <span className="cart-item__preorder-date">
+                    <span className="cart-item__preorder-tag">
                       Предзаказ на {new Date(item.preorder_delivery_date).toLocaleDateString('ru-RU')}
                     </span>
                   )}
-                  <span className="cart-item__price">{formatPrice(item.price)}</span>
-                </div>
-                <div className="cart-item__actions">
-                  <div className="cart-item__qty">
+                  <div className="cart-item__row">
                     <button
                       type="button"
-                      className="cart-item__qty-btn"
-                      onClick={() => updateQuantity(item.product_id, Math.max(0, item.quantity - 1))}
-                      aria-label="Уменьшить"
+                      className="cart-item__remove"
+                      onClick={() => removeItem(item.product_id)}
+                      aria-label="Удалить"
                     >
-                      −
+                      <span aria-hidden>🗑</span>
                     </button>
-                    <span className="cart-item__qty-num">{item.quantity}</span>
-                    <button
-                      type="button"
-                      className="cart-item__qty-btn"
-                      onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                      aria-label="Увеличить"
-                    >
-                      +
-                    </button>
+                    <div className="cart-item__qty">
+                      <button
+                        type="button"
+                        className="cart-item__qty-btn"
+                        onClick={() => updateQuantity(item.product_id, Math.max(0, item.quantity - 1))}
+                        aria-label="Уменьшить"
+                      >
+                        −
+                      </button>
+                      <span className="cart-item__qty-num">{item.quantity}</span>
+                      <button
+                        type="button"
+                        className="cart-item__qty-btn"
+                        onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                        aria-label="Увеличить"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className="cart-item__remove"
-                    onClick={() => removeItem(item.product_id)}
-                    aria-label="Удалить"
-                  >
-                    🗑
-                  </button>
-                </div>
-                <div className="cart-item__total">
-                  {formatPrice(item.price * item.quantity)}
+                  <span className="cart-item__total">
+                    {formatPrice(item.price * item.quantity)}
+                  </span>
                 </div>
               </li>
             ))}
@@ -149,22 +165,25 @@ export function Cart() {
         </section>
       ))}
       <div className="cart-page__footer">
-        <div className="cart-page__grand-total">
-          Товары: {formatPrice(grandTotalGoods)}
+        <div className="cart-page__footer-header">
+          <h2 className="cart-page__footer-title">Ваша корзина</h2>
+          <span className="cart-page__footer-count">{itemCountLabel(totalItemCount)}</span>
+        </div>
+        <div className="cart-page__summary">
+          <div className="cart-page__summary-row">
+            <span>Товары ({totalItemCount})</span>
+            <span>{formatPrice(grandTotalGoods)}</span>
+          </div>
           {totalDelivery > 0 && (
-            <>
-              <br />
-              <span className="cart-page__delivery-line">
-                При доставке: {formatPrice(grandTotalWithDelivery)}
-              </span>
-            </>
+            <div className="cart-page__summary-row">
+              <span>Доставка</span>
+              <span>{formatPrice(totalDelivery)}</span>
+            </div>
           )}
-          {totalDelivery === 0 && (
-            <>
-              <br />
-              <span className="cart-page__delivery-line">К оплате: {formatPrice(grandTotalGoods)}</span>
-            </>
-          )}
+          <div className="cart-page__summary-row cart-page__summary-row--total">
+            <span>{totalDelivery > 0 ? 'При доставке' : 'К оплате'}</span>
+            <span>{formatPrice(totalDelivery > 0 ? grandTotalWithDelivery : grandTotalGoods)}</span>
+          </div>
         </div>
         <button
           type="button"
@@ -176,6 +195,9 @@ export function Cart() {
         >
           Оформить заказ
         </button>
+        <p className="cart-page__footer-note">
+          Способ и время доставки можно выбрать при оформлении заказа
+        </p>
       </div>
     </div>
   );
