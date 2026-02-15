@@ -228,7 +228,7 @@ export async function getStats(params?: { period?: '1d' | '7d' | '30d'; date_fro
 }
 
 export async function exportStatsCSV(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<Blob> {
-  const token = localStorage.getItem(SELLER_TOKEN_KEY);
+  const token = getSellerToken();
   if (!token) throw new Error('Не авторизован');
 
   const sp = new URLSearchParams();
@@ -238,7 +238,7 @@ export async function exportStatsCSV(params?: { period?: '1d' | '7d' | '30d'; da
   const query = sp.toString();
   const suffix = query ? `?${query}` : '';
 
-  const res = await fetch(`${API_BASE_URL}/seller-web/stats/export${suffix}`, {
+  const res = await fetch(`${API_BASE}/seller-web/stats/export${suffix}`, {
     headers: {
       'X-Seller-Token': token,
     },
@@ -384,10 +384,10 @@ export async function updateCustomer(customerId: number, data: { notes?: string;
 }
 
 export async function exportCustomersCSV(): Promise<Blob> {
-  const token = localStorage.getItem(SELLER_TOKEN_KEY);
+  const token = getSellerToken();
   if (!token) throw new Error('Не авторизован');
 
-  const res = await fetch(`${API_BASE_URL}/seller-web/customers/export`, {
+  const res = await fetch(`${API_BASE}/seller-web/customers/export`, {
     headers: {
       'X-Seller-Token': token,
     },
