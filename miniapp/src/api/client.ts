@@ -337,7 +337,7 @@ class ApiClient {
     return this.fetch('/buyers/me/cart', { method: 'DELETE' });
   }
 
-  async checkoutCart(data: { fio: string; phone: string; delivery_type: string; address: string }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
+  async checkoutCart(data: { fio: string; phone: string; delivery_type: string; address: string; comment?: string }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
     return this.fetch('/buyers/me/cart/checkout', {
       method: 'POST',
       body: JSON.stringify(data),

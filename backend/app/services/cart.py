@@ -49,6 +49,7 @@ class CartService:
             seller = sellers.get(seller_id)
             shop_name = (seller.shop_name or "Магазин") if seller else "Магазин"
             total = sum(float(it.price) * it.quantity for it in items)
+            delivery_price = float(getattr(seller, "delivery_price", 0) or 0) if seller else 0
             out.append({
                 "seller_id": seller_id,
                 "shop_name": shop_name,
@@ -64,6 +65,7 @@ class CartService:
                     for it in items
                 ],
                 "total": round(total, 2),
+                "delivery_price": round(delivery_price, 2),
             })
         return out
 
@@ -174,6 +176,7 @@ class CartService:
         phone: str,
         delivery_type: str,
         address: str,
+        comment: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Create one order per (seller, is_preorder) from cart, then clear cart.
@@ -224,6 +227,7 @@ class CartService:
                         total_price=total,
                         delivery_type=delivery_type,
                         address=addr,
+                        comment=(comment or "").strip() or None,
                         is_preorder=is_preorder,
                         preorder_delivery_date=preorder_date,
                     )

@@ -15,6 +15,7 @@ class Order(Base):
     status: Mapped[str] = mapped_column(String(50), default='pending')
     delivery_type: Mapped[str] = mapped_column(String(50), nullable=True)
     address: Mapped[str] = mapped_column(Text, nullable=True)
+    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_preorder: Mapped[bool] = mapped_column(Boolean, default=False)

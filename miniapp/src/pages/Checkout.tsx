@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
+import { EmptyState } from '../components';
 import './Checkout.css';
 
 function normalizePhone(phone: string): string {
@@ -21,31 +23,54 @@ export function Checkout() {
     phone?: string;
     username?: string;
   } | null>(null);
+  const [cart, setCart] = useState<CartSellerGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [deliveryType, setDeliveryType] = useState<'Доставка' | 'Самовывоз'>('Доставка');
   const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [requestingContact, setRequestingContact] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [fioInput, setFioInput] = useState('');
+  const [commentInput, setCommentInput] = useState('');
 
   useEffect(() => {
     setBackButton(true, () => navigate('/cart'));
     return () => setBackButton(false);
   }, [setBackButton, navigate]);
 
-  const loadUser = useCallback(async () => {
+  const loadUserAndCart = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await api.getCurrentUser();
-      setUser(data);
-    } catch (e) {
-      console.error(e);
+      const [userData, cartData] = await Promise.all([
+        api.getCurrentUser().catch((e) => {
+          console.error(e);
+          return null;
+        }),
+        api.getCart().catch((e) => {
+          console.error(e);
+          return [] as CartSellerGroup[];
+        }),
+      ]);
+      setUser(userData ?? null);
+      setCart(Array.isArray(cartData) ? cartData : []);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    loadUserAndCart();
+  }, [loadUserAndCart]);
+
+  useEffect(() => {
+    if (user || telegramUser) {
+      const defaultFio = telegramUser?.first_name
+        ? `${telegramUser.first_name}${telegramUser.last_name ? ' ' + telegramUser.last_name : ''}`.trim()
+        : (user?.fio || '');
+      setFioInput((prev) => (prev === '' ? defaultFio : prev));
+    }
+  }, [user?.fio, telegramUser?.first_name, telegramUser?.last_name]);
 
   const handleSavePhone = async (phone: string) => {
     const normalized = normalizePhone(phone);
@@ -75,6 +100,8 @@ export function Checkout() {
       }
       const saved = await handleSavePhone(phoneNumber);
       if (saved) {
+        setEditingPhone(false);
+        setPhoneInput('');
         showAlert('Номер телефона сохранен');
       }
     } catch (err: unknown) {
@@ -101,25 +128,32 @@ export function Checkout() {
     setSubmitting(true);
     try {
       hapticFeedback('medium');
-      // Use Telegram first_name as FIO if available, otherwise use user.fio or empty string
-      const fio = telegramUser?.first_name 
-        ? `${telegramUser.first_name}${telegramUser.last_name ? ' ' + telegramUser.last_name : ''}`.trim()
-        : (user.fio || '');
-      
+      const fio = (fioInput || '').trim() || 'Покупатель';
+
       const { orders } = await api.checkoutCart({
-        fio: fio || 'Покупатель',
+        fio,
         phone: user.phone,
         delivery_type: deliveryType,
         address: deliveryType === 'Самовывоз' ? 'Самовывоз' : address.trim(),
+        ...(commentInput.trim() ? { comment: commentInput.trim() } : {}),
       });
       setSubmitting(false);
-      showAlert(`Заказ оформлен! Создано заказов: ${orders.length}. Статус можно отслеживать в разделе «Мои заказы».`);
-      navigate('/orders');
+      const ordersMsg = orders.length > 1
+        ? `Заказ оформлен! По одному заказу на каждый магазин — всего ${orders.length}. Статус можно отслеживать во вкладке «Мои заказы».`
+        : `Заказ оформлен! Статус можно отслеживать во вкладке «Мои заказы».`;
+      showAlert(ordersMsg);
+      navigate('/?tab=orders');
     } catch (e) {
       setSubmitting(false);
       showAlert(e instanceof Error ? e.message : 'Ошибка оформления');
     }
   };
+
+  const formatPrice = (n: number) =>
+    new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
+  const totalGoods = cart.reduce((sum, g) => sum + g.total, 0);
+  const totalDelivery = cart.reduce((sum, g) => sum + (g.delivery_price ?? 0), 0);
+  const totalToPay = deliveryType === 'Доставка' ? totalGoods + totalDelivery : totalGoods;
 
   if (loading) {
     return (
@@ -130,36 +164,137 @@ export function Checkout() {
     );
   }
 
+  if (cart.length === 0) {
+    return (
+      <div className="checkout-page">
+        <h1 className="checkout-page__title">Оформление заказа</h1>
+        <EmptyState
+          title="Корзина пуста"
+          description="Добавьте товары в корзину и вернитесь к оформлению"
+          icon="🛒"
+        />
+        <button
+          type="button"
+          className="checkout-form__submit"
+          onClick={() => navigate('/catalog')}
+          style={{ marginTop: 16 }}
+        >
+          В каталог
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="checkout-page">
       <h1 className="checkout-page__title">Оформление заказа</h1>
+      <div className="checkout-summary">
+        <h2 className="checkout-summary__title">Ваш заказ</h2>
+        {cart.map((group) => (
+          <div key={group.seller_id} className="checkout-summary__group">
+            <div className="checkout-summary__shop">{group.shop_name}</div>
+            <ul className="checkout-summary__list">
+              {group.items.map((item) => (
+                <li key={item.product_id} className="checkout-summary__item">
+                  <span>{item.name} × {item.quantity}</span>
+                  <span>{formatPrice(item.price * item.quantity)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="checkout-summary__group-total">
+              Итого: {formatPrice(group.total)}
+              {(group.delivery_price ?? 0) > 0 && deliveryType === 'Доставка' && (
+                <span> + доставка {formatPrice(group.delivery_price!)}</span>
+              )}
+            </div>
+          </div>
+        ))}
+        <div className="checkout-summary__grand-total">
+          К оплате: {formatPrice(totalToPay)}
+        </div>
+      </div>
       <form className="checkout-form" onSubmit={handleSubmit}>
-        {!user?.phone && (
+        {(!user?.phone || editingPhone) && (
           <div className="checkout-form__label" style={{ marginBottom: '1rem' }}>
-            <p style={{ marginBottom: '0.5rem', color: '#ff6b6b' }}>
-              Для оформления заказа необходим номер телефона
+            <p style={{ marginBottom: '0.5rem', color: user?.phone ? undefined : '#ff6b6b' }}>
+              {user?.phone ? 'Изменить номер телефона' : 'Для оформления заказа необходим номер телефона'}
             </p>
-            <button
-              type="button"
-              className="checkout-form__submit"
-              onClick={handleRequestContact}
-              disabled={requestingContact}
-              style={{ width: '100%' }}
-            >
-              {requestingContact ? 'Запрос…' : 'Поделиться номером телефона'}
-            </button>
+            <input
+              type="tel"
+              className="checkout-form__input"
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder="+7 999 123 45 67"
+              style={{ marginBottom: 8 }}
+            />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="checkout-form__submit"
+                onClick={handleRequestContact}
+                disabled={requestingContact}
+              >
+                {requestingContact ? 'Запрос…' : 'Поделиться номером'}
+              </button>
+              {editingPhone && (
+                <>
+                  <button
+                    type="button"
+                    className="checkout-form__submit"
+                    onClick={async () => {
+                      const ok = await handleSavePhone(phoneInput);
+                      if (ok) {
+                        setEditingPhone(false);
+                        setPhoneInput('');
+                      }
+                    }}
+                  >
+                    Сохранить
+                  </button>
+                  <button
+                    type="button"
+                    className="checkout-form__submit"
+                    onClick={() => {
+                      setEditingPhone(false);
+                      setPhoneInput('');
+                    }}
+                    style={{ background: 'var(--tg-theme-secondary-bg-color)', color: 'var(--tg-theme-text-color)' }}
+                  >
+                    Отмена
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
-        
-        {user?.phone && (
+
+        <label className="checkout-form__label" style={{ marginBottom: '0.5rem' }}>
+          Имя получателя
+          <input
+            type="text"
+            className="checkout-form__input"
+            value={fioInput}
+            onChange={(e) => setFioInput(e.target.value)}
+            placeholder="ФИО или имя"
+          />
+        </label>
+
+        {user?.phone && !editingPhone && (
           <div className="checkout-form__label" style={{ marginBottom: '1rem' }}>
-            <span style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Контактные данные</span>
+            <span style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Телефон</span>
             <div style={{ padding: '0.75rem', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-              <div style={{ marginBottom: '0.5rem' }}>
-                <strong>Имя:</strong> {telegramUser?.first_name || user.fio || 'Не указано'}
-              </div>
-              <div>
-                <strong>Телефон:</strong> {user.phone}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span><strong>Телефон:</strong> {user.phone}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingPhone(true);
+                    setPhoneInput(user.phone ?? '');
+                  }}
+                  className="checkout-form__link-btn"
+                >
+                  Изменить
+                </button>
               </div>
             </div>
           </div>
@@ -201,6 +336,16 @@ export function Checkout() {
             />
           </label>
         )}
+        <label className="checkout-form__label">
+          Комментарий к заказу
+          <textarea
+            className="checkout-form__input checkout-form__textarea"
+            value={commentInput}
+            onChange={(e) => setCommentInput(e.target.value)}
+            placeholder="Код домофона, этаж, удобное время, пожелания"
+            rows={3}
+          />
+        </label>
         <button
           type="submit"
           className="checkout-form__submit"

@@ -81,7 +81,9 @@ export function Cart() {
     );
   }
 
-  const grandTotal = cart.reduce((sum, g) => sum + g.total, 0);
+  const grandTotalGoods = cart.reduce((sum, g) => sum + g.total, 0);
+  const totalDelivery = cart.reduce((sum, g) => sum + (g.delivery_price ?? 0), 0);
+  const grandTotalWithDelivery = grandTotalGoods + totalDelivery;
 
   return (
     <div className="cart-page">
@@ -138,12 +140,31 @@ export function Cart() {
           </ul>
           <div className="cart-group__total">
             Итого по магазину: {formatPrice(group.total)}
+            {(group.delivery_price ?? 0) > 0 && (
+              <span className="cart-group__delivery-note">
+                {' '}(доставка +{formatPrice(group.delivery_price!)})
+              </span>
+            )}
           </div>
         </section>
       ))}
       <div className="cart-page__footer">
         <div className="cart-page__grand-total">
-          К оплате: {formatPrice(grandTotal)}
+          Товары: {formatPrice(grandTotalGoods)}
+          {totalDelivery > 0 && (
+            <>
+              <br />
+              <span className="cart-page__delivery-line">
+                При доставке: {formatPrice(grandTotalWithDelivery)}
+              </span>
+            </>
+          )}
+          {totalDelivery === 0 && (
+            <>
+              <br />
+              <span className="cart-page__delivery-line">К оплате: {formatPrice(grandTotalGoods)}</span>
+            </>
+          )}
         </div>
         <button
           type="button"

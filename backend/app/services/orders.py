@@ -100,6 +100,7 @@ class OrderService:
         total_price: Decimal,
         delivery_type: str,
         address: Optional[str] = None,
+        comment: Optional[str] = None,
         is_preorder: bool = False,
         preorder_delivery_date: Optional[date] = None,
     ) -> Order:
@@ -143,6 +144,7 @@ class OrderService:
             total_price=total_price,
             delivery_type=delivery_type,
             address=address,
+            comment=comment,
             status="pending",
             is_preorder=is_preorder,
             preorder_delivery_date=preorder_delivery_date,

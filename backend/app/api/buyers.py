@@ -217,6 +217,7 @@ class CheckoutBody(BaseModel):
     phone: str
     delivery_type: str  # "Доставка" | "Самовывоз"
     address: str
+    comment: Optional[str] = None
 
 
 class VisitedSellerRecord(BaseModel):
@@ -321,6 +322,7 @@ async def checkout_cart(
             phone=data.phone,
             delivery_type=data.delivery_type,
             address=data.address,
+            comment=data.comment,
         )
         await session.commit()
         return {"orders": orders}

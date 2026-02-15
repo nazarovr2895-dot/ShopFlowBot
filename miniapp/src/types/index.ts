@@ -62,6 +62,8 @@ export interface CartSellerGroup {
   shop_name: string;
   items: CartItemEntry[];
   total: number;
+  /** Cost of delivery for this seller (when delivery is chosen). */
+  delivery_price?: number;
 }
 
 // Visited sellers
