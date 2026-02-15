@@ -54,6 +54,33 @@
   color: var(--tg-theme-button-text-color, #fff);
 }
 
+/* Кнопка «Отобразить местоположение на карте» при самовывозе */
+.checkout-pickup-map {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-pickup-map__btn {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  color: var(--tg-theme-link-color, var(--tg-theme-button-color));
+  background: var(--tg-theme-secondary-bg-color, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--tg-theme-hint-color, rgba(0, 0, 0, 0.15));
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.checkout-pickup-map__btn:active {
+  opacity: 0.9;
+}
+
 .checkout-summary {
   margin-bottom: 24px;
   padding: 16px;

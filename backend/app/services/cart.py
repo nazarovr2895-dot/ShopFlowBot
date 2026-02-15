@@ -64,6 +64,8 @@ class CartService:
             shop_name = (seller.shop_name or "Магазин") if seller else "Магазин"
             total = sum(float(it.price) * it.quantity for it in items)
             delivery_price = float(getattr(seller, "delivery_price", 0) or 0) if seller else 0
+            map_url = getattr(seller, "map_url", None) if seller else None
+            map_url = map_url if map_url and str(map_url).strip() else None
             out.append({
                 "seller_id": seller_id,
                 "shop_name": shop_name,
@@ -81,6 +83,7 @@ class CartService:
                 ],
                 "total": round(total, 2),
                 "delivery_price": round(delivery_price, 2),
+                "map_url": map_url,
             })
         return out
 

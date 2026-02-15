@@ -65,6 +65,8 @@ export interface CartSellerGroup {
   total: number;
   /** Cost of delivery for this seller (when delivery is chosen). */
   delivery_price?: number;
+  /** Link to map for pickup (e.g. Google Maps). */
+  map_url?: string | null;
 }
 
 // Visited sellers

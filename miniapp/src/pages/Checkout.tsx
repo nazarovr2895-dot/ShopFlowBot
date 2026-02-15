@@ -215,6 +215,37 @@ export function Checkout() {
         </div>
       </div>
 
+      {deliveryType === 'Самовывоз' && (() => {
+        const groupsWithMap = cart.filter((g) => g.map_url && g.map_url.trim());
+        if (groupsWithMap.length === 0) return null;
+        return (
+          <div className="checkout-pickup-map">
+            {groupsWithMap.length === 1 ? (
+              <a
+                href={groupsWithMap[0].map_url!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="checkout-pickup-map__btn"
+              >
+                Отобразить местоположение на карте
+              </a>
+            ) : (
+              groupsWithMap.map((group) => (
+                <a
+                  key={group.seller_id}
+                  href={group.map_url!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="checkout-pickup-map__btn"
+                >
+                  {group.shop_name} — на карте
+                </a>
+              ))
+            )}
+          </div>
+        );
+      })()}
+
       <div className="checkout-summary">
         <div className="checkout-summary__header">
           <h2 className="checkout-summary__title">Ваш заказ</h2>
