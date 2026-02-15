@@ -28,6 +28,13 @@ export function SellerShop() {
   const [preorderCustomDates, setPreorderCustomDates] = useState<string[]>([]);
   const [newCustomDate, setNewCustomDate] = useState('');
   const [preorderSaving, setPreorderSaving] = useState(false);
+  // Shop settings
+  const [shopName, setShopName] = useState('');
+  const [description, setDescription] = useState('');
+  const [deliveryType, setDeliveryType] = useState('');
+  const [deliveryPrice, setDeliveryPrice] = useState('');
+  const [mapUrl, setMapUrl] = useState('');
+  const [shopSettingsSaving, setShopSettingsSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -42,6 +49,12 @@ export function SellerShop() {
       setPreorderIntervalDays(meData?.preorder_interval_days ?? 10);
       setPreorderBaseDate(meData?.preorder_base_date ?? '');
       setPreorderCustomDates(meData?.preorder_custom_dates ?? []);
+      // Shop settings
+      setShopName(meData?.shop_name ?? '');
+      setDescription(meData?.description ?? '');
+      setDeliveryType(meData?.delivery_type ?? '');
+      setDeliveryPrice(String(meData?.delivery_price ?? ''));
+      setMapUrl(meData?.map_url ?? '');
     } catch {
       setMe(null);
     } finally {
@@ -121,6 +134,24 @@ export function SellerShop() {
     setPreorderCustomDates(preorderCustomDates.filter(d => d !== dateToRemove));
   };
 
+  const handleSaveShopSettings = async () => {
+    setShopSettingsSaving(true);
+    try {
+      await updateMe({
+        shop_name: shopName.trim() || undefined,
+        description: description.trim() || undefined,
+        delivery_type: deliveryType.trim() || undefined,
+        delivery_price: deliveryPrice ? parseFloat(deliveryPrice) : undefined,
+        map_url: mapUrl.trim() || undefined,
+      });
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setShopSettingsSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="seller-shop-loading">
@@ -132,6 +163,80 @@ export function SellerShop() {
   return (
     <div className="seller-shop-page">
       <h1 className="page-title">Настройка магазина</h1>
+
+      {/* Основные настройки магазина */}
+      <div className="card shop-section">
+        <h3>🏪 Основные настройки магазина</h3>
+        <p className="section-hint">
+          Укажите название магазина, описание, тип и цену доставки, а также ссылку на карту для самовывоза.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label className="section-label">Название магазина</label>
+            <input
+              type="text"
+              value={shopName}
+              onChange={(e) => setShopName(e.target.value)}
+              placeholder="Например: Цветочный рай"
+              className="form-input"
+            />
+          </div>
+          <div>
+            <label className="section-label">Описание</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Краткое описание вашего магазина"
+              className="form-input"
+              rows={3}
+            />
+          </div>
+          <div>
+            <label className="section-label">Тип доставки</label>
+            <select
+              value={deliveryType}
+              onChange={(e) => setDeliveryType(e.target.value)}
+              className="form-input"
+            >
+              <option value="">Не указано</option>
+              <option value="доставка">Только доставка</option>
+              <option value="самовывоз">Только самовывоз</option>
+              <option value="доставка и самовывоз">Доставка и самовывоз</option>
+            </select>
+          </div>
+          <div>
+            <label className="section-label">Цена доставки (₽)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={deliveryPrice}
+              onChange={(e) => setDeliveryPrice(e.target.value)}
+              placeholder="0"
+              className="form-input"
+              style={{ width: '150px' }}
+            />
+          </div>
+          <div>
+            <label className="section-label">Ссылка на карту (Google Maps и т.д.)</label>
+            <input
+              type="text"
+              value={mapUrl}
+              onChange={(e) => setMapUrl(e.target.value)}
+              placeholder="https://maps.google.com/..."
+              className="form-input"
+            />
+          </div>
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={handleSaveShopSettings}
+          disabled={shopSettingsSaving}
+          style={{ marginTop: '1rem' }}
+        >
+          {shopSettingsSaving ? 'Сохранение...' : 'Сохранить настройки магазина'}
+        </button>
+      </div>
 
       {/* Хештеги — в начале, чтобы покупатели находили магазин по поиску */}
       <div className="card shop-section">

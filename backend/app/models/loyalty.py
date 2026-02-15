@@ -9,6 +9,7 @@ from sqlalchemy import (
     DECIMAL,
     Index,
     UniqueConstraint,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Optional
@@ -39,6 +40,8 @@ class SellerCustomer(Base):
     points_balance: Mapped[float] = mapped_column(DECIMAL(12, 2), default=0)
     linked_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('seller_id', 'phone', name='uq_seller_customers_seller_phone'),

@@ -73,6 +73,8 @@ class LoyaltyService:
                 "card_number": c.card_number,
                 "points_balance": float(c.points_balance or 0),
                 "created_at": c.created_at.isoformat() if c.created_at else None,
+                "notes": getattr(c, "notes", None),
+                "tags": getattr(c, "tags", None),
             }
             for c in rows
         ]
@@ -114,6 +116,8 @@ class LoyaltyService:
             "card_number": customer.card_number,
             "points_balance": float(customer.points_balance),
             "created_at": customer.created_at.isoformat() if customer.created_at else None,
+            "notes": getattr(customer, "notes", None),
+            "tags": getattr(customer, "tags", None),
         }
 
     async def get_customer(self, customer_id: int, seller_id: int) -> Optional[Dict[str, Any]]:
@@ -129,6 +133,8 @@ class LoyaltyService:
             "card_number": customer.card_number,
             "points_balance": float(customer.points_balance or 0),
             "created_at": customer.created_at.isoformat() if customer.created_at else None,
+            "notes": getattr(customer, "notes", None),
+            "tags": getattr(customer, "tags", None),
             "transactions": transactions,
         }
 
@@ -161,6 +167,31 @@ class LoyaltyService:
         )
         result = await self.session.execute(q)
         return result.scalar_one_or_none()
+
+    async def update_customer(
+        self, seller_id: int, customer_id: int, notes: Optional[str] = None, tags: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Update customer notes and tags."""
+        customer = await self.session.get(SellerCustomer, customer_id)
+        if not customer or customer.seller_id != seller_id:
+            return None
+        if notes is not None:
+            customer.notes = notes
+        if tags is not None:
+            customer.tags = tags
+        await self.session.flush()
+        await self.session.refresh(customer)
+        return {
+            "id": customer.id,
+            "phone": customer.phone,
+            "first_name": customer.first_name,
+            "last_name": customer.last_name,
+            "card_number": customer.card_number,
+            "points_balance": float(customer.points_balance or 0),
+            "created_at": customer.created_at.isoformat() if customer.created_at else None,
+            "notes": customer.notes,
+            "tags": customer.tags,
+        }
 
     async def accrue_points(
         self,

@@ -1,12 +1,15 @@
 """Seller web panel API - protected by X-Seller-Token."""
+import csv
 import io
 import os
 import uuid
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
+from fastapi.responses import StreamingResponse
 from PIL import Image, ImageOps
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -88,7 +91,7 @@ def _get_seller_id(seller_id: int = Depends(require_seller_token)) -> int:
 
 # --- SELLER INFO ---
 class UpdateMeBody(BaseModel):
-    """Optional profile fields for seller (e.g. hashtags, preorder schedule)."""
+    """Optional profile fields for seller (e.g. hashtags, preorder schedule, shop settings)."""
     hashtags: Optional[str] = None
     preorder_enabled: Optional[bool] = None
     preorder_schedule_type: Optional[str] = None  # 'weekly' | 'interval_days' | 'custom_dates'
@@ -96,6 +99,12 @@ class UpdateMeBody(BaseModel):
     preorder_interval_days: Optional[int] = None
     preorder_base_date: Optional[str] = None  # YYYY-MM-DD
     preorder_custom_dates: Optional[List[str]] = None  # List of YYYY-MM-DD dates
+    # Shop settings
+    shop_name: Optional[str] = None
+    description: Optional[str] = None
+    delivery_type: Optional[str] = None  # 'доставка', 'самовывоз', 'доставка и самовывоз'
+    delivery_price: Optional[float] = None
+    map_url: Optional[str] = None
 
 
 @router.get("/me")
@@ -135,11 +144,22 @@ async def update_me(
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    """Update current seller profile (e.g. hashtags, preorder schedule)."""
+    """Update current seller profile (e.g. hashtags, preorder schedule, shop settings)."""
     from backend.app.models.seller import Seller
     service = SellerService(session)
     if body.hashtags is not None:
         await service.update_field(seller_id, "hashtags", body.hashtags)
+    # Shop settings
+    if body.shop_name is not None:
+        await service.update_field(seller_id, "shop_name", body.shop_name)
+    if body.description is not None:
+        await service.update_field(seller_id, "description", body.description)
+    if body.delivery_type is not None:
+        await service.update_field(seller_id, "delivery_type", body.delivery_type)
+    if body.delivery_price is not None:
+        await service.update_field(seller_id, "delivery_price", body.delivery_price)
+    if body.map_url is not None:
+        await service.update_field(seller_id, "map_url", body.map_url)
     result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
     seller = result.scalar_one_or_none()
     if seller:
@@ -367,15 +387,21 @@ async def get_stats(
 
     period_key = (period or "").lower()
     if not start_date and not end_date and period_key in {"1d", "7d", "30d"}:
-        today = datetime.utcnow().date()
+        # Use Moscow timezone for day boundaries
+        MSK = ZoneInfo("Europe/Moscow")
+        today_msk = datetime.now(MSK).date()
         if period_key == "1d":
-            start_day = today
+            start_day_msk = today_msk
         elif period_key == "7d":
-            start_day = today - timedelta(days=6)
+            start_day_msk = today_msk - timedelta(days=6)
         else:
-            start_day = today - timedelta(days=29)
-        start_date = datetime.combine(start_day, datetime.min.time())
-        end_date = datetime.combine(today, datetime.min.time())
+            start_day_msk = today_msk - timedelta(days=29)
+        # Create datetime boundaries in MSK (00:00:00 to 23:59:59)
+        start_datetime_msk = datetime.combine(start_day_msk, datetime.min.time()).replace(tzinfo=MSK)
+        end_datetime_msk = datetime.combine(today_msk, datetime.max.time()).replace(tzinfo=MSK)
+        # Convert to UTC for database queries (DB stores UTC timestamps)
+        start_date = start_datetime_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+        end_date = end_datetime_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
         applied_period = period_key
     elif start_date or end_date:
         applied_period = "custom"
@@ -389,6 +415,91 @@ async def get_stats(
     stats.setdefault("filters", {})
     stats["filters"]["period"] = applied_period
     return stats
+
+
+@router.get("/stats/export")
+async def export_stats_csv(
+    period: Optional[str] = Query(None, description="Predefined range: 1d, 7d, 30d"),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Export statistics to CSV file."""
+    # Reuse date calculation logic from get_stats
+    def _parse_date(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    start_date = _parse_date(date_from)
+    end_date = _parse_date(date_to)
+
+    if start_date and not end_date:
+        end_date = start_date
+    elif end_date and not start_date:
+        start_date = end_date
+    if start_date and end_date and start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    period_key = (period or "").lower()
+    if not start_date and not end_date and period_key in {"1d", "7d", "30d"}:
+        # Use Moscow timezone for day boundaries
+        MSK = ZoneInfo("Europe/Moscow")
+        today_msk = datetime.now(MSK).date()
+        if period_key == "1d":
+            start_day_msk = today_msk
+        elif period_key == "7d":
+            start_day_msk = today_msk - timedelta(days=6)
+        else:
+            start_day_msk = today_msk - timedelta(days=29)
+        start_datetime_msk = datetime.combine(start_day_msk, datetime.min.time()).replace(tzinfo=MSK)
+        end_datetime_msk = datetime.combine(today_msk, datetime.max.time()).replace(tzinfo=MSK)
+        start_date = start_datetime_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+        end_date = end_datetime_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+    # Get stats
+    service = OrderService(session)
+    stats = await service.get_seller_stats(seller_id, date_from=start_date, date_to=end_date)
+
+    # Build CSV
+    output = io.StringIO()
+    output.write('\ufeff')  # BOM for Excel
+    writer = csv.writer(output, delimiter=';')
+
+    # Headers
+    writer.writerow(['Дата', 'Заказов', 'Выручка (₽)'])
+
+    # Daily breakdown
+    for day_stat in stats.get('daily_sales', []):
+        writer.writerow([
+            day_stat.get('date', ''),
+            day_stat.get('orders', 0),
+            f"{day_stat.get('revenue', 0):.2f}",
+        ])
+
+    # Total row
+    writer.writerow([])
+    writer.writerow(['ИТОГО', '', ''])
+    completed_revenue = stats.get('completed_orders_revenue', 0)
+    completed_count = stats.get('completed_orders_count', 0)
+    commission = completed_revenue * 0.05  # 5% commission
+    net_amount = completed_revenue - commission
+
+    writer.writerow(['Заказов всего', completed_count, ''])
+    writer.writerow(['Выручка всего', '', f"{completed_revenue:.2f}"])
+    writer.writerow(['Комиссия платформы (5%)', '', f"{commission:.2f}"])
+    writer.writerow(['К получению', '', f"{net_amount:.2f}"])
+
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="stats_{datetime.now().strftime("%Y%m%d")}.csv"'}
+    )
 
 
 # --- PRODUCTS ---
@@ -918,6 +1029,11 @@ class DeductPointsBody(BaseModel):
     points: float
 
 
+class UpdateCustomerBody(BaseModel):
+    notes: Optional[str] = None
+    tags: Optional[str] = None
+
+
 @router.get("/loyalty/settings")
 async def get_loyalty_settings(
     seller_id: int = Depends(require_seller_token),
@@ -976,6 +1092,45 @@ async def create_customer(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
+@router.get("/customers/export")
+async def export_customers_csv(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Export customers to CSV file."""
+    svc = LoyaltyService(session)
+    customers = await svc.list_customers(seller_id)
+
+    # Create CSV in memory
+    output = io.StringIO()
+    # BOM for Excel UTF-8 compatibility
+    output.write('\ufeff')
+    writer = csv.writer(output, delimiter=';')
+
+    # Headers
+    writer.writerow(['Телефон', 'Имя', 'Фамилия', 'Карта', 'Баллы', 'Дата регистрации', 'Заметка', 'Теги'])
+
+    # Rows
+    for c in customers:
+        writer.writerow([
+            c.get('phone', ''),
+            c.get('first_name', ''),
+            c.get('last_name', ''),
+            c.get('card_number', ''),
+            c.get('points_balance', 0),
+            c.get('created_at', ''),
+            c.get('notes', ''),
+            c.get('tags', ''),
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="customers_{datetime.now().strftime("%Y%m%d")}.csv"'}
+    )
+
+
 @router.get("/customers/{customer_id}")
 async def get_customer(
     customer_id: int,
@@ -1015,6 +1170,22 @@ async def get_customer_orders(
         raise HTTPException(status_code=404, detail="Клиент не найден")
     order_svc = OrderService(session)
     return await order_svc.get_seller_orders_by_buyer_phone(seller_id, customer.get("phone") or "")
+
+
+@router.patch("/customers/{customer_id}")
+async def update_customer(
+    customer_id: int,
+    body: UpdateCustomerBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    svc = LoyaltyService(session)
+    result = await svc.update_customer(seller_id, customer_id, body.notes, body.tags)
+    if not result:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    await session.commit()
+    return result
 
 
 @router.post("/customers/{customer_id}/sales")

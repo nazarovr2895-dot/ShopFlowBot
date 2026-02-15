@@ -57,10 +57,10 @@ async def delete_flower(
 async def list_receptions(
     session: AsyncSession, seller_id: int
 ) -> List[Dict[str, Any]]:
-    # Use only columns that exist before migration (is_closed, supplier, invoice_number)
-    # so list works even when migration add_reception_status has not been run.
+    # Load real is_closed, supplier, invoice_number from database
     result = await session.execute(
-        select(Reception.id, Reception.name, Reception.reception_date)
+        select(Reception.id, Reception.name, Reception.reception_date,
+               Reception.is_closed, Reception.supplier, Reception.invoice_number)
         .where(Reception.seller_id == seller_id)
         .order_by(Reception.reception_date.desc().nullslast(), Reception.id.desc())
     )
@@ -70,9 +70,9 @@ async def list_receptions(
             "id": row[0],
             "name": row[1],
             "reception_date": row[2].isoformat() if row[2] else None,
-            "is_closed": False,
-            "supplier": None,
-            "invoice_number": None,
+            "is_closed": getattr(row, 'is_closed', row[3]) if len(row) > 3 else False,
+            "supplier": getattr(row, 'supplier', row[4]) if len(row) > 4 else None,
+            "invoice_number": getattr(row, 'invoice_number', row[5]) if len(row) > 5 else None,
         }
         for row in rows
     ]
@@ -103,15 +103,19 @@ async def create_reception(
 async def get_reception(
     session: AsyncSession, reception_id: int, seller_id: int
 ) -> Optional[Dict[str, Any]]:
-    # Load reception header with only columns that exist before migration (is_closed, supplier, invoice_number)
+    # Load reception header with real is_closed, supplier, invoice_number
     rec_result = await session.execute(
-        select(Reception.id, Reception.name, Reception.reception_date)
+        select(Reception.id, Reception.name, Reception.reception_date,
+               Reception.is_closed, Reception.supplier, Reception.invoice_number)
         .where(Reception.id == reception_id, Reception.seller_id == seller_id)
     )
     rec_row = rec_result.one_or_none()
     if not rec_row:
         return None
     rec_id, rec_name, rec_date = rec_row[0], rec_row[1], rec_row[2]
+    rec_is_closed = rec_row[3] if len(rec_row) > 3 else False
+    rec_supplier = rec_row[4] if len(rec_row) > 4 else None
+    rec_invoice_number = rec_row[5] if len(rec_row) > 5 else None
     # Load items for this reception (ReceptionItem has no new columns)
     items_result = await session.execute(
         select(ReceptionItem)
@@ -146,9 +150,9 @@ async def get_reception(
         "id": rec_id,
         "name": rec_name,
         "reception_date": rec_date.isoformat() if rec_date else None,
-        "is_closed": False,
-        "supplier": None,
-        "invoice_number": None,
+        "is_closed": rec_is_closed,
+        "supplier": rec_supplier,
+        "invoice_number": rec_invoice_number,
         "items": items,
     }
 

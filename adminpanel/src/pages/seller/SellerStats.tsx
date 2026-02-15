@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getStats,
+  exportStatsCSV,
   SellerStats as SellerStatsType,
   SellerStatsDeliveryBreakdown,
 } from '../../api/sellerClient';
@@ -117,6 +118,23 @@ export function SellerStats() {
     }
   };
 
+  const handleExportStats = async () => {
+    try {
+      const params = rangePreset === 'custom'
+        ? { date_from: customFrom, date_to: customTo }
+        : { period: rangePreset };
+      const blob = await exportStatsCSV(params);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `stats_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка экспорта');
+    }
+  };
+
   const breakdown = useMemo(
     () => stats?.delivery_breakdown ?? EMPTY_BREAKDOWN,
     [stats],
@@ -142,7 +160,17 @@ export function SellerStats() {
 
   return (
     <div className="stats-page">
-      <h1 className="page-title">Статистика продаж</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 className="page-title" style={{ margin: 0 }}>Статистика продаж</h1>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={handleExportStats}
+          style={{ fontSize: '0.9rem' }}
+        >
+          📊 Экспорт CSV
+        </button>
+      </div>
 
       <div className="card seller-stats-card">
         <div className="seller-stats-header">

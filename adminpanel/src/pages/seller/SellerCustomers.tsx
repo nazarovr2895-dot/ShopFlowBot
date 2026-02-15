@@ -10,6 +10,8 @@ import {
   recordSale,
   getCustomerOrders,
   deductPoints,
+  updateCustomer,
+  exportCustomersCSV,
 } from '../../api/sellerClient';
 import type { SellerCustomerBrief, SellerCustomerDetail, SellerOrder } from '../../api/sellerClient';
 import './SellerCustomers.css';
@@ -73,6 +75,9 @@ export function SellerCustomers() {
   const [deductSubmitting, setDeductSubmitting] = useState(false);
   const [customerOrders, setCustomerOrders] = useState<SellerOrder[]>([]);
   const [search, setSearch] = useState('');
+  const [customerNotes, setCustomerNotes] = useState('');
+  const [customerTags, setCustomerTags] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
 
   const loadList = useCallback(async () => {
     try {
@@ -95,6 +100,8 @@ export function SellerCustomers() {
       ]);
       setDetail(data);
       setCustomerOrders(orders || []);
+      setCustomerNotes(data.notes || '');
+      setCustomerTags(data.tags || '');
     } catch {
       setDetail(null);
       setCustomerOrders([]);
@@ -193,6 +200,19 @@ export function SellerCustomers() {
     }
   };
 
+  const handleSaveNotes = async () => {
+    if (!detail) return;
+    setNotesSaving(true);
+    try {
+      const result = await updateCustomer(detail.id, { notes: customerNotes, tags: customerTags });
+      setDetail((d) => (d ? { ...d, notes: result.notes, tags: result.tags } : null));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
   const filteredCustomers = search.trim()
     ? customers.filter(
         (c) =>
@@ -202,24 +222,18 @@ export function SellerCustomers() {
       )
     : customers;
 
-  const handleExportCustomers = () => {
-    const headers = ['Телефон', 'Имя', 'Фамилия', 'Номер карты', 'Баллы', 'Дата регистрации'];
-    const rows = filteredCustomers.map((c) => [
-      c.phone,
-      c.first_name,
-      c.last_name,
-      c.card_number,
-      String(c.points_balance ?? 0),
-      c.created_at ? formatDate(c.created_at) : '',
-    ]);
-    const csv = [headers.join(';'), ...rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))].join('\r\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `clients_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExportCustomers = async () => {
+    try {
+      const blob = await exportCustomersCSV();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `customers_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка экспорта');
+    }
   };
 
   if (id) {
@@ -267,6 +281,39 @@ export function SellerCustomers() {
               Выполнено заказов: <strong>{detail.completed_orders_count}</strong>
             </div>
           )}
+        </div>
+        <div className="customer-notes-section" style={{ marginBottom: '1rem' }}>
+          <h3>Заметки и теги</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Заметка</label>
+              <textarea
+                value={customerNotes}
+                onChange={(e) => setCustomerNotes(e.target.value)}
+                placeholder="Примечания о клиенте (VIP, постоянный и т.д.)"
+                rows={3}
+                style={{ width: '100%', padding: '0.5rem', fontSize: '0.95rem' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Теги (через запятую)</label>
+              <input
+                type="text"
+                value={customerTags}
+                onChange={(e) => setCustomerTags(e.target.value)}
+                placeholder="vip, частый, новый"
+                style={{ width: '100%', padding: '0.5rem', fontSize: '0.95rem' }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveNotes}
+              disabled={notesSaving}
+              style={{ alignSelf: 'flex-start', padding: '0.5rem 1rem' }}
+            >
+              {notesSaving ? 'Сохранение...' : 'Сохранить'}
+            </button>
+          </div>
         </div>
         <div className="record-sale">
           <h3>Внести продажу</h3>

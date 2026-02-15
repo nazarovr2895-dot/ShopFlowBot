@@ -169,6 +169,11 @@ export async function updateMe(payload: {
   preorder_interval_days?: number;
   preorder_base_date?: string | null;
   preorder_custom_dates?: string[] | null;
+  shop_name?: string;
+  description?: string;
+  delivery_type?: string;
+  delivery_price?: number;
+  map_url?: string;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',
@@ -220,6 +225,26 @@ export async function getStats(params?: { period?: '1d' | '7d' | '30d'; date_fro
   const query = sp.toString();
   const suffix = query ? `?${query}` : '';
   return fetchSeller<SellerStats>(`/seller-web/stats${suffix}`);
+}
+
+export async function exportStatsCSV(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<Blob> {
+  const token = localStorage.getItem(SELLER_TOKEN_KEY);
+  if (!token) throw new Error('Не авторизован');
+
+  const sp = new URLSearchParams();
+  if (params?.period) sp.set('period', params.period);
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  const query = sp.toString();
+  const suffix = query ? `?${query}` : '';
+
+  const res = await fetch(`${API_BASE_URL}/seller-web/stats/export${suffix}`, {
+    headers: {
+      'X-Seller-Token': token,
+    },
+  });
+  if (!res.ok) throw new Error('Ошибка экспорта');
+  return res.blob();
 }
 
 export async function getProducts(params?: { preorder?: boolean }): Promise<SellerProduct[]> {
@@ -288,6 +313,8 @@ export interface SellerCustomerBrief {
   card_number: string;
   points_balance: number;
   created_at: string | null;
+  notes?: string | null;
+  tags?: string | null;
 }
 
 export interface LoyaltyTransaction {
@@ -347,6 +374,26 @@ export async function deductPoints(customerId: number, points: number): Promise<
     method: 'POST',
     body: JSON.stringify({ points }),
   });
+}
+
+export async function updateCustomer(customerId: number, data: { notes?: string; tags?: string }): Promise<SellerCustomerBrief> {
+  return fetchSeller<SellerCustomerBrief>(`/seller-web/customers/${customerId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function exportCustomersCSV(): Promise<Blob> {
+  const token = localStorage.getItem(SELLER_TOKEN_KEY);
+  if (!token) throw new Error('Не авторизован');
+
+  const res = await fetch(`${API_BASE_URL}/seller-web/customers/export`, {
+    headers: {
+      'X-Seller-Token': token,
+    },
+  });
+  if (!res.ok) throw new Error('Ошибка экспорта');
+  return res.blob();
 }
 
 // --- CRM: Flowers ---
