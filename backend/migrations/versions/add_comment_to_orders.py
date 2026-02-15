@@ -1,7 +1,7 @@
 """add comment to orders
 
 Revision ID: add_comment_orders
-Revises: add_address_name
+Revises: merge_addr_notes
 Create Date: 2026-02-15 20:10:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_comment_orders'
-down_revision: Union[str, None] = 'add_address_name'
+down_revision: Union[str, None] = 'merge_addr_notes'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
