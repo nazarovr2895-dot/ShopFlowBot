@@ -185,8 +185,6 @@ async def update_me(
             else:
                 seller.preorder_base_date = None
         if body.preorder_custom_dates is not None:
-            # Column temporarily commented out in model until migration is applied
-            # After migration: alembic upgrade head, uncomment the column in seller.py model
             # Validate dates are YYYY-MM-DD format
             validated_dates = []
             for d_str in body.preorder_custom_dates:
@@ -195,7 +193,16 @@ async def update_me(
                     validated_dates.append(d_str[:10])
                 except (ValueError, TypeError):
                     continue
-            seller.preorder_custom_dates = validated_dates if validated_dates else None  # Uncomment after migration
+            # Check if column exists in model (catch AttributeError if not)
+            try:
+                seller.preorder_custom_dates = validated_dates if validated_dates else None
+            except (AttributeError, ProgrammingError, OperationalError) as e:
+                logger.warning(
+                    "preorder_custom_dates column not available",
+                    seller_id=seller_id,
+                    error=str(e)
+                )
+                # Ignore if column doesn't exist (migration not applied)
         await session.commit()
     data = await service.get_seller(seller_id)
     if not data:
