@@ -12,7 +12,7 @@ class CartItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
     seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
-    product_id: Mapped[int] = mapped_column(ForeignKey('products.id'), nullable=False)
+    product_id: Mapped[int] = mapped_column(ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     # Denormalized for display (snapshot at add time)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -45,7 +45,7 @@ class BuyerFavoriteProduct(Base):
     __tablename__ = 'buyer_favorite_products'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
-    product_id: Mapped[int] = mapped_column(ForeignKey('products.id'), nullable=False)
+    product_id: Mapped[int] = mapped_column(ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
 
     __table_args__ = (
         UniqueConstraint('buyer_id', 'product_id', name='uq_favorite_buyer_product'),

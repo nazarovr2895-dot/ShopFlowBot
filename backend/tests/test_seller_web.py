@@ -18,10 +18,12 @@ import jwt
 from datetime import datetime, timedelta
 from httpx import AsyncClient
 
+from sqlalchemy import select, func
 from backend.app.models.user import User
 from backend.app.models.seller import Seller
 from backend.app.models.product import Product
 from backend.app.models.order import Order
+from backend.app.models.cart import CartItem, BuyerFavoriteProduct
 from backend.app.core.password_utils import hash_password
 
 # JWT_SECRET matches the one used in seller_auth.py
@@ -451,6 +453,48 @@ async def test_seller_delete_product_not_found(client: AsyncClient, test_seller:
         headers=seller_headers(test_seller.seller_id),
     )
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_seller_delete_product_with_cart_and_favorites(
+    client: AsyncClient,
+    test_session,
+    test_seller: Seller,
+    test_product: Product,
+    test_user: User,
+):
+    """Test deleting product that is in cart and favorites: should succeed and remove related rows."""
+    # Add product to cart and favorites for a buyer
+    test_session.add(
+        CartItem(
+            buyer_id=test_user.tg_id,
+            seller_id=test_seller.seller_id,
+            product_id=test_product.id,
+            quantity=1,
+            name=test_product.name,
+            price=test_product.price,
+        )
+    )
+    test_session.add(
+        BuyerFavoriteProduct(buyer_id=test_user.tg_id, product_id=test_product.id)
+    )
+    await test_session.commit()
+    product_id = test_product.id
+
+    response = await client.delete(
+        f"/seller-web/products/{product_id}",
+        headers=seller_headers(test_seller.seller_id),
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "deleted"
+
+    # Verify product and related rows are gone (API uses same test_session, so commit already applied)
+    cart_count = (await test_session.execute(select(func.count()).select_from(CartItem).where(CartItem.product_id == product_id))).scalar()
+    fav_count = (await test_session.execute(select(func.count()).select_from(BuyerFavoriteProduct).where(BuyerFavoriteProduct.product_id == product_id))).scalar()
+    product_exists = (await test_session.execute(select(Product).where(Product.id == product_id))).scalar_one_or_none() is not None
+    assert cart_count == 0, "cart_items should have no rows for deleted product"
+    assert fav_count == 0, "buyer_favorite_products should have no rows for deleted product"
+    assert not product_exists, "product should be deleted"
 
 
 # ============================================

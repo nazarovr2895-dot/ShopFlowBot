@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from typing import Optional
 from backend.app.models.product import Product
+from backend.app.models.cart import CartItem, BuyerFavoriteProduct
 from backend.app.schemas import MAX_PRODUCT_PHOTOS
 
 
@@ -76,6 +77,8 @@ async def update_product_service(session: AsyncSession, product_id: int, update_
     return product
 
 async def delete_product_service(session: AsyncSession, product_id: int):
+    await session.execute(delete(CartItem).where(CartItem.product_id == product_id))
+    await session.execute(delete(BuyerFavoriteProduct).where(BuyerFavoriteProduct.product_id == product_id))
     await session.execute(delete(Product).where(Product.id == product_id))
     await session.commit()
     return True
