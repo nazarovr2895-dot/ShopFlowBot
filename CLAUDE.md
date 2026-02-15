@@ -448,6 +448,15 @@ docker compose exec backend bash -c "cd /src/backend && alembic downgrade -1 && 
 2. Проверить `BOT_TOKEN` в `.env`
 3. Проверить подключение к backend API
 
+### В Mini App (Telegram) не отображаются фото товаров
+
+1. Убедиться, что при сборке Mini App передаётся `VITE_API_URL` (или `PUBLIC_API_URL` в docker-compose) — тогда `config.json` в образе будет с правильным `apiUrl`.
+2. Проверить в БД, что у товаров в полях `photo_id` и `photo_ids` только пути вида `/static/uploads/products/...`, а не Telegram `file_id`. Если в БД остался `file_id`, Mini App покажет плейсхолдер (фото не подставляются в URL).
+   ```bash
+   docker compose exec db psql -U postgres shopflowbot -c "SELECT id, name, photo_id FROM products WHERE photo_id IS NOT NULL AND photo_id NOT LIKE '/static/%' LIMIT 10;"
+   ```
+   Пустый результат — норма; если есть строки, заменить `file_id` на путь после загрузки файла через API (seller-web или bot).
+
 ## Дополнительные ресурсы
 
 - **API документация:** http://localhost:8000/docs (Swagger UI)

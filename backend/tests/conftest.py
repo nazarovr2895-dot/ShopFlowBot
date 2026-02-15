@@ -15,6 +15,12 @@ TEST_BOT_TOKEN = "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
 os.environ["DISABLE_AUTH"] = "false"
 os.environ["BOT_TOKEN"] = TEST_BOT_TOKEN
 os.environ["TELEGRAM_DATA_MAX_AGE"] = "86400"  # 24 hours for tests
+# Admin credentials for admin auth tests
+os.environ.setdefault("ADMIN_LOGIN", "admin")
+os.environ.setdefault("ADMIN_PASSWORD", "admin")
+os.environ.setdefault("ADMIN_SECRET", "test_admin_secret")
+# JWT secret for seller auth tests
+os.environ.setdefault("JWT_SECRET", "test_admin_secret")
 
 import pytest
 import asyncio
@@ -41,6 +47,8 @@ from backend.app.models.user import User
 from backend.app.models.seller import Seller, City, District, Metro
 from backend.app.models.product import Product
 from backend.app.models.order import Order
+from backend.app.models.cart import CartItem, BuyerFavoriteSeller, BuyerFavoriteProduct
+from backend.app.models.loyalty import SellerCustomer, SellerLoyaltyTransaction
 
 # Patch the auth module's BOT_TOKEN to match our test token
 import backend.app.core.auth as auth_module
@@ -95,9 +103,26 @@ class MockCacheService:
     
     async def get_metro(self, district_id: int):
         return self._cache.get(f"metro:{district_id}")
-    
+
     async def set_metro(self, district_id: int, stations, ttl: int = 3600):
         self._cache[f"metro:{district_id}"] = stations
+
+    # Cache invalidation methods (used by admin endpoints)
+    async def invalidate_all_references(self):
+        self._cache.clear()
+
+    async def invalidate_cities(self):
+        self._cache.pop("cities:all", None)
+
+    async def invalidate_districts(self):
+        keys_to_remove = [k for k in self._cache if k.startswith("districts:")]
+        for k in keys_to_remove:
+            self._cache.pop(k, None)
+
+    async def invalidate_metro(self):
+        keys_to_remove = [k for k in self._cache if k.startswith("metro:")]
+        for k in keys_to_remove:
+            self._cache.pop(k, None)
 
 
 @pytest.fixture(scope="session")

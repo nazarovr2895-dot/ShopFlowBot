@@ -21,6 +21,9 @@ ARG VITE_BOT_USERNAME
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_BOT_USERNAME=$VITE_BOT_USERNAME
 
+# Ensure config.json has API URL at build time so production never has empty base (fixes product images in Telegram)
+RUN echo "{\"apiUrl\":\"${VITE_API_URL}\"}" > public/config.json
+
 # Build the app
 RUN npm run build
 
