@@ -33,6 +33,7 @@ export function SellerShop() {
   const [description, setDescription] = useState('');
   const [deliveryType, setDeliveryType] = useState('');
   const [deliveryPrice, setDeliveryPrice] = useState('');
+  const [addressName, setAddressName] = useState('');
   const [mapUrl, setMapUrl] = useState('');
   const [shopSettingsSaving, setShopSettingsSaving] = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
@@ -57,6 +58,7 @@ export function SellerShop() {
       setDescription(meData?.description ?? '');
       setDeliveryType(meData?.delivery_type ?? '');
       setDeliveryPrice(String(meData?.delivery_price ?? ''));
+      setAddressName(meData?.address_name ?? '');
       setMapUrl(meData?.map_url ?? '');
     } catch {
       setMe(null);
@@ -145,6 +147,7 @@ export function SellerShop() {
         description: description.trim() || undefined,
         delivery_type: deliveryType.trim() || undefined,
         delivery_price: deliveryPrice ? parseFloat(deliveryPrice) : undefined,
+        address_name: addressName.trim() || undefined,
         map_url: mapUrl.trim() || undefined,
       });
       await load();
@@ -245,6 +248,16 @@ export function SellerShop() {
               placeholder="0"
               className="form-input"
               style={{ width: '150px' }}
+            />
+          </div>
+          <div>
+            <label className="section-label">Название адреса</label>
+            <input
+              type="text"
+              value={addressName}
+              onChange={(e) => setAddressName(e.target.value)}
+              placeholder="Например: ул. Тверская, д. 1"
+              className="form-input"
             />
           </div>
           <div>

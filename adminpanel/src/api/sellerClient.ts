@@ -53,6 +53,7 @@ export interface SellerMe {
   district_id?: number;
   metro_id?: number;
   metro_walk_minutes?: number;
+  address_name?: string;
   map_url?: string;
   placement_expired_at?: string;
   preorder_enabled?: boolean;
@@ -174,6 +175,7 @@ export async function updateMe(payload: {
   description?: string;
   delivery_type?: string;
   delivery_price?: number;
+  address_name?: string;
   map_url?: string;
   banner_url?: string | null;
 }): Promise<SellerMe> {

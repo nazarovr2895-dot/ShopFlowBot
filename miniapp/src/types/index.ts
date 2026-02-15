@@ -65,6 +65,8 @@ export interface CartSellerGroup {
   total: number;
   /** Cost of delivery for this seller (when delivery is chosen). */
   delivery_price?: number;
+  /** Address name for pickup. */
+  address_name?: string | null;
   /** Link to map for pickup (e.g. Google Maps). */
   map_url?: string | null;
 }
@@ -110,6 +112,7 @@ export interface PublicSellerDetail {
   description: string | null;
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
   delivery_price: number;
+  address_name?: string | null;
   map_url: string | null;
   city_name: string | null;
   district_name: string | null;

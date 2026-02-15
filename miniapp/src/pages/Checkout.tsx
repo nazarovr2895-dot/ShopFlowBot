@@ -216,30 +216,48 @@ export function Checkout() {
       </div>
 
       {deliveryType === 'Самовывоз' && (() => {
-        const groupsWithMap = cart.filter((g) => g.map_url && g.map_url.trim());
-        if (groupsWithMap.length === 0) return null;
+        const groupsWithAddress = cart.filter((g) => (g.address_name && g.address_name.trim()) || (g.map_url && g.map_url.trim()));
+        if (groupsWithAddress.length === 0) return null;
         return (
           <div className="checkout-pickup-map">
-            {groupsWithMap.length === 1 ? (
-              <a
-                href={groupsWithMap[0].map_url!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="checkout-pickup-map__btn"
-              >
-                Отобразить местоположение на карте
-              </a>
+            {groupsWithAddress.length === 1 ? (
+              <>
+                {groupsWithAddress[0].address_name && (
+                  <div className="checkout-pickup-address">
+                    {groupsWithAddress[0].address_name}
+                  </div>
+                )}
+                {groupsWithAddress[0].map_url && (
+                  <a
+                    href={groupsWithAddress[0].map_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="checkout-pickup-map__btn"
+                  >
+                    Отобразить местоположение на карте
+                  </a>
+                )}
+              </>
             ) : (
-              groupsWithMap.map((group) => (
-                <a
-                  key={group.seller_id}
-                  href={group.map_url!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="checkout-pickup-map__btn"
-                >
-                  {group.shop_name} — на карте
-                </a>
+              groupsWithAddress.map((group) => (
+                <div key={group.seller_id} style={{ marginBottom: '0.75rem' }}>
+                  <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>{group.shop_name}</div>
+                  {group.address_name && (
+                    <div className="checkout-pickup-address">
+                      {group.address_name}
+                    </div>
+                  )}
+                  {group.map_url && (
+                    <a
+                      href={group.map_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="checkout-pickup-map__btn"
+                    >
+                      Показать на карте
+                    </a>
+                  )}
+                </div>
               ))
             )}
           </div>

@@ -16,6 +16,7 @@ class Seller(Base):
     district_id: Mapped[int] = mapped_column(ForeignKey('districts.id'), nullable=True)
     metro_id: Mapped[int] = mapped_column(ForeignKey('metro_stations.id'), nullable=True)
     metro_walk_minutes: Mapped[int] = mapped_column(Integer, nullable=True)
+    address_name: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     map_url: Mapped[str] = mapped_column(Text, nullable=True)
     delivery_type: Mapped[str] = mapped_column(String(100), nullable=True)
     delivery_price: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0.0)

@@ -119,7 +119,7 @@ class SellerService:
     
     VALID_UPDATE_FIELDS = {
         "fio", "phone", "shop_name", "hashtags", "description",
-        "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
+        "address_name", "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url"
     }
     
@@ -274,6 +274,7 @@ class SellerService:
             "district_id": seller.district_id,
             "metro_id": seller.metro_id,
             "metro_walk_minutes": seller.metro_walk_minutes,
+            "address_name": getattr(seller, "address_name", None),
             "map_url": seller.map_url,
             "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
             "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
@@ -473,6 +474,8 @@ class SellerService:
             seller.hashtags = (value or "").strip() or None
         elif field == "description":
             seller.description = value
+        elif field == "address_name":
+            seller.address_name = (value or "").strip() or None
         elif field == "map_url":
             seller.map_url = value
         elif field == "delivery_type":
@@ -688,6 +691,7 @@ class SellerService:
                 "description": seller.description,
                 "city_id": seller.city_id,
                 "district_id": seller.district_id,
+                "address_name": getattr(seller, "address_name", None),
                 "map_url": seller.map_url,
                 "metro_id": seller.metro_id,
                 "metro_walk_minutes": seller.metro_walk_minutes,
@@ -730,6 +734,7 @@ class SellerService:
                 "description": seller.description,
                 "city_id": seller.city_id,
                 "district_id": seller.district_id,
+                "address_name": getattr(seller, "address_name", None),
                 "map_url": seller.map_url,
                 "metro_id": seller.metro_id,
                 "metro_walk_minutes": seller.metro_walk_minutes,

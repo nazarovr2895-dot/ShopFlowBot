@@ -81,6 +81,15 @@
   opacity: 0.9;
 }
 
+.checkout-pickup-address {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--tg-theme-text-color);
+  background: var(--tg-theme-secondary-bg-color, rgba(0, 0, 0, 0.03));
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
 .checkout-summary {
   margin-bottom: 24px;
   padding: 16px;

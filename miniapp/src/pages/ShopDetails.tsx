@@ -287,6 +287,12 @@ export function ShopDetails() {
                 </span>
               </div>
             )}
+            {seller.address_name && (
+              <div className="shop-details__info-item">
+                <span className="shop-details__info-label">Адрес</span>
+                <span className="shop-details__info-value">{seller.address_name}</span>
+              </div>
+            )}
           </>
         )}
         <div className="shop-details__info-item">
