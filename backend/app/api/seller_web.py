@@ -610,7 +610,6 @@ async def delete_product(
 
 def _validate_image_content(content: bytes) -> bool:
     """Validate that content is actually an image by checking magic bytes."""
-    # Check for common image formats
     if content.startswith(b'\xff\xd8\xff'):  # JPEG
         return True
     if content.startswith(b'\x89PNG\r\n\x1a\n'):  # PNG
@@ -622,24 +621,21 @@ def _validate_image_content(content: bytes) -> bool:
     return False
 
 
-def _convert_uploaded_image(content: bytes) -> bytes:
-    """Открыть изображение, повернуть по EXIF, уменьшить по длинной стороне, сохранить в WebP."""
-    # Validate image content before processing
+def _convert_image_to_webp(content: bytes, max_side_px: int) -> bytes:
+    """Общий конвертер: валидация, EXIF-поворот, ресайз по длинной стороне, сохранение в WebP.
+    Используется и для фото товара, и для баннера магазина (тяжёлые PNG/JPG и т.д. сжимаются)."""
     if not _validate_image_content(content):
         raise HTTPException(status_code=400, detail="Файл не является изображением")
-    
     try:
         img = Image.open(io.BytesIO(content))
-        # Verify it's actually an image (not a malicious file)
         img.verify()
-        # Reopen after verify (verify closes the image)
         img = Image.open(io.BytesIO(content))
         img = ImageOps.exif_transpose(img)
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
         w, h = img.size
-        if max(w, h) > UPLOAD_MAX_SIDE_PX:
-            ratio = UPLOAD_MAX_SIDE_PX / max(w, h)
+        if max(w, h) > max_side_px:
+            ratio = max_side_px / max(w, h)
             new_size = (int(w * ratio), int(h * ratio))
             img = img.resize(new_size, Image.Resampling.LANCZOS)
         out = io.BytesIO()
@@ -647,30 +643,6 @@ def _convert_uploaded_image(content: bytes) -> bytes:
         return out.getvalue()
     except Exception as e:
         logger.warning("Image conversion failed: %s", e)
-        raise HTTPException(status_code=400, detail="Не удалось обработать изображение") from e
-
-
-def _convert_banner_image(content: bytes) -> bytes:
-    """Same as _convert_uploaded_image but with larger max side (1920px) for channel-art style."""
-    if not _validate_image_content(content):
-        raise HTTPException(status_code=400, detail="Файл не является изображением")
-    try:
-        img = Image.open(io.BytesIO(content))
-        img.verify()
-        img = Image.open(io.BytesIO(content))
-        img = ImageOps.exif_transpose(img)
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        w, h = img.size
-        if max(w, h) > UPLOAD_BANNER_MAX_SIDE_PX:
-            ratio = UPLOAD_BANNER_MAX_SIDE_PX / max(w, h)
-            new_size = (int(w * ratio), int(h * ratio))
-            img = img.resize(new_size, Image.Resampling.LANCZOS)
-        out = io.BytesIO()
-        img.save(out, "WEBP", quality=UPLOAD_OUTPUT_QUALITY)
-        return out.getvalue()
-    except Exception as e:
-        logger.warning("Banner image conversion failed: %s", e)
         raise HTTPException(status_code=400, detail="Не удалось обработать изображение") from e
 
 
@@ -716,8 +688,8 @@ async def upload_product_photo(
     if len(content) < 100:  # Minimum 100 bytes
         raise HTTPException(status_code=400, detail="Файл слишком маленький")
     
-    # Convert and validate image content
-    content = _convert_uploaded_image(content)
+    # Convert to WebP (same converter as banner: PNG/heavy images get compressed)
+    content = _convert_image_to_webp(content, UPLOAD_MAX_SIDE_PX)
     
     # Secure file path generation
     upload_dir = UPLOAD_DIR / PRODUCTS_UPLOAD_SUBDIR
@@ -760,7 +732,7 @@ async def upload_shop_banner(
         raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 10 МБ)")
     if len(content) < 100:
         raise HTTPException(status_code=400, detail="Файл слишком маленький")
-    content = _convert_banner_image(content)
+    content = _convert_image_to_webp(content, UPLOAD_BANNER_MAX_SIDE_PX)
     upload_dir = UPLOAD_DIR / SHOP_BANNERS_UPLOAD_SUBDIR
     upload_dir.mkdir(parents=True, exist_ok=True)
     name = f"{seller_id}{UPLOAD_OUTPUT_EXT}"
