@@ -116,6 +116,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Persist uploaded product images across container rebuilds
+    volumes:
+      - static_uploads:/src/backend/static/uploads
     # Remove port exposure in production (use nginx/load balancer)
     # ports:
     #   - "8000:8000"
@@ -206,3 +209,4 @@ volumes:
   pgdata:
   pgdata-replica:
   redis_data:
+  static_uploads:  # Persistent storage for uploaded product images
