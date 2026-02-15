@@ -141,7 +141,7 @@ class ApiClient {
     const isPageLocal = origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1');
     // В Telegram (не localhost) не использовать относительный URL — иначе запрос пойдёт на origin Mini App, где нет /static/
     if (!base && typeof window !== 'undefined' && !isPageLocal) {
-      if (import.meta.env.DEV) {
+      if (import.meta.env.MODE === 'development') {
         console.warn('[API] Product image: base URL empty in non-local context, skipping to avoid wrong origin', photoId);
       }
       return null;
@@ -152,7 +152,7 @@ class ApiClient {
     } else {
       url = base ? `${base}${path}` : path;
     }
-    if (import.meta.env.DEV && typeof window !== 'undefined') {
+    if (import.meta.env.MODE === 'development' && typeof window !== 'undefined') {
       console.log('[API] Product image URL:', url, '(photo_id:', photoId, ', base:', base || '(empty)');
     }
     return url;
