@@ -253,18 +253,9 @@ export function ShopDetails() {
         </div>
       )}
       <header className="shop-details__header">
-        <img className="shop-details__logo" src="/logo.svg" alt="" />
+        <img className="shop-details__logo" src="/android-chrome-512x512.png" alt="" />
         <div className="shop-details__header-text">
           <h1 className="shop-details__name">{seller.shop_name || 'Без названия'}</h1>
-          <span
-            className={`shop-details__slots ${seller.available_slots <= 2 ? 'low' : ''} ${
-              seller.available_slots === 0 ? 'none' : ''
-            }`}
-          >
-            {seller.available_slots > 0
-              ? `${seller.available_slots} свободных слотов`
-              : 'Нет свободных слотов'}
-          </span>
         </div>
       </header>
 

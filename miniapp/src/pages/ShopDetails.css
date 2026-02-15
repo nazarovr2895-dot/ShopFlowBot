@@ -10,8 +10,7 @@
   aspect-ratio: 3 / 1;
   border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 12px;
-  background: var(--app-bg-elevated);
+  margin-bottom: 20px;
 }
 
 .shop-details__banner img {
@@ -25,11 +24,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--app-bg-elevated);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
-  border: 1px solid var(--app-border);
+  padding: 0;
+  margin-bottom: 20px;
 }
 
 .shop-details__logo {
@@ -46,23 +42,13 @@
 }
 
 .shop-details__name {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: clamp(1rem, 4vw, 1.5rem);
   font-weight: 700;
   color: var(--app-text);
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.shop-details__slots {
-  display: inline-block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #4caf50;
-  background: rgba(76, 175, 80, 0.12);
-  padding: 4px 10px;
-  border-radius: 8px;
 }
 
 @media (min-width: 768px) {
@@ -75,21 +61,11 @@
   }
 }
 
-.shop-details__slots.low {
-  color: #ff9800;
-  background: rgba(255, 152, 0, 0.12);
-}
-
-.shop-details__slots.none {
-  color: #f44336;
-  background: rgba(244, 67, 54, 0.12);
-}
-
 .shop-details__actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
 .shop-details__favorite-btn {
@@ -100,7 +76,7 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--app-accent);
-  background: var(--app-accent-muted);
+  background: transparent;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   cursor: pointer;
@@ -123,7 +99,7 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--app-accent);
-  background: var(--app-accent-muted);
+  background: transparent;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   text-decoration: none;
@@ -134,11 +110,8 @@
 }
 
 .shop-details__loyalty {
-  background: var(--app-bg-elevated);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-  border: 1px solid var(--app-border);
+  padding: 12px 0;
+  margin-bottom: 20px;
 }
 
 .shop-details__loyalty-text {
@@ -154,34 +127,27 @@
 }
 
 .shop-details__description {
-  background: var(--app-bg-elevated);
-  border-radius: 12px;
-  padding: 16px;
-  margin: 0 0 12px;
+  padding: 0;
+  margin: 0 0 20px;
   font-size: 14px;
-  line-height: 1.5;
-  color: var(--app-text);
-  border: 1px solid var(--app-border);
+  line-height: 1.55;
+  color: var(--app-text-secondary);
 }
 
 .shop-details__info {
-  background: var(--app-bg-elevated);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-  border: 1px solid var(--app-border);
+  padding: 0;
+  margin-bottom: 20px;
 }
 
 .shop-details__info-item {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--app-border);
+  padding: 6px 0;
 }
 
-.shop-details__info-item:last-of-type {
-  border-bottom: none;
+.shop-details__info-item:first-of-type {
+  padding-top: 0;
 }
 
 .shop-details__info-label {
@@ -211,10 +177,7 @@
 }
 
 .shop-details__products {
-  background: var(--app-bg-elevated);
-  border-radius: 12px;
-  padding: 16px;
-  border: 1px solid var(--app-border);
+  padding: 0;
 }
 
 .shop-details__product-tabs {
@@ -291,10 +254,9 @@
 }
 
 .shop-details__product-card {
-  background: var(--app-bg-elevated);
+  background: transparent;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -302,7 +264,7 @@
 }
 
 [data-theme="dark"] .shop-details__product-card {
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  border-color: var(--app-border);
 }
 
 .shop-details__product-card:active {
