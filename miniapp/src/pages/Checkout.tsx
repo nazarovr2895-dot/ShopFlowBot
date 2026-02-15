@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
-import { EmptyState } from '../components';
+import { EmptyState, ProductImage } from '../components';
 import './Checkout.css';
 
 function normalizePhone(phone: string): string {
@@ -154,6 +154,12 @@ export function Checkout() {
   const totalGoods = cart.reduce((sum, g) => sum + g.total, 0);
   const totalDelivery = cart.reduce((sum, g) => sum + (g.delivery_price ?? 0), 0);
   const totalToPay = deliveryType === 'Доставка' ? totalGoods + totalDelivery : totalGoods;
+  const totalItemCount = cart.reduce((s, g) => s + g.items.length, 0);
+  const itemCountLabel = (n: number) => {
+    if (n === 1) return '1 товар';
+    if (n >= 2 && n <= 4) return `${n} товара`;
+    return `${n} товаров`;
+  };
 
   if (loading) {
     return (
@@ -189,15 +195,32 @@ export function Checkout() {
     <div className="checkout-page">
       <h1 className="checkout-page__title">Оформление заказа</h1>
       <div className="checkout-summary">
-        <h2 className="checkout-summary__title">Ваш заказ</h2>
+        <div className="checkout-summary__header">
+          <h2 className="checkout-summary__title">Ваш заказ</h2>
+          <span className="checkout-summary__count">{itemCountLabel(totalItemCount)}</span>
+        </div>
         {cart.map((group) => (
           <div key={group.seller_id} className="checkout-summary__group">
             <div className="checkout-summary__shop">{group.shop_name}</div>
             <ul className="checkout-summary__list">
               {group.items.map((item) => (
                 <li key={item.product_id} className="checkout-summary__item">
-                  <span>{item.name} × {item.quantity}</span>
-                  <span>{formatPrice(item.price * item.quantity)}</span>
+                  <div className="checkout-summary__item-image-wrap">
+                    <ProductImage
+                      src={api.getProductImageUrl(item.photo_id ?? null)}
+                      alt={item.name}
+                      className="checkout-summary__item-image"
+                      placeholderClassName="checkout-summary__item-image-placeholder"
+                      placeholderIconClassName="checkout-summary__item-image-placeholder-icon"
+                    />
+                  </div>
+                  <div className="checkout-summary__item-body">
+                    <span className="checkout-summary__item-name">{item.name}</span>
+                    <div className="checkout-summary__item-meta">
+                      <span className="checkout-summary__item-qty">{item.quantity} шт</span>
+                      <span className="checkout-summary__item-price">{formatPrice(item.price * item.quantity)}</span>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
