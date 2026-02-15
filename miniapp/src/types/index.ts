@@ -116,6 +116,7 @@ export interface PublicSellerDetail {
   preorder_products?: Product[];
   preorder_available_dates?: string[];
   preorder_enabled?: boolean;
+  banner_url?: string | null;
 }
 
 export interface PublicSellersResponse {

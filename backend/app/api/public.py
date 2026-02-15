@@ -87,6 +87,7 @@ class PublicSellerDetail(BaseModel):
     preorder_products: List[dict] = []
     preorder_available_dates: List[str] = []
     preorder_enabled: bool = False
+    banner_url: Optional[str] = None
 
 
 class PublicSellersResponse(BaseModel):
@@ -480,6 +481,7 @@ async def get_public_seller_detail(
         preorder_products=preorder_products_list,
         preorder_available_dates=preorder_available_dates,
         preorder_enabled=preorder_enabled,
+        banner_url=getattr(seller, "banner_url", None),
     )
 
 

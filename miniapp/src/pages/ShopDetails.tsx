@@ -245,6 +245,11 @@ export function ShopDetails() {
 
   return (
     <div className="shop-details">
+      {seller.banner_url && (
+        <div className="shop-details__banner">
+          <img src={api.getProductImageUrl(seller.banner_url) ?? ''} alt="" />
+        </div>
+      )}
       <header className="shop-details__header">
         <h1 className="shop-details__name">{seller.shop_name || 'Без названия'}</h1>
         <span

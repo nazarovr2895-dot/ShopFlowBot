@@ -285,6 +285,7 @@ class SellerService:
             "preorder_base_date": seller.preorder_base_date.isoformat() if getattr(seller, "preorder_base_date", None) else None,
             "preorder_custom_dates": preorder_custom_dates if preorder_custom_dates else [],
             "preorder_available_dates": preorder_available_dates,
+            "banner_url": getattr(seller, "banner_url", None),
         }
     
     async def create_seller(
@@ -509,6 +510,8 @@ class SellerService:
                             raise SellerServiceError("Дата должна быть в формате ДД.ММ.ГГГГ или ГГГГ-ММ-ДД")
                 except (ValueError, IndexError) as e:
                     raise SellerServiceError(f"Неверный формат даты: {e}")
+        elif field == "banner_url":
+            seller.banner_url = (value or "").strip() or None
 
         await self.session.commit()
         return {"status": "ok"}

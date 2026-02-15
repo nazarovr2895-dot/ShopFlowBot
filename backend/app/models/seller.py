@@ -39,6 +39,8 @@ class Seller(Base):
     preorder_base_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     # Temporarily commented out until migration is applied - uncomment after running: alembic upgrade head
     preorder_custom_dates: Mapped[Optional[List[str]]] = mapped_column(JSON(), nullable=True)  # List of YYYY-MM-DD dates
+    # Shop banner (YouTube-style), path like /static/uploads/shop_banners/123.webp
+    banner_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

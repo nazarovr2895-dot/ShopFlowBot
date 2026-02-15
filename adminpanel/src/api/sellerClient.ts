@@ -62,6 +62,7 @@ export interface SellerMe {
   preorder_base_date?: string | null;
   preorder_custom_dates?: string[];
   preorder_available_dates?: string[];
+  banner_url?: string | null;
 }
 
 export interface SellerOrder {
@@ -174,6 +175,7 @@ export async function updateMe(payload: {
   delivery_type?: string;
   delivery_price?: number;
   map_url?: string;
+  banner_url?: string | null;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',
@@ -260,6 +262,33 @@ export async function uploadProductPhoto(file: File): Promise<{ photo_id: string
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(`${API_BASE}/seller-web/upload-photo`, {
+    method: 'POST',
+    headers: token ? { 'X-Seller-Token': token } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/** Full URL for shop banner (banner_url from backend). */
+export function getBannerImageUrl(bannerUrl: string | null | undefined): string | null {
+  if (bannerUrl == null || String(bannerUrl).trim() === '') return null;
+  const raw = String(bannerUrl).trim();
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  const path = raw.startsWith('/') ? raw : `/${raw}`;
+  if (!path.startsWith('/static/')) return null;
+  const base = (API_BASE || '').replace(/\/$/, '');
+  return base ? `${base}${path}` : path;
+}
+
+export async function uploadBannerPhoto(file: File): Promise<{ banner_url: string }> {
+  const token = sessionStorage.getItem('seller_token');
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_BASE}/seller-web/upload-banner`, {
     method: 'POST',
     headers: token ? { 'X-Seller-Token': token } : {},
     body: form,

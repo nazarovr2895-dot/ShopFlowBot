@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { getMe, updateLimits, updateMe } from '../../api/sellerClient';
+import { useEffect, useRef, useState } from 'react';
+import { getMe, updateLimits, updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../api/sellerClient';
 import type { SellerMe } from '../../api/sellerClient';
 import './SellerShop.css';
 
@@ -35,6 +35,9 @@ export function SellerShop() {
   const [deliveryPrice, setDeliveryPrice] = useState('');
   const [mapUrl, setMapUrl] = useState('');
   const [shopSettingsSaving, setShopSettingsSaving] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bannerRemoving, setBannerRemoving] = useState(false);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     setLoading(true);
@@ -152,6 +155,33 @@ export function SellerShop() {
     }
   };
 
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBannerUploading(true);
+    try {
+      await uploadBannerPhoto(file);
+      await load();
+      e.target.value = '';
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка загрузки баннера');
+    } finally {
+      setBannerUploading(false);
+    }
+  };
+
+  const handleRemoveBanner = async () => {
+    setBannerRemoving(true);
+    try {
+      await updateMe({ banner_url: null });
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setBannerRemoving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="seller-shop-loading">
@@ -236,6 +266,46 @@ export function SellerShop() {
         >
           {shopSettingsSaving ? 'Сохранение...' : 'Сохранить настройки магазина'}
         </button>
+      </div>
+
+      {/* Баннер магазина */}
+      <div className="card shop-section">
+        <h3>🖼️ Баннер магазина</h3>
+        <p className="section-hint">
+          Баннер отображается в каталоге вашего магазина в Mini App (вверху страницы магазина). Рекомендуемый размер: 1200×400 px (3:1) или 1920×640 px. На узких экранах края могут обрезаться.
+        </p>
+        {me?.banner_url && (
+          <div className="shop-banner-preview">
+            <img src={getBannerImageUrl(me.banner_url) ?? ''} alt="Баннер магазина" />
+          </div>
+        )}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginTop: '0.75rem' }}>
+          <input
+            ref={bannerFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleBannerUpload}
+            style={{ display: 'none' }}
+          />
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={bannerUploading}
+            onClick={() => bannerFileInputRef.current?.click()}
+          >
+            {bannerUploading ? 'Загрузка...' : me?.banner_url ? 'Заменить баннер' : 'Загрузить баннер'}
+          </button>
+          {me?.banner_url && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={bannerRemoving}
+              onClick={handleRemoveBanner}
+            >
+              {bannerRemoving ? 'Удаление...' : 'Удалить баннер'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Хештеги — в начале, чтобы покупатели находили магазин по поиску */}

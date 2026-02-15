@@ -77,10 +77,12 @@ logger = get_logger(__name__)
 # Директория для загруженных фото (backend/static)
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "static"
 PRODUCTS_UPLOAD_SUBDIR = Path("uploads") / "products"
+SHOP_BANNERS_UPLOAD_SUBDIR = Path("uploads") / "shop_banners"
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 # Конвертация загружаемых фото в лёгкий формат (только web seller; Telegram-бот не трогаем)
 UPLOAD_MAX_SIDE_PX = 1200
+UPLOAD_BANNER_MAX_SIDE_PX = 1920  # banner (YouTube-style) can be larger
 UPLOAD_OUTPUT_QUALITY = 85
 UPLOAD_OUTPUT_EXT = ".webp"
 
@@ -105,6 +107,7 @@ class UpdateMeBody(BaseModel):
     delivery_type: Optional[str] = None  # 'доставка', 'самовывоз', 'доставка и самовывоз'
     delivery_price: Optional[float] = None
     map_url: Optional[str] = None
+    banner_url: Optional[str] = None  # set to empty string or null to remove banner
 
 
 @router.get("/me")
@@ -160,6 +163,8 @@ async def update_me(
         await service.update_field(seller_id, "delivery_price", body.delivery_price)
     if body.map_url is not None:
         await service.update_field(seller_id, "map_url", body.map_url)
+    if body.banner_url is not None:
+        await service.update_field(seller_id, "banner_url", body.banner_url or "")
     result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
     seller = result.scalar_one_or_none()
     if seller:
@@ -645,6 +650,30 @@ def _convert_uploaded_image(content: bytes) -> bytes:
         raise HTTPException(status_code=400, detail="Не удалось обработать изображение") from e
 
 
+def _convert_banner_image(content: bytes) -> bytes:
+    """Same as _convert_uploaded_image but with larger max side (1920px) for channel-art style."""
+    if not _validate_image_content(content):
+        raise HTTPException(status_code=400, detail="Файл не является изображением")
+    try:
+        img = Image.open(io.BytesIO(content))
+        img.verify()
+        img = Image.open(io.BytesIO(content))
+        img = ImageOps.exif_transpose(img)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        w, h = img.size
+        if max(w, h) > UPLOAD_BANNER_MAX_SIDE_PX:
+            ratio = UPLOAD_BANNER_MAX_SIDE_PX / max(w, h)
+            new_size = (int(w * ratio), int(h * ratio))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        out = io.BytesIO()
+        img.save(out, "WEBP", quality=UPLOAD_OUTPUT_QUALITY)
+        return out.getvalue()
+    except Exception as e:
+        logger.warning("Banner image conversion failed: %s", e)
+        raise HTTPException(status_code=400, detail="Не удалось обработать изображение") from e
+
+
 @router.post("/upload-photo")
 async def upload_product_photo(
     file: UploadFile = File(...),
@@ -705,6 +734,46 @@ async def upload_product_photo(
     path.write_bytes(content)
     photo_id = f"/static/{PRODUCTS_UPLOAD_SUBDIR}/{name}"
     return {"photo_id": photo_id}
+
+
+@router.post("/upload-banner")
+async def upload_shop_banner(
+    file: UploadFile = File(...),
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Upload shop banner (YouTube-style). One per seller, overwrites previous. Returns banner_url."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Файл не выбран")
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Допустимые форматы: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
+        )
+    if file.content_type:
+        allowed_mime = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
+        if file.content_type not in allowed_mime:
+            raise HTTPException(status_code=400, detail=f"Недопустимый тип файла: {file.content_type}")
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 10 МБ)")
+    if len(content) < 100:
+        raise HTTPException(status_code=400, detail="Файл слишком маленький")
+    content = _convert_banner_image(content)
+    upload_dir = UPLOAD_DIR / SHOP_BANNERS_UPLOAD_SUBDIR
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{seller_id}{UPLOAD_OUTPUT_EXT}"
+    path = upload_dir / name
+    try:
+        path.resolve().relative_to(upload_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Недопустимый путь к файлу")
+    path.write_bytes(content)
+    banner_url = f"/static/{SHOP_BANNERS_UPLOAD_SUBDIR}/{name}"
+    service = SellerService(session)
+    await service.update_field(seller_id, "banner_url", banner_url)
+    return {"banner_url": banner_url}
 
 
 def _handle_crm_db_error(e: Exception) -> None:

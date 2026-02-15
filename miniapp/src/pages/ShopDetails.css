@@ -5,6 +5,22 @@
   padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
 }
 
+.shop-details__banner {
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: var(--app-bg-elevated);
+}
+
+.shop-details__banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .shop-details__header {
   background: var(--app-bg-elevated);
   border-radius: 12px;
