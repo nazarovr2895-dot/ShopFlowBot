@@ -10,6 +10,50 @@
   color: var(--tg-theme-text-color);
 }
 
+/* Способ получения — сегментированный переключатель вверху */
+.checkout-delivery-segment {
+  margin-bottom: 20px;
+}
+
+.checkout-delivery-segment__label {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color);
+  margin-bottom: 10px;
+}
+
+.checkout-delivery-segment__buttons {
+  display: flex;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--tg-theme-secondary-bg-color, rgba(255, 255, 255, 0.1));
+  padding: 3px;
+}
+
+.checkout-delivery-segment__btn {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--tg-theme-hint-color, #999);
+  border-radius: 10px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.checkout-delivery-segment__btn:active {
+  opacity: 0.9;
+}
+
+.checkout-delivery-segment__btn--active {
+  background: var(--tg-theme-button-color, #3390ec);
+  color: var(--tg-theme-button-text-color, #fff);
+}
+
 .checkout-summary {
   margin-bottom: 24px;
   padding: 16px;
@@ -228,4 +272,34 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
+}
+
+/* Блок телефона — фон и текст по теме (читаемо в светлой и тёмной теме) */
+.checkout-form__phone-row {
+  margin-bottom: 1rem;
+}
+
+.checkout-form__phone-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color);
+}
+
+.checkout-form__phone-block {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--tg-theme-secondary-bg-color, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--tg-theme-hint-color, rgba(0, 0, 0, 0.1));
+}
+
+.checkout-form__phone-value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--tg-theme-text-color);
 }

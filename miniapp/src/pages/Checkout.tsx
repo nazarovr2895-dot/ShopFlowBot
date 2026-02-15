@@ -194,6 +194,27 @@ export function Checkout() {
   return (
     <div className="checkout-page">
       <h1 className="checkout-page__title">Оформление заказа</h1>
+
+      <div className="checkout-delivery-segment">
+        <span className="checkout-delivery-segment__label">Способ получения</span>
+        <div className="checkout-delivery-segment__buttons">
+          <button
+            type="button"
+            className={`checkout-delivery-segment__btn ${deliveryType === 'Самовывоз' ? 'checkout-delivery-segment__btn--active' : ''}`}
+            onClick={() => setDeliveryType('Самовывоз')}
+          >
+            Самовывоз
+          </button>
+          <button
+            type="button"
+            className={`checkout-delivery-segment__btn ${deliveryType === 'Доставка' ? 'checkout-delivery-segment__btn--active' : ''}`}
+            onClick={() => setDeliveryType('Доставка')}
+          >
+            Курьером
+          </button>
+        </div>
+      </div>
+
       <div className="checkout-summary">
         <div className="checkout-summary__header">
           <h2 className="checkout-summary__title">Ваш заказ</h2>
@@ -303,49 +324,24 @@ export function Checkout() {
         </label>
 
         {user?.phone && !editingPhone && (
-          <div className="checkout-form__label" style={{ marginBottom: '1rem' }}>
-            <span style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Телефон</span>
-            <div style={{ padding: '0.75rem', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <span><strong>Телефон:</strong> {user.phone}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingPhone(true);
-                    setPhoneInput(user.phone ?? '');
-                  }}
-                  className="checkout-form__link-btn"
-                >
-                  Изменить
-                </button>
-              </div>
+          <div className="checkout-form__label checkout-form__phone-row">
+            <span className="checkout-form__phone-label">Телефон</span>
+            <div className="checkout-form__phone-block">
+              <span className="checkout-form__phone-value">{user.phone}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingPhone(true);
+                  setPhoneInput(user.phone ?? '');
+                }}
+                className="checkout-form__link-btn"
+              >
+                Изменить
+              </button>
             </div>
           </div>
         )}
         
-        <div className="checkout-form__label">
-          Способ получения
-          <div className="checkout-form__radio-group">
-            <label className="checkout-form__radio">
-              <input
-                type="radio"
-                name="delivery"
-                checked={deliveryType === 'Доставка'}
-                onChange={() => setDeliveryType('Доставка')}
-              />
-              <span>Доставка</span>
-            </label>
-            <label className="checkout-form__radio">
-              <input
-                type="radio"
-                name="delivery"
-                checked={deliveryType === 'Самовывоз'}
-                onChange={() => setDeliveryType('Самовывоз')}
-              />
-              <span>Самовывоз</span>
-            </label>
-          </div>
-        </div>
         {deliveryType === 'Доставка' && (
           <label className="checkout-form__label">
             Адрес доставки
