@@ -120,7 +120,7 @@ class SellerService:
     VALID_UPDATE_FIELDS = {
         "fio", "phone", "shop_name", "hashtags", "description",
         "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
-        "metro_id", "metro_walk_minutes", "placement_expired_at"
+        "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url"
     }
     
     def __init__(self, session: AsyncSession):
