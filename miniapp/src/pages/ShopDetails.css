@@ -22,6 +22,9 @@
 }
 
 .shop-details__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: var(--app-bg-elevated);
   border-radius: 12px;
   padding: 16px;
@@ -29,11 +32,27 @@
   border: 1px solid var(--app-border);
 }
 
+.shop-details__logo {
+  flex-shrink: 0;
+  width: clamp(50px, 8vw, 100px);
+  height: clamp(50px, 8vw, 100px);
+  object-fit: contain;
+  color: var(--app-text);
+}
+
+.shop-details__header-text {
+  min-width: 0;
+  flex: 1;
+}
+
 .shop-details__name {
-  margin: 0 0 8px;
-  font-size: 22px;
+  margin: 0 0 6px;
+  font-size: clamp(1rem, 4vw, 1.5rem);
   font-weight: 700;
   color: var(--app-text);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .shop-details__slots {
@@ -46,6 +65,16 @@
   border-radius: 8px;
 }
 
+@media (min-width: 768px) {
+  .shop-details__logo {
+    width: 100px;
+    height: 100px;
+  }
+  .shop-details__name {
+    font-size: 1.5rem;
+  }
+}
+
 .shop-details__slots.low {
   color: #ff9800;
   background: rgba(255, 152, 0, 0.12);
@@ -56,12 +85,18 @@
   background: rgba(244, 67, 54, 0.12);
 }
 
+.shop-details__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .shop-details__favorite-btn {
   display: block;
   width: 100%;
   text-align: center;
   padding: 10px 16px;
-  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 500;
   color: var(--app-accent);
@@ -77,6 +112,24 @@
 }
 
 .shop-details__favorite-btn:active:not(:disabled) {
+  opacity: 0.9;
+}
+
+.shop-details__map-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--app-accent);
+  background: var(--app-accent-muted);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.shop-details__map-btn:active {
   opacity: 0.9;
 }
 

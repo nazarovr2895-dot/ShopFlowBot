@@ -242,6 +242,8 @@ export function ShopDetails() {
   }
 
   const showFavoriteBtn = true;
+  const hasPickup = seller.delivery_type === 'pickup' || seller.delivery_type === 'both';
+  const showMapButton = hasPickup && seller.map_url;
 
   return (
     <div className="shop-details">
@@ -251,28 +253,86 @@ export function ShopDetails() {
         </div>
       )}
       <header className="shop-details__header">
-        <h1 className="shop-details__name">{seller.shop_name || 'Без названия'}</h1>
-        <span
-          className={`shop-details__slots ${seller.available_slots <= 2 ? 'low' : ''} ${
-            seller.available_slots === 0 ? 'none' : ''
-          }`}
-        >
-          {seller.available_slots > 0
-            ? `${seller.available_slots} свободных слотов`
-            : 'Нет свободных слотов'}
-        </span>
+        <img className="shop-details__logo" src="/logo.svg" alt="" />
+        <div className="shop-details__header-text">
+          <h1 className="shop-details__name">{seller.shop_name || 'Без названия'}</h1>
+          <span
+            className={`shop-details__slots ${seller.available_slots <= 2 ? 'low' : ''} ${
+              seller.available_slots === 0 ? 'none' : ''
+            }`}
+          >
+            {seller.available_slots > 0
+              ? `${seller.available_slots} свободных слотов`
+              : 'Нет свободных слотов'}
+          </span>
+        </div>
       </header>
 
-      {showFavoriteBtn && (
-        <button
-          type="button"
-          className="shop-details__favorite-btn"
-          onClick={toggleFavorite}
-          disabled={togglingFavorite}
-        >
-          {togglingFavorite ? '…' : isInFavorites ? 'Убрать из моих цветочных' : 'Добавить в мои цветочные'}
-        </button>
+      {seller.description && (
+        <p className="shop-details__description">{seller.description}</p>
       )}
+
+      <div className="shop-details__info">
+        {hasPickup && (
+          <>
+            {seller.city_name && (
+              <div className="shop-details__info-item">
+                <span className="shop-details__info-label">Город</span>
+                <span className="shop-details__info-value">{seller.city_name}</span>
+              </div>
+            )}
+            {seller.district_name && (
+              <div className="shop-details__info-item">
+                <span className="shop-details__info-label">Район</span>
+                <span className="shop-details__info-value">{seller.district_name}</span>
+              </div>
+            )}
+            {(seller.metro_name || seller.metro_walk_minutes != null) && (
+              <div className="shop-details__info-item">
+                <span className="shop-details__info-label">Метро</span>
+                <span className="shop-details__info-value">
+                  {seller.metro_name || '—'}
+                  {seller.metro_walk_minutes != null && seller.metro_walk_minutes > 0 && ` (${seller.metro_walk_minutes} мин)`}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+        <div className="shop-details__info-item">
+          <span className="shop-details__info-label">Способ получения</span>
+          <span className="shop-details__info-value">
+            {getDeliveryLabel(seller.delivery_type)}
+            {seller.delivery_type && (seller.delivery_type === 'delivery' || seller.delivery_type === 'both') && (
+              seller.delivery_price === 0
+                ? ' (бесплатно)'
+                : ` (${formatPrice(seller.delivery_price)})`
+            )}
+          </span>
+        </div>
+      </div>
+
+      <div className="shop-details__actions">
+        {showFavoriteBtn && (
+          <button
+            type="button"
+            className="shop-details__favorite-btn"
+            onClick={toggleFavorite}
+            disabled={togglingFavorite}
+          >
+            {togglingFavorite ? '…' : isInFavorites ? 'Убрать из моих цветочных' : 'Добавить в мои цветочные'}
+          </button>
+        )}
+        {showMapButton && (
+          <a
+            href={seller.map_url!}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shop-details__map-btn"
+          >
+            Открыть на карте
+          </a>
+        )}
+      </div>
 
       {loyalty !== null && (
         <div className="shop-details__loyalty">
@@ -287,44 +347,6 @@ export function ShopDetails() {
           )}
         </div>
       )}
-
-      {seller.description && (
-        <p className="shop-details__description">{seller.description}</p>
-      )}
-
-      <div className="shop-details__info">
-        <div className="shop-details__info-item">
-          <span className="shop-details__info-label">Локация</span>
-          <span className="shop-details__info-value">
-            {[seller.metro_name, seller.district_name, seller.city_name]
-              .filter(Boolean)
-              .join(', ') || 'Не указана'}
-          </span>
-        </div>
-
-        <div className="shop-details__info-item">
-          <span className="shop-details__info-label">Способ получения</span>
-          <span className="shop-details__info-value">
-            {getDeliveryLabel(seller.delivery_type)}
-            {seller.delivery_type && (seller.delivery_type === 'delivery' || seller.delivery_type === 'both') && (
-              seller.delivery_price === 0 
-                ? ' (бесплатно)' 
-                : ` (${formatPrice(seller.delivery_price)})`
-            )}
-          </span>
-        </div>
-
-        {seller.map_url && (
-          <a
-            href={seller.map_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shop-details__map-link"
-          >
-            Открыть на карте
-          </a>
-        )}
-      </div>
 
       {(seller.products.length > 0 || (seller.preorder_enabled && (seller.preorder_products?.length ?? 0) > 0)) && (
         <div className="shop-details__products">
