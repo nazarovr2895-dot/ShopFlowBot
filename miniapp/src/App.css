@@ -19,8 +19,8 @@
 
 /* Dark theme */
 :root[data-theme="dark"] {
-  --app-bg: #000000;
-  --app-bg-elevated: #1a1a1a;
+  --app-bg: #1a1a1a;
+  --app-bg-elevated: #2a2a2a;
   --app-text: #ffffff;
   --app-text-secondary: #999999;
   --app-accent: #ffffff;
