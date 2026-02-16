@@ -16,9 +16,10 @@ export function MyFlowersNavBar({ activeTab, onTabChange }: MyFlowersNavBarProps
   const isTelegramEnv = isTelegram();
   const isDesktop = useDesktopLayout();
 
-  // Calculate opposite theme based on system theme
-  // System dark → panel light, System light → panel dark
-  const oppositeTheme = systemTheme === 'dark' ? 'light' : 'dark';
+  // Calculate theme for the panel based on system theme
+  // System dark → panel uses dark styles (white text)
+  // System light → panel uses light styles (black text)
+  const oppositeTheme = systemTheme === 'dark' ? 'dark' : 'light';
 
   return (
     <nav

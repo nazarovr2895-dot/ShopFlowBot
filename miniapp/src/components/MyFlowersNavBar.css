@@ -108,10 +108,12 @@
 }
 
 /* Text colors for opposite theme */
+/* data-theme-opposite="dark" → панель темная (системная тема светлая) → текст белый */
 [data-theme-opposite="dark"] .my-flowers-nav-bar__tab {
   color: #ffffff;
 }
 
+/* data-theme-opposite="light" → панель светлая (системная тема темная) → текст черный */
 [data-theme-opposite="light"] .my-flowers-nav-bar__tab {
   color: #000000;
 }
