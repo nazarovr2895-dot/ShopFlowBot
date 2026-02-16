@@ -381,8 +381,6 @@ function AddSellerModal({
   const [metroId, setMetroId] = useState<number | null>(null);
   const [metroWalkMinutes, setMetroWalkMinutes] = useState<number | null>(null);
   const [addressLink, setAddressLink] = useState('');
-  const [deliveryType, setDeliveryType] = useState('both');
-  const [deliveryPrice, setDeliveryPrice] = useState('0');
   const [expiryDateDisplay, setExpiryDateDisplay] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -468,8 +466,6 @@ function AddSellerModal({
         metro_id: metroId || undefined,
         metro_walk_minutes: metroWalkMinutes || undefined,
         map_url: addressLink || undefined,
-        delivery_type: deliveryType,
-        delivery_price: parseFloat(deliveryPrice) || 0,
       };
       if (tgId.trim()) {
         payload.tg_id = parseInt(tgId.trim(), 10);
@@ -608,14 +604,6 @@ function AddSellerModal({
           }}
         />
         <FormRow label="Ссылка на адрес (Яндекс.Карты)" value={addressLink} onChange={setAddressLink} />
-        <FormRow label="Тип доставки" render={
-          <select className="form-input" value={deliveryType} onChange={(e) => setDeliveryType(e.target.value)}>
-            {DELIVERY_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
-        } />
-        <FormRow label="Стоимость доставки (₽)" value={deliveryPrice} onChange={setDeliveryPrice} type="number" />
         <div className="form-group">
           <label className="form-label">Дата окончания размещения</label>
           <input
