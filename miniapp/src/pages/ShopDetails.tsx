@@ -309,7 +309,7 @@ export function ShopDetails() {
             <>
               {!bannerLoaded && (
                 <div className="shop-details__banner-placeholder shop-details__banner-loading">
-                  <span>🏪</span>
+                  <span className="shop-details__banner-placeholder-icon">🏪</span>
                 </div>
               )}
               <img
@@ -327,7 +327,10 @@ export function ShopDetails() {
             </>
           ) : (
             <div className="shop-details__banner-placeholder">
-              <span>🏪</span>
+              <span className="shop-details__banner-placeholder-icon">🏪</span>
+              <span className="shop-details__banner-placeholder-text">
+                Рекомендуемый размер: 2560×400px (мин. 1280×200px)
+              </span>
             </div>
           )}
         </div>
