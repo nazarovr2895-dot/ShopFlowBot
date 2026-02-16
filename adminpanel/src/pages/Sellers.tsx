@@ -109,7 +109,7 @@ export function Sellers() {
   const [showInnVerification, setShowInnVerification] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
-  const [innData, setInnData] = useState<{ ogrn: string; data: InnData } | null>(null);
+  const [innData, setInnData] = useState<{ data: InnData } | null>(null);
 
   const loadSellers = async () => {
     setLoading(true);
@@ -209,8 +209,8 @@ export function Sellers() {
             setShowInnVerification(false);
             setInnData(null);
           }}
-          onNext={(ogrn, data) => {
-            setInnData({ ogrn, data });
+          onNext={(_identifier, data) => {
+            setInnData({ data });
             setShowInnVerification(false);
             setShowAdd(true);
           }}
@@ -227,7 +227,6 @@ export function Sellers() {
             setInnData(null);
             loadSellers();
           }}
-          initialOgrn={innData?.ogrn}
           initialInnData={innData?.data}
         />
       )}
@@ -250,45 +249,45 @@ function InnVerificationModal({
   onNext,
 }: {
   onClose: () => void;
-  onNext: (ogrn: string, innData: InnData) => void;
+  onNext: (identifier: string, innData: InnData) => void;
 }) {
-  const [ogrn, setOgrn] = useState('');
-  const [ogrnError, setOgrnError] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [identifierError, setIdentifierError] = useState('');
   const [loading, setLoading] = useState(false);
   const [orgData, setOrgData] = useState<InnData | null>(null);
   const [error, setError] = useState('');
 
-  const validateOgrn = (value: string): string => {
+  const validateIdentifier = (value: string): string => {
     if (!value.trim()) return '';
     const clean = value.trim().replace(/\s/g, '');
     if (!/^\d+$/.test(clean)) {
-      return 'ОГРН должен содержать только цифры';
+      return 'Должен содержать только цифры';
     }
-    if (clean.length !== 13 && clean.length !== 15) {
-      return 'ОГРН должен содержать 13 цифр (для юрлиц) или 15 цифр (для ИП)';
+    if (![10, 12, 13, 15].includes(clean.length)) {
+      return 'ИНН (10/12 цифр) или ОГРН (13/15 цифр)';
     }
     return '';
   };
 
-  const handleOgrnChange = (value: string) => {
-    setOgrn(value);
-    setOgrnError(validateOgrn(value));
+  const handleIdentifierChange = (value: string) => {
+    setIdentifier(value);
+    setIdentifierError(validateIdentifier(value));
     setOrgData(null);
     setError('');
   };
 
   const handleGetData = async () => {
     setError('');
-    const validationError = validateOgrn(ogrn);
+    const validationError = validateIdentifier(identifier);
     if (validationError) {
-      setOgrnError(validationError);
+      setIdentifierError(validationError);
       return;
     }
-    setOgrnError('');
+    setIdentifierError('');
     setLoading(true);
     try {
-      const cleanOgrn = ogrn.trim().replace(/\s/g, '');
-      const data = await getOrgData(cleanOgrn);
+      const clean = identifier.trim().replace(/\s/g, '');
+      const data = await getOrgData(clean);
       setOrgData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка при получении данных');
@@ -300,28 +299,28 @@ function InnVerificationModal({
 
   const handleNext = () => {
     if (!orgData) {
-      setError('Сначала получите данные по ОГРН');
+      setError('Сначала получите данные по ИНН/ОГРН');
       return;
     }
-    onNext(ogrn.trim().replace(/\s/g, ''), orgData);
+    onNext(identifier.trim().replace(/\s/g, ''), orgData);
   };
 
   return (
-    <Modal title="Проверка ОГРН" onClose={onClose}>
+    <Modal title="Проверка ИНН / ОГРН" onClose={onClose}>
       <div>
         <div className="form-group">
-          <label className="form-label">ОГРН *</label>
+          <label className="form-label">ИНН или ОГРН *</label>
           <input
             type="text"
-            className={`form-input ${ogrnError ? 'error' : ''}`}
-            value={ogrn}
-            onChange={(e) => handleOgrnChange(e.target.value)}
-            placeholder="13 или 15 цифр"
+            className={`form-input ${identifierError ? 'error' : ''}`}
+            value={identifier}
+            onChange={(e) => handleIdentifierChange(e.target.value)}
+            placeholder="ИНН (10/12 цифр) или ОГРН (13/15 цифр)"
             maxLength={15}
             onKeyDown={(e) => e.key === 'Enter' && !loading && handleGetData()}
           />
-          {ogrnError && <div className="form-error">{ogrnError}</div>}
-          <small className="form-hint">ОГРН организации (13 цифр) или ОГРНИП (15 цифр)</small>
+          {identifierError && <div className="form-error">{identifierError}</div>}
+          <small className="form-hint">Введите ИНН (10/12 цифр) или ОГРН/ОГРНИП (13/15 цифр)</small>
         </div>
 
         <div className="modal-actions" style={{ marginTop: '1rem' }}>
@@ -329,7 +328,7 @@ function InnVerificationModal({
             type="button"
             className="btn btn-primary"
             onClick={handleGetData}
-            disabled={loading || !!ogrnError || !ogrn.trim()}
+            disabled={loading || !!identifierError || !identifier.trim()}
           >
             {loading ? 'Загрузка...' : 'Получить данные'}
           </button>
@@ -364,19 +363,16 @@ function InnVerificationModal({
 function AddSellerModal({
   onClose,
   onSuccess,
-  initialOgrn,
   initialInnData,
 }: {
   onClose: () => void;
   onSuccess: () => void;
-  initialOgrn?: string;
   initialInnData?: InnData;
 }) {
   const [tgId, setTgId] = useState('');
   const [fio, setFio] = useState('');
   const [phoneDisplay, setPhoneDisplay] = useState('');
   const [shopName, setShopName] = useState('');
-  const [ogrn] = useState(initialOgrn || '');
   const [description, setDescription] = useState('');
   const [cityId, setCityId] = useState(1);
   const [cities, setCities] = useState<City[]>([]);
@@ -478,8 +474,8 @@ function AddSellerModal({
       if (initialInnData?.inn) {
         payload.inn = initialInnData.inn;
       }
-      if (ogrn.trim()) {
-        payload.ogrn = ogrn.trim().replace(/\s/g, '');
+      if (initialInnData?.ogrn) {
+        payload.ogrn = initialInnData.ogrn;
       }
       if (expiryDateDisplay) {
         const [d, m, y] = expiryDateDisplay.split('.');
@@ -536,16 +532,27 @@ function AddSellerModal({
         </div>
       ) : (
       <form onSubmit={handleSubmit}>
-        {ogrn && (
+        {initialInnData?.ogrn && (
           <div className="form-group">
             <label className="form-label">ОГРН</label>
             <input
               type="text"
               className="form-input"
-              value={ogrn}
+              value={initialInnData.ogrn}
               disabled
             />
-            <small className="form-hint">ОГРН проверен на предыдущем шаге</small>
+          </div>
+        )}
+        {initialInnData?.inn && (
+          <div className="form-group">
+            <label className="form-label">ИНН</label>
+            <input
+              type="text"
+              className="form-input"
+              value={initialInnData.inn}
+              disabled
+            />
+            <small className="form-hint">Данные получены из DaData</small>
           </div>
         )}
         <div className="form-group">
