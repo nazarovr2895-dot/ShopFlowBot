@@ -195,6 +195,15 @@ async def update_profile(
     try:
         updated_user = await service.update_profile(tg_id=tg_id, **update_kwargs)
         updated_user["id"] = updated_user["tg_id"]
+        # Auto-link loyalty for existing subscriptions when phone is updated
+        if "phone" in update_kwargs:
+            try:
+                from backend.app.services.cart import FavoriteSellersService
+                fav_svc = FavoriteSellersService(session)
+                await fav_svc.auto_link_loyalty_for_subscriptions(tg_id)
+                await session.commit()
+            except Exception:
+                pass  # Don't fail profile update if loyalty linking fails
         return updated_user
     except BuyerServiceError as e:
         logger.warning("Profile update failed", tg_id=tg_id, error=e.message)

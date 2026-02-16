@@ -4,7 +4,7 @@ import './BottomNav.css';
 const FlowerIcon = ({ className }: { className?: string }) => (
   <img 
     src="/favicon-32x32.png" 
-    alt="Мои цветочные"
+    alt="Подписки"
     className={className}
     width="24"
     height="24"
@@ -42,7 +42,7 @@ const PersonIcon = ({ className }: { className?: string }) => (
 );
 
 const tabs = [
-  { path: '/', label: 'Мои цветочные', Icon: FlowerIcon },
+  { path: '/', label: 'Подписки', Icon: FlowerIcon },
   { path: '/catalog', label: 'Каталог', Icon: BagIcon },
   { path: '/favorites', label: 'Избранное', Icon: HeartIcon },
   { path: '/cart', label: 'Корзина', Icon: CartIcon },

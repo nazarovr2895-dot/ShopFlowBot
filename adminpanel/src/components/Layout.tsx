@@ -13,6 +13,7 @@ const sellerNav = [
   { to: '/', label: 'Дашборд', icon: '📊' },
   { to: '/orders', label: 'Заказы', icon: '📦' },
   { to: '/customers', label: 'Клиенты', icon: '👥' },
+  { to: '/subscribers', label: 'Подписчики', icon: '🔔' },
   { to: '/shop', label: 'Настройка магазина', icon: '⚙️' },
   { to: '/showcase', label: 'Витрина', icon: '🪟' },
   { to: '/receptions', label: 'Приёмка', icon: '🌸' },

@@ -118,16 +118,18 @@ export function ShopDetails() {
       if (isInFavorites) {
         await api.removeFavoriteSeller(seller.seller_id);
         setIsInFavorites(false);
-        showAlert('Убрано из моих цветочных');
+        if (seller) setSeller({ ...seller, subscriber_count: Math.max(0, (seller.subscriber_count || 0) - 1) });
+        showAlert('Вы отписались');
       } else {
         await api.addFavoriteSeller(seller.seller_id);
         setIsInFavorites(true);
-        showAlert('Добавлено в мои цветочные');
+        if (seller) setSeller({ ...seller, subscriber_count: (seller.subscriber_count || 0) + 1 });
+        showAlert('Вы подписались!');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Ошибка';
       if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('аутентификац')) {
-        showAlert('Откройте приложение в Telegram, чтобы добавлять магазины в «Мои цветочные».');
+        showAlert('Откройте приложение в Telegram, чтобы подписываться на магазины.');
       } else {
         showAlert(msg);
       }
@@ -210,6 +212,15 @@ export function ShopDetails() {
       currency: 'RUB',
       maximumFractionDigits: 0,
     }).format(price);
+  };
+
+  const formatSubscriberLabel = (n: number): string => {
+    const lastTwo = n % 100;
+    const lastOne = n % 10;
+    if (lastTwo >= 11 && lastTwo <= 19) return 'подписчиков';
+    if (lastOne === 1) return 'подписчик';
+    if (lastOne >= 2 && lastOne <= 4) return 'подписчика';
+    return 'подписчиков';
   };
 
   const getDeliveryLabel = (type: string | null) => {
@@ -308,15 +319,21 @@ export function ShopDetails() {
         </div>
       </div>
 
+      {(seller.subscriber_count ?? 0) > 0 && (
+        <div className="shop-details__subscriber-count">
+          {seller.subscriber_count} {formatSubscriberLabel(seller.subscriber_count ?? 0)}
+        </div>
+      )}
+
       <div className="shop-details__actions">
         {showFavoriteBtn && (
           <button
             type="button"
-            className="shop-details__favorite-btn"
+            className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
             onClick={toggleFavorite}
             disabled={togglingFavorite}
           >
-            {togglingFavorite ? '…' : isInFavorites ? 'Убрать из моих цветочных' : 'Добавить в мои цветочные'}
+            {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
           </button>
         )}
         {showMapButton && (

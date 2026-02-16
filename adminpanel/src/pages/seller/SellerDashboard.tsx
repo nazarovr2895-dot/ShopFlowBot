@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getMe, getStats, getOrders, getDashboardAlerts } from '../../api/sellerClient';
+import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount } from '../../api/sellerClient';
 import type { SellerMe, SellerStats, DashboardAlerts } from '../../api/sellerClient';
 import '../Dashboard.css';
 
@@ -13,18 +13,20 @@ export function SellerDashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
+  const [subscriberCount, setSubscriberCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const lastPendingCountRef = useRef<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [meData, statsData, pendingOrders, activeOrders, alertsData] = await Promise.all([
+        const [meData, statsData, pendingOrders, activeOrders, alertsData, subCount] = await Promise.all([
           getMe(),
           getStats(),
           getOrders({ status: 'pending' }),
           getOrders({ status: 'accepted,assembling,in_transit' }),
           getDashboardAlerts(),
+          getSubscriberCount().catch(() => ({ count: 0 })),
         ]);
         setMe(meData);
         setStats(statsData);
@@ -33,6 +35,7 @@ export function SellerDashboard() {
         lastPendingCountRef.current = pending;
         setActiveCount(activeOrders?.length ?? 0);
         setAlerts(alertsData);
+        setSubscriberCount(subCount.count);
       } catch {
         setMe(null);
         setStats(null);
@@ -154,6 +157,11 @@ export function SellerDashboard() {
             </span>
           </div>
         )}
+        <Link to="/subscribers" className="stat-card" style={{ textDecoration: 'none' }}>
+          <span className="stat-label">Подписчики</span>
+          <span className="stat-value">{subscriberCount}</span>
+          <span className="stat-link">Перейти →</span>
+        </Link>
       </div>
 
       <div className="dashboard-grid">

@@ -19,6 +19,7 @@ from backend.app.models.seller import Seller, City, District, Metro
 from backend.app.models.product import Product
 from backend.app.models.user import User
 from backend.app.models.order import Order
+from backend.app.models.cart import BuyerFavoriteSeller
 from backend.app.services.cache import CacheService
 from backend.app.services.sellers import _today_6am_date, _today_6am_utc
 from backend.app.services.bouquets import get_active_bouquet_ids
@@ -67,6 +68,7 @@ class PublicSellerListItem(BaseModel):
     min_price: Optional[float]
     max_price: Optional[float]
     product_count: int
+    subscriber_count: int = 0
 
 
 class PublicSellerDetail(BaseModel):
@@ -89,6 +91,7 @@ class PublicSellerDetail(BaseModel):
     preorder_available_dates: List[str] = []
     preorder_enabled: bool = False
     banner_url: Optional[str] = None
+    subscriber_count: int = 0
 
 
 class PublicSellersResponse(BaseModel):
@@ -265,6 +268,16 @@ async def get_public_sellers(
             .subquery()
         )
         
+        # Подзапрос: количество подписчиков по продавцам
+        subscriber_count_subq = (
+            select(
+                BuyerFavoriteSeller.seller_id,
+                func.count(BuyerFavoriteSeller.id).label("subscriber_count")
+            )
+            .group_by(BuyerFavoriteSeller.seller_id)
+            .subquery()
+        )
+
         # Основной запрос: join с completed_today для available_slots
         query = (
         select(
@@ -277,7 +290,8 @@ async def get_public_sellers(
             product_stats.c.min_price,
             product_stats.c.max_price,
             func.coalesce(product_stats.c.product_count, 0).label("product_count"),
-            func.coalesce(completed_today_subq.c.completed_today, 0).label("completed_today")
+            func.coalesce(completed_today_subq.c.completed_today, 0).label("completed_today"),
+            func.coalesce(subscriber_count_subq.c.subscriber_count, 0).label("subscriber_count"),
         )
         .outerjoin(User, Seller.seller_id == User.tg_id)
         .outerjoin(City, Seller.city_id == City.id)
@@ -285,6 +299,7 @@ async def get_public_sellers(
         .outerjoin(Metro, Seller.metro_id == Metro.id)
         .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
             .outerjoin(completed_today_subq, Seller.seller_id == completed_today_subq.c.seller_id)
+            .outerjoin(subscriber_count_subq, Seller.seller_id == subscriber_count_subq.c.seller_id)
             .where(and_(*base_conditions))
         )
         
@@ -337,7 +352,8 @@ async def get_public_sellers(
                 available_slots=available_slots,
                 min_price=float(row.min_price) if row.min_price else None,
                 max_price=float(row.max_price) if row.max_price else None,
-                product_count=row.product_count or 0
+                product_count=row.product_count or 0,
+                subscriber_count=row.subscriber_count or 0,
             ))
         
         # #region agent log
@@ -416,6 +432,14 @@ async def get_public_seller_detail(
         completed_today = completed_result.scalar() or 0
         available_slots = max(0, seller.max_orders - completed_today - seller.active_orders - seller.pending_requests)
     
+    # Subscriber count
+    sub_count_result = await session.execute(
+        select(func.count()).select_from(BuyerFavoriteSeller).where(
+            BuyerFavoriteSeller.seller_id == seller_id
+        )
+    )
+    subscriber_count = sub_count_result.scalar() or 0
+
     # Regular products (in stock, is_preorder=False)
     products_query = (
         select(Product)
@@ -506,6 +530,7 @@ async def get_public_seller_detail(
         preorder_available_dates=preorder_available_dates,
         preorder_enabled=preorder_enabled,
         banner_url=getattr(seller, "banner_url", None),
+        subscriber_count=subscriber_count,
     )
 
 

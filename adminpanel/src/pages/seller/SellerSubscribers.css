@@ -1,0 +1,146 @@
+.subscribers-page {
+  padding: 1.5rem;
+  max-width: 1000px;
+}
+
+.subscribers-page h1 {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.subscribers-page h1 .badge {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border-radius: 10px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+.subscribers-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.subscribers-stats .stat-card {
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 140px;
+}
+
+.subscribers-stats .stat-card .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.subscribers-stats .stat-card .stat-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.subscribers-search {
+  margin-bottom: 1rem;
+}
+
+.subscribers-search input {
+  width: 100%;
+  max-width: 300px;
+  padding: 0.4rem 0.5rem;
+}
+
+.subscribers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.subscriber-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.subscriber-row .user-info {
+  flex: 1;
+  min-width: 150px;
+}
+
+.subscriber-row .user-info .name {
+  font-weight: 500;
+}
+
+.subscriber-row .user-info .username {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.subscriber-row .phone {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  min-width: 120px;
+}
+
+.subscriber-row .date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  min-width: 100px;
+}
+
+.subscriber-row .loyalty-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 180px;
+}
+
+.subscriber-row .loyalty-info .card {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.subscriber-row .loyalty-info .points {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.subscriber-row .loyalty-info .no-card {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.subscriber-row .loyalty-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.subscriber-row .loyalty-link:hover {
+  text-decoration: underline;
+}
+
+.subscribers-loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.subscribers-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+}

@@ -30,10 +30,10 @@ export function MyFlowersNavBar({ activeTab, onTabChange }: MyFlowersNavBarProps
         <button
           className={`my-flowers-nav-bar__tab ${activeTab === 'flowers' ? 'my-flowers-nav-bar__tab--active' : ''}`}
           onClick={() => onTabChange('flowers')}
-          aria-label="Мои цветочные"
+          aria-label="Подписки"
           aria-pressed={activeTab === 'flowers'}
         >
-          <span className="my-flowers-nav-bar__tab-text">Мои цветочные</span>
+          <span className="my-flowers-nav-bar__tab-text">Подписки</span>
         </button>
         <button
           className={`my-flowers-nav-bar__tab ${activeTab === 'orders' ? 'my-flowers-nav-bar__tab--active' : ''}`}

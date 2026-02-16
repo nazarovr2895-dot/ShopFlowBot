@@ -630,3 +630,29 @@ export async function updateBouquet(
 export async function deleteBouquet(bouquetId: number): Promise<{ status: string }> {
   return fetchSeller(`/seller-web/bouquets/${bouquetId}`, { method: 'DELETE' });
 }
+
+// --- Subscribers ---
+export interface Subscriber {
+  buyer_id: number;
+  username: string | null;
+  fio: string | null;
+  phone: string | null;
+  subscribed_at: string | null;
+  loyalty_card_number: string | null;
+  loyalty_points: number;
+  loyalty_customer_id: number | null;
+  has_loyalty: boolean;
+}
+
+export interface SubscribersResponse {
+  subscribers: Subscriber[];
+  total: number;
+}
+
+export async function getSubscribers(): Promise<SubscribersResponse> {
+  return fetchSeller<SubscribersResponse>('/seller-web/subscribers');
+}
+
+export async function getSubscriberCount(): Promise<{ count: number }> {
+  return fetchSeller<{ count: number }>('/seller-web/subscribers/count');
+}

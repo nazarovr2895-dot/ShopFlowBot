@@ -33,6 +33,7 @@ export interface PublicSellerListItem {
   min_price: number | null;
   max_price: number | null;
   product_count: number;
+  subscriber_count?: number;
 }
 
 export interface Product {
@@ -125,6 +126,7 @@ export interface PublicSellerDetail {
   preorder_available_dates?: string[];
   preorder_enabled?: boolean;
   banner_url?: string | null;
+  subscriber_count?: number;
 }
 
 export interface PublicSellersResponse {

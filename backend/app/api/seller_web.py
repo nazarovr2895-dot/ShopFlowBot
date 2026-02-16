@@ -1349,3 +1349,29 @@ async def update_limits(
     except SellerServiceError as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+# --- SUBSCRIBERS ---
+@router.get("/subscribers")
+async def get_subscribers(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get all subscribers for the current seller with loyalty status."""
+    from backend.app.services.cart import FavoriteSellersService
+    svc = FavoriteSellersService(session)
+    subscribers = await svc.get_subscribers(seller_id)
+    count = await svc.get_subscriber_count(seller_id)
+    return {"subscribers": subscribers, "total": count}
+
+
+@router.get("/subscribers/count")
+async def get_subscriber_count(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get subscriber count for the current seller."""
+    from backend.app.services.cart import FavoriteSellersService
+    svc = FavoriteSellersService(session)
+    count = await svc.get_subscriber_count(seller_id)
+    return {"count": count}

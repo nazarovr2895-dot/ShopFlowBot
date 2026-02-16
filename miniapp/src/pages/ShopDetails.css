@@ -68,26 +68,40 @@
   margin-bottom: 20px;
 }
 
-.shop-details__favorite-btn {
+.shop-details__subscriber-count {
+  font-size: 13px;
+  color: var(--app-hint);
+  margin-bottom: 8px;
+}
+
+.shop-details__subscribe-btn {
   display: block;
   width: 100%;
   text-align: center;
   padding: 10px 16px;
   font-size: 14px;
-  font-weight: 500;
-  color: var(--app-accent);
-  background: transparent;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--app-accent, #7c3aed);
+  border: none;
+  border-radius: 20px;
   cursor: pointer;
+  transition: background 0.2s, color 0.2s;
 }
 
-.shop-details__favorite-btn:disabled {
+.shop-details__subscribe-btn--active {
+  color: var(--app-text, #374151);
+  background: var(--app-bg-secondary, #e5e7eb);
+  border: 1px solid var(--app-border);
+  font-weight: 500;
+}
+
+.shop-details__subscribe-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
 
-.shop-details__favorite-btn:active:not(:disabled) {
+.shop-details__subscribe-btn:active:not(:disabled) {
   opacity: 0.9;
 }
 

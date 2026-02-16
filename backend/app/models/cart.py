@@ -28,15 +28,17 @@ class CartItem(Base):
 
 
 class BuyerFavoriteSeller(Base):
-    """Track which sellers a buyer has added to "My Flowers" (favorites)."""
+    """Track which sellers a buyer has subscribed to (подписки)."""
     __tablename__ = 'buyer_favorite_sellers'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
     seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    subscribed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
         UniqueConstraint('buyer_id', 'seller_id', name='uq_favorite_buyer_seller'),
         Index('ix_favorite_buyer_seller', 'buyer_id', 'seller_id'),
+        Index('ix_favorite_seller_id', 'seller_id'),
     )
 
 

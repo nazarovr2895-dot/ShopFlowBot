@@ -2,7 +2,7 @@
 """Cart and favorites services for Mini App."""
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, and_
+from sqlalchemy import select, delete, and_, func
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 
@@ -264,7 +264,7 @@ class FavoriteSellersService:
         self.session = session
 
     async def add(self, buyer_id: int, seller_id: int) -> None:
-        """Add seller to favorites (idempotent). Validates seller exists and is not blocked/deleted."""
+        """Subscribe buyer to seller (idempotent). Auto-links to loyalty if buyer has phone."""
         seller = await self.session.get(Seller, seller_id)
         if not seller:
             raise CartServiceError("Магазин не найден", 404)
@@ -279,9 +279,44 @@ class FavoriteSellersService:
             )
         )
         if result.scalar_one_or_none():
-            return  # already in favorites
+            return  # already subscribed
         self.session.add(BuyerFavoriteSeller(buyer_id=buyer_id, seller_id=seller_id))
         await self.session.flush()
+        # Auto-link to loyalty system
+        await self._auto_link_loyalty(buyer_id, seller_id)
+
+    async def _auto_link_loyalty(self, buyer_id: int, seller_id: int) -> None:
+        """If buyer has phone, create SellerCustomer record if not exists."""
+        from backend.app.models.loyalty import normalize_phone
+        from backend.app.services.loyalty import LoyaltyService
+
+        buyer = await self.session.get(User, buyer_id)
+        if not buyer or not buyer.phone:
+            return
+        loyalty_svc = LoyaltyService(self.session)
+        normalized = normalize_phone(buyer.phone)
+        if not normalized:
+            return
+        existing = await loyalty_svc.find_customer_by_phone(seller_id, normalized)
+        if existing:
+            if not existing.linked_user_id:
+                existing.linked_user_id = buyer_id
+            return
+        try:
+            fio_parts = (buyer.fio or "").split() if buyer.fio else []
+            first_name = fio_parts[0] if fio_parts else "Подписчик"
+            last_name = " ".join(fio_parts[1:]) if len(fio_parts) > 1 else ""
+            await loyalty_svc.create_customer(
+                seller_id=seller_id,
+                phone=normalized,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            new_customer = await loyalty_svc.find_customer_by_phone(seller_id, normalized)
+            if new_customer:
+                new_customer.linked_user_id = buyer_id
+        except Exception:
+            pass  # Don't fail subscription if loyalty creation fails
 
     async def remove(self, buyer_id: int, seller_id: int) -> None:
         """Remove seller from favorites."""
@@ -294,8 +329,66 @@ class FavoriteSellersService:
             )
         )
 
+    async def get_subscriber_count(self, seller_id: int) -> int:
+        """Count subscribers for a seller."""
+        result = await self.session.execute(
+            select(func.count()).select_from(BuyerFavoriteSeller).where(
+                BuyerFavoriteSeller.seller_id == seller_id
+            )
+        )
+        return result.scalar() or 0
+
+    async def get_subscribers(self, seller_id: int) -> List[Dict[str, Any]]:
+        """Get all subscribers for a seller with user info and loyalty status."""
+        from backend.app.models.loyalty import SellerCustomer
+
+        result = await self.session.execute(
+            select(
+                BuyerFavoriteSeller,
+                User.username,
+                User.fio,
+                User.phone,
+                SellerCustomer.card_number,
+                SellerCustomer.points_balance,
+                SellerCustomer.id.label("customer_id"),
+            )
+            .join(User, BuyerFavoriteSeller.buyer_id == User.tg_id)
+            .outerjoin(
+                SellerCustomer,
+                and_(
+                    SellerCustomer.seller_id == BuyerFavoriteSeller.seller_id,
+                    SellerCustomer.linked_user_id == BuyerFavoriteSeller.buyer_id,
+                )
+            )
+            .where(BuyerFavoriteSeller.seller_id == seller_id)
+            .order_by(BuyerFavoriteSeller.subscribed_at.desc())
+        )
+        rows = result.all()
+        return [
+            {
+                "buyer_id": row[0].buyer_id,
+                "username": row.username,
+                "fio": row.fio,
+                "phone": row.phone,
+                "subscribed_at": row[0].subscribed_at.isoformat() if row[0].subscribed_at else None,
+                "loyalty_card_number": row.card_number,
+                "loyalty_points": float(row.points_balance) if row.points_balance else 0,
+                "loyalty_customer_id": row.customer_id,
+                "has_loyalty": row.card_number is not None,
+            }
+            for row in rows
+        ]
+
+    async def auto_link_loyalty_for_subscriptions(self, buyer_id: int) -> None:
+        """Auto-create loyalty records for all existing subscriptions when buyer adds phone."""
+        result = await self.session.execute(
+            select(BuyerFavoriteSeller).where(BuyerFavoriteSeller.buyer_id == buyer_id)
+        )
+        for sub in result.scalars().all():
+            await self._auto_link_loyalty(buyer_id, sub.seller_id)
+
     async def get_favorite_sellers(self, buyer_id: int) -> List[Dict[str, Any]]:
-        """Get favorite sellers with shop_name, owner_fio (same shape as visited for frontend)."""
+        """Get subscribed sellers with shop_name, owner_fio (same shape as visited for frontend)."""
         from backend.app.models.seller import Seller
         from backend.app.models.user import User
 
