@@ -120,7 +120,7 @@ class SellerService:
     VALID_UPDATE_FIELDS = {
         "fio", "phone", "shop_name", "hashtags", "description",
         "address_name", "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
-        "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url"
+        "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn"
     }
     
     def __init__(self, session: AsyncSession):
@@ -164,13 +164,6 @@ class SellerService:
     
     async def get_seller(self, seller_id: int) -> Optional[Dict[str, Any]]:
         """Get seller data for display. Включает orders_used_today, limit_set_for_today, fio, phone from User."""
-        # #region agent log
-        import json
-        try:
-            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"id": f"log_get_seller_entry_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:156", "message": "get_seller entry", "data": {"seller_id": seller_id}, "runId": "run1", "hypothesisId": "A"}) + "\n")
-        except: pass
-        # #endregion
         # Try to load seller, handling missing preorder_custom_dates column gracefully
         try:
             result = await self.session.execute(
@@ -178,56 +171,17 @@ class SellerService:
                 .join(Seller, User.tg_id == Seller.seller_id)
                 .where(Seller.seller_id == seller_id)
             )
-            # #region agent log
-            try:
-                with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                    f.write(json.dumps({"id": f"log_query_executed_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:163", "message": "Query executed successfully", "data": {}, "runId": "run1", "hypothesisId": "A"}) + "\n")
-            except: pass
-            # #endregion
         except (ProgrammingError, OperationalError) as e:
-            # #region agent log
-            try:
-                error_msg = str(e).lower()
-                is_column_error = 'column' in error_msg and ('does not exist' in error_msg or 'не существует' in error_msg or 'preorder_custom_dates' in error_msg)
-                with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                    f.write(json.dumps({"id": f"log_query_db_error_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:178", "message": "Database error - possibly missing column", "data": {"error_type": type(e).__name__, "error_msg": str(e), "is_column_error": is_column_error}, "runId": "run1", "hypothesisId": "A"}) + "\n")
-            except: pass
-            # #endregion
-            # If it's a column error (likely preorder_custom_dates doesn't exist), retry without that column
             error_msg = str(e).lower()
             if 'column' in error_msg and ('does not exist' in error_msg or 'не существует' in error_msg or 'preorder_custom_dates' in error_msg):
-                # Retry query deferring the problematic column
-                try:
-                    result = await self.session.execute(
-                        select(User, Seller)
-                        .options(defer(Seller.preorder_custom_dates))
-                        .join(Seller, User.tg_id == Seller.seller_id)
-                        .where(Seller.seller_id == seller_id)
-                    )
-                    # #region agent log
-                    try:
-                        with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                            f.write(json.dumps({"id": f"log_retry_success_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:188", "message": "Retry with defer succeeded", "data": {}, "runId": "run1", "hypothesisId": "A"}) + "\n")
-                    except: pass
-                    # #endregion
-                except Exception as retry_e:
-                    # #region agent log
-                    try:
-                        with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                            f.write(json.dumps({"id": f"log_retry_failed_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:193", "message": "Retry with defer failed", "data": {"error_type": type(retry_e).__name__, "error_msg": str(retry_e)}, "runId": "run1", "hypothesisId": "A"}) + "\n")
-                    except: pass
-                    # #endregion
-                    raise e  # Raise original error
+                result = await self.session.execute(
+                    select(User, Seller)
+                    .options(defer(Seller.preorder_custom_dates))
+                    .join(Seller, User.tg_id == Seller.seller_id)
+                    .where(Seller.seller_id == seller_id)
+                )
             else:
                 raise
-        except Exception as e:
-            # #region agent log
-            try:
-                with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                    f.write(json.dumps({"id": f"log_query_other_error_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:200", "message": "Query execution other error", "data": {"error_type": type(e).__name__, "error_msg": str(e)}, "runId": "run1", "hypothesisId": "E"}) + "\n")
-            except: pass
-            # #endregion
-            raise
         row = result.first()
         if not row:
             return None
@@ -238,14 +192,7 @@ class SellerService:
         completed_today = await self._count_completed_since(seller_id, _today_6am_utc()) if limit_set_for_today else 0
         orders_used_today = completed_today + seller.active_orders + seller.pending_requests
 
-        # #region agent log
-        try:
-            with open('/Users/rus/Applications/ShopFlowBot/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"id": f"log_before_getattr_{seller_id}", "timestamp": __import__('time').time() * 1000, "location": "sellers.py:173", "message": "Before getattr preorder_custom_dates", "data": {"has_attr": hasattr(seller, "preorder_custom_dates")}, "runId": "run1", "hypothesisId": "C"}) + "\n")
-        except: pass
-        # #endregion
-        # Column temporarily commented out in model until migration is applied
-        preorder_custom_dates = None  # Will be available after migration: alembic upgrade head
+        preorder_custom_dates = getattr(seller, "preorder_custom_dates", None)
         preorder_available_dates = get_preorder_available_dates(
             getattr(seller, "preorder_enabled", False),
             getattr(seller, "preorder_schedule_type", None),
@@ -267,6 +214,8 @@ class SellerService:
             "orders_used_today": orders_used_today,
             "active_orders": seller.active_orders,
             "pending_requests": seller.pending_requests,
+            "inn": seller.inn,
+            "ogrn": getattr(seller, "ogrn", None),
             "is_blocked": seller.is_blocked,
             "delivery_type": seller.delivery_type,
             "delivery_price": float(seller.delivery_price) if seller.delivery_price else 0.0,
@@ -296,6 +245,7 @@ class SellerService:
         phone: str = "",
         shop_name: str = "",
         inn: Optional[str] = None,
+        ogrn: Optional[str] = None,
         description: Optional[str] = None,
         city_id: Optional[int] = None,
         district_id: Optional[int] = None,
@@ -316,23 +266,27 @@ class SellerService:
             {"status": "ok", "web_login": str, "web_password": str, "tg_id": int} on success
             {"status": "exists"} if seller exists
         """
-        # Generate tg_id if not provided
+        # Generate tg_id if not provided, with retry on collision
         if tg_id is None:
-            # Use timestamp-based ID: current timestamp in milliseconds
-            # Add random component to avoid collisions
-            timestamp_ms = int(time.time() * 1000)
-            random_component = secrets.randbelow(1000)
-            tg_id = timestamp_ms * 1000 + random_component
-            # Ensure it's positive and fits in BigInteger range
-            tg_id = abs(tg_id) % (2**63 - 1)
-        
-        # Check if seller already exists
-        result = await self.session.execute(
-            select(Seller).where(Seller.seller_id == tg_id)
-        )
-        existing = result.scalar_one_or_none()
-        if existing:
-            return {"status": "exists"}
+            for _attempt in range(5):
+                timestamp_ms = int(time.time() * 1000)
+                random_component = secrets.randbelow(1000000)
+                candidate = (timestamp_ms * 1000 + random_component) % (2**63 - 1)
+                result = await self.session.execute(
+                    select(Seller).where(Seller.seller_id == candidate)
+                )
+                if not result.scalar_one_or_none():
+                    tg_id = candidate
+                    break
+            else:
+                raise SellerServiceError("Не удалось сгенерировать уникальный ID. Попробуйте позже.")
+        else:
+            # If tg_id is provided, check if it's already taken
+            result = await self.session.execute(
+                select(Seller).where(Seller.seller_id == tg_id)
+            )
+            if result.scalar_one_or_none():
+                return {"status": "exists"}
         
         # Create or update user record
         user_res = await self.session.execute(
@@ -378,14 +332,8 @@ class SellerService:
                 logger.error(f"Error validating INN {inn}: {e}", exc_info=e)
                 raise SellerServiceError("Ошибка при проверке ИНН. Попробуйте позже или обратитесь к администратору.")
         
-        # Combine address_name with description if provided
         final_description = description or ""
-        if address_name:
-            if final_description:
-                final_description = f"{address_name}\n\n{final_description}"
-            else:
-                final_description = address_name
-        
+
         # Auto web credentials: login=Seller{tg_id}, password=random
         web_login = f"Seller{tg_id}"
         # Generate random password (12 characters: letters and digits)
@@ -397,6 +345,7 @@ class SellerService:
             seller_id=tg_id,
             shop_name=shop_name,
             inn=inn,
+            ogrn=ogrn,
             description=final_description,
             city_id=city_id,
             district_id=district_id,

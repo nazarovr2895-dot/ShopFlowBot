@@ -10,10 +10,14 @@ import {
   searchMetro,
   getSellerWebCredentials,
   setSellerWebCredentials,
-  getInnData,
+  getOrgData,
+  getCities,
+  getDistricts,
   type InnData,
 } from '../api/adminClient';
-import type { Seller, MetroStation } from '../types';
+import type { Seller, MetroStation, City, District } from '../types';
+import { OrgDataDisplay } from '../components/OrgDataDisplay';
+import { MetroSearchField } from '../components/MetroSearchField';
 import './Sellers.css';
 
 const DELIVERY_TYPES = [
@@ -98,21 +102,6 @@ function formatDateInput(value: string): string {
   return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4, 8)}`;
 }
 
-/** Форматирование ISO даты в ДД.ММ.ГГГГ */
-function formatISODate(isoDate: string | undefined): string {
-  if (!isoDate) return '—';
-  try {
-    const d = new Date(isoDate);
-    if (Number.isNaN(d.getTime())) return '—';
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}.${month}.${year}`;
-  } catch {
-    return isoDate;
-  }
-}
-
 export function Sellers() {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [query, setQuery] = useState('');
@@ -120,7 +109,7 @@ export function Sellers() {
   const [showInnVerification, setShowInnVerification] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
-  const [innData, setInnData] = useState<{ inn: string; data: InnData } | null>(null);
+  const [innData, setInnData] = useState<{ ogrn: string; data: InnData } | null>(null);
 
   const loadSellers = async () => {
     setLoading(true);
@@ -220,8 +209,8 @@ export function Sellers() {
             setShowInnVerification(false);
             setInnData(null);
           }}
-          onNext={(inn, data) => {
-            setInnData({ inn, data });
+          onNext={(ogrn, data) => {
+            setInnData({ ogrn, data });
             setShowInnVerification(false);
             setShowAdd(true);
           }}
@@ -238,7 +227,7 @@ export function Sellers() {
             setInnData(null);
             loadSellers();
           }}
-          initialInn={innData?.inn}
+          initialOgrn={innData?.ogrn}
           initialInnData={innData?.data}
         />
       )}
@@ -261,78 +250,78 @@ function InnVerificationModal({
   onNext,
 }: {
   onClose: () => void;
-  onNext: (inn: string, innData: InnData) => void;
+  onNext: (ogrn: string, innData: InnData) => void;
 }) {
-  const [inn, setInn] = useState('');
-  const [innError, setInnError] = useState('');
+  const [ogrn, setOgrn] = useState('');
+  const [ogrnError, setOgrnError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [innData, setInnData] = useState<InnData | null>(null);
+  const [orgData, setOrgData] = useState<InnData | null>(null);
   const [error, setError] = useState('');
 
-  const validateInn = (value: string): string => {
+  const validateOgrn = (value: string): string => {
     if (!value.trim()) return '';
     const clean = value.trim().replace(/\s/g, '');
     if (!/^\d+$/.test(clean)) {
-      return 'ИНН должен содержать только цифры';
+      return 'ОГРН должен содержать только цифры';
     }
-    if (clean.length !== 10 && clean.length !== 12) {
-      return 'ИНН должен содержать 10 цифр (для юрлиц) или 12 цифр (для ИП)';
+    if (clean.length !== 13 && clean.length !== 15) {
+      return 'ОГРН должен содержать 13 цифр (для юрлиц) или 15 цифр (для ИП)';
     }
     return '';
   };
 
-  const handleInnChange = (value: string) => {
-    setInn(value);
-    setInnError(validateInn(value));
-    setInnData(null);
+  const handleOgrnChange = (value: string) => {
+    setOgrn(value);
+    setOgrnError(validateOgrn(value));
+    setOrgData(null);
     setError('');
   };
 
   const handleGetData = async () => {
     setError('');
-    const validationError = validateInn(inn);
+    const validationError = validateOgrn(ogrn);
     if (validationError) {
-      setInnError(validationError);
+      setOgrnError(validationError);
       return;
     }
-    setInnError('');
+    setOgrnError('');
     setLoading(true);
     try {
-      const cleanInn = inn.trim().replace(/\s/g, '');
-      const data = await getInnData(cleanInn);
-      setInnData(data);
+      const cleanOgrn = ogrn.trim().replace(/\s/g, '');
+      const data = await getOrgData(cleanOgrn);
+      setOrgData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка при получении данных');
-      setInnData(null);
+      setOrgData(null);
     } finally {
       setLoading(false);
     }
   };
 
   const handleNext = () => {
-    if (!innData) {
-      setError('Сначала получите данные по ИНН');
+    if (!orgData) {
+      setError('Сначала получите данные по ОГРН');
       return;
     }
-    onNext(inn.trim().replace(/\s/g, ''), innData);
+    onNext(ogrn.trim().replace(/\s/g, ''), orgData);
   };
 
   return (
-    <Modal title="Проверка ИНН" onClose={onClose}>
+    <Modal title="Проверка ОГРН" onClose={onClose}>
       <div>
         <div className="form-group">
-          <label className="form-label">ИНН *</label>
+          <label className="form-label">ОГРН *</label>
           <input
             type="text"
-            className={`form-input ${innError ? 'error' : ''}`}
-            value={inn}
-            onChange={(e) => handleInnChange(e.target.value)}
-            placeholder="10 или 12 цифр"
-            maxLength={12}
+            className={`form-input ${ogrnError ? 'error' : ''}`}
+            value={ogrn}
+            onChange={(e) => handleOgrnChange(e.target.value)}
+            placeholder="13 или 15 цифр"
+            maxLength={15}
             onKeyDown={(e) => e.key === 'Enter' && !loading && handleGetData()}
           />
-          {innError && <div className="form-error">{innError}</div>}
-          <small className="form-hint">ИНН организации или ИП (10 цифр для юрлиц, 12 для ИП)</small>
+          {ogrnError && <div className="form-error">{ogrnError}</div>}
+          <small className="form-hint">ОГРН организации (13 цифр) или ОГРНИП (15 цифр)</small>
         </div>
 
         <div className="modal-actions" style={{ marginTop: '1rem' }}>
@@ -340,7 +329,7 @@ function InnVerificationModal({
             type="button"
             className="btn btn-primary"
             onClick={handleGetData}
-            disabled={loading || !!innError || !inn.trim()}
+            disabled={loading || !!ogrnError || !ogrn.trim()}
           >
             {loading ? 'Загрузка...' : 'Получить данные'}
           </button>
@@ -348,113 +337,9 @@ function InnVerificationModal({
 
         {error && <div className="modal-error" style={{ marginTop: '1rem' }}>{error}</div>}
 
-        {innData && (
-          <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-            <h4 style={{ marginTop: 0, marginBottom: '1rem', color: '#0070e0' }}>Данные организации</h4>
-            <div className="seller-info-grid">
-              <div className="info-row">
-                <span className="info-label">Название</span>
-                <span className="info-value" style={{ color: '#0070e0' }}>{innData.name}</span>
-              </div>
-              {innData.short_name && (
-                <div className="info-row">
-                  <span className="info-label">Краткое название</span>
-                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.short_name}</span>
-                </div>
-              )}
-              <div className="info-row">
-                <span className="info-label">ИНН</span>
-                <span className="info-value" style={{ color: '#0070e0' }}>{innData.inn}</span>
-              </div>
-              {innData.kpp && (
-                <div className="info-row">
-                  <span className="info-label">КПП</span>
-                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.kpp}</span>
-                </div>
-              )}
-              {innData.ogrn && (
-                <div className="info-row">
-                  <span className="info-label">ОГРН</span>
-                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.ogrn}</span>
-                </div>
-              )}
-              <div className="info-row">
-                <span className="info-label">Тип</span>
-                <span className="info-value" style={{ color: '#0070e0' }}>{innData.type === 'LEGAL' ? 'Юридическое лицо' : 'Индивидуальный предприниматель'}</span>
-              </div>
-              {innData.address && (
-                <div className="info-row">
-                  <span className="info-label">Адрес</span>
-                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.address}</span>
-                </div>
-              )}
-              {innData.management && (
-                <div className="info-row">
-                  <span className="info-label">Руководитель</span>
-                  <span className="info-value" style={{ color: '#0070e0' }}>{innData.management}</span>
-                </div>
-              )}
-              {innData.registration_date && (
-                <div className="info-row">
-                  <span className="info-label">Дата регистрации</span>
-                  <span className="info-value" style={{ color: '#0070e0' }}>{formatISODate(innData.registration_date)}</span>
-                </div>
-              )}
-              {innData.okved && (
-                <div className="info-row">
-                  <span className="info-label">ОКВЭД {innData.okved_type ? `(${innData.okved_type})` : ''}</span>
-                  <span className="info-value" style={{ color: '#0070e0' }}>
-                    <strong>{innData.okved}</strong>
-                    {innData.okveds && innData.okveds.length > 0 && (
-                      <div style={{ marginTop: '0.5rem', fontSize: '0.9em', color: '#0070e0', opacity: 0.8 }}>
-                        Дополнительные: {innData.okveds.join(', ')}
-                      </div>
-                    )}
-                  </span>
-                </div>
-              )}
-              {innData.okved_match && (
-                <div className="info-row">
-                  <span className="info-label">Соответствие ОКВЭД</span>
-                  <span className="info-value" style={{ color: '#0070e0' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ 
-                          display: 'inline-block', 
-                          width: '12px', 
-                          height: '12px', 
-                          borderRadius: '50%', 
-                          backgroundColor: innData.okved_match.matches_47_76 ? '#28a745' : '#dc3545' 
-                        }}></span>
-                        <span style={{ color: '#0070e0' }}>47.76 (Торговля розничная цветами и другими растениями, семенами и удобрениями в специализированных магазинах)</span>
-                        {innData.okved_match.matches_47_76 && (
-                          <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Совпадает</span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ 
-                          display: 'inline-block', 
-                          width: '12px', 
-                          height: '12px', 
-                          borderRadius: '50%', 
-                          backgroundColor: innData.okved_match.matches_47_91 ? '#28a745' : '#dc3545' 
-                        }}></span>
-                        <span style={{ color: '#0070e0' }}>47.91 (Торговля розничная по почте или по информационно-коммуникационной сети Интернет)</span>
-                        {innData.okved_match.matches_47_91 && (
-                          <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Совпадает</span>
-                        )}
-                      </div>
-                    </div>
-                  </span>
-                </div>
-              )}
-              <div className="info-row">
-                <span className="info-label">Статус</span>
-                <span className="info-value">
-                  <span className="badge badge-success">Активна</span>
-                </span>
-              </div>
-            </div>
+        {orgData && (
+          <div style={{ marginTop: '1.5rem' }}>
+            <OrgDataDisplay data={orgData} showFullOkvedDescriptions={true} />
           </div>
         )}
 
@@ -466,7 +351,7 @@ function InnVerificationModal({
             type="button"
             className="btn btn-primary"
             onClick={handleNext}
-            disabled={!innData}
+            disabled={!orgData}
           >
             Далее
           </button>
@@ -479,21 +364,26 @@ function InnVerificationModal({
 function AddSellerModal({
   onClose,
   onSuccess,
-  initialInn,
+  initialOgrn,
   initialInnData,
 }: {
   onClose: () => void;
   onSuccess: () => void;
-  initialInn?: string;
+  initialOgrn?: string;
   initialInnData?: InnData;
 }) {
+  const [tgId, setTgId] = useState('');
   const [fio, setFio] = useState('');
   const [phoneDisplay, setPhoneDisplay] = useState('');
   const [shopName, setShopName] = useState('');
-  const [inn] = useState(initialInn || '');
+  const [ogrn] = useState(initialOgrn || '');
   const [description, setDescription] = useState('');
+  const [cityId, setCityId] = useState(1);
+  const [cities, setCities] = useState<City[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
   const [districtId, setDistrictId] = useState(1);
-  const [addressName, setAddressName] = useState('');
+  const [metroId, setMetroId] = useState<number | null>(null);
+  const [metroWalkMinutes, setMetroWalkMinutes] = useState<number | null>(null);
   const [addressLink, setAddressLink] = useState('');
   const [deliveryType, setDeliveryType] = useState('both');
   const [deliveryPrice, setDeliveryPrice] = useState('0');
@@ -504,17 +394,31 @@ function AddSellerModal({
 
   useEffect(() => {
     if (initialInnData) {
-      // Pre-fill shop name from INN data if available
       if (initialInnData.name && !shopName) {
         setShopName(initialInnData.short_name || initialInnData.name);
-      }
-      // Pre-fill address name from INN data if available
-      if (initialInnData.address && !addressName) {
-        setAddressName(initialInnData.address);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialInnData]);
+
+  // Load cities on mount
+  useEffect(() => {
+    getCities().then((list) => {
+      if (list.length > 0) setCities(list);
+      else setCities([{ id: 1, name: 'Москва' }]);
+    }).catch(() => setCities([{ id: 1, name: 'Москва' }]));
+  }, []);
+
+  // Load districts when city changes
+  useEffect(() => {
+    getDistricts(cityId).then((list) => {
+      setDistricts(list);
+      if (list.length > 0 && !list.find(d => d.id === districtId)) {
+        setDistrictId(list[0].id);
+      }
+    }).catch(() => setDistricts([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cityId]);
 
   const handlePhoneChange = (value: string) => {
     const formatted = formatPhoneInput(value);
@@ -543,6 +447,15 @@ function AddSellerModal({
       return;
     }
     
+    // Validate tg_id if provided
+    if (tgId.trim()) {
+      const parsedTgId = parseInt(tgId.trim(), 10);
+      if (isNaN(parsedTgId) || parsedTgId <= 0) {
+        setError('Telegram ID должен быть положительным числом');
+        return;
+      }
+    }
+
     setSubmitting(true);
     setCredentials(null);
     try {
@@ -551,15 +464,22 @@ function AddSellerModal({
         phone: phoneDigits,
         shop_name: shopName,
         description: description || undefined,
-        city_id: 1,
+        city_id: cityId,
         district_id: districtId,
-        address_name: addressName || undefined,
+        metro_id: metroId || undefined,
+        metro_walk_minutes: metroWalkMinutes || undefined,
         map_url: addressLink || undefined,
         delivery_type: deliveryType,
         delivery_price: parseFloat(deliveryPrice) || 0,
       };
-      if (inn.trim()) {
-        payload.inn = inn.trim().replace(/\s/g, '');
+      if (tgId.trim()) {
+        payload.tg_id = parseInt(tgId.trim(), 10);
+      }
+      if (initialInnData?.inn) {
+        payload.inn = initialInnData.inn;
+      }
+      if (ogrn.trim()) {
+        payload.ogrn = ogrn.trim().replace(/\s/g, '');
       }
       if (expiryDateDisplay) {
         const [d, m, y] = expiryDateDisplay.split('.');
@@ -616,18 +536,29 @@ function AddSellerModal({
         </div>
       ) : (
       <form onSubmit={handleSubmit}>
-        {inn && (
+        {ogrn && (
           <div className="form-group">
-            <label className="form-label">ИНН</label>
+            <label className="form-label">ОГРН</label>
             <input
               type="text"
               className="form-input"
-              value={inn}
+              value={ogrn}
               disabled
             />
-            <small className="form-hint">ИНН проверен на предыдущем шаге</small>
+            <small className="form-hint">ОГРН проверен на предыдущем шаге</small>
           </div>
         )}
+        <div className="form-group">
+          <label className="form-label">Telegram ID</label>
+          <input
+            type="text"
+            className="form-input"
+            value={tgId}
+            onChange={(e) => setTgId(e.target.value.replace(/\D/g, ''))}
+            placeholder="Необязательно. Если пусто — сгенерируется автоматически"
+          />
+          <small className="form-hint">Telegram ID пользователя (числовой). Оставьте пустым для автогенерации.</small>
+        </div>
         <FormRow label="ФИО" value={fio} onChange={setFio} required />
         <div className="form-group">
           <label className="form-label">Телефон *</label>
@@ -644,14 +575,28 @@ function AddSellerModal({
         </div>
         <FormRow label="Название магазина" value={shopName} onChange={setShopName} required />
         <FormRow label="Описание" value={description} onChange={setDescription} textarea />
+        <FormRow label="Город" render={
+          <select className="form-input" value={cityId} onChange={(e) => setCityId(parseInt(e.target.value, 10))}>
+            {cities.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        } />
         <FormRow label="Округ" render={
           <select className="form-input" value={districtId} onChange={(e) => setDistrictId(parseInt(e.target.value, 10))}>
-            {DISTRICTS_MSK.map((d) => (
+            {(districts.length > 0 ? districts : DISTRICTS_MSK).map((d) => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
           </select>
         } />
-        <FormRow label="Название адреса" value={addressName} onChange={setAddressName} />
+        <MetroSearchField
+          metroId={metroId}
+          metroWalkMinutes={metroWalkMinutes}
+          onMetroChange={(mId, walkMin) => {
+            setMetroId(mId);
+            setMetroWalkMinutes(walkMin);
+          }}
+        />
         <FormRow label="Ссылка на адрес (Яндекс.Карты)" value={addressLink} onChange={setAddressLink} />
         <FormRow label="Тип доставки" render={
           <select className="form-input" value={deliveryType} onChange={(e) => setDeliveryType(e.target.value)}>
@@ -736,16 +681,17 @@ function SellerDetailsModal({
   const [metroSearching, setMetroSearching] = useState(false);
   const [metroDropdownOpen, setMetroDropdownOpen] = useState(false);
 
-  // Load INN data when modal opens
+  // Load org data when modal opens (by INN or OGRN)
   useEffect(() => {
-    if (seller.inn) {
+    const identifier = seller.inn || seller.ogrn;
+    if (identifier) {
       setLoadingInnData(true);
-      getInnData(seller.inn)
+      getOrgData(identifier)
         .then((data) => {
           setInnData(data);
         })
         .catch((err) => {
-          console.error('Failed to load INN data:', err);
+          console.error('Failed to load org data:', err);
           setInnData(null);
         })
         .finally(() => {
@@ -754,7 +700,7 @@ function SellerDetailsModal({
     } else {
       setInnData(null);
     }
-  }, [seller.inn]);
+  }, [seller.inn, seller.ogrn]);
 
   // Metro search for edit mode
   useEffect(() => {
@@ -1320,119 +1266,16 @@ function SellerDetailsModal({
                 </div>
               </div>
 
-              {/* Данные ИНН */}
-              {seller.inn && (
+              {/* Данные организации */}
+              {(seller.inn || seller.ogrn) && (
                 <div className="info-section">
-                  <h3 className="info-section-title">Данные организации (ИНН)</h3>
+                  <h3 className="info-section-title">Данные организации</h3>
                   {loadingInnData ? (
                     <div className="loading-row"><div className="loader" /></div>
                   ) : innData ? (
-                    <div style={{ padding: '1rem', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-                      <div className="seller-info-grid">
-                        <div className="info-row">
-                          <span className="info-label">Название</span>
-                          <span className="info-value" style={{ color: '#0070e0' }}>{innData.name}</span>
-                        </div>
-                        {innData.short_name && (
-                          <div className="info-row">
-                            <span className="info-label">Краткое название</span>
-                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.short_name}</span>
-                          </div>
-                        )}
-                        <div className="info-row">
-                          <span className="info-label">ИНН</span>
-                          <span className="info-value" style={{ color: '#0070e0' }}>{innData.inn}</span>
-                        </div>
-                        {innData.kpp && (
-                          <div className="info-row">
-                            <span className="info-label">КПП</span>
-                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.kpp}</span>
-                          </div>
-                        )}
-                        {innData.ogrn && (
-                          <div className="info-row">
-                            <span className="info-label">ОГРН</span>
-                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.ogrn}</span>
-                          </div>
-                        )}
-                        <div className="info-row">
-                          <span className="info-label">Тип</span>
-                          <span className="info-value" style={{ color: '#0070e0' }}>
-                            {innData.type === 'LEGAL' ? 'Юридическое лицо' : 'Индивидуальный предприниматель'}
-                          </span>
-                        </div>
-                        {innData.address && (
-                          <div className="info-row">
-                            <span className="info-label">Адрес</span>
-                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.address}</span>
-                          </div>
-                        )}
-                        {innData.management && (
-                          <div className="info-row">
-                            <span className="info-label">Руководитель</span>
-                            <span className="info-value" style={{ color: '#0070e0' }}>{innData.management}</span>
-                          </div>
-                        )}
-                        {innData.registration_date && (
-                          <div className="info-row">
-                            <span className="info-label">Дата регистрации</span>
-                            <span className="info-value" style={{ color: '#0070e0' }}>
-                              {formatISODate(innData.registration_date)}
-                            </span>
-                          </div>
-                        )}
-                        {innData.okved && (
-                          <div className="info-row">
-                            <span className="info-label">ОКВЭД {innData.okved_type ? `(${innData.okved_type})` : ''}</span>
-                            <span className="info-value" style={{ color: '#0070e0' }}>
-                              <strong>{innData.okved}</strong>
-                              {innData.okveds && innData.okveds.length > 0 && (
-                                <div style={{ marginTop: '0.5rem', fontSize: '0.9em', opacity: 0.8 }}>
-                                  Дополнительные: {innData.okveds.join(', ')}
-                                </div>
-                              )}
-                            </span>
-                          </div>
-                        )}
-                        {innData.okved_match && (
-                          <div className="info-row">
-                            <span className="info-label">Соответствие ОКВЭД</span>
-                            <span className="info-value" style={{ color: '#0070e0' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  <span style={{
-                                    display: 'inline-block',
-                                    width: '12px',
-                                    height: '12px',
-                                    borderRadius: '50%',
-                                    backgroundColor: innData.okved_match.matches_47_76 ? '#28a745' : '#dc3545'
-                                  }}></span>
-                                  <span>47.76</span>
-                                  {innData.okved_match.matches_47_76 && (
-                                    <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Совпадает</span>
-                                  )}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  <span style={{
-                                    display: 'inline-block',
-                                    width: '12px',
-                                    height: '12px',
-                                    borderRadius: '50%',
-                                    backgroundColor: innData.okved_match.matches_47_91 ? '#28a745' : '#dc3545'
-                                  }}></span>
-                                  <span>47.91</span>
-                                  {innData.okved_match.matches_47_91 && (
-                                    <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Совпадает</span>
-                                  )}
-                                </div>
-                              </div>
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <OrgDataDisplay data={innData} showFullOkvedDescriptions={false} />
                   ) : (
-                    <p className="text-muted">Не удалось загрузить данные ИНН</p>
+                    <p className="text-muted">Не удалось загрузить данные организации</p>
                   )}
                 </div>
               )}

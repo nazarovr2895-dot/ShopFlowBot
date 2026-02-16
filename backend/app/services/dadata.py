@@ -13,27 +13,27 @@ DADATA_API_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/findById/
 
 async def validate_inn(inn: str) -> Optional[Dict[str, Any]]:
     """
-    Validate INN using DaData API.
-    
+    Validate organization by INN or OGRN using DaData API.
+
     Args:
-        inn: INN string (10 digits for legal entities, 12 for individuals)
-    
+        inn: INN (10/12 digits) or OGRN (13/15 digits) string
+
     Returns:
         Organization data dict if found and valid, None otherwise
-    
+
     Raises:
         Exception: On network errors or API errors
     """
     settings = get_settings()
-    
+
     if not settings.DADATA_API_KEY:
-        logger.warning("DADATA_API_KEY not configured, skipping INN validation")
+        logger.warning("DADATA_API_KEY not configured, skipping validation")
         return None
-    
-    # Validate INN format (10 or 12 digits)
+
+    # Validate format: INN (10/12 digits) or OGRN (13/15 digits)
     inn_clean = inn.strip()
-    if not inn_clean.isdigit() or len(inn_clean) not in (10, 12):
-        raise ValueError(f"Invalid INN format: must be 10 or 12 digits, got {len(inn_clean)}")
+    if not inn_clean.isdigit() or len(inn_clean) not in (10, 12, 13, 15):
+        raise ValueError("Идентификатор должен быть ИНН (10/12 цифр) или ОГРН (13/15 цифр)")
     
     headers = {
         "Content-Type": "application/json",

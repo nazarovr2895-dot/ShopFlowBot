@@ -4,9 +4,11 @@ export interface Seller {
   phone?: string
   shop_name: string
   inn?: string
+  ogrn?: string
   description?: string
   city_id?: number
   district_id?: number
+  address_name?: string
   map_url?: string
   metro_id?: number
   metro_walk_minutes?: number
@@ -15,9 +17,12 @@ export interface Seller {
   placement_expired_at?: string
   is_blocked?: boolean
   is_deleted?: boolean
+  deleted_at?: string
   max_orders?: number
+  daily_limit_date?: string
   active_orders?: number
   pending_requests?: number
+  hashtags?: string
 }
 
 export interface SellerStats {

@@ -10,6 +10,7 @@ class Seller(Base):
     seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), primary_key=True)
     shop_name: Mapped[str] = mapped_column(String(255), nullable=True)
     inn: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)  # ИНН: 10 цифр для юрлиц, 12 для ИП
+    ogrn: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)  # ОГРН: 13 цифр для юрлиц, 15 для ИП
     hashtags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # comma-separated, e.g. "101 роза, тюльпаны, гвоздики"
     description: Mapped[str] = mapped_column(Text, nullable=True)
     city_id: Mapped[int] = mapped_column(ForeignKey('cities.id'), nullable=True)
@@ -49,6 +50,7 @@ class Seller(Base):
         Index('ix_sellers_is_blocked', 'is_blocked'),
         Index('ix_sellers_deleted_at', 'deleted_at'),
         Index('ix_sellers_inn', 'inn'),
+        Index('ix_sellers_ogrn', 'ogrn'),
     )
 
 class City(Base):

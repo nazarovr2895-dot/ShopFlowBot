@@ -47,6 +47,7 @@ class SellerCreateSchema(BaseModel):
     phone: str
     shop_name: str
     inn: Optional[str] = None
+    ogrn: Optional[str] = None
     description: Optional[str] = None
     city_id: Optional[int] = None
     district_id: Optional[int] = None
@@ -57,7 +58,7 @@ class SellerCreateSchema(BaseModel):
     delivery_type: str
     delivery_price: float = 0.0
     placement_expired_at: Optional[datetime] = None
-    
+
     @field_validator('inn')
     @classmethod
     def validate_inn_format(cls, v):
@@ -70,6 +71,39 @@ class SellerCreateSchema(BaseModel):
         if len(v_clean) not in (10, 12):
             raise ValueError('ИНН должен содержать 10 цифр (для юрлиц) или 12 цифр (для ИП)')
         return v_clean
+
+    @field_validator('ogrn')
+    @classmethod
+    def validate_ogrn_format(cls, v):
+        """Validate OGRN format: must be 13 or 15 digits."""
+        if v is None or v == '':
+            return None
+        v_clean = v.strip()
+        if not v_clean.isdigit():
+            raise ValueError('ОГРН должен содержать только цифры')
+        if len(v_clean) not in (13, 15):
+            raise ValueError('ОГРН должен содержать 13 цифр (для юрлиц) или 15 цифр (для ИП)')
+        return v_clean
+
+    @field_validator('fio')
+    @classmethod
+    def validate_fio(cls, v):
+        """Validate FIO length."""
+        if len(v.strip()) < 2:
+            raise ValueError('ФИО должно быть не менее 2 символов')
+        if len(v.strip()) > 200:
+            raise ValueError('ФИО не может быть длиннее 200 символов')
+        return v.strip()
+
+    @field_validator('shop_name')
+    @classmethod
+    def validate_shop_name(cls, v):
+        """Validate shop name length."""
+        if len(v.strip()) < 2:
+            raise ValueError('Название магазина не менее 2 символов')
+        if len(v.strip()) > 255:
+            raise ValueError('Название магазина не более 255 символов')
+        return v.strip()
     
     @field_validator('placement_expired_at', mode='before')
     @classmethod
@@ -214,12 +248,85 @@ async def get_inn_data(inn: str, _token: None = Depends(require_admin_token)):
         raise HTTPException(status_code=500, detail=f"Ошибка при получении данных ИНН: {str(e)}")
 
 
+@router.get("/org/{identifier}")
+async def get_org_data(identifier: str, _token: None = Depends(require_admin_token)):
+    """Получить данные организации по ИНН или ОГРН из DaData API"""
+    try:
+        org_data = await validate_inn(identifier)
+        if org_data is None:
+            raise HTTPException(status_code=404, detail="Организация с таким идентификатором не найдена")
+
+        okved = org_data.get("okved")
+        okveds = org_data.get("okveds")
+        okved_type = org_data.get("okved_type")
+
+        state = org_data.get("state", {})
+        registration_timestamp = state.get("registration_date")
+        registration_date = None
+        if registration_timestamp:
+            from datetime import datetime as dt
+            registration_date = dt.fromtimestamp(registration_timestamp / 1000).isoformat()
+
+        def check_okved_match(code: str, target_codes: list[str]) -> bool:
+            if not code:
+                return False
+            for target in target_codes:
+                if code == target or code.startswith(target + "."):
+                    return True
+            return False
+
+        matches_47_76 = False
+        matches_47_91 = False
+
+        if okved:
+            matches_47_76 = check_okved_match(okved, ["47.76"])
+            matches_47_91 = check_okved_match(okved, ["47.91"])
+
+        if okveds and isinstance(okveds, list):
+            for additional_okved in okveds:
+                if isinstance(additional_okved, str):
+                    if not matches_47_76:
+                        matches_47_76 = check_okved_match(additional_okved, ["47.76"])
+                    if not matches_47_91:
+                        matches_47_91 = check_okved_match(additional_okved, ["47.91"])
+
+        result = {
+            "inn": org_data.get("inn"),
+            "kpp": org_data.get("kpp"),
+            "ogrn": org_data.get("ogrn"),
+            "name": org_data.get("name", {}).get("full_with_opf") or org_data.get("name", {}).get("short_with_opf") or org_data.get("name", {}).get("full") or "",
+            "short_name": org_data.get("name", {}).get("short") or "",
+            "type": org_data.get("type"),
+            "address": org_data.get("address", {}).get("value") or "",
+            "management": org_data.get("management", {}).get("name") if org_data.get("management") else None,
+            "state": {
+                "status": state.get("status"),
+                "actuality_date": state.get("actuality_date"),
+            },
+            "okved": okved,
+            "okveds": okveds if okveds else None,
+            "okved_type": okved_type,
+            "registration_date": registration_date,
+            "okved_match": {
+                "matches_47_76": matches_47_76,
+                "matches_47_91": matches_47_91,
+                "main_okved": okved or "",
+            }
+        }
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error fetching org data: {e}", exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении данных организации: {str(e)}")
+
+
 # ============================================
 # УПРАВЛЕНИЕ ПРОДАВЦАМИ
 # ============================================
 
 @router.post("/create_seller")
-async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = Depends(get_session)):
+async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = Depends(get_session), _token: None = Depends(require_admin_token)):
     """Создать продавца с полными данными. Автоматически генерирует ID, логин и пароль для веб-панели."""
     try:
         logger.info(
@@ -235,6 +342,7 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
             phone=data.phone,
             shop_name=data.shop_name,
             inn=data.inn,
+            ogrn=data.ogrn,
             description=data.description,
             city_id=data.city_id,
             district_id=data.district_id,

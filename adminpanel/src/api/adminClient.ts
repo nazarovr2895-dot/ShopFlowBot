@@ -73,6 +73,10 @@ export async function getInnData(inn: string): Promise<InnData> {
   return fetchAdmin<InnData>(`/admin/inn/${encodeURIComponent(inn)}`);
 }
 
+export async function getOrgData(identifier: string): Promise<InnData> {
+  return fetchAdmin<InnData>(`/admin/org/${encodeURIComponent(identifier)}`);
+}
+
 // Sellers
 export async function createSeller(data: Record<string, unknown>): Promise<{ status?: string }> {
   return fetchAdmin('/admin/create_seller', {
