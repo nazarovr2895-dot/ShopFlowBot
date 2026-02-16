@@ -608,19 +608,7 @@
   position: relative;
 }
 
-/* Border-разделители по центру сторон карточки (80% длины, 1px) */
-/* Верхний border */
-.shop-details__product-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 10%;
-  width: 80%;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.15);
-}
-
-/* Правый border */
+/* Border-разделитель справа по центру карточки (80% длины, 1px) */
 .shop-details__product-card::after {
   content: '';
   position: absolute;
@@ -631,7 +619,6 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
-[data-theme="dark"] .shop-details__product-card::before,
 [data-theme="dark"] .shop-details__product-card::after {
   background: rgba(255, 255, 255, 0.15);
 }
@@ -727,12 +714,12 @@
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
-  color: #000000;
-  background: #ffffff;
-  border: none;
+  color: #ffffff;
+  background: #000000;
+  border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 20px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 .shop-details__product-card-add span {
@@ -744,13 +731,12 @@
   opacity: 0.5;
   cursor: not-allowed;
   background: rgba(128, 128, 128, 0.3);
-  box-shadow: none;
 }
 
 [data-theme="dark"] .shop-details__product-card-add {
-  background: #000000;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Темная тема - специфичные стили */
