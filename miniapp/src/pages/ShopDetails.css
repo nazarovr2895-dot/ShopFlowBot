@@ -147,7 +147,7 @@
   padding: 12px 20px;
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: rgba(0, 0, 0, 1);
   background: var(--app-accent, #7c3aed);
   border: none;
   border-radius: 12px;
