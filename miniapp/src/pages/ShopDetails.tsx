@@ -556,7 +556,7 @@ export function ShopDetails() {
                           }
                         }}
                       >
-                        {isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}
+                        <span>{isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}</span>
                       </button>
                     )}
                   </div>
