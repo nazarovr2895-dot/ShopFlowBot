@@ -1,34 +1,30 @@
 .heart-icon {
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  border: none;
+  background: #000000;
+  border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 50%;
-  padding: 4px;
+  padding: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--app-bg);
-  transition: all 0.2s ease;
+  color: #ffffff;
   flex-shrink: 0;
-}
-
-.heart-icon:hover {
-  background: rgba(0, 0, 0, 0.4);
-  transform: scale(1.1);
-}
-
-.heart-icon:active {
-  transform: scale(0.95);
 }
 
 .heart-icon--filled {
   color: #ff3b30;
-  background: rgba(255, 255, 255, 0.9);
+  background: #000000;
 }
 
-.heart-icon--filled:hover {
-  background: rgba(255, 255, 255, 1);
+[data-theme="dark"] .heart-icon {
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #000000;
+}
+
+[data-theme="dark"] .heart-icon--filled {
+  color: #ff3b30;
+  background: #ffffff;
 }
 
 .heart-icon svg {

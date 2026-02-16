@@ -510,7 +510,7 @@ export function ShopDetails() {
                         <HeartIcon
                           isFavorite={favoriteProductIds.has(product.id)}
                           onClick={(e) => toggleProductFavorite(product.id, e)}
-                          size={20}
+                          size={28}
                         />
                       </div>
                     )}
