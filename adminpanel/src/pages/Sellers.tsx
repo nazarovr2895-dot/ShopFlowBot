@@ -393,6 +393,9 @@ function AddSellerModal({
       if (initialInnData.name && !shopName) {
         setShopName(initialInnData.short_name || initialInnData.name);
       }
+      if (initialInnData.management && !fio) {
+        setFio(initialInnData.management);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialInnData]);
