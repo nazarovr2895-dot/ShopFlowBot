@@ -37,6 +37,22 @@ def _handle_seller_error(e: SellerServiceError):
     raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
+def _extract_fio(org_data: dict) -> Optional[str]:
+    """Extract person name from DaData org data. Works for both LEGAL (management) and INDIVIDUAL (fio)."""
+    # For LEGAL entities: management.name
+    mgmt = org_data.get("management")
+    if mgmt and mgmt.get("name"):
+        return mgmt["name"]
+    # For INDIVIDUAL (ИП): fio object with surname/name/patronymic
+    fio = org_data.get("fio")
+    if fio:
+        parts = [fio.get("surname"), fio.get("name"), fio.get("patronymic")]
+        full = " ".join(p for p in parts if p)
+        if full:
+            return full
+    return None
+
+
 # ============================================
 # SCHEMAS
 # ============================================
@@ -225,7 +241,7 @@ async def get_inn_data(inn: str, _token: None = Depends(require_admin_token)):
             "short_name": org_data.get("name", {}).get("short") or "",
             "type": org_data.get("type"),  # LEGAL or INDIVIDUAL
             "address": org_data.get("address", {}).get("value") or "",
-            "management": org_data.get("management", {}).get("name") if org_data.get("management") else None,
+            "management": _extract_fio(org_data),
             "state": {
                 "status": state.get("status"),
                 "actuality_date": state.get("actuality_date"),
@@ -298,7 +314,7 @@ async def get_org_data(identifier: str, _token: None = Depends(require_admin_tok
             "short_name": org_data.get("name", {}).get("short") or "",
             "type": org_data.get("type"),
             "address": org_data.get("address", {}).get("value") or "",
-            "management": org_data.get("management", {}).get("name") if org_data.get("management") else None,
+            "management": _extract_fio(org_data),
             "state": {
                 "status": state.get("status"),
                 "actuality_date": state.get("actuality_date"),
