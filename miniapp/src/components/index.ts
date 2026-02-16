@@ -13,3 +13,4 @@ export { HeartIcon } from './HeartIcon';
 export { CatalogNavBar } from './CatalogNavBar';
 export { FilterModal } from './FilterModal';
 export { MyFlowersNavBar } from './MyFlowersNavBar';
+export { ProductModal } from './ProductModal';

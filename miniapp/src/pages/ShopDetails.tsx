@@ -4,7 +4,7 @@ import type { PublicSellerDetail, Product } from '../types';
 import { api, hasTelegramAuth } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
-import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
+import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal } from '../components';
 import './ShopDetails.css';
 
 type ProductTab = 'regular' | 'preorder';
@@ -68,6 +68,7 @@ export function ShopDetails() {
   const [togglingProductFavorite, setTogglingProductFavorite] = useState<number | null>(null);
   const [loyalty, setLoyalty] = useState<{ points_balance: number; linked: boolean } | null>(null);
   const [bannerLoaded, setBannerLoaded] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Set up back button
   useEffect(() => {
@@ -488,7 +489,7 @@ export function ShopDetails() {
                 <div
                   key={product.id}
                   className="shop-details__product-card"
-                  onClick={() => !showDatePicker && navigate(`/shop/${seller.seller_id}/product/${product.id}`)}
+                  onClick={() => !showDatePicker && setSelectedProduct(product)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -565,6 +566,37 @@ export function ShopDetails() {
             })}
           </div>
         </div>
+      )}
+
+      {/* Product Modal */}
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          isOpen={!!selectedProduct}
+          onClose={() => {
+            setSelectedProduct(null);
+            setPreorderDateForProductId(null);
+          }}
+          isFavorite={favoriteProductIds.has(selectedProduct.id)}
+          onToggleFavorite={(e) => toggleProductFavorite(selectedProduct.id, e)}
+          onAddToCart={() => {
+            if (selectedProduct.is_preorder && (seller?.preorder_available_dates?.length ?? 0) > 0) {
+              setPreorderDateForProductId(selectedProduct.id);
+            } else {
+              addToCart(selectedProduct.id);
+            }
+          }}
+          isAdding={addingId === selectedProduct.id}
+          inStock={selectedProduct.quantity ? selectedProduct.quantity > 0 : false}
+          isPreorder={selectedProduct.is_preorder || false}
+          availableDates={seller?.preorder_available_dates ?? []}
+          onSelectPreorderDate={(date) => {
+            confirmPreorderDate(selectedProduct.id, date);
+            setSelectedProduct(null);
+          }}
+          showDatePicker={preorderDateForProductId === selectedProduct.id}
+          onCancelDatePicker={() => setPreorderDateForProductId(null)}
+        />
       )}
     </div>
   );
