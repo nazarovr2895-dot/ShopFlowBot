@@ -137,10 +137,6 @@ class ApiClient {
     if (!path.startsWith('/static/')) return null;
 
     const base = this.getBaseUrl().replace(/\/$/, '');
-    const isLocalBase =
-      typeof window !== 'undefined' &&
-      base &&
-      (base.startsWith('http://localhost') || base.startsWith('http://127.0.0.1'));
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const isPageLocal = origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1');
 
