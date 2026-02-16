@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Product } from '../types';
 import { ProductImage } from './ProductImage';
 import { HeartIcon } from './HeartIcon';
+import { ImageViewer } from './ImageViewer';
 import { hasTelegramAuth } from '../api/client';
 import './ProductModal.css';
 
@@ -37,6 +38,7 @@ export function ProductModal({
   onCancelDatePicker,
 }: ProductModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const images = product.photo_ids && product.photo_ids.length > 0
     ? product.photo_ids
     : product.photo_id
@@ -96,7 +98,11 @@ export function ProductModal({
         <div className="product-modal__content">
           {/* Левая часть - галерея */}
           <div className="product-modal__gallery">
-            <div className="product-modal__image-container">
+            <div
+              className="product-modal__image-container"
+              onClick={() => images.length > 0 && setImageViewerOpen(true)}
+              style={{ cursor: images.length > 0 ? 'pointer' : 'default' }}
+            >
               <ProductImage
                 src={images[currentImageIndex] || null}
                 alt={product.name}
@@ -221,6 +227,14 @@ export function ProductModal({
           </div>
         </div>
       </div>
+
+      {/* Image Viewer */}
+      <ImageViewer
+        images={images}
+        initialIndex={currentImageIndex}
+        isOpen={imageViewerOpen}
+        onClose={() => setImageViewerOpen(false)}
+      />
     </div>
   );
 }
