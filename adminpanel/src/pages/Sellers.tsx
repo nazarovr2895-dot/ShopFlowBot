@@ -402,8 +402,8 @@ function AddSellerModal({
   useEffect(() => {
     getCities().then((list) => {
       if (list.length > 0) setCities(list);
-      else setCities([{ id: 1, name: 'Москва' }]);
-    }).catch(() => setCities([{ id: 1, name: 'Москва' }]));
+      else setCities([{ id: 1, name: 'Москва' }, { id: 2, name: 'Санкт-Петербург' }]);
+    }).catch(() => setCities([{ id: 1, name: 'Москва' }, { id: 2, name: 'Санкт-Петербург' }]));
   }, []);
 
   // Load districts when city changes
