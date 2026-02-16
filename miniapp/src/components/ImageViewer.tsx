@@ -14,6 +14,8 @@ export function ImageViewer({ images, initialIndex, isOpen, onClose }: ImageView
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [lastTouchDistance, setLastTouchDistance] = useState(0);
+  const [isPinching, setIsPinching] = useState(false);
 
   useEffect(() => {
     setCurrentIndex(initialIndex);
@@ -61,9 +63,22 @@ export function ImageViewer({ images, initialIndex, isOpen, onClose }: ImageView
     }
   };
 
-  // Touch events for pinch zoom
+  // Calculate distance between two touches
+  const getTouchDistance = (touches: React.TouchList) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Touch events for pinch zoom and drag
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      // Pinch zoom
+      setIsPinching(true);
+      setLastTouchDistance(getTouchDistance(e.touches));
+      e.preventDefault();
+    } else if (e.touches.length === 1 && scale > 1) {
+      // Single finger drag when zoomed
       setIsDragging(true);
       setStartPos({
         x: e.touches[0].clientX - position.x,
@@ -73,7 +88,21 @@ export function ImageViewer({ images, initialIndex, isOpen, onClose }: ImageView
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 1 && isDragging && scale > 1) {
+    if (e.touches.length === 2 && isPinching) {
+      // Pinch zoom
+      e.preventDefault();
+      const currentDistance = getTouchDistance(e.touches);
+      const scaleDelta = currentDistance / lastTouchDistance;
+      const newScale = Math.min(Math.max(1, scale * scaleDelta), 4);
+
+      if (newScale === 1) {
+        setPosition({ x: 0, y: 0 });
+      }
+
+      setScale(newScale);
+      setLastTouchDistance(currentDistance);
+    } else if (e.touches.length === 1 && isDragging && scale > 1) {
+      // Drag when zoomed
       e.preventDefault();
       setPosition({
         x: e.touches[0].clientX - startPos.x,
@@ -84,24 +113,7 @@ export function ImageViewer({ images, initialIndex, isOpen, onClose }: ImageView
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-  };
-
-  // Double tap to zoom
-  let lastTap = 0;
-  const handleDoubleTap = (e: React.TouchEvent) => {
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    if (now - lastTap < DOUBLE_TAP_DELAY) {
-      e.preventDefault();
-      if (scale === 1) {
-        setScale(2.5);
-      } else {
-        setScale(1);
-        setPosition({ x: 0, y: 0 });
-      }
-    }
-    lastTap = now;
+    setIsPinching(false);
   };
 
   // Mouse events for desktop
@@ -180,10 +192,9 @@ export function ImageViewer({ images, initialIndex, isOpen, onClose }: ImageView
           src={images[currentIndex]}
           alt={`Фото ${currentIndex + 1}`}
           className="image-viewer__image"
-          onTouchEnd={handleDoubleTap}
           style={{
             transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
-            transition: isDragging ? 'none' : 'transform 0.3s ease',
+            transition: isDragging || isPinching ? 'none' : 'transform 0.2s ease',
           }}
           draggable={false}
         />
@@ -238,7 +249,7 @@ export function ImageViewer({ images, initialIndex, isOpen, onClose }: ImageView
       {/* Zoom hint */}
       {scale === 1 && (
         <div className="image-viewer__hint">
-          Дважды нажмите для увеличения
+          Используйте два пальца для увеличения
         </div>
       )}
     </div>
