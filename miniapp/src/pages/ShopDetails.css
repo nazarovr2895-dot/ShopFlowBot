@@ -704,6 +704,18 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
+/* Кнопка подписаться в темной теме */
+[data-theme="dark"] .shop-details__subscribe-btn {
+  color: #ffffff;
+  background: var(--app-accent, #a855f7);
+}
+
+[data-theme="dark"] .shop-details__subscribe-btn--active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 [data-theme="dark"] .shop-details__description {
   background: rgba(255, 255, 255, 0.03);
   border-left-color: var(--app-accent, #a855f7);
