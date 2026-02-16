@@ -11,7 +11,7 @@
    docker-compose -f docker-compose.prod.yml up --scale backend=5
    ```
 
-2. **Load balancer (nginx)**
+2. **Load balancer. (nginx)**
    - Распределяет нагрузку между инстансами
    - Конфигурация в `nginx/nginx.conf`
 
