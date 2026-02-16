@@ -126,12 +126,16 @@ class ApiClient {
   getProductImageUrl(photoId: string | null | undefined): string | null {
     if (photoId == null || String(photoId).trim() === '') return null;
     const raw = String(photoId).trim();
+
     // Уже полный URL
     if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+
     // Путь без ведущего слэша (например "static/uploads/...") — нормализуем
     const path = raw.startsWith('/') ? raw : `/${raw}`;
+
     // Не используем как URL Telegram file_id и прочие не-пути
     if (!path.startsWith('/static/')) return null;
+
     const base = this.getBaseUrl().replace(/\/$/, '');
     const isLocalBase =
       typeof window !== 'undefined' &&
@@ -139,22 +143,44 @@ class ApiClient {
       (base.startsWith('http://localhost') || base.startsWith('http://127.0.0.1'));
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const isPageLocal = origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1');
-    // В Telegram (не localhost) не использовать относительный URL — иначе запрос пойдёт на origin Mini App, где нет /static/
-    if (!base && typeof window !== 'undefined' && !isPageLocal) {
-      if (import.meta.env.MODE === 'development') {
-        console.warn('[API] Product image: base URL empty in non-local context, skipping to avoid wrong origin', photoId);
-      }
-      return null;
-    }
+
     let url: string;
-    if (isLocalBase && !isPageLocal) {
-      url = path;
+
+    // Если есть base URL - используем его
+    if (base) {
+      url = `${base}${path}`;
     } else {
-      url = base ? `${base}${path}` : path;
+      // Если base URL не установлен, пробуем использовать относительный путь
+      // Это работает когда Mini App и backend на одном домене
+      if (isPageLocal) {
+        // Для localhost используем относительный путь
+        url = path;
+      } else {
+        // Для production пытаемся определить URL из window.location
+        // Telegram Web App обычно открывается на поддомене или основном домене
+        const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+
+        // Проверяем, не является ли origin Mini App доменом типа *.telegram.org
+        if (currentOrigin.includes('telegram.org') || currentOrigin.includes('t.me')) {
+          // Это Telegram Web - изображения не доступны напрямую
+          console.warn('[API] Product image: in Telegram Web context without base URL, image may not load:', photoId);
+          // Возвращаем null, чтобы показать placeholder
+          return null;
+        }
+
+        // Пытаемся использовать текущий origin (может работать если Mini App на том же домене что и API)
+        url = `${currentOrigin}${path}`;
+
+        if (import.meta.env.MODE === 'development') {
+          console.warn('[API] Product image: base URL empty, using current origin as fallback:', url);
+        }
+      }
     }
+
     if (import.meta.env.MODE === 'development' && typeof window !== 'undefined') {
-      console.log('[API] Product image URL:', url, '(photo_id:', photoId, ', base:', base || '(empty)');
+      console.log('[API] Product image URL:', url, '(photo_id:', photoId, ', base:', base || '(empty)', ', origin:', origin, ')');
     }
+
     return url;
   }
 

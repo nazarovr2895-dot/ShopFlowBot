@@ -67,6 +67,7 @@ export function ShopDetails() {
   const [favoriteProductIds, setFavoriteProductIds] = useState<Set<number>>(new Set());
   const [togglingProductFavorite, setTogglingProductFavorite] = useState<number | null>(null);
   const [loyalty, setLoyalty] = useState<{ points_balance: number; linked: boolean } | null>(null);
+  const [bannerLoaded, setBannerLoaded] = useState(false);
 
   // Set up back button
   useEffect(() => {
@@ -86,6 +87,7 @@ export function ShopDetails() {
     const loadSeller = async () => {
       setLoading(true);
       setError(null);
+      setBannerLoaded(false); // Сбрасываем состояние загрузки банера
 
       try {
         const id = parseInt(sellerId, 10);
@@ -303,7 +305,31 @@ export function ShopDetails() {
     <div className="shop-details">
       {seller.banner_url && (
         <div className="shop-details__banner">
-          <img src={api.getProductImageUrl(seller.banner_url) ?? ''} alt="" />
+          {api.getProductImageUrl(seller.banner_url) ? (
+            <>
+              {!bannerLoaded && (
+                <div className="shop-details__banner-placeholder shop-details__banner-loading">
+                  <span>🏪</span>
+                </div>
+              )}
+              <img
+                src={api.getProductImageUrl(seller.banner_url)!}
+                alt={seller.shop_name || 'Баннер магазина'}
+                className={bannerLoaded ? 'shop-details__banner-loaded' : ''}
+                onLoad={() => setBannerLoaded(true)}
+                onError={(e) => {
+                  // Если изображение не загрузилось, скрываем его
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  console.warn('[ShopDetails] Banner image failed to load:', seller.banner_url);
+                }}
+              />
+            </>
+          ) : (
+            <div className="shop-details__banner-placeholder">
+              <span>🏪</span>
+            </div>
+          )}
         </div>
       )}
 

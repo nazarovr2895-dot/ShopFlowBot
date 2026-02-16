@@ -10,6 +10,24 @@
   }
 }
 
+@keyframes bannerPulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes bannerFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .shop-details {
   min-height: 100vh;
   background: var(--app-bg);
@@ -20,18 +38,66 @@
 
 .shop-details__banner {
   width: 100%;
-  aspect-ratio: 3 / 1;
-  border-radius: 16px;
+  position: relative;
+  border-radius: 12px;
   overflow: hidden;
   margin-bottom: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: var(--app-surface, #f5f5f5);
+}
+
+/* Адаптивный aspect ratio как на YouTube */
+/* Мобильные устройства: 16:9 для лучшей видимости */
+.shop-details__banner::before {
+  content: '';
+  display: block;
+  padding-top: 56.25%; /* 16:9 = 9/16 = 0.5625 = 56.25% */
 }
 
 .shop-details__banner img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.shop-details__banner img.shop-details__banner-loaded {
+  opacity: 1;
+  animation: bannerFadeIn 0.5s ease;
+}
+
+.shop-details__banner-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--app-accent, #7c3aed) 0%, rgba(124, 58, 237, 0.7) 100%);
+  color: #fff;
+  font-size: 48px;
+  transition: opacity 0.3s ease;
+}
+
+.shop-details__banner-loading {
+  animation: bannerPulse 2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .shop-details__banner-placeholder {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(168, 85, 247, 0.15) 100%);
+}
+
+@media (min-width: 700px) {
+  .shop-details__banner-placeholder {
+    font-size: 64px;
+  }
 }
 
 /* Main info container - адаптивная компоновка */
@@ -41,7 +107,7 @@
 
 .shop-details__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
   padding: 0;
   margin-bottom: 16px;
@@ -53,9 +119,6 @@
   height: 80px;
   object-fit: contain;
   border-radius: 12px;
-  background: var(--app-surface, #f5f5f5);
-  padding: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .shop-details__header-text {
@@ -64,6 +127,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  justify-content: center;
 }
 
 .shop-details__name {
@@ -96,10 +160,32 @@
   }
 
   .shop-details__banner {
-    aspect-ratio: 4 / 1;
-    border-radius: 20px;
+    border-radius: 16px;
     margin-bottom: 32px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Планшеты и маленькие десктопы: 21:9 (более широкий) */
+  .shop-details__banner::before {
+    padding-top: 42.86%; /* 21:9 = 9/21 ≈ 0.4286 */
+  }
+}
+
+/* Большие экраны: еще более широкий банер как на YouTube */
+@media (min-width: 1024px) {
+  .shop-details__banner {
+    border-radius: 20px;
+  }
+
+  .shop-details__banner::before {
+    padding-top: 33.33%; /* 3:1 для широких экранов */
+  }
+}
+
+/* Очень большие экраны */
+@media (min-width: 1440px) {
+  .shop-details__banner::before {
+    padding-top: 25%; /* 4:1 для очень широких экранов */
   }
 
   .shop-details__main-info {
@@ -583,11 +669,6 @@
 /* Темная тема - специфичные стили */
 [data-theme="dark"] .shop-details__banner {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .shop-details__logo {
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 [data-theme="dark"] .shop-details__description {
