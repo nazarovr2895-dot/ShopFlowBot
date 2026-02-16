@@ -1,5 +1,6 @@
 #!/bin/bash
 # Быстрый деплой: commit + push + обновление на сервере
+# С автоматическим запуском тестов перед деплоем
 
 set -e
 
@@ -14,6 +15,55 @@ fi
 # Показываем изменения
 echo "📝 Изменения:"
 git status --short
+
+# Проверяем, есть ли изменения в backend
+BACKEND_CHANGES=$(git status --porcelain | grep -E '^.M backend/' || true)
+
+if [ -n "$BACKEND_CHANGES" ]; then
+    echo ""
+    echo "🧪 Обнаружены изменения в backend, запускаем тесты..."
+    echo ""
+
+    # Проверяем наличие виртуального окружения
+    if [ ! -d "backend/venv" ]; then
+        echo "⚠️  Виртуальное окружение не найдено, создаём..."
+        cd backend
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt > /dev/null 2>&1
+        cd ..
+    fi
+
+    # Активируем виртуальное окружение и запускаем тесты
+    source backend/venv/bin/activate
+
+    echo "Running tests..."
+    if pytest backend/tests/test_admin.py \
+             backend/tests/test_buyers.py \
+             backend/tests/test_seller_web.py \
+             backend/tests/test_services.py \
+             -q --tb=short; then
+        echo ""
+        echo "✅ Все тесты прошли успешно!"
+        echo ""
+    else
+        echo ""
+        echo "❌ Тесты провалились! Деплой отменён."
+        echo ""
+        echo "💡 Исправьте ошибки и попробуйте снова."
+        echo "   Запустить тесты вручную:"
+        echo "   source backend/venv/bin/activate"
+        echo "   pytest backend/tests/ -v"
+        echo ""
+        exit 1
+    fi
+
+    deactivate
+else
+    echo ""
+    echo "⏭️  Изменений в backend нет, пропускаем тесты"
+    echo ""
+fi
 
 # Коммит (если не передан как аргумент)
 if [ -z "$1" ]; then

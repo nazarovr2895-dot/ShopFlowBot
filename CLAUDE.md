@@ -48,6 +48,10 @@ ShopFlowBot/
 │   ├── api_client/         # HTTP клиент для backend
 │   └── main.py
 │
+├── .github/                # GitHub Actions
+│   └── workflows/
+│       └── tests.yml       # CI/CD для автоматических тестов
+│
 ├── miniapp/                # React Mini App (покупатели)
 │   ├── src/
 │   │   ├── components/    # UI компоненты
@@ -471,6 +475,14 @@ docker compose exec backend bash -c "cd /src/backend && alembic downgrade -1 && 
 - **Улучшения deploy.sh:** `DEPLOY_IMPROVEMENTS.md` ⭐ (health checks, автоперезапуск nginx)
 - **Автоматизация документации:** `AUTO_UPDATE_DOCS.md` 🤖
 - **Управление редиректами Nginx:** `NGINX_REDIRECTS.md` (301 vs 302)
+
+### 🧪 Тестирование и автоматизация (NEW!)
+- **Быстрый старт:** `QUICK_START_TESTING.md` ⚡ — установка за 2 минуты
+- **TDD руководство:** `TDD_GUIDE.md` 📝 — как писать тесты для новых функций
+- **Автоматизация:** `TEST_AUTOMATION.md` 🤖 — pre-commit hooks, CI/CD, deploy
+- **Полное руководство:** `TESTS_GUIDE.md` 📚 — структура, примеры, рекомендации
+- **Запуск на сервере:** `RUN_TESTS.md` 🖥️ — команды для production
+- **Итоговый отчёт:** `AUTOMATION_SUMMARY.md` ✅ — что автоматизировано
 
 ## Соглашения по коду
 
