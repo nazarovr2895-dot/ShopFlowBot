@@ -46,12 +46,12 @@
   background: var(--app-surface, #f5f5f5);
 }
 
-/* Адаптивный aspect ratio как на YouTube */
-/* Мобильные устройства (узкие экраны): 5:2 для компактности */
+/* Фиксированное соотношение 4:1 для всех экранов */
+/* Это предотвращает обрезку изображения на разных устройствах */
 .shop-details__banner::before {
   content: '';
   display: block;
-  padding-top: 40%; /* 5:2 = 2/5 = 0.4 = 40% */
+  padding-top: 25%; /* 4:1 = 1/4 = 0.25 = 25% */
 }
 
 .shop-details__banner img {
