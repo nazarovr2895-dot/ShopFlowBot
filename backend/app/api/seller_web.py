@@ -256,7 +256,7 @@ async def get_orders(
     status: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    preorder: Optional[bool] = Query(None, description="Filter by is_preorder: true=preorders only"),
+    preorder: Optional[bool] = Query(None, description="Filter by is_preorder: true=preorders only, false=regular only"),
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):

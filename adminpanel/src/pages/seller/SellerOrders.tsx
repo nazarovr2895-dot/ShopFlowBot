@@ -22,19 +22,50 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Отменён',
 };
 
+type MainTab = 'pending' | 'active' | 'history' | 'preorder';
+type PreorderSubTab = 'requests' | 'waiting' | 'dashboard';
+
 function formatItemsInfo(itemsInfo: string): string {
   return itemsInfo.replace(/\d+:/g, '').replace(/x\s*/g, ' × ');
+}
+
+/** Delivery badge component */
+function DeliveryBadge({ type }: { type?: string }) {
+  if (type === 'delivery') {
+    return <span className="delivery-badge delivery-badge--delivery">🚚 Доставка</span>;
+  }
+  if (type === 'pickup') {
+    return <span className="delivery-badge delivery-badge--pickup">📦 Самовывоз</span>;
+  }
+  return null;
+}
+
+/** Days-until countdown helper */
+function getDaysUntil(dateStr: string): { days: number; label: string; className: string } {
+  const target = new Date(dateStr);
+  const now = new Date();
+  // Compare dates only (strip time)
+  const targetDate = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = targetDate.getTime() - today.getTime();
+  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (days < 0) return { days, label: `${Math.abs(days)} дн. назад`, className: 'waiting-countdown waiting-countdown--overdue' };
+  if (days === 0) return { days, label: 'Сегодня — готов к сборке!', className: 'waiting-countdown waiting-countdown--today' };
+  if (days === 1) return { days, label: 'Завтра!', className: 'waiting-countdown waiting-countdown--tomorrow' };
+  return { days, label: `через ${days} дн.`, className: 'waiting-countdown' };
 }
 
 export function SellerOrders() {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'pending';
-  const [activeTab, setActiveTab] = useState<'pending' | 'active' | 'history' | 'preorder'>(() => {
+  const [activeTab, setActiveTab] = useState<MainTab>(() => {
     if (initialTab === 'active') return 'active';
     if (initialTab === 'history') return 'history';
     if (initialTab === 'preorder') return 'preorder';
     return 'pending';
   });
+  const [preorderSubTab, setPreorderSubTab] = useState<PreorderSubTab>('requests');
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState('');
@@ -52,11 +83,21 @@ export function SellerOrders() {
       let date_from: string | undefined;
       let date_to: string | undefined;
       let preorder: boolean | undefined;
+
       if (activeTab === 'preorder') {
         preorder = true;
-        status = 'pending,accepted,assembling,in_transit,done,completed';
+        // Load based on sub-tab
+        if (preorderSubTab === 'requests') {
+          status = 'pending';
+        } else if (preorderSubTab === 'waiting') {
+          status = 'accepted';
+        } else {
+          // dashboard — load all preorder statuses for context
+          status = 'pending,accepted,assembling,in_transit,done,completed';
+        }
       } else if (activeTab === 'pending') {
         status = 'pending';
+        preorder = false; // Exclude preorders from regular pending
       } else if (activeTab === 'active') {
         status = 'accepted,assembling,in_transit';
       } else {
@@ -71,7 +112,7 @@ export function SellerOrders() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, dateFrom, dateTo]);
+  }, [activeTab, preorderSubTab, dateFrom, dateTo]);
 
   useEffect(() => {
     loadOrders();
@@ -147,10 +188,145 @@ export function SellerOrders() {
     }
   };
 
+  /** Determine if order card should show accept/reject for preorder requests sub-tab */
+  const isPreorderRequests = activeTab === 'preorder' && preorderSubTab === 'requests';
+  const isPreorderWaiting = activeTab === 'preorder' && preorderSubTab === 'waiting';
+
+  /** Render order card (shared between all tabs) */
+  const renderOrderCard = (order: SellerOrder) => (
+    <div key={order.id} className="order-card card">
+      <div className="order-header">
+        <span className="order-id">Заказ #{order.id}</span>
+        <div className="order-header__badges">
+          <DeliveryBadge type={order.delivery_type} />
+          <span className={`order-status status-${order.status}`}>
+            {STATUS_LABELS[order.status] || order.status}
+          </span>
+        </div>
+      </div>
+      {(order.buyer_fio || order.buyer_phone) && (
+        <div className="order-buyer" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color, #eee)', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {order.buyer_fio && <span>{order.buyer_fio}</span>}
+          {order.buyer_phone && <span>{order.buyer_phone}</span>}
+          {order.customer_id && (
+            <Link to={`/customers/${order.customer_id}`} style={{ fontSize: '0.85rem' }}>Профиль клиента →</Link>
+          )}
+        </div>
+      )}
+      <div className="order-body">
+        <p><strong>Товары:</strong> {formatItemsInfo(order.items_info)}</p>
+        <p>
+          <strong>Сумма:</strong>{' '}
+          {editingPrice === order.id ? (
+            <span className="price-edit">
+              <input
+                type="number"
+                value={newPrice}
+                onChange={(e) => setNewPrice(e.target.value)}
+                className="form-input"
+                style={{ width: '100px', display: 'inline-block' }}
+              />
+              <button className="btn btn-sm btn-primary" onClick={() => handlePriceChange(order.id)}>OK</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => { setEditingPrice(null); setNewPrice(''); }}>Отмена</button>
+            </span>
+          ) : (
+            <>
+              {order.total_price} ₽
+              {order.original_price != null && Math.abs((order.original_price ?? 0) - (order.total_price ?? 0)) > 0.01 && (
+                <span className="original-price"> (было: {order.original_price} ₽)</span>
+              )}
+              {(activeTab === 'pending' || isPreorderRequests) && (
+                <button
+                  className="btn btn-sm btn-secondary"
+                  style={{ marginLeft: 8 }}
+                  onClick={() => {
+                    setEditingPrice(order.id);
+                    setNewPrice(String(order.total_price ?? ''));
+                  }}
+                  title="Укажите итоговую цену перед принятием заказа"
+                >
+                  Изменить цену
+                </button>
+              )}
+            </>
+          )}
+        </p>
+        <p><strong>Доставка:</strong> {order.delivery_type === 'delivery' ? 'Доставка' : 'Самовывоз'}</p>
+        {order.address && <p><strong>Адрес:</strong> {order.address}</p>}
+        {order.is_preorder && order.preorder_delivery_date && (
+          <p>
+            <strong>Дата поставки:</strong> {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU')}
+            {isPreorderWaiting && (() => {
+              const cd = getDaysUntil(order.preorder_delivery_date);
+              return <span className={cd.className}> — {cd.label}</span>;
+            })()}
+          </p>
+        )}
+        {(order.points_discount ?? 0) > 0 && (
+          <p style={{ color: 'var(--accent, #e74c3c)' }}>
+            <strong>Оплата баллами:</strong> −{order.points_discount} ₽ ({order.points_used} баллов)
+          </p>
+        )}
+        {order.is_preorder && <span className="preorder-label">📅 Предзаказ</span>}
+        <p className="order-date">Создан: {formatDate(order.created_at)}</p>
+      </div>
+
+      {/* Actions for regular pending */}
+      {activeTab === 'pending' && (
+        <div className="order-actions">
+          <button className="btn btn-primary" onClick={() => handleAccept(order)}>✅ Принять</button>
+          <button className="btn btn-secondary" onClick={() => handleReject(order.id)}>❌ Отклонить</button>
+        </div>
+      )}
+
+      {/* Actions for preorder requests */}
+      {isPreorderRequests && (
+        <div className="order-actions">
+          <button className="btn btn-primary" onClick={() => handleAccept(order)}>✅ Принять предзаказ</button>
+          <button className="btn btn-secondary" onClick={() => handleReject(order.id)}>❌ Отклонить</button>
+        </div>
+      )}
+
+      {/* Actions for preorder waiting — "Собирать" when date arrived */}
+      {isPreorderWaiting && order.preorder_delivery_date && (() => {
+        const cd = getDaysUntil(order.preorder_delivery_date);
+        if (cd.days <= 0) {
+          return (
+            <div className="order-actions">
+              <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'assembling')}>📦 Собирать</button>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Actions for active orders */}
+      {activeTab === 'active' && order.status === 'accepted' && (
+        <div className="order-actions">
+          <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'assembling')}>📦 Собирается</button>
+          <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'in_transit')}>🚚 В пути</button>
+          <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
+        </div>
+      )}
+      {activeTab === 'active' && order.status === 'assembling' && (
+        <div className="order-actions">
+          <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'in_transit')}>🚚 В пути</button>
+          <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
+        </div>
+      )}
+      {activeTab === 'active' && order.status === 'in_transit' && (
+        <div className="order-actions">
+          <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="seller-orders-page">
       <h1 className="page-title">Заказы</h1>
 
+      {/* Main tabs */}
       <div className="orders-tabs">
         <button
           className={`orders-tab ${activeTab === 'pending' ? 'active' : ''}`}
@@ -178,7 +354,32 @@ export function SellerOrders() {
         </button>
       </div>
 
+      {/* Preorder sub-tabs */}
       {activeTab === 'preorder' && (
+        <div className="preorder-subtabs">
+          <button
+            className={`preorder-subtab ${preorderSubTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setPreorderSubTab('requests')}
+          >
+            📩 Запросы
+          </button>
+          <button
+            className={`preorder-subtab ${preorderSubTab === 'waiting' ? 'active' : ''}`}
+            onClick={() => setPreorderSubTab('waiting')}
+          >
+            ⏳ Ожидание
+          </button>
+          <button
+            className={`preorder-subtab ${preorderSubTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setPreorderSubTab('dashboard')}
+          >
+            📊 Дашборд закупок
+          </button>
+        </div>
+      )}
+
+      {/* Dashboard for preorders */}
+      {activeTab === 'preorder' && preorderSubTab === 'dashboard' && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <h3 style={{ marginTop: 0 }}>📦 Дашборд закупок на дату</h3>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -233,9 +434,19 @@ export function SellerOrders() {
           )}
         </div>
       )}
+
+      {/* Hint for pending requests */}
       {activeTab === 'pending' && orders.length > 0 && (
         <p className="orders-hint">Укажите итоговую цену для покупателя (при необходимости нажмите «Изменить цену»), затем примите или отклоните заказ.</p>
       )}
+      {isPreorderRequests && orders.length > 0 && (
+        <p className="orders-hint">Новые запросы на предзаказ. Примите или отклоните заказ.</p>
+      )}
+      {isPreorderWaiting && orders.length > 0 && (
+        <p className="orders-hint">Принятые предзаказы ожидают дату поставки. Когда дата наступит — нажмите «Собирать» для перевода в активные.</p>
+      )}
+
+      {/* History date filter */}
       {activeTab === 'history' && (
         <div className="orders-date-filter card">
           <label>Период:</label>
@@ -255,110 +466,25 @@ export function SellerOrders() {
         </div>
       )}
 
-      {loading ? (
-        <div className="orders-loading">
-          <div className="loader" />
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="card">
-          <p className="empty-text">Нет заказов</p>
-        </div>
-      ) : (
-        <div className="orders-list">
-          {orders.map((order) => (
-            <div key={order.id} className="order-card card">
-              <div className="order-header">
-                <span className="order-id">Заказ #{order.id}</span>
-                <span className={`order-status status-${order.status}`}>
-                  {STATUS_LABELS[order.status] || order.status}
-                </span>
-              </div>
-              {(order.buyer_fio || order.buyer_phone) && (
-                <div className="order-buyer" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color, #eee)', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {order.buyer_fio && <span>{order.buyer_fio}</span>}
-                  {order.buyer_phone && <span>{order.buyer_phone}</span>}
-                  {order.customer_id && (
-                    <Link to={`/customers/${order.customer_id}`} style={{ fontSize: '0.85rem' }}>Профиль клиента →</Link>
-                  )}
-                </div>
-              )}
-              <div className="order-body">
-                <p><strong>Товары:</strong> {formatItemsInfo(order.items_info)}</p>
-                <p>
-                  <strong>Сумма:</strong>{' '}
-                  {editingPrice === order.id ? (
-                    <span className="price-edit">
-                      <input
-                        type="number"
-                        value={newPrice}
-                        onChange={(e) => setNewPrice(e.target.value)}
-                        className="form-input"
-                        style={{ width: '100px', display: 'inline-block' }}
-                      />
-                      <button className="btn btn-sm btn-primary" onClick={() => handlePriceChange(order.id)}>OK</button>
-                      <button className="btn btn-sm btn-secondary" onClick={() => { setEditingPrice(null); setNewPrice(''); }}>Отмена</button>
-                    </span>
-                  ) : (
-                    <>
-                      {order.total_price} ₽
-                      {order.original_price != null && Math.abs((order.original_price ?? 0) - (order.total_price ?? 0)) > 0.01 && (
-                        <span className="original-price"> (было: {order.original_price} ₽)</span>
-                      )}
-                      {activeTab === 'pending' && (
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          style={{ marginLeft: 8 }}
-                          onClick={() => {
-                            setEditingPrice(order.id);
-                            setNewPrice(String(order.total_price ?? ''));
-                          }}
-                          title="Укажите итоговую цену перед принятием заказа"
-                        >
-                          Изменить цену
-                        </button>
-                      )}
-                    </>
-                  )}
-                </p>
-                <p><strong>Доставка:</strong> {order.delivery_type === 'delivery' ? 'Доставка' : 'Самовывоз'}</p>
-                {order.address && <p><strong>Адрес:</strong> {order.address}</p>}
-                {order.is_preorder && order.preorder_delivery_date && (
-                  <p><strong>Дата поставки:</strong> {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU')}</p>
-                )}
-                {(order.points_discount ?? 0) > 0 && (
-                  <p style={{ color: 'var(--accent, #e74c3c)' }}>
-                    <strong>Оплата баллами:</strong> −{order.points_discount} ₽ ({order.points_used} баллов)
-                  </p>
-                )}
-                <p className="order-date">Создан: {formatDate(order.created_at)}</p>
-              </div>
-              {activeTab === 'pending' && (
-                <div className="order-actions">
-                  <button className="btn btn-primary" onClick={() => handleAccept(order)}>✅ Принять</button>
-                  <button className="btn btn-secondary" onClick={() => handleReject(order.id)}>❌ Отклонить</button>
-                </div>
-              )}
-              {activeTab === 'active' && order.status === 'accepted' && (
-                <div className="order-actions">
-                  <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'assembling')}>📦 Собирается</button>
-                  <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'in_transit')}>🚚 В пути</button>
-                  <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
-                </div>
-              )}
-              {activeTab === 'active' && order.status === 'assembling' && (
-                <div className="order-actions">
-                  <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'in_transit')}>🚚 В пути</button>
-                  <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
-                </div>
-              )}
-              {activeTab === 'active' && order.status === 'in_transit' && (
-                <div className="order-actions">
-                  <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* Orders list */}
+      {activeTab === 'preorder' && preorderSubTab === 'dashboard' ? null : (
+        loading ? (
+          <div className="orders-loading">
+            <div className="loader" />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="card">
+            <p className="empty-text">
+              {isPreorderRequests ? 'Нет запросов на предзаказ' :
+               isPreorderWaiting ? 'Нет ожидающих предзаказов' :
+               'Нет заказов'}
+            </p>
+          </div>
+        ) : (
+          <div className="orders-list">
+            {orders.map(renderOrderCard)}
+          </div>
+        )
       )}
     </div>
   );

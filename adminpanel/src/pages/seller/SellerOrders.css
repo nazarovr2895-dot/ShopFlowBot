@@ -24,6 +24,119 @@
   border-color: var(--accent);
 }
 
+/* ============================================
+   Preorder sub-tabs
+   ============================================ */
+.preorder-subtabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: -0.75rem 0 1.25rem;
+  padding: 0.4rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.preorder-subtab {
+  flex: 1;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.preorder-subtab:hover {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.preorder-subtab.active {
+  background: var(--accent);
+  color: white;
+  font-weight: 500;
+}
+
+/* ============================================
+   Delivery badges
+   ============================================ */
+.delivery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.delivery-badge--delivery {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.delivery-badge--pickup {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* ============================================
+   Order header badges layout
+   ============================================ */
+.order-header__badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ============================================
+   Preorder label in order body
+   ============================================ */
+.preorder-label {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: #fef3c7;
+  color: #92400e;
+  margin-top: 0.25rem;
+}
+
+/* ============================================
+   Waiting countdown
+   ============================================ */
+.waiting-countdown {
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.waiting-countdown--today {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.waiting-countdown--tomorrow {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.waiting-countdown--overdue {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* ============================================
+   Existing styles
+   ============================================ */
 .orders-hint {
   color: var(--text-muted);
   font-size: 0.9rem;
