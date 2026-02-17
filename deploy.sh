@@ -85,6 +85,15 @@ echo "✅ Код отправлен в GitHub"
 echo "🔄 Обновляем сервер..."
 ssh yandex-cloud "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
 
+# Применяем миграции БД
+echo "📦 Применяем миграции БД..."
+MIGRATE_RESULT=$(ssh yandex-cloud "cd ~/shopflowbot && docker compose -f docker-compose.prod.yml exec -T backend bash -c 'cd /src/backend && alembic upgrade head'" 2>&1)
+if echo "$MIGRATE_RESULT" | grep -qE "done|Running upgrade|OK"; then
+    echo "✅ Миграции применены"
+else
+    echo "⚠️  Миграции: $MIGRATE_RESULT"
+fi
+
 # Перезапуск nginx для обновления upstream connections
 echo "🔧 Перезапускаем nginx..."
 ssh yandex-cloud "docker compose -f ~/shopflowbot/docker-compose.prod.yml restart nginx"
