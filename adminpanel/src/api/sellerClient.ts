@@ -153,6 +153,9 @@ export interface SellerProduct {
   quantity: number;
   is_active?: boolean;
   is_preorder?: boolean;
+  bouquet_id?: number | null;
+  cost_price?: number | null;
+  markup_percent?: number | null;
 }
 
 export async function getMe(): Promise<SellerMe> {
@@ -335,14 +338,14 @@ export async function uploadBannerPhoto(file: File): Promise<{ banner_url: strin
   return res.json();
 }
 
-export async function createProduct(data: { seller_id: number; name: string; description: string; price: number; photo_id?: string; photo_ids?: string[]; quantity: number; bouquet_id?: number; is_preorder?: boolean }): Promise<SellerProduct> {
+export async function createProduct(data: { seller_id: number; name: string; description: string; price: number; photo_id?: string; photo_ids?: string[]; quantity: number; bouquet_id?: number; is_preorder?: boolean; cost_price?: number; markup_percent?: number }): Promise<SellerProduct> {
   return fetchSeller<SellerProduct>('/seller-web/products', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateProduct(productId: number, data: Partial<{ name: string; description: string; price: number; quantity: number; photo_ids: string[]; is_active: boolean; is_preorder: boolean }>): Promise<SellerProduct> {
+export async function updateProduct(productId: number, data: Partial<{ name: string; description: string; price: number; quantity: number; photo_ids: string[]; is_active: boolean; is_preorder: boolean; cost_price: number; markup_percent: number }>): Promise<SellerProduct> {
   return fetchSeller<SellerProduct>(`/seller-web/products/${productId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -351,6 +354,10 @@ export async function updateProduct(productId: number, data: Partial<{ name: str
 
 export async function deleteProduct(productId: number): Promise<{ status: string }> {
   return fetchSeller(`/seller-web/products/${productId}`, { method: 'DELETE' });
+}
+
+export async function recalculateProductPrice(productId: number): Promise<{ id: number; name: string; price: number; cost_price: number | null; markup_percent: number | null; quantity: number }> {
+  return fetchSeller(`/seller-web/products/${productId}/recalculate`, { method: 'POST' });
 }
 
 export async function updateLimits(maxOrders: number): Promise<{ status: string }> {
@@ -805,7 +812,6 @@ export interface BouquetItemDto {
   flower_id: number;
   flower_name: string;
   quantity: number;
-  markup_multiplier: number;
 }
 
 export interface BouquetDetail {
@@ -839,7 +845,7 @@ export async function getBouquet(bouquetId: number): Promise<BouquetDetail> {
 export async function createBouquet(data: {
   name: string;
   packaging_cost: number;
-  items: { flower_id: number; quantity: number; markup_multiplier: number }[];
+  items: { flower_id: number; quantity: number; markup_multiplier?: number }[];
 }): Promise<BouquetDetail> {
   return fetchSeller<BouquetDetail>('/seller-web/bouquets', {
     method: 'POST',
@@ -852,7 +858,7 @@ export async function updateBouquet(
   data: {
     name: string;
     packaging_cost: number;
-    items: { flower_id: number; quantity: number; markup_multiplier: number }[];
+    items: { flower_id: number; quantity: number; markup_multiplier?: number }[];
   }
 ): Promise<BouquetDetail> {
   return fetchSeller<BouquetDetail>(`/seller-web/bouquets/${bouquetId}`, {

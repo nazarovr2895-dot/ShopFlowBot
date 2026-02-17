@@ -21,7 +21,7 @@ export function SellerBouquets() {
   const [form, setForm] = useState({
     name: '',
     packaging_cost: '0',
-    items: [] as { flower_id: number; flower_name: string; quantity: number; markup_multiplier: string }[],
+    items: [] as { flower_id: number; flower_name: string; quantity: number }[],
   });
 
   const load = async () => {
@@ -87,7 +87,6 @@ export function SellerBouquets() {
           flower_id: first.flower_id,
           flower_name: first.flower_name,
           quantity: 1,
-          markup_multiplier: '1.5',
         },
       ],
     }));
@@ -108,16 +107,13 @@ export function SellerBouquets() {
 
   const getFormTotals = () => {
     let cost = 0;
-    let price = 0;
     for (const it of form.items) {
       const flower = flowersInStock.find((f) => f.flower_id === it.flower_id);
       const unitCost = flower?.avg_price ?? 0;
-      const mult = parseFloat(it.markup_multiplier) || 1;
       cost += unitCost * it.quantity;
-      price += unitCost * it.quantity * mult;
     }
     const pack = parseFloat(form.packaging_cost) || 0;
-    return { cost, price: price + pack, packaging: pack };
+    return { cost, total: cost + pack, packaging: pack };
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -133,7 +129,6 @@ export function SellerBouquets() {
       items: form.items.map((it) => ({
         flower_id: it.flower_id,
         quantity: it.quantity,
-        markup_multiplier: parseFloat(it.markup_multiplier) || 1,
       })),
     };
     try {
@@ -170,7 +165,6 @@ export function SellerBouquets() {
         flower_id: it.flower_id,
         flower_name: it.flower_name,
         quantity: it.quantity,
-        markup_multiplier: String(it.markup_multiplier ?? 1),
       })),
     });
     setShowCreate(true);
@@ -219,7 +213,10 @@ export function SellerBouquets() {
           </div>
           <h4>Состав</h4>
           <p className="section-hint">Выберите цветы из наличия в приёмках.</p>
-          {form.items.map((it, idx) => (
+          {form.items.map((it, idx) => {
+            const flowerStock = flowersInStock.find((f) => f.flower_id === it.flower_id);
+            const maxQty = flowerStock?.remaining_quantity ?? 1;
+            return (
             <div key={idx} className="bouquet-item-row">
               <select
                 value={it.flower_id}
@@ -236,35 +233,34 @@ export function SellerBouquets() {
                   </option>
                 ))}
               </select>
-              <input
-                type="number"
-                min={1}
-                value={it.quantity}
-                onChange={(e) => updateFormItem(idx, 'quantity', parseInt(e.target.value, 10) || 1)}
-                className="form-input qty-input"
-                placeholder="шт"
-              />
-              <input
-                type="number"
-                min="0.5"
-                step="0.1"
-                value={it.markup_multiplier}
-                onChange={(e) => updateFormItem(idx, 'markup_multiplier', e.target.value)}
-                className="form-input"
-                placeholder="наценка (например 2 = 2x)"
-                title="Множитель наценки"
-              />
+              <div className="qty-wrapper">
+                <input
+                  type="number"
+                  min={1}
+                  max={maxQty}
+                  value={it.quantity}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10) || 1;
+                    updateFormItem(idx, 'quantity', Math.min(val, maxQty));
+                  }}
+                  className="form-input qty-input"
+                  placeholder="шт"
+                />
+                <span className="qty-hint">макс: {maxQty}</span>
+              </div>
               <button type="button" className="btn btn-sm btn-secondary" onClick={() => removeFormItem(idx)}>
                 Удалить
               </button>
             </div>
-          ))}
+            );
+          })}
           <button type="button" className="btn btn-secondary" onClick={addFormItem}>
             Добавить цветок
           </button>
           <div className="bouquet-totals">
             <p>Себестоимость цветов: {totals.cost.toFixed(0)} ₽</p>
-            <p>Итоговая цена (с наценкой и упаковкой): <strong>{totals.price.toFixed(0)} ₽</strong></p>
+            {totals.packaging > 0 && <p>Упаковка: {totals.packaging.toFixed(0)} ₽</p>}
+            <p>Итого себестоимость: <strong>{totals.total.toFixed(0)} ₽</strong></p>
           </div>
           <div className="form-actions">
             <button type="button" className="btn btn-secondary" onClick={() => { setShowCreate(false); setEditingId(null); }}>
@@ -285,18 +281,17 @@ export function SellerBouquets() {
               <div key={b.id} className={`bouquet-card ${b.is_active === false ? 'bouquet-card-inactive' : ''}`}>
                 <div className="bouquet-card-header">
                   <strong>{b.name}</strong>
-                  <span className="bouquet-price">{b.total_price != null ? `${b.total_price.toFixed(0)} ₽` : '—'}</span>
+                  <span className="bouquet-price">Себест.: {b.total_price != null ? `${b.total_price.toFixed(0)} ₽` : '—'}</span>
                 </div>
                 {b.is_active === false ? (
                   <p className="bouquet-status bouquet-status-inactive">Не активен — в приёмке не хватает цветов (букет скрыт в каталоге)</p>
                 ) : (
                   <p className="bouquet-status bouquet-status-active">Можно собрать: <strong>{b.can_assemble_count ?? 0}</strong> шт.</p>
                 )}
-                <p className="bouquet-cost">Себестоимость: {b.total_cost != null ? `${b.total_cost.toFixed(0)} ₽` : '—'}</p>
                 {b.items && b.items.length > 0 && (
                   <ul className="bouquet-composition">
                     {b.items.map((it, i) => (
-                      <li key={i}>{it.flower_name} × {it.quantity} (×{it.markup_multiplier})</li>
+                      <li key={i}>{it.flower_name} × {it.quantity}</li>
                     ))}
                   </ul>
                 )}

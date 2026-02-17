@@ -466,6 +466,94 @@ async def test_admin_cache_invalidate_invalid_type(client: AsyncClient):
 # ADMIN TOKEN VALIDATION
 # ============================================
 
+# ============================================
+# ORG DATA (DaData - admin.py)
+# ============================================
+
+@pytest.mark.asyncio
+async def test_admin_org_endpoint_invalid_identifier(client: AsyncClient):
+    """Test /org/{identifier} with invalid identifier format."""
+    response = await client.get(
+        "/admin/org/12345",
+        headers=admin_headers(),
+    )
+    # DaData validate_inn raises ValueError for bad format → 400 or 422
+    assert response.status_code in (400, 422, 500)
+
+
+@pytest.mark.asyncio
+async def test_admin_org_endpoint_without_token(client: AsyncClient):
+    """Test /org/{identifier} requires admin token."""
+    response = await client.get("/admin/org/1234567890")
+    if ADMIN_SECRET:
+        assert response.status_code == 401
+
+
+# ============================================
+# CREATE SELLER WITH OGRN (admin.py)
+# ============================================
+
+@pytest.mark.asyncio
+async def test_admin_create_seller_with_ogrn(
+    client: AsyncClient, test_session, test_city: City, test_district: District,
+):
+    """Test creating a seller with OGRN field."""
+    from backend.app.models.user import User
+    new_user = User(
+        tg_id=666666666,
+        username="ogrntest",
+        fio="OGRN Test Seller",
+        phone="+79006666666",
+        role="SELLER",
+    )
+    test_session.add(new_user)
+    await test_session.commit()
+
+    response = await client.post(
+        "/admin/create_seller",
+        json={
+            "tg_id": 666666666,
+            "fio": "OGRN Test Seller",
+            "phone": "+79006666666",
+            "shop_name": "OGRN Shop",
+            "delivery_type": "both",
+            "city_id": test_city.id,
+            "district_id": test_district.id,
+            "ogrn": "1234567890123",
+        },
+        headers=admin_headers(),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "tg_id" in data or "seller_id" in data
+
+
+@pytest.mark.asyncio
+async def test_admin_create_seller_without_tg_id(
+    client: AsyncClient, test_session, test_city: City, test_district: District,
+):
+    """Test creating a seller without tg_id (auto-generates one)."""
+    response = await client.post(
+        "/admin/create_seller",
+        json={
+            "fio": "No TG Seller",
+            "phone": "+79007777777",
+            "shop_name": "No TG Shop",
+            "delivery_type": "both",
+            "city_id": test_city.id,
+            "district_id": test_district.id,
+        },
+        headers=admin_headers(),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "tg_id" in data or "seller_id" in data
+
+
+# ============================================
+# ADMIN TOKEN VALIDATION
+# ============================================
+
 @pytest.mark.asyncio
 async def test_admin_endpoint_without_token(client: AsyncClient):
     """Test admin endpoint without token returns 401."""

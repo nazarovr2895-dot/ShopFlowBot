@@ -640,6 +640,10 @@ async def add_product(
         product_data["photo_id"] = data.photo_id
     if data.bouquet_id is not None:
         product_data["bouquet_id"] = data.bouquet_id
+    if data.cost_price is not None:
+        product_data["cost_price"] = data.cost_price
+    if data.markup_percent is not None:
+        product_data["markup_percent"] = data.markup_percent
     return await create_product_service(session, product_data)
 
 
@@ -1077,6 +1081,42 @@ async def api_delete_bouquet(
     if not ok:
         raise HTTPException(status_code=404, detail="Букет не найден")
     return {"status": "deleted"}
+
+
+# --- PRODUCT RECALCULATE ---
+@router.post("/products/{product_id}/recalculate")
+async def api_recalculate_product_price(
+    product_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    product = await get_product_by_id_service(session, product_id)
+    if not product or product.seller_id != seller_id:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+    if not product.bouquet_id:
+        raise HTTPException(status_code=400, detail="Товар не привязан к букету")
+
+    bouquet_data = await get_bouquet_with_totals(session, product.bouquet_id, seller_id)
+    if not bouquet_data:
+        raise HTTPException(status_code=404, detail="Букет не найден")
+
+    new_cost = bouquet_data["total_price"]  # себестоимость (цветы + упаковка)
+    update: dict = {"cost_price": new_cost}
+
+    if product.markup_percent is not None:
+        update["price"] = round(new_cost * (1 + float(product.markup_percent) / 100), 2)
+
+    update["quantity"] = bouquet_data.get("can_assemble_count", 0)
+
+    updated = await update_product_service(session, product_id, update)
+    return {
+        "id": updated.id,
+        "name": updated.name,
+        "price": float(updated.price),
+        "cost_price": float(updated.cost_price) if updated.cost_price else None,
+        "markup_percent": float(updated.markup_percent) if updated.markup_percent else None,
+        "quantity": updated.quantity,
+    }
 
 
 # --- INVENTORY ---

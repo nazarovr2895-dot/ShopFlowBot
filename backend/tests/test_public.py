@@ -373,10 +373,120 @@ async def test_get_metro_empty(
 ):
     """Test getting metro for district with no stations."""
     response = await client.get("/public/metro/999999")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data == []
+
+
+# --- Metro Search Tests ---
+
+@pytest.mark.asyncio
+async def test_metro_search_finds_station(
+    client: AsyncClient,
+    test_metro: Metro,
+):
+    """Test metro search finds existing station by partial name."""
+    response = await client.get(
+        "/public/metro/search",
+        params={"q": "Арбат"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert any(m["name"] == "Арбатская" for m in data)
+
+
+@pytest.mark.asyncio
+async def test_metro_search_returns_empty_for_nonexistent(
+    client: AsyncClient,
+    test_metro: Metro,
+):
+    """Test metro search returns empty list for non-existent station."""
+    response = await client.get(
+        "/public/metro/search",
+        params={"q": "НесуществующаяСтанция"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 0
+
+
+@pytest.mark.asyncio
+async def test_metro_search_partial_match(
+    client: AsyncClient,
+    test_metro: Metro,
+):
+    """Test metro search matches partial station name."""
+    response = await client.get(
+        "/public/metro/search",
+        params={"q": "Арбат"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert data[0]["name"] == "Арбатская"
+
+
+@pytest.mark.asyncio
+async def test_metro_search_returns_correct_fields(
+    client: AsyncClient,
+    test_metro: Metro,
+):
+    """Test metro search response has all required fields."""
+    response = await client.get(
+        "/public/metro/search",
+        params={"q": "Арбат"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) >= 1
+    station = data[0]
+    assert "id" in station
+    assert "name" in station
+    assert "district_id" in station
+    assert "line_color" in station
+
+
+@pytest.mark.asyncio
+async def test_metro_search_requires_query(client: AsyncClient):
+    """Test metro search requires q parameter."""
+    response = await client.get("/public/metro/search")
+    assert response.status_code == 422  # Missing required parameter
+
+
+@pytest.mark.asyncio
+async def test_metro_search_multiple_results(
+    client: AsyncClient,
+    test_session,
+    test_district: District,
+):
+    """Test metro search returns multiple matching stations."""
+    # Create several stations with similar names
+    stations = [
+        Metro(id=100, district_id=test_district.id, name="Парк Культуры", line_color="#d6001c"),
+        Metro(id=101, district_id=test_district.id, name="Парк Победы", line_color="#0079c9"),
+        Metro(id=102, district_id=test_district.id, name="Парк Горького", line_color="#009a49"),
+    ]
+    for s in stations:
+        test_session.add(s)
+    await test_session.commit()
+
+    response = await client.get(
+        "/public/metro/search",
+        params={"q": "Парк"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) >= 3
 
 
 # --- Multiple Sellers Tests ---

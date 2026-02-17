@@ -8,6 +8,7 @@ import {
   deleteProduct,
   uploadProductPhoto,
   getProductImageUrl,
+  recalculateProductPrice,
 } from '../../api/sellerClient';
 import type { SellerMe, SellerProduct, BouquetDetail } from '../../api/sellerClient';
 import './SellerShowcase.css';
@@ -30,6 +31,10 @@ export function SellerShowcase() {
   const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', quantity: '1' });
   const [productPhotoFiles, setProductPhotoFiles] = useState<File[]>([]);
   const [productPhotoPreviews, setProductPhotoPreviews] = useState<string[]>([]);
+
+  const [markupPercent, setMarkupPercent] = useState('50');
+  const [selectedBouquetCost, setSelectedBouquetCost] = useState(0);
+  const [recalculating, setRecalculating] = useState<number | null>(null);
 
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; description: string; price: string; quantity: string }>({ name: '', description: '', price: '', quantity: '0' });
@@ -105,7 +110,11 @@ export function SellerShowcase() {
         is_preorder: activeTab === 'preorder',
       };
       if (photo_ids.length) payload.photo_ids = photo_ids;
-      if (selectedBouquetId != null) payload.bouquet_id = selectedBouquetId;
+      if (selectedBouquetId != null) {
+        payload.bouquet_id = selectedBouquetId;
+        payload.cost_price = selectedBouquetCost;
+        payload.markup_percent = parseFloat(markupPercent) || 0;
+      }
       await createProduct(payload);
       setNewProduct({ name: '', description: '', price: '', quantity: '1' });
       setProductPhotoFiles([]);
@@ -113,6 +122,8 @@ export function SellerShowcase() {
       setShowAddProduct(false);
       setAddProductMode('choice');
       setSelectedBouquetId(null);
+      setSelectedBouquetCost(0);
+      setMarkupPercent('50');
       load();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Ошибка');
@@ -149,10 +160,14 @@ export function SellerShowcase() {
   const selectBouquetForProduct = (b: BouquetDetail) => {
     setSelectedBouquetId(b.id);
     const canAssemble = Math.max(0, b.can_assemble_count ?? 0);
+    const costPrice = b.total_price ?? 0;
+    setSelectedBouquetCost(costPrice);
+    const defaultMarkup = 50;
+    setMarkupPercent(String(defaultMarkup));
     setNewProduct({
       name: b.name,
       description: '',
-      price: String(b.total_price ?? 0),
+      price: String(Math.round(costPrice * (1 + defaultMarkup / 100))),
       quantity: String(canAssemble),
     });
   };
@@ -357,32 +372,69 @@ export function SellerShowcase() {
               className="form-input"
             />
           </div>
-          <div className="seller-showcase-form-row-2">
-            <div className="seller-showcase-form-group">
-              <label>Цена (₽)</label>
-              <input
-                type="number"
-                value={newProduct.price}
-                onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
-                className="form-input"
-                required
-              />
+          {selectedBouquetId && (
+            <div className="seller-showcase-cost-info">
+              <span>Себестоимость букета: <strong>{selectedBouquetCost.toFixed(0)} ₽</strong></span>
             </div>
-            <div className="seller-showcase-form-group">
-              <label>Количество</label>
-              {selectedBouquetId ? (
-                <>
-                  <input
-                    type="number"
-                    min={0}
-                    value={newProduct.quantity}
-                    readOnly
-                    className="form-input seller-showcase-form-input-readonly"
-                    title="По остаткам в приёмке"
-                  />
-                  <span className="seller-showcase-form-hint">По остаткам в приёмке</span>
-                </>
-              ) : (
+          )}
+          {selectedBouquetId ? (
+            <div className="seller-showcase-form-row-3">
+              <div className="seller-showcase-form-group">
+                <label>Наценка (%)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={5}
+                  value={markupPercent}
+                  onChange={(e) => {
+                    const pct = parseFloat(e.target.value) || 0;
+                    setMarkupPercent(e.target.value);
+                    setNewProduct((p) => ({
+                      ...p,
+                      price: String(Math.round(selectedBouquetCost * (1 + pct / 100))),
+                    }));
+                  }}
+                  className="form-input"
+                />
+              </div>
+              <div className="seller-showcase-form-group">
+                <label>Цена (₽)</label>
+                <input
+                  type="number"
+                  value={newProduct.price}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
+                  className="form-input"
+                  required
+                />
+                <span className="seller-showcase-form-hint">Авто или введите вручную</span>
+              </div>
+              <div className="seller-showcase-form-group">
+                <label>Количество</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={newProduct.quantity}
+                  readOnly
+                  className="form-input seller-showcase-form-input-readonly"
+                  title="По остаткам в приёмке"
+                />
+                <span className="seller-showcase-form-hint">По остаткам в приёмке</span>
+              </div>
+            </div>
+          ) : (
+            <div className="seller-showcase-form-row-2">
+              <div className="seller-showcase-form-group">
+                <label>Цена (₽)</label>
+                <input
+                  type="number"
+                  value={newProduct.price}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div className="seller-showcase-form-group">
+                <label>Количество</label>
                 <input
                   type="number"
                   min={0}
@@ -390,9 +442,9 @@ export function SellerShowcase() {
                   onChange={(e) => setNewProduct((p) => ({ ...p, quantity: e.target.value }))}
                   className="form-input"
                 />
-              )}
+              </div>
             </div>
-          </div>
+          )}
           <div className="seller-showcase-form-group">
             <label>Фото товара (до 3 шт., JPG/PNG/WebP/GIF)</label>
             <input
@@ -560,6 +612,12 @@ export function SellerShowcase() {
                     <span className="seller-showcase-card-desc">{p.description}</span>
                   )}
                   <span className="seller-showcase-card-price">{Number(p.price).toFixed(0)} ₽</span>
+                  {p.bouquet_id && p.cost_price != null && (
+                    <span className="seller-showcase-card-cost">
+                      Себест.: {Number(p.cost_price).toFixed(0)} ₽
+                      {p.markup_percent != null && ` | Наценка: ${Number(p.markup_percent).toFixed(0)}%`}
+                    </span>
+                  )}
                   <span className="seller-showcase-card-qty">В наличии: {p.quantity} шт.</span>
                   <div className="seller-showcase-card-switch">
                     <label className="seller-showcase-switch-label">
@@ -577,6 +635,26 @@ export function SellerShowcase() {
                     </label>
                   </div>
                   <div className="seller-showcase-card-actions">
+                    {p.bouquet_id && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        disabled={recalculating === p.id}
+                        onClick={async () => {
+                          setRecalculating(p.id);
+                          try {
+                            await recalculateProductPrice(p.id);
+                            load();
+                          } catch (e) {
+                            alert(e instanceof Error ? e.message : 'Ошибка пересчёта');
+                          } finally {
+                            setRecalculating(null);
+                          }
+                        }}
+                      >
+                        {recalculating === p.id ? 'Пересчёт...' : 'Пересчитать'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="btn btn-sm btn-secondary"

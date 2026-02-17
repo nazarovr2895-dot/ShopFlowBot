@@ -72,6 +72,8 @@ class ProductCreate(BaseModel):
     quantity: int = 0
     bouquet_id: Optional[int] = None
     is_preorder: bool = False
+    cost_price: Optional[float] = None
+    markup_percent: Optional[float] = None
 
     @field_validator("name", "description")
     @classmethod
@@ -97,6 +99,8 @@ class ProductUpdate(BaseModel):
     bouquet_id: Optional[int] = None
     is_active: Optional[bool] = None
     is_preorder: Optional[bool] = None
+    cost_price: Optional[float] = None
+    markup_percent: Optional[float] = None
     
     @field_validator("name", "description")
     @classmethod
@@ -121,6 +125,8 @@ class ProductResponse(BaseModel):
     bouquet_id: Optional[int] = None
     is_active: Optional[bool] = True
     is_preorder: bool = False
+    cost_price: Optional[float] = None
+    markup_percent: Optional[float] = None
 
     @model_validator(mode="after")
     def fill_photo_ids(self):

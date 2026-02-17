@@ -537,3 +537,301 @@ class TestINNValidation:
             delivery_type="both", inn=" 1234567890 ",
         )
         assert schema.inn == "1234567890"
+
+
+# ============================================
+# OGRN VALIDATOR (Pydantic schema)
+# ============================================
+
+class TestOGRNValidation:
+    """Test OGRN format validation in admin schemas."""
+
+    def test_valid_ogrn_13_digits(self):
+        from backend.app.api.admin import SellerCreateSchema
+        schema = SellerCreateSchema(
+            fio="Test", phone="+7900", shop_name="Shop",
+            delivery_type="both", ogrn="1234567890123",
+        )
+        assert schema.ogrn == "1234567890123"
+
+    def test_valid_ogrn_15_digits(self):
+        from backend.app.api.admin import SellerCreateSchema
+        schema = SellerCreateSchema(
+            fio="Test", phone="+7900", shop_name="Shop",
+            delivery_type="both", ogrn="123456789012345",
+        )
+        assert schema.ogrn == "123456789012345"
+
+    def test_invalid_ogrn_wrong_length(self):
+        from backend.app.api.admin import SellerCreateSchema
+        with pytest.raises(Exception):
+            SellerCreateSchema(
+                fio="Test", phone="+7900", shop_name="Shop",
+                delivery_type="both", ogrn="12345",
+            )
+
+    def test_invalid_ogrn_14_digits(self):
+        from backend.app.api.admin import SellerCreateSchema
+        with pytest.raises(Exception):
+            SellerCreateSchema(
+                fio="Test", phone="+7900", shop_name="Shop",
+                delivery_type="both", ogrn="12345678901234",
+            )
+
+    def test_invalid_ogrn_non_digits(self):
+        from backend.app.api.admin import SellerCreateSchema
+        with pytest.raises(Exception):
+            SellerCreateSchema(
+                fio="Test", phone="+7900", shop_name="Shop",
+                delivery_type="both", ogrn="123abc7890123",
+            )
+
+    def test_ogrn_none_allowed(self):
+        from backend.app.api.admin import SellerCreateSchema
+        schema = SellerCreateSchema(
+            fio="Test", phone="+7900", shop_name="Shop",
+            delivery_type="both", ogrn=None,
+        )
+        assert schema.ogrn is None
+
+    def test_ogrn_empty_string_normalized(self):
+        from backend.app.api.admin import SellerCreateSchema
+        schema = SellerCreateSchema(
+            fio="Test", phone="+7900", shop_name="Shop",
+            delivery_type="both", ogrn="",
+        )
+        assert schema.ogrn is None
+
+    def test_ogrn_with_spaces(self):
+        from backend.app.api.admin import SellerCreateSchema
+        schema = SellerCreateSchema(
+            fio="Test", phone="+7900", shop_name="Shop",
+            delivery_type="both", ogrn=" 1234567890123 ",
+        )
+        assert schema.ogrn == "1234567890123"
+
+
+# ============================================
+# _extract_fio HELPER
+# ============================================
+
+class TestExtractFio:
+    """Test _extract_fio helper for extracting person name from DaData org data."""
+
+    def test_extract_fio_legal_entity(self):
+        """LEGAL type: FIO from management.name."""
+        from backend.app.api.admin import _extract_fio
+        org_data = {
+            "type": "LEGAL",
+            "management": {"name": "Иванов Иван Иванович", "post": "Генеральный директор"},
+        }
+        assert _extract_fio(org_data) == "Иванов Иван Иванович"
+
+    def test_extract_fio_individual(self):
+        """INDIVIDUAL (ИП) type: FIO from fio object."""
+        from backend.app.api.admin import _extract_fio
+        org_data = {
+            "type": "INDIVIDUAL",
+            "fio": {"surname": "Петрова", "name": "Мария", "patronymic": "Сергеевна"},
+        }
+        assert _extract_fio(org_data) == "Петрова Мария Сергеевна"
+
+    def test_extract_fio_individual_no_patronymic(self):
+        """INDIVIDUAL with no patronymic."""
+        from backend.app.api.admin import _extract_fio
+        org_data = {
+            "type": "INDIVIDUAL",
+            "fio": {"surname": "Ким", "name": "Алексей", "patronymic": None},
+        }
+        assert _extract_fio(org_data) == "Ким Алексей"
+
+    def test_extract_fio_no_data(self):
+        """No management and no fio — returns None."""
+        from backend.app.api.admin import _extract_fio
+        org_data = {"type": "LEGAL"}
+        assert _extract_fio(org_data) is None
+
+    def test_extract_fio_empty_management(self):
+        """Management exists but name is empty."""
+        from backend.app.api.admin import _extract_fio
+        org_data = {"management": {"name": "", "post": "Директор"}}
+        assert _extract_fio(org_data) is None
+
+    def test_extract_fio_management_none_name(self):
+        """Management exists but name is None."""
+        from backend.app.api.admin import _extract_fio
+        org_data = {"management": {"name": None}}
+        assert _extract_fio(org_data) is None
+
+    def test_extract_fio_prefers_management_over_fio(self):
+        """When both management and fio exist, management takes priority."""
+        from backend.app.api.admin import _extract_fio
+        org_data = {
+            "management": {"name": "Сидоров Пётр Иванович"},
+            "fio": {"surname": "Другой", "name": "Человек", "patronymic": "Отчество"},
+        }
+        assert _extract_fio(org_data) == "Сидоров Пётр Иванович"
+
+    def test_extract_fio_empty_fio_fields(self):
+        """fio object with all empty fields — returns None."""
+        from backend.app.api.admin import _extract_fio
+        org_data = {
+            "fio": {"surname": None, "name": None, "patronymic": None},
+        }
+        assert _extract_fio(org_data) is None
+
+
+# ============================================
+# DaData INN/OGRN FORMAT VALIDATION (service)
+# ============================================
+
+class TestDadataFormatValidation:
+    """Test DaData validate_inn format checks (no HTTP calls).
+
+    Note: validate_inn checks API key first. When DADATA_API_KEY is not set,
+    it returns None without validating format. We temporarily set a dummy key
+    on the settings singleton to test format validation.
+    """
+
+    @pytest.mark.asyncio
+    async def test_invalid_format_short(self):
+        """Too short identifier raises ValueError."""
+        from backend.app.core.settings import get_settings
+        from backend.app.services.dadata import validate_inn
+        settings = get_settings()
+        original = settings.DADATA_API_KEY
+        settings.DADATA_API_KEY = "dummy_key_for_test"
+        try:
+            with pytest.raises(ValueError, match="ИНН.*ОГРН"):
+                await validate_inn("12345")
+        finally:
+            settings.DADATA_API_KEY = original
+
+    @pytest.mark.asyncio
+    async def test_invalid_format_non_digits(self):
+        """Non-digit identifier raises ValueError."""
+        from backend.app.core.settings import get_settings
+        from backend.app.services.dadata import validate_inn
+        settings = get_settings()
+        original = settings.DADATA_API_KEY
+        settings.DADATA_API_KEY = "dummy_key_for_test"
+        try:
+            with pytest.raises(ValueError, match="ИНН.*ОГРН"):
+                await validate_inn("abcdefghij")
+        finally:
+            settings.DADATA_API_KEY = original
+
+    @pytest.mark.asyncio
+    async def test_invalid_format_11_digits(self):
+        """11-digit identifier raises ValueError (not 10/12/13/15)."""
+        from backend.app.core.settings import get_settings
+        from backend.app.services.dadata import validate_inn
+        settings = get_settings()
+        original = settings.DADATA_API_KEY
+        settings.DADATA_API_KEY = "dummy_key_for_test"
+        try:
+            with pytest.raises(ValueError, match="ИНН.*ОГРН"):
+                await validate_inn("12345678901")
+        finally:
+            settings.DADATA_API_KEY = original
+
+
+# ============================================
+# BOUQUET SERVICE — COST CALCULATION
+# ============================================
+
+class TestBouquetCostCalculation:
+    """Test bouquet cost calculation (no per-item markup)."""
+
+    def test_check_stock_sufficient(self):
+        """_check_stock returns None when stock is sufficient."""
+        from backend.app.services.bouquets import _check_stock
+        stock = {1: (100, Decimal("50")), 2: (50, Decimal("30"))}
+        items = [{"flower_id": 1, "quantity": 10}, {"flower_id": 2, "quantity": 5}]
+        assert _check_stock(stock, items) is None
+
+    def test_check_stock_insufficient(self):
+        """_check_stock returns error when stock is insufficient."""
+        from backend.app.services.bouquets import _check_stock
+        stock = {1: (5, Decimal("50"))}
+        items = [{"flower_id": 1, "quantity": 10}]
+        result = _check_stock(stock, items)
+        assert result is not None
+        assert "id=1" in result
+
+    def test_can_assemble_count_basic(self):
+        """_can_assemble_count returns correct count."""
+        from backend.app.services.bouquets import _can_assemble_count
+
+        class MockItem:
+            def __init__(self, flower_id, quantity):
+                self.flower_id = flower_id
+                self.quantity = quantity
+
+        stock = {1: (100, Decimal("50")), 2: (30, Decimal("30"))}
+        items = [MockItem(1, 10), MockItem(2, 5)]
+        # flower 1: 100 // 10 = 10, flower 2: 30 // 5 = 6 → min = 6
+        assert _can_assemble_count(stock, items) == 6
+
+    def test_can_assemble_count_empty_items(self):
+        """_can_assemble_count returns 0 for empty items."""
+        from backend.app.services.bouquets import _can_assemble_count
+        stock = {1: (100, Decimal("50"))}
+        assert _can_assemble_count(stock, []) == 0
+
+    def test_can_assemble_count_no_stock(self):
+        """_can_assemble_count returns 0 when flower not in stock."""
+        from backend.app.services.bouquets import _can_assemble_count
+
+        class MockItem:
+            def __init__(self, flower_id, quantity):
+                self.flower_id = flower_id
+                self.quantity = quantity
+
+        stock = {}
+        items = [MockItem(1, 5)]
+        assert _can_assemble_count(stock, items) == 0
+
+
+# ============================================
+# PRODUCT COST/MARKUP SCHEMA
+# ============================================
+
+class TestProductCostMarkupSchema:
+    """Test ProductCreate/ProductUpdate schemas with cost_price and markup_percent."""
+
+    def test_product_create_with_cost_and_markup(self):
+        from backend.app.schemas import ProductCreate
+        p = ProductCreate(
+            seller_id=1, name="Букет роз", description="Красивый букет",
+            price=1500, quantity=5, bouquet_id=1,
+            cost_price=1000, markup_percent=50,
+        )
+        assert p.cost_price == 1000
+        assert p.markup_percent == 50
+        assert p.price == 1500
+
+    def test_product_create_without_cost_markup(self):
+        from backend.app.schemas import ProductCreate
+        p = ProductCreate(
+            seller_id=1, name="Ручной товар", description="Описание",
+            price=500, quantity=10,
+        )
+        assert p.cost_price is None
+        assert p.markup_percent is None
+
+    def test_product_update_with_markup(self):
+        from backend.app.schemas import ProductUpdate
+        u = ProductUpdate(cost_price=800, markup_percent=60, price=1280)
+        assert u.cost_price == 800
+        assert u.markup_percent == 60
+
+    def test_product_response_with_cost(self):
+        from backend.app.schemas import ProductResponse
+        r = ProductResponse(
+            id=1, seller_id=1, name="Test", description="Desc",
+            price=1500, quantity=5,
+            cost_price=1000, markup_percent=50,
+        )
+        assert r.cost_price == 1000
+        assert r.markup_percent == 50

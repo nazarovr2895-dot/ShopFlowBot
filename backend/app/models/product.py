@@ -17,6 +17,8 @@ class Product(Base):
     quantity: Mapped[int] = mapped_column(Integer, default=0)
     bouquet_id: Mapped[Optional[int]] = mapped_column(ForeignKey('bouquets.id'), nullable=True)
     is_preorder: Mapped[bool] = mapped_column(Boolean, default=False)
+    cost_price: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True)
+    markup_percent: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 2), nullable=True)
 
     __table_args__ = (
         Index('ix_products_seller_id', 'seller_id'),

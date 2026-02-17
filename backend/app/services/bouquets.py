@@ -179,16 +179,13 @@ async def list_bouquets_with_totals(
             name = flower_names[bi.flower_id]
             _, avg = stock.get(bi.flower_id, (0, Decimal("0")))
             cost = avg * bi.quantity
-            price = cost * bi.markup_multiplier
             total_cost += cost
-            total_price += price
             items_payload.append({
                 "flower_id": bi.flower_id,
                 "flower_name": name,
                 "quantity": bi.quantity,
-                "markup_multiplier": float(bi.markup_multiplier),
             })
-        total_price += b.packaging_cost
+        total_price = total_cost + b.packaging_cost
         can_assemble = _can_assemble_count(stock, b.bouquet_items or [])
         out.append({
             "id": b.id,
@@ -223,16 +220,13 @@ async def get_bouquet_with_totals(
         name = f.name if f else str(bi.flower_id)
         _, avg = stock.get(bi.flower_id, (0, Decimal("0")))
         cost = avg * bi.quantity
-        price = cost * bi.markup_multiplier
         total_cost += cost
-        total_price += price
         items_payload.append({
             "flower_id": bi.flower_id,
             "flower_name": name,
             "quantity": bi.quantity,
-            "markup_multiplier": float(bi.markup_multiplier),
         })
-    total_price += b.packaging_cost
+    total_price = total_cost + b.packaging_cost
     can_assemble = _can_assemble_count(stock, b.bouquet_items or [])
     return {
         "id": b.id,
