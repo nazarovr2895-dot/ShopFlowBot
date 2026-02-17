@@ -294,6 +294,13 @@ async def accept_order(
     try:
         result = await service.accept_order(order_id, verify_seller_id=seller_id)
         await session.commit()
+        # Sync bouquet product quantities after stock deduction
+        try:
+            from backend.app.services.bouquets import sync_bouquet_product_quantities
+            await sync_bouquet_product_quantities(session, seller_id)
+            await session.commit()
+        except Exception:
+            logger.exception("sync_bouquet_product_quantities failed after accept_order")
         from backend.app.services.telegram_notify import notify_buyer_order_status
         await notify_buyer_order_status(
             buyer_id=result["buyer_id"],
@@ -955,7 +962,7 @@ async def api_add_reception_item(
         raise HTTPException(status_code=400, detail=str(e))
     if not item:
         raise HTTPException(status_code=400, detail="Приёмка или цветок не найдены")
-    return {
+    resp = {
         "id": item.id,
         "flower_id": item.flower_id,
         "quantity_initial": item.quantity_initial,
@@ -966,6 +973,14 @@ async def api_add_reception_item(
         "sold_quantity": item.sold_quantity,
         "sold_amount": float(item.sold_amount),
     }
+    # Sync bouquet product quantities after new reception item
+    try:
+        from backend.app.services.bouquets import sync_bouquet_product_quantities
+        await sync_bouquet_product_quantities(session, seller_id)
+        await session.commit()
+    except Exception:
+        logger.exception("sync_bouquet_product_quantities failed after add_reception_item")
+    return resp
 
 
 @router.put("/receptions/items/{item_id}")
@@ -1040,7 +1055,7 @@ async def api_create_bouquet(
     session: AsyncSession = Depends(get_session),
 ):
     from fastapi import HTTPException
-    items = [{"flower_id": i.flower_id, "quantity": i.quantity, "markup_multiplier": i.markup_multiplier} for i in data.items]
+    items = [{"flower_id": i.flower_id, "quantity": i.quantity} for i in data.items]
     try:
         b = await create_bouquet_svc(
             session, seller_id, data.name, data.packaging_cost, items
@@ -1058,7 +1073,7 @@ async def api_update_bouquet(
     session: AsyncSession = Depends(get_session),
 ):
     from fastapi import HTTPException
-    items = [{"flower_id": i.flower_id, "quantity": i.quantity, "markup_multiplier": i.markup_multiplier} for i in data.items]
+    items = [{"flower_id": i.flower_id, "quantity": i.quantity} for i in data.items]
     try:
         b = await update_bouquet_svc(
             session, bouquet_id, seller_id, data.name, data.packaging_cost, items
@@ -1163,6 +1178,13 @@ async def api_inventory_apply(
     lines = [{"reception_item_id": x.reception_item_id, "actual_quantity": x.actual_quantity} for x in body]
     result = await inventory_apply(session, reception_id, seller_id, lines)
     await session.commit()
+    # Sync bouquet product quantities after inventory adjustment
+    try:
+        from backend.app.services.bouquets import sync_bouquet_product_quantities
+        await sync_bouquet_product_quantities(session, seller_id)
+        await session.commit()
+    except Exception:
+        logger.exception("sync_bouquet_product_quantities failed after inventory_apply")
     return result
 
 
@@ -1187,6 +1209,13 @@ async def api_write_off_item(
             reason=body.reason,
             comment=body.comment,
         )
+        # Sync bouquet product quantities after write-off
+        try:
+            from backend.app.services.bouquets import sync_bouquet_product_quantities
+            await sync_bouquet_product_quantities(session, seller_id)
+            await session.commit()
+        except Exception:
+            logger.exception("sync_bouquet_product_quantities failed after write_off")
         return result
     except WriteOffError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -1728,4 +1757,11 @@ async def apply_global_inventory(
     """Apply actual quantities per flower across all open receptions."""
     result = await global_inventory_apply(session, seller_id, lines)
     await session.commit()
+    # Sync bouquet product quantities after global inventory adjustment
+    try:
+        from backend.app.services.bouquets import sync_bouquet_product_quantities
+        await sync_bouquet_product_quantities(session, seller_id)
+        await session.commit()
+    except Exception:
+        logger.exception("sync_bouquet_product_quantities failed after global_inventory_apply")
     return result

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, model_validator, field_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 from typing import Optional, List
 from decimal import Decimal
 from backend.app.core.password_validation import sanitize_user_input
@@ -66,14 +66,14 @@ class ProductCreate(BaseModel):
     seller_id: int
     name: str
     description: str
-    price: float
+    price: float = Field(gt=0)
     photo_id: Optional[str] = None  # legacy: one photo
     photo_ids: Optional[List[str]] = None  # up to MAX_PRODUCT_PHOTOS
-    quantity: int = 0
+    quantity: int = Field(default=0, ge=0)
     bouquet_id: Optional[int] = None
     is_preorder: bool = False
-    cost_price: Optional[float] = None
-    markup_percent: Optional[float] = None
+    cost_price: Optional[float] = Field(default=None, ge=0)
+    markup_percent: Optional[float] = Field(default=None, ge=0)
 
     @field_validator("name", "description")
     @classmethod
@@ -92,15 +92,15 @@ class ProductUpdate(BaseModel):
     """Схема для обновления товара - все поля опциональны"""
     name: Optional[str] = None
     description: Optional[str] = None
-    price: Optional[float] = None
+    price: Optional[float] = Field(default=None, gt=0)
     photo_id: Optional[str] = None
     photo_ids: Optional[List[str]] = None
-    quantity: Optional[int] = None
+    quantity: Optional[int] = Field(default=None, ge=0)
     bouquet_id: Optional[int] = None
     is_active: Optional[bool] = None
     is_preorder: Optional[bool] = None
-    cost_price: Optional[float] = None
-    markup_percent: Optional[float] = None
+    cost_price: Optional[float] = Field(default=None, ge=0)
+    markup_percent: Optional[float] = Field(default=None, ge=0)
     
     @field_validator("name", "description")
     @classmethod
@@ -178,11 +178,15 @@ class InventoryCheckLine(BaseModel):
 # --- CRM: Bouquets ---
 class BouquetItemCreate(BaseModel):
     flower_id: int
-    quantity: int
-    markup_multiplier: float = 1.0
+    quantity: int = Field(ge=1)
 
 
 class BouquetCreate(BaseModel):
     name: str
-    packaging_cost: float = 0
-    items: List[BouquetItemCreate]
+    packaging_cost: float = Field(default=0, ge=0)
+    items: List[BouquetItemCreate] = Field(min_length=1)
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
+        return sanitize_user_input(v, max_length=255)

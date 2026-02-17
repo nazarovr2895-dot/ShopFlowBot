@@ -10,7 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from backend.app.core.limiter import limiter
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api import buyers, sellers, orders, admin, public
@@ -93,6 +93,28 @@ async def _daily_scheduler():
                         logger.info("Daily scheduler: sent event notifications", sellers_count=len(events_by_seller))
                 except Exception as e:
                     logger.error("Daily scheduler: get_all_sellers_upcoming_events failed", error=str(e))
+
+                # 3. Sync bouquet product quantities for all sellers
+                try:
+                    from backend.app.services.bouquets import sync_bouquet_product_quantities
+                    from backend.app.models.seller import Seller
+                    sellers_result = await session.execute(
+                        select(Seller.seller_id).where(Seller.is_blocked == False)  # noqa: E712
+                    )
+                    seller_ids = [row[0] for row in sellers_result.all()]
+                    synced_total = 0
+                    for sid in seller_ids:
+                        try:
+                            n = await sync_bouquet_product_quantities(session, sid)
+                            synced_total += n
+                        except Exception as e:
+                            logger.error("Daily sync: failed for seller", seller_id=sid, error=str(e))
+                    await session.commit()
+                    if synced_total > 0:
+                        logger.info("Daily scheduler: synced bouquet product quantities", updated=synced_total)
+                except Exception as e:
+                    await session.rollback()
+                    logger.error("Daily scheduler: bouquet sync failed", error=str(e))
         except Exception as e:
             logger.error("Daily scheduler: unexpected error", error=str(e))
             import asyncio

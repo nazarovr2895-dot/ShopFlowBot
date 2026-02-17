@@ -81,13 +81,12 @@ class Bouquet(Base):
 
 
 class BouquetItem(Base):
-    """Bouquet composition: flower + quantity + markup multiplier."""
+    """Bouquet composition: flower + quantity."""
     __tablename__ = 'bouquet_items'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     bouquet_id: Mapped[int] = mapped_column(ForeignKey('bouquets.id'))
     flower_id: Mapped[int] = mapped_column(ForeignKey('flowers.id'))
     quantity: Mapped[int] = mapped_column(Integer)
-    markup_multiplier: Mapped[float] = mapped_column(DECIMAL(5, 2), default=1)
 
     bouquet: Mapped["Bouquet"] = relationship("Bouquet", back_populates="bouquet_items")
 

@@ -155,6 +155,73 @@ async def get_active_bouquet_ids(session: AsyncSession, seller_id: int) -> set:
     return active
 
 
+async def sync_bouquet_product_quantities(
+    session: AsyncSession, seller_id: int
+) -> int:
+    """Recalculate Product.quantity, cost_price and price for all bouquet-linked products.
+
+    For each product with a bouquet_id, sets quantity = can_assemble_count
+    based on current reception stock.  Also refreshes cost_price and
+    (if markup_percent is set) recalculates price.
+
+    Does NOT commit — caller is responsible for committing.
+    Returns the number of products actually updated.
+    """
+    from backend.app.models.product import Product
+
+    stock = await _flower_stock_and_avg_price(session, seller_id)
+
+    # Load all bouquets with items for this seller
+    bq_result = await session.execute(
+        select(Bouquet)
+        .where(Bouquet.seller_id == seller_id)
+        .options(selectinload(Bouquet.bouquet_items))
+    )
+    bouquets = bq_result.scalars().all()
+    bouquet_map = {b.id: b for b in bouquets}
+
+    # Load all products linked to bouquets
+    pr_result = await session.execute(
+        select(Product).where(
+            Product.seller_id == seller_id,
+            Product.bouquet_id.isnot(None),
+        )
+    )
+    products = pr_result.scalars().all()
+
+    updated = 0
+    for product in products:
+        bouquet = bouquet_map.get(product.bouquet_id)
+        if not bouquet or not bouquet.bouquet_items:
+            continue
+
+        new_qty = _can_assemble_count(stock, bouquet.bouquet_items)
+
+        # Calculate cost price (flowers + packaging)
+        total_cost = Decimal("0")
+        for bi in bouquet.bouquet_items:
+            _, avg = stock.get(bi.flower_id, (0, Decimal("0")))
+            total_cost += avg * bi.quantity
+        total_price_cost = float(total_cost + bouquet.packaging_cost)
+
+        changed = False
+        if product.quantity != new_qty:
+            product.quantity = new_qty
+            changed = True
+        if product.cost_price != total_price_cost:
+            product.cost_price = total_price_cost
+            changed = True
+        if product.markup_percent is not None and total_price_cost > 0:
+            new_price = round(total_price_cost * (1 + float(product.markup_percent) / 100), 2)
+            if product.price != new_price:
+                product.price = new_price
+                changed = True
+        if changed:
+            updated += 1
+
+    return updated
+
+
 async def list_bouquets_with_totals(
     session: AsyncSession, seller_id: int
 ) -> List[Dict[str, Any]]:
@@ -279,7 +346,6 @@ async def create_bouquet(
             bouquet_id=bouquet.id,
             flower_id=it["flower_id"],
             quantity=it["quantity"],
-            markup_multiplier=Decimal(str(it.get("markup_multiplier", 1))),
         )
         session.add(bi)
     await session.commit()
@@ -316,7 +382,6 @@ async def update_bouquet(
             bouquet_id=bouquet_id,
             flower_id=it["flower_id"],
             quantity=it["quantity"],
-            markup_multiplier=Decimal(str(it.get("markup_multiplier", 1))),
         )
         session.add(bi)
     await session.commit()

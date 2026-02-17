@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  getFlowers,
-  getReceptions,
-  getReception,
+  getGlobalInventory,
   getBouquets,
   createBouquet,
   updateBouquet,
@@ -46,34 +44,13 @@ export function SellerBouquets() {
   }, []);
 
   const fetchFlowersWithStock = async (): Promise<FlowerStock[]> => {
-    const flowers = await getFlowers();
-    const receptions = await getReceptions();
-    const byFlower: Record<number, { name: string; total_remaining: number; avg_price: number; prices: number[] }> = {};
-    for (const f of flowers) {
-      byFlower[f.id] = { name: f.name, total_remaining: 0, avg_price: 0, prices: [] };
-    }
-    for (const r of receptions) {
-      const detail = await getReception(r.id);
-      for (const it of detail.items) {
-        if (!byFlower[it.flower_id]) continue;
-        byFlower[it.flower_id].total_remaining += it.remaining_quantity;
-        for (let i = 0; i < it.remaining_quantity; i++) {
-          byFlower[it.flower_id].prices.push(it.price_per_unit);
-        }
-      }
-    }
-    return flowers
-      .filter((f) => byFlower[f.id].total_remaining > 0)
-      .map((f) => {
-        const d = byFlower[f.id];
-        const avg = d.prices.length ? d.prices.reduce((a, b) => a + b, 0) / d.prices.length : 0;
-        return {
-          flower_id: f.id,
-          flower_name: f.name,
-          remaining_quantity: d.total_remaining,
-          avg_price: avg,
-        };
-      });
+    const inventory = await getGlobalInventory();
+    return inventory.map((item) => ({
+      flower_id: item.flower_id,
+      flower_name: item.flower_name,
+      remaining_quantity: item.total_remaining,
+      avg_price: item.avg_price,
+    }));
   };
 
   const addFormItem = () => {

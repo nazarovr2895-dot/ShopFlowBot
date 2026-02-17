@@ -835,3 +835,98 @@ class TestProductCostMarkupSchema:
         )
         assert r.cost_price == 1000
         assert r.markup_percent == 50
+
+
+# ============================================
+# VALIDATION CONSTRAINTS (Pydantic Field)
+# ============================================
+
+class TestValidationConstraints:
+    def test_product_create_negative_price_rejected(self):
+        from backend.app.schemas import ProductCreate
+        with pytest.raises(Exception):
+            ProductCreate(
+                seller_id=1, name="Bad", description="Desc",
+                price=-100, quantity=5,
+            )
+
+    def test_product_create_zero_price_rejected(self):
+        from backend.app.schemas import ProductCreate
+        with pytest.raises(Exception):
+            ProductCreate(
+                seller_id=1, name="Bad", description="Desc",
+                price=0, quantity=5,
+            )
+
+    def test_product_create_negative_quantity_rejected(self):
+        from backend.app.schemas import ProductCreate
+        with pytest.raises(Exception):
+            ProductCreate(
+                seller_id=1, name="Bad", description="Desc",
+                price=100, quantity=-1,
+            )
+
+    def test_product_create_negative_cost_price_rejected(self):
+        from backend.app.schemas import ProductCreate
+        with pytest.raises(Exception):
+            ProductCreate(
+                seller_id=1, name="Bad", description="Desc",
+                price=100, cost_price=-50,
+            )
+
+    def test_product_create_negative_markup_rejected(self):
+        from backend.app.schemas import ProductCreate
+        with pytest.raises(Exception):
+            ProductCreate(
+                seller_id=1, name="Bad", description="Desc",
+                price=100, markup_percent=-10,
+            )
+
+    def test_bouquet_item_zero_quantity_rejected(self):
+        from backend.app.schemas import BouquetItemCreate
+        with pytest.raises(Exception):
+            BouquetItemCreate(flower_id=1, quantity=0)
+
+    def test_bouquet_item_negative_quantity_rejected(self):
+        from backend.app.schemas import BouquetItemCreate
+        with pytest.raises(Exception):
+            BouquetItemCreate(flower_id=1, quantity=-3)
+
+    def test_bouquet_create_empty_items_rejected(self):
+        from backend.app.schemas import BouquetCreate
+        with pytest.raises(Exception):
+            BouquetCreate(name="Test", packaging_cost=0, items=[])
+
+    def test_bouquet_create_negative_packaging_rejected(self):
+        from backend.app.schemas import BouquetCreate, BouquetItemCreate
+        with pytest.raises(Exception):
+            BouquetCreate(
+                name="Test", packaging_cost=-10,
+                items=[BouquetItemCreate(flower_id=1, quantity=1)],
+            )
+
+    def test_product_update_negative_price_rejected(self):
+        from backend.app.schemas import ProductUpdate
+        with pytest.raises(Exception):
+            ProductUpdate(price=-50)
+
+    def test_product_update_zero_price_rejected(self):
+        from backend.app.schemas import ProductUpdate
+        with pytest.raises(Exception):
+            ProductUpdate(price=0)
+
+    def test_product_update_none_price_allowed(self):
+        from backend.app.schemas import ProductUpdate
+        u = ProductUpdate(price=None)
+        assert u.price is None
+
+    def test_bouquet_item_valid_quantity(self):
+        from backend.app.schemas import BouquetItemCreate
+        bi = BouquetItemCreate(flower_id=1, quantity=5)
+        assert bi.quantity == 5
+
+    def test_bouquet_item_no_markup_multiplier(self):
+        """markup_multiplier was removed from BouquetItemCreate."""
+        from backend.app.schemas import BouquetItemCreate
+        bi = BouquetItemCreate(flower_id=1, quantity=3)
+        assert not hasattr(bi, 'markup_multiplier')

@@ -845,7 +845,7 @@ export async function getBouquet(bouquetId: number): Promise<BouquetDetail> {
 export async function createBouquet(data: {
   name: string;
   packaging_cost: number;
-  items: { flower_id: number; quantity: number; markup_multiplier?: number }[];
+  items: { flower_id: number; quantity: number }[];
 }): Promise<BouquetDetail> {
   return fetchSeller<BouquetDetail>('/seller-web/bouquets', {
     method: 'POST',
@@ -858,7 +858,7 @@ export async function updateBouquet(
   data: {
     name: string;
     packaging_cost: number;
-    items: { flower_id: number; quantity: number; markup_multiplier?: number }[];
+    items: { flower_id: number; quantity: number }[];
   }
 ): Promise<BouquetDetail> {
   return fetchSeller<BouquetDetail>(`/seller-web/bouquets/${bouquetId}`, {
