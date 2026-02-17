@@ -101,8 +101,6 @@ export function Stats() {
 
   return (
     <div className="stats-page">
-      <h1 className="page-title">Статистика</h1>
-
       <div className="stats-summary card">
         <h3>Общая статистика</h3>
         <div className="stats-range-row">

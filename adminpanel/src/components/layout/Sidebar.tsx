@@ -1,0 +1,95 @@
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Store,
+  Warehouse,
+  Users,
+  BarChart3,
+  Settings,
+  LogOut,
+  UserCircle,
+  Shield,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import './Sidebar.css';
+
+/* ── Nav config ──────────────────────────────────────────── */
+
+interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  dividerBefore?: boolean;
+}
+
+const sellerNav: NavItem[] = [
+  { to: '/', label: 'Дашборд', icon: LayoutDashboard },
+  { to: '/orders', label: 'Заказы', icon: ShoppingBag },
+  { to: '/catalog', label: 'Каталог', icon: Store },
+  { to: '/stock', label: 'Склад', icon: Warehouse },
+  { to: '/customers', label: 'Клиенты', icon: Users },
+  { to: '/analytics', label: 'Аналитика', icon: BarChart3 },
+  { to: '/settings', label: 'Настройки', icon: Settings, dividerBefore: true },
+];
+
+const adminNav: NavItem[] = [
+  { to: '/', label: 'Дашборд', icon: LayoutDashboard },
+  { to: '/sellers', label: 'Продавцы', icon: UserCircle },
+  { to: '/analytics', label: 'Аналитика', icon: BarChart3 },
+  { to: '/security-admin', label: 'Безопасность', icon: Shield, dividerBefore: true },
+];
+
+/* ── Component ───────────────────────────────────────────── */
+
+export function Sidebar() {
+  const { role, logout } = useAuth();
+  const navigate = useNavigate();
+  const nav = role === 'seller' ? sellerNav : adminNav;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  return (
+    <aside className="sidebar-v2">
+      {/* Brand */}
+      <div className="sidebar-v2-brand">
+        <span className="sidebar-v2-logo">S</span>
+        <span className="sidebar-v2-brand-text">
+          Shop<span className="sidebar-v2-brand-accent">Flow</span>
+        </span>
+      </div>
+
+      {/* Navigation */}
+      <nav className="sidebar-v2-nav">
+        {nav.map((item) => (
+          <div key={item.to}>
+            {item.dividerBefore && <div className="sidebar-v2-divider" />}
+            <NavLink
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) =>
+                `sidebar-v2-link ${isActive ? 'sidebar-v2-link--active' : ''}`
+              }
+            >
+              <item.icon size={18} className="sidebar-v2-icon" />
+              <span className="sidebar-v2-link-text">{item.label}</span>
+            </NavLink>
+          </div>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="sidebar-v2-footer">
+        <div className="sidebar-v2-divider" />
+        <button className="sidebar-v2-link sidebar-v2-logout" onClick={handleLogout}>
+          <LogOut size={18} className="sidebar-v2-icon" />
+          <span className="sidebar-v2-link-text">Выход</span>
+        </button>
+      </div>
+    </aside>
+  );
+}

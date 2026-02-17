@@ -47,8 +47,6 @@ export function StatsSellers() {
 
   return (
     <div className="stats-page">
-      <h1 className="page-title">Статистика продавцов</h1>
-
       <div className="card">
         <h3>Статистика по продавцу</h3>
         <div className="search-row">

@@ -71,8 +71,6 @@ export function SellerWasteReport() {
 
   return (
     <div className="stats-page">
-      <h1 className="page-title">Отчёт о потерях</h1>
-
       <div className="card seller-stats-card">
         <div className="seller-stats-header">
           <div><h2>Списания за период</h2></div>

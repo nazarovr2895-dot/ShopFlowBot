@@ -1,25 +1,25 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Layout } from './components/Layout';
+import { ToastProvider, ConfirmProvider } from './components/ui';
+import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
+
+/* ── Admin pages ─────────────────────────────────────────── */
 import { Dashboard } from './pages/Dashboard';
 import { Sellers } from './pages/Sellers';
-import { Stats } from './pages/Stats';
-import { StatsSellers } from './pages/StatsSellers';
+import { AdminAnalytics } from './pages/admin/AdminAnalytics';
+
+/* ── Seller pages ────────────────────────────────────────── */
 import { SellerDashboard } from './pages/seller/SellerDashboard';
 import { SellerOrders } from './pages/seller/SellerOrders';
-import { SellerShop } from './pages/seller/SellerShop';
-import { SellerReceptions } from './pages/seller/SellerReceptions';
-import { SellerBouquets } from './pages/seller/SellerBouquets';
-import { SellerInventory } from './pages/seller/SellerInventory';
-import { SellerStats } from './pages/seller/SellerStats';
-import { SellerProfile } from './pages/seller/SellerProfile';
-import { SellerSecurity } from './pages/seller/SellerSecurity';
-import { SellerCustomers } from './pages/seller/SellerCustomers';
 import { SellerOrderDetail } from './pages/seller/SellerOrderDetail';
-import { SellerShowcase } from './pages/seller/SellerShowcase';
-import { SellerSubscribers } from './pages/seller/SellerSubscribers';
-import { SellerWasteReport } from './pages/seller/SellerWasteReport';
+import { SellerCatalog } from './pages/seller/SellerCatalog';
+import { SellerStock } from './pages/seller/SellerStock';
+import { SellerCustomerHub } from './pages/seller/SellerCustomerHub';
+import { SellerCustomers } from './pages/seller/SellerCustomers';
+import { SellerAnalytics } from './pages/seller/SellerAnalytics';
+import { SellerSettings } from './pages/seller/SellerSettings';
+
 import './index.css';
 import './App.css';
 
@@ -49,30 +49,42 @@ function AppRoutes() {
           </PrivateRoute>
         }
       >
+        {/* ── Dashboard ──────────────────────────────────── */}
         <Route index element={isSeller ? <SellerDashboard /> : <Dashboard />} />
+
+        {/* ── Admin routes ───────────────────────────────── */}
         {isAdmin && (
           <>
             <Route path="sellers" element={<Sellers />} />
-            <Route path="stats" element={<Stats />} />
-            <Route path="stats/sellers" element={<StatsSellers />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+            {/* Legacy redirects */}
+            <Route path="stats" element={<Navigate to="/analytics" replace />} />
+            <Route path="stats/sellers" element={<Navigate to="/analytics?tab=sellers" replace />} />
           </>
         )}
+
+        {/* ── Seller routes ──────────────────────────────── */}
         {isSeller && (
           <>
             <Route path="orders" element={<SellerOrders />} />
             <Route path="orders/:orderId" element={<SellerOrderDetail />} />
-            <Route path="customers" element={<SellerCustomers />} />
+            <Route path="catalog" element={<SellerCatalog />} />
+            <Route path="stock" element={<SellerStock />} />
+            <Route path="customers" element={<SellerCustomerHub />} />
             <Route path="customers/:id" element={<SellerCustomers />} />
-            <Route path="subscribers" element={<SellerSubscribers />} />
-            <Route path="shop" element={<SellerShop />} />
-            <Route path="showcase" element={<SellerShowcase />} />
-            <Route path="receptions" element={<SellerReceptions />} />
-            <Route path="bouquets" element={<SellerBouquets />} />
-            <Route path="inventory" element={<SellerInventory />} />
-            <Route path="stats" element={<SellerStats />} />
-            <Route path="waste-report" element={<SellerWasteReport />} />
-            <Route path="profile" element={<SellerProfile />} />
-            <Route path="security" element={<SellerSecurity />} />
+            <Route path="analytics" element={<SellerAnalytics />} />
+            <Route path="settings" element={<SellerSettings />} />
+            {/* Legacy redirects for old URLs */}
+            <Route path="shop" element={<Navigate to="/settings?tab=shop" replace />} />
+            <Route path="showcase" element={<Navigate to="/catalog?tab=showcase" replace />} />
+            <Route path="receptions" element={<Navigate to="/stock?tab=receptions" replace />} />
+            <Route path="bouquets" element={<Navigate to="/catalog?tab=bouquets" replace />} />
+            <Route path="inventory" element={<Navigate to="/stock?tab=inventory" replace />} />
+            <Route path="stats" element={<Navigate to="/analytics" replace />} />
+            <Route path="waste-report" element={<Navigate to="/stock?tab=writeoffs" replace />} />
+            <Route path="profile" element={<Navigate to="/settings?tab=account" replace />} />
+            <Route path="security" element={<Navigate to="/settings?tab=account" replace />} />
+            <Route path="subscribers" element={<Navigate to="/customers?tab=subscribers" replace />} />
           </>
         )}
       </Route>
@@ -84,9 +96,13 @@ function AppRoutes() {
 export function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <ToastProvider>
+        <ConfirmProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </ConfirmProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }

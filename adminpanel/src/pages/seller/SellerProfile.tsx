@@ -48,7 +48,6 @@ export function SellerProfile() {
   if (!profile) {
     return (
       <div className="seller-profile-page">
-        <h1 className="page-title">Профиль</h1>
         <div className="card">
           <p className="empty-text">Не удалось загрузить данные</p>
         </div>
@@ -60,8 +59,6 @@ export function SellerProfile() {
 
   return (
     <div className="seller-profile-page">
-      <h1 className="page-title">Профиль</h1>
-
       <div className="card profile-card">
         <h3>Личные данные</h3>
         <div className="profile-grid">

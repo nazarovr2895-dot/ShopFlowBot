@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount, getUpcomingEvents } from '../../api/sellerClient';
 import type { SellerMe, SellerStats, DashboardAlerts, UpcomingEvent } from '../../api/sellerClient';
+import { PageHeader } from '../../components/ui';
 import '../Dashboard.css';
 
 const PENDING_POLL_INTERVAL_MS = 45 * 1000;
@@ -90,12 +91,10 @@ export function SellerDashboard() {
 
   return (
     <div className="dashboard">
-      <h1 className="page-title">Панель продавца</h1>
-      {me && (
-        <p className="page-subtitle" style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-          {me.shop_name || 'Мой магазин'}
-        </p>
-      )}
+      <PageHeader
+        title="Дашборд"
+        subtitle={me?.shop_name || 'Мой магазин'}
+      />
 
       {(alerts?.low_stock_bouquets?.length ?? 0) + (alerts?.expiring_items?.length ?? 0) > 0 && (
         <div className="card dashboard-alerts">

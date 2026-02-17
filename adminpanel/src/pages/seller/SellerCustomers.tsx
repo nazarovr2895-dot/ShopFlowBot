@@ -18,6 +18,7 @@ import {
   deleteCustomerEvent,
 } from '../../api/sellerClient';
 import type { UnifiedCustomerBrief, SellerCustomerDetail, SellerOrder, CustomerEvent, LoyaltyTier } from '../../api/sellerClient';
+import { useToast, useConfirm } from '../../components/ui';
 import './SellerCustomers.css';
 
 function formatDate(iso: string | null): string {
@@ -73,6 +74,8 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
 };
 
 export function SellerCustomers() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<UnifiedCustomerBrief[]>([]);
@@ -170,17 +173,17 @@ export function SellerCustomers() {
   const handleSaveLoyaltySettings = async () => {
     const num = parseFloat(pointsPercent.replace(',', '.'));
     if (isNaN(num) || num < 0 || num > 100) {
-      alert('Процент начисления: число от 0 до 100');
+      toast.warning('Процент начисления: число от 0 до 100');
       return;
     }
     const maxDisc = parseInt(maxPointsDiscount, 10);
     if (isNaN(maxDisc) || maxDisc < 0 || maxDisc > 100) {
-      alert('Макс. % оплаты баллами: число от 0 до 100');
+      toast.warning('Макс. % оплаты баллами: число от 0 до 100');
       return;
     }
     const rate = parseFloat(pointsToRubleRate.replace(',', '.'));
     if (isNaN(rate) || rate <= 0) {
-      alert('Курс баллов: число больше 0');
+      toast.warning('Курс баллов: число больше 0');
       return;
     }
     setPointsSaving(true);
@@ -199,7 +202,7 @@ export function SellerCustomers() {
       setTiersConfig(result.tiers_config || []);
       setPointsExpireDays(result.points_expire_days ? String(result.points_expire_days) : '');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setPointsSaving(false);
     }
@@ -210,7 +213,7 @@ export function SellerCustomers() {
     const { phone, first_name, last_name } = addForm;
     const digits = phoneToDigits(phone);
     if (digits.length < 11) {
-      alert('Введите номер в формате +7 000 000 00 00');
+      toast.warning('Введите номер в формате +7 000 000 00 00');
       return;
     }
     setAddSubmitting(true);
@@ -221,9 +224,9 @@ export function SellerCustomers() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Ошибка';
       if (typeof msg === 'string' && (msg.includes('уже есть') || msg.includes('409'))) {
-        alert('Клиент с таким номером телефона уже есть. Проверьте список или поиск по телефону.');
+        toast.warning('Клиент с таким номером телефона уже есть. Проверьте список или поиск по телефону.');
       } else {
-        alert(msg);
+        toast.error(msg);
       }
     } finally {
       setAddSubmitting(false);
@@ -234,7 +237,7 @@ export function SellerCustomers() {
     e.preventDefault();
     const amount = parseFloat(saleAmount.replace(',', '.'));
     if (isNaN(amount) || amount <= 0 || !detail) {
-      alert('Введите сумму больше 0');
+      toast.warning('Введите сумму больше 0');
       return;
     }
     setSaleSubmitting(true);
@@ -243,7 +246,7 @@ export function SellerCustomers() {
       setSaleAmount('');
       setDetail((d) => (d ? { ...d, points_balance: result.new_balance, transactions: [{ id: 0, amount: result.amount, points_accrued: result.points_accrued, order_id: null, created_at: new Date().toISOString() }, ...d.transactions] } : null));
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setSaleSubmitting(false);
     }
@@ -253,7 +256,7 @@ export function SellerCustomers() {
     e.preventDefault();
     const points = parseFloat(deductPointsAmount.replace(',', '.'));
     if (isNaN(points) || points <= 0 || !detail) {
-      alert('Введите положительное количество баллов');
+      toast.warning('Введите положительное количество баллов');
       return;
     }
     setDeductSubmitting(true);
@@ -262,7 +265,7 @@ export function SellerCustomers() {
       setDeductPointsAmount('');
       setDetail((d) => (d ? { ...d, points_balance: result.new_balance, transactions: [{ id: 0, amount: 0, points_accrued: -result.points_deducted, order_id: null, created_at: new Date().toISOString() }, ...d.transactions] } : null));
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setDeductSubmitting(false);
     }
@@ -275,7 +278,7 @@ export function SellerCustomers() {
       const result = await updateCustomer(detail.id, { notes: customerNotes, tags: customerTags, birthday: customerBirthday || null });
       setDetail((d) => (d ? { ...d, notes: result.notes, tags: Array.isArray(result.tags) ? result.tags : [], birthday: result.birthday } : null));
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setNotesSaving(false);
     }
@@ -284,7 +287,7 @@ export function SellerCustomers() {
   const handleAddEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!detail || !eventForm.title.trim() || !eventForm.event_date) {
-      alert('Заполните название и дату');
+      toast.warning('Заполните название и дату');
       return;
     }
     setEventSubmitting(true);
@@ -298,7 +301,7 @@ export function SellerCustomers() {
       setEvents((prev) => [...prev, ev]);
       setEventForm({ title: '', event_date: '', remind_days_before: '3', notes: '' });
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setEventSubmitting(false);
     }
@@ -319,19 +322,19 @@ export function SellerCustomers() {
       setEditingEvent(null);
       setEventForm({ title: '', event_date: '', remind_days_before: '3', notes: '' });
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setEventSubmitting(false);
     }
   };
 
   const handleDeleteEvent = async (eventId: number) => {
-    if (!detail || !confirm('Удалить это событие?')) return;
+    if (!detail || !await confirm({ message: 'Удалить это событие?' })) return;
     try {
       await deleteCustomerEvent(detail.id, eventId);
       setEvents((prev) => prev.filter((x) => x.id !== eventId));
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -372,7 +375,7 @@ export function SellerCustomers() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка экспорта');
+      toast.error(e instanceof Error ? e.message : 'Ошибка экспорта');
     }
   };
 

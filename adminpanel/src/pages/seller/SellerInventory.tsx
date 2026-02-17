@@ -12,11 +12,14 @@ import {
   type GlobalInventoryItem,
   type GlobalInventoryCheckLine,
 } from '../../api/sellerClient';
+import { useToast, useConfirm } from '../../components/ui';
 import './SellerInventory.css';
 
 type InventoryMode = 'reception' | 'global';
 
 export function SellerInventory() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [mode, setMode] = useState<InventoryMode>('global');
   // --- Reception mode state ---
   const [receptions, setReceptions] = useState<ReceptionBrief[]>([]);
@@ -124,20 +127,20 @@ export function SellerInventory() {
       const result = await inventoryCheck(selectedReceptionId, getCheckLines());
       setCheckResult(result);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
   const handleApply = async () => {
     if (!selectedReceptionId || !checkResult) return;
-    if (!confirm('Остатки в системе будут приведены в соответствие с введёнными. Продолжить?')) return;
+    if (!await confirm({ message: 'Остатки в системе будут приведены в соответствие с введёнными. Продолжить?' })) return;
     setApplySubmitting(true);
     try {
       await inventoryApply(selectedReceptionId, getCheckLines());
       setCheckResult(null);
       await loadInventory(selectedReceptionId);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     } finally {
       setApplySubmitting(false);
     }
@@ -159,20 +162,20 @@ export function SellerInventory() {
       const result = await globalInventoryCheck(getGlobalCheckLines());
       setGlobalCheckResult(result);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
   const handleGlobalApply = async () => {
     if (!globalCheckResult) return;
-    if (!confirm('Остатки по всем открытым приёмкам будут обновлены. Продолжить?')) return;
+    if (!await confirm({ message: 'Остатки по всем открытым приёмкам будут обновлены. Продолжить?' })) return;
     setApplySubmitting(true);
     try {
       await globalInventoryApply(getGlobalCheckLines());
       setGlobalCheckResult(null);
       await loadGlobalInventory();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     } finally {
       setApplySubmitting(false);
     }
@@ -188,8 +191,6 @@ export function SellerInventory() {
 
   return (
     <div className="seller-inventory-page">
-      <h1 className="page-title">Инвентаризация</h1>
-
       <div className="orders-tabs" style={{ marginBottom: '1rem' }}>
         <button
           className={`orders-tab ${mode === 'global' ? 'active' : ''}`}

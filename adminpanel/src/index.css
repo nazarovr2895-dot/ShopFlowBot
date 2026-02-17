@@ -1,16 +1,75 @@
 :root {
+  /* ── Surfaces ──────────────────────────────────────────── */
   --bg: #0f172a;
-  --bg-card: #1e293b;
-  --bg-hover: #334155;
+  --bg-card: #1e293b;              /* legacy alias */
+  --bg-surface: #1e293b;
+  --bg-surface-hover: #253349;
+  --bg-hover: #334155;             /* legacy alias */
+  --bg-elevated: #334155;
+
+  /* ── Borders ───────────────────────────────────────────── */
   --border: #334155;
+  --border-subtle: #1e293b;
+
+  /* ── Text ──────────────────────────────────────────────── */
   --text: #f1f5f9;
-  --text-muted: #94a3b8;
+  --text-muted: #94a3b8;           /* legacy alias */
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+
+  /* ── Accent ────────────────────────────────────────────── */
   --accent: #6366f1;
   --accent-hover: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.1);
+
+  /* ── Semantic ──────────────────────────────────────────── */
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --radius: 10px;
+  --info: #3b82f6;
+
+  /* ── Spacing (8px grid) ────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Typography ────────────────────────────────────────── */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+
+  /* ── Radii ─────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ── Shadows ───────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
+
+  /* ── Transitions ───────────────────────────────────────── */
+  --transition-fast: 0.1s ease;
+  --transition: 0.15s ease;
+  --transition-slow: 0.3s ease;
+
+  /* ── Layout ────────────────────────────────────────────── */
+  --sidebar-width: 240px;
+  --page-max-width: 1200px;
+  --page-padding: var(--space-8);
+
+  /* ── Fonts ─────────────────────────────────────────────── */
   --font: 'Manrope', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
@@ -57,4 +116,18 @@ button {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── Utility: loader (used across pages) ─────────────────── */
+.loader {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

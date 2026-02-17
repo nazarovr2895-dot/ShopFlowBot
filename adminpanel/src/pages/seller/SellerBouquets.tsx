@@ -8,9 +8,12 @@ import {
   type BouquetDetail,
   type FlowerStock,
 } from '../../api/sellerClient';
+import { useToast, useConfirm } from '../../components/ui';
 import './SellerBouquets.css';
 
 export function SellerBouquets() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [flowersInStock, setFlowersInStock] = useState<FlowerStock[]>([]);
   const [bouquets, setBouquets] = useState<BouquetDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +99,7 @@ export function SellerBouquets() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || form.items.length === 0) {
-      alert('Укажите название и хотя бы одну позицию');
+      toast.warning('Укажите название и хотя бы одну позицию');
       return;
     }
     const packaging = parseFloat(form.packaging_cost) || 0;
@@ -119,17 +122,17 @@ export function SellerBouquets() {
       setShowCreate(false);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Удалить букет?')) return;
+    if (!await confirm({ message: 'Удалить букет?' })) return;
     try {
       await deleteBouquet(id);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
@@ -159,7 +162,6 @@ export function SellerBouquets() {
 
   return (
     <div className="seller-bouquets-page">
-      <h1 className="page-title">Конструктор букетов</h1>
       <button className="btn btn-primary" onClick={() => { setShowCreate(true); setEditingId(null); setForm({ name: '', packaging_cost: '0', items: [] }); }}>
         Создать букет
       </button>

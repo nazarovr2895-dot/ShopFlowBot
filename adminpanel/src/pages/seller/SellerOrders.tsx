@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { PageHeader, useToast, useConfirm } from '../../components/ui';
 import {
   getOrders,
   acceptOrder,
@@ -57,6 +58,8 @@ function getDaysUntil(dateStr: string): { days: number; label: string; className
 }
 
 export function SellerOrders() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'pending';
   const [activeTab, setActiveTab] = useState<MainTab>(() => {
@@ -121,22 +124,22 @@ export function SellerOrders() {
   const handleAccept = async (order: SellerOrder) => {
     const price = order.total_price ?? 0;
     const msg = `Итоговая цена: ${price} ₽.\n\nПодтвердить принятие заказа? Покупатель увидит именно эту сумму.`;
-    if (!confirm(msg)) return;
+    if (!await confirm({ message: msg })) return;
     try {
       await acceptOrder(order.id);
       loadOrders();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
   const handleReject = async (orderId: number) => {
-    if (!confirm('Отклонить заказ?')) return;
+    if (!await confirm({ message: 'Отклонить заказ?' })) return;
     try {
       await rejectOrder(orderId);
       loadOrders();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -145,14 +148,14 @@ export function SellerOrders() {
       await updateOrderStatus(orderId, status);
       loadOrders();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
   const handlePriceChange = async (orderId: number) => {
     const num = parseFloat(newPrice);
     if (isNaN(num) || num < 0) {
-      alert('Введите корректную сумму');
+      toast.warning('Введите корректную сумму');
       return;
     }
     try {
@@ -161,7 +164,7 @@ export function SellerOrders() {
       setNewPrice('');
       loadOrders();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -324,7 +327,7 @@ export function SellerOrders() {
 
   return (
     <div className="seller-orders-page">
-      <h1 className="page-title">Заказы</h1>
+      <PageHeader title="Заказы" />
 
       {/* Main tabs */}
       <div className="orders-tabs">

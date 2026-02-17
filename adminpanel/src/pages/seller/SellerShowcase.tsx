@@ -11,6 +11,7 @@ import {
   recalculateProductPrice,
 } from '../../api/sellerClient';
 import type { SellerMe, SellerProduct, BouquetDetail } from '../../api/sellerClient';
+import { useToast, useConfirm } from '../../components/ui';
 import './SellerShowcase.css';
 
 type AddProductMode = 'choice' | 'manual' | 'bouquet';
@@ -18,6 +19,8 @@ type AddProductMode = 'choice' | 'manual' | 'bouquet';
 type ShowcaseTab = 'regular' | 'preorder';
 
 export function SellerShowcase() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<ShowcaseTab>('regular');
   const [me, setMe] = useState<SellerMe | null>(null);
   const [products, setProducts] = useState<SellerProduct[]>([]);
@@ -80,7 +83,7 @@ export function SellerShowcase() {
       setProducts((list) =>
         list.map((p) => (p.id === product.id ? { ...p, is_active: prev } : p))
       );
-      alert(err instanceof Error ? err.message : 'Ошибка сохранения');
+      toast.error(err instanceof Error ? err.message : 'Ошибка сохранения');
     } finally {
       setTogglingId(null);
     }
@@ -92,7 +95,7 @@ export function SellerShowcase() {
     const price = parseFloat(newProduct.price);
     const quantity = parseInt(newProduct.quantity, 10);
     if (isNaN(price) || price < 0 || isNaN(quantity) || quantity < 0) {
-      alert('Проверьте цену и количество');
+      toast.warning('Проверьте цену и количество');
       return;
     }
     try {
@@ -126,7 +129,7 @@ export function SellerShowcase() {
       setMarkupPercent('50');
       load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -173,12 +176,12 @@ export function SellerShowcase() {
   };
 
   const handleDeleteProduct = async (id: number) => {
-    if (!confirm('Удалить товар?')) return;
+    if (!await confirm({ message: 'Удалить товар?' })) return;
     try {
       await deleteProduct(id);
       load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -234,7 +237,7 @@ export function SellerShowcase() {
     const price = parseFloat(editForm.price);
     const quantity = parseInt(editForm.quantity, 10);
     if (isNaN(price) || price < 0 || isNaN(quantity) || quantity < 0) {
-      alert('Проверьте цену и количество');
+      toast.warning('Проверьте цену и количество');
       return;
     }
     setEditSaving(true);
@@ -255,7 +258,7 @@ export function SellerShowcase() {
       closeEdit();
       load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setEditSaving(false);
     }
@@ -271,7 +274,6 @@ export function SellerShowcase() {
 
   return (
     <div className="seller-showcase-page">
-      <h1 className="page-title">Витрина</h1>
       <p className="seller-showcase-intro">
         Как видят ваш каталог в приложении. Добавляйте, редактируйте товары и управляйте показом в mini app.
       </p>
@@ -646,7 +648,7 @@ export function SellerShowcase() {
                             await recalculateProductPrice(p.id);
                             load();
                           } catch (e) {
-                            alert(e instanceof Error ? e.message : 'Ошибка пересчёта');
+                            toast.error(e instanceof Error ? e.message : 'Ошибка пересчёта');
                           } finally {
                             setRecalculating(null);
                           }

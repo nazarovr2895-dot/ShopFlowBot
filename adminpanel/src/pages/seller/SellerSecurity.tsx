@@ -54,7 +54,6 @@ export function SellerSecurity() {
 
   return (
     <div className="seller-security-page">
-      <h1 className="page-title">Безопасность</h1>
       <p className="security-hint">Измените логин и пароль для входа в веб-панель. Сначала введите текущие данные для подтверждения.</p>
 
       <div className="card">

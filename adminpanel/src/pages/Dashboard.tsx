@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getAllStats, getAllSellers } from '../api/adminClient';
 import type { SellerStats } from '../types';
+import { PageHeader } from '../components/ui';
 import './Dashboard.css';
 
 export function Dashboard() {
@@ -41,7 +42,7 @@ export function Dashboard() {
 
   return (
     <div className="dashboard">
-      <h1 className="page-title">Дашборд</h1>
+      <PageHeader title="Дашборд" subtitle="Обзор платформы" />
 
       <div className="stats-grid">
         <div className="stat-card">

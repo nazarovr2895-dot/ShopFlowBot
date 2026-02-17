@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { PageHeader } from '../components/ui';
+import { Plus } from 'lucide-react';
 import {
   searchSellers,
   getAllSellers,
@@ -135,12 +137,14 @@ export function Sellers() {
 
   return (
     <div className="sellers-page">
-      <div className="page-header">
-        <h1 className="page-title">Продавцы</h1>
-        <button className="btn btn-primary" onClick={() => setShowInnVerification(true)}>
-          ➕ Добавить продавца
-        </button>
-      </div>
+      <PageHeader
+        title="Продавцы"
+        actions={
+          <button className="btn btn-primary" onClick={() => setShowInnVerification(true)}>
+            <Plus size={16} /> Добавить
+          </button>
+        }
+      />
 
       <div className="search-bar card">
         <input

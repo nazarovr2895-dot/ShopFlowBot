@@ -16,6 +16,7 @@ import {
   type ReceptionDetail,
   type ReceptionItemRow,
 } from '../../api/sellerClient';
+import { useToast, useConfirm } from '../../components/ui';
 import './SellerReceptions.css';
 
 const WRITE_OFF_REASONS: { value: string; label: string }[] = [
@@ -26,6 +27,8 @@ const WRITE_OFF_REASONS: { value: string; label: string }[] = [
 ];
 
 export function SellerReceptions() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [flowers, setFlowers] = useState<Flower[]>([]);
   const [receptions, setReceptions] = useState<ReceptionBrief[]>([]);
   const [selectedReception, setSelectedReception] = useState<ReceptionDetail | null>(null);
@@ -106,18 +109,18 @@ export function SellerReceptions() {
       setShowAddFlower(false);
       await loadFlowers();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
   const handleDeleteFlower = async (id: number) => {
-    if (!confirm('Удалить цветок из справочника?')) return;
+    if (!await confirm({ message: 'Удалить цветок из справочника?' })) return;
     try {
       await deleteFlower(id);
       await loadFlowers();
       if (selectedReception) await loadSelectedReception(selectedReception.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
@@ -140,7 +143,7 @@ export function SellerReceptions() {
       setSelectedReception({ ...rec, items: [] });
       await loadSelectedReception(rec.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
@@ -151,7 +154,7 @@ export function SellerReceptions() {
       await loadReceptions();
       await loadSelectedReception(selectedReception.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
@@ -162,7 +165,7 @@ export function SellerReceptions() {
     const shelf = parseInt(newItem.shelf_life_days, 10);
     const price = parseFloat(newItem.price_per_unit);
     if (isNaN(qty) || qty < 1 || isNaN(shelf) || shelf < 1 || isNaN(price) || price < 0) {
-      alert('Проверьте количество, срок жизни и цену');
+      toast.warning('Проверьте количество, срок жизни и цену');
       return;
     }
     try {
@@ -177,17 +180,17 @@ export function SellerReceptions() {
       setShowAddItem(false);
       await loadSelectedReception(selectedReception.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
   const handleDeleteReceptionItem = async (itemId: number) => {
-    if (!confirm('Удалить позицию?')) return;
+    if (!await confirm({ message: 'Удалить позицию?' })) return;
     try {
       await deleteReceptionItem(itemId);
       if (selectedReception) await loadSelectedReception(selectedReception.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     }
   };
 
@@ -207,7 +210,7 @@ export function SellerReceptions() {
     const price = parseFloat(editItem.price_per_unit.replace(',', '.'));
     const shelf = parseInt(editItem.shelf_life_days, 10);
     if (isNaN(remaining) || remaining < 0 || isNaN(price) || price < 0 || isNaN(shelf) || shelf < 1) {
-      alert('Проверьте остаток, цену и срок жизни');
+      toast.warning('Проверьте остаток, цену и срок жизни');
       return;
     }
     setEditSubmitting(true);
@@ -220,7 +223,7 @@ export function SellerReceptions() {
       setEditingItemId(null);
       await loadSelectedReception(selectedReception.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка');
+      toast.error(err instanceof Error ? err.message : 'Ошибка');
     } finally {
       setEditSubmitting(false);
     }
@@ -231,11 +234,11 @@ export function SellerReceptions() {
     if (!writeOffTarget || !selectedReception) return;
     const qty = parseInt(writeOffForm.quantity, 10);
     if (isNaN(qty) || qty <= 0) {
-      alert('Введите количество больше 0');
+      toast.warning('Введите количество больше 0');
       return;
     }
     if (qty > writeOffTarget.remaining_quantity) {
-      alert(`Нельзя списать больше остатка (${writeOffTarget.remaining_quantity})`);
+      toast.warning(`Нельзя списать больше остатка (${writeOffTarget.remaining_quantity})`);
       return;
     }
     setWriteOffSubmitting(true);
@@ -249,7 +252,7 @@ export function SellerReceptions() {
       setWriteOffForm({ quantity: '', reason: 'wilted', comment: '' });
       await loadSelectedReception(selectedReception.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка списания');
+      toast.error(err instanceof Error ? err.message : 'Ошибка списания');
     } finally {
       setWriteOffSubmitting(false);
     }
@@ -265,8 +268,6 @@ export function SellerReceptions() {
 
   return (
     <div className="seller-receptions-page">
-      <h1 className="page-title">Приёмка</h1>
-
       <div className="receptions-actions">
         <button className="btn btn-primary" onClick={() => setShowAddFlower(true)}>
           Создать цветок

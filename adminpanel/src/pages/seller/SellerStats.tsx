@@ -10,6 +10,7 @@ import {
   PreorderAnalytics,
 } from '../../api/sellerClient';
 import { SalesChart } from '../../components/SalesChart';
+import { useToast } from '../../components/ui';
 import '../Stats.css';
 
 type RangePreset = '1d' | '7d' | '30d' | 'custom';
@@ -75,6 +76,7 @@ function formatDateRange(from?: string | null, to?: string | null): string | nul
 }
 
 export function SellerStats() {
+  const toast = useToast();
   const [stats, setStats] = useState<SellerStatsType | null>(null);
   const [customerData, setCustomerData] = useState<CustomerStats | null>(null);
   const [preorderData, setPreorderData] = useState<PreorderAnalytics | null>(null);
@@ -153,7 +155,7 @@ export function SellerStats() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка экспорта');
+      toast.error(e instanceof Error ? e.message : 'Ошибка экспорта');
     }
   };
 
@@ -182,8 +184,7 @@ export function SellerStats() {
 
   return (
     <div className="stats-page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Статистика</h1>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '1rem' }}>
         <button
           type="button"
           className="btn btn-secondary"

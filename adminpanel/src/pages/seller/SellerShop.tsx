@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getMe, updateLimits, updateDefaultLimit, closeForToday, updateWeeklySchedule, updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../api/sellerClient';
 import type { SellerMe } from '../../api/sellerClient';
+import { useToast, useConfirm } from '../../components/ui';
 import './SellerShop.css';
 
 const WEEKDAYS = [
@@ -14,6 +15,8 @@ const WEEKDAYS = [
 ];
 
 export function SellerShop() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [me, setMe] = useState<SellerMe | null>(null);
   const [loading, setLoading] = useState(true);
   const [limitValue, setLimitValue] = useState('');
@@ -104,7 +107,7 @@ export function SellerShop() {
       await updateMe({ hashtags: hashtagsValue.trim() || '' });
       setMe((m) => m ? { ...m, hashtags: hashtagsValue.trim() || '' } : null);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setHashtagsSaving(false);
     }
@@ -113,7 +116,7 @@ export function SellerShop() {
   const handleSaveLimit = async () => {
     const num = parseInt(limitValue, 10);
     if (isNaN(num) || num < 1 || num > 100) {
-      alert('Введите число от 1 до 100');
+      toast.warning('Введите число от 1 до 100');
       return;
     }
     setLimitSaving(true);
@@ -121,7 +124,7 @@ export function SellerShop() {
       await updateLimits(num);
       setMe((m) => m ? { ...m, max_orders: num } : null);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setLimitSaving(false);
     }
@@ -131,7 +134,7 @@ export function SellerShop() {
     const raw = defaultLimitValue.trim();
     const num = raw === '' ? 0 : parseInt(raw, 10);
     if (isNaN(num) || num < 0 || num > 100) {
-      alert('Введите число от 0 до 100 (0 или пусто = отключить)');
+      toast.warning('Введите число от 0 до 100 (0 или пусто = отключить)');
       return;
     }
     setDefaultLimitSaving(true);
@@ -139,20 +142,20 @@ export function SellerShop() {
       await updateDefaultLimit(num);
       setMe((m) => m ? { ...m, default_daily_limit: num || 0 } : null);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setDefaultLimitSaving(false);
     }
   };
 
   const handleCloseForToday = async () => {
-    if (!confirm('Закрыть магазин на сегодня? Новые заказы не будут приниматься до 6:00 (МСК).')) return;
+    if (!await confirm({ message: 'Закрыть магазин на сегодня? Новые заказы не будут приниматься до 6:00 (МСК).' })) return;
     setClosingForToday(true);
     try {
       await closeForToday();
       await load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setClosingForToday(false);
     }
@@ -166,7 +169,7 @@ export function SellerShop() {
         setWeeklySchedule({});
         await load();
       } catch (e) {
-        alert(e instanceof Error ? e.message : 'Ошибка');
+        toast.error(e instanceof Error ? e.message : 'Ошибка');
       } finally {
         setScheduleSaving(false);
       }
@@ -178,7 +181,7 @@ export function SellerShop() {
       if (!isNaN(num) && num > 0) schedule[k] = num;
     }
     if (Object.keys(schedule).length === 0) {
-      alert('Задайте лимит хотя бы для одного дня');
+      toast.warning('Задайте лимит хотя бы для одного дня');
       return;
     }
     setScheduleSaving(true);
@@ -186,7 +189,7 @@ export function SellerShop() {
       await updateWeeklySchedule(schedule);
       await load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setScheduleSaving(false);
     }
@@ -194,11 +197,11 @@ export function SellerShop() {
 
   const handleSavePreorder = async () => {
     if (preorderScheduleType === 'interval_days' && (!preorderBaseDate || preorderIntervalDays < 1)) {
-      alert('Укажите базовую дату и интервал в днях');
+      toast.warning('Укажите базовую дату и интервал в днях');
       return;
     }
     if (preorderScheduleType === 'custom_dates' && preorderCustomDates.length === 0) {
-      alert('Выберите хотя бы одну дату');
+      toast.warning('Выберите хотя бы одну дату');
       return;
     }
     setPreorderSaving(true);
@@ -220,7 +223,7 @@ export function SellerShop() {
       const meData = await getMe();
       setMe(meData);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setPreorderSaving(false);
     }
@@ -250,7 +253,7 @@ export function SellerShop() {
       });
       await load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setShopSettingsSaving(false);
     }
@@ -265,7 +268,7 @@ export function SellerShop() {
       await load();
       e.target.value = '';
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка загрузки баннера');
+      toast.error(err instanceof Error ? err.message : 'Ошибка загрузки баннера');
     } finally {
       setBannerUploading(false);
     }
@@ -277,7 +280,7 @@ export function SellerShop() {
       await updateMe({ banner_url: null });
       await load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Ошибка');
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setBannerRemoving(false);
     }
@@ -293,8 +296,6 @@ export function SellerShop() {
 
   return (
     <div className="seller-shop-page">
-      <h1 className="page-title">Настройка магазина</h1>
-
       {/* Основные настройки магазина */}
       <div className="card shop-section">
         <h3>🏪 Основные настройки магазина</h3>
@@ -809,7 +810,7 @@ export function SellerShop() {
               className="btn btn-sm btn-secondary"
               onClick={() => {
                 navigator.clipboard.writeText(me.shop_link!);
-                alert('Ссылка скопирована');
+                toast.success('Ссылка скопирована');
               }}
             >
               Копировать

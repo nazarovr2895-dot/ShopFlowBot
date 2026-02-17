@@ -1,0 +1,11 @@
+.ui-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-4);
+}
+
+.ui-card--pad-none   { padding: 0; }
+.ui-card--pad-sm     { padding: var(--space-4); }
+.ui-card--pad-default { padding: var(--space-6); }
+.ui-card--pad-lg     { padding: var(--space-8); }
