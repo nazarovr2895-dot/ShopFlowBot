@@ -130,9 +130,15 @@ export function SellerProfile() {
         <h3>Лимиты и статистика</h3>
         <div className="profile-grid">
           <div className="profile-row">
-            <span className="profile-label">Лимит на сегодня</span>
+            <span className="profile-label">Стандартный лимит</span>
             <span className="profile-value">
-              {profile.limit_set_for_today ? `${profile.orders_used_today ?? 0} / ${profile.max_orders ?? 0}` : 'Не задан'}
+              {profile.default_daily_limit ? `${profile.default_daily_limit} заказов/день` : 'Не задан'}
+            </span>
+          </div>
+          <div className="profile-row">
+            <span className="profile-label">Действующий лимит</span>
+            <span className="profile-value">
+              {profile.limit_set_for_today ? `${profile.orders_used_today ?? 0} / ${profile.max_orders ?? 0}` : 'Не активен'}
             </span>
           </div>
           <div className="profile-row">

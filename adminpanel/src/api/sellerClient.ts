@@ -42,6 +42,7 @@ export interface SellerMe {
   hashtags?: string;
   description?: string;
   max_orders: number;
+  default_daily_limit: number;
   limit_set_for_today: boolean;
   orders_used_today: number;
   active_orders: number;
@@ -370,6 +371,10 @@ export async function recalculateProductPrice(productId: number): Promise<{ id: 
 
 export async function updateLimits(maxOrders: number): Promise<{ status: string }> {
   return fetchSeller(`/seller-web/limits?max_orders=${maxOrders}`, { method: 'PUT' });
+}
+
+export async function updateDefaultLimit(defaultDailyLimit: number): Promise<{ status: string }> {
+  return fetchSeller(`/seller-web/default-limit?default_daily_limit=${defaultDailyLimit}`, { method: 'PUT' });
 }
 
 export async function changeCredentials(data: { old_login: string; old_password: string; new_login: string; new_password: string }): Promise<{ status: string }> {

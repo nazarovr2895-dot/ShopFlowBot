@@ -18,10 +18,9 @@ from backend.app.api.deps import get_session, get_cache
 from backend.app.models.seller import Seller, City, District, Metro
 from backend.app.models.product import Product
 from backend.app.models.user import User
-from backend.app.models.order import Order
 from backend.app.models.cart import BuyerFavoriteSeller
 from backend.app.services.cache import CacheService
-from backend.app.services.sellers import _today_6am_date, _today_6am_utc
+from backend.app.services.sellers import _today_6am_date
 from backend.app.services.bouquets import get_active_bouquet_ids
 from backend.app.core.logging import get_logger
 from sqlalchemy import or_
@@ -64,7 +63,8 @@ class PublicSellerListItem(BaseModel):
     metro_name: Optional[str]
     metro_walk_minutes: Optional[int] = None
     metro_line_color: Optional[str] = None
-    available_slots: int  # max_orders - active_orders - pending_requests
+    available_slots: int  # effective_limit - active_orders - pending_requests
+    availability: str = "available"  # "available" | "busy" | "unavailable"
     min_price: Optional[float]
     max_price: Optional[float]
     product_count: int
@@ -86,6 +86,7 @@ class PublicSellerDetail(BaseModel):
     metro_walk_minutes: Optional[int] = None
     metro_line_color: Optional[str] = None
     available_slots: int
+    availability: str = "available"  # "available" | "busy" | "unavailable"
     products: List[dict]
     preorder_products: List[dict] = []
     preorder_available_dates: List[str] = []
@@ -149,71 +150,39 @@ async def get_public_sellers(
     logger.info("Public sellers endpoint called", origin=request.headers.get("origin"), page=page, per_page=per_page, hypothesisId="B")
     # #endregion
     try:
+        from sqlalchemy import case, literal
+
         now = datetime.utcnow()
         today = _today_6am_date()
-        since_6am = _today_6am_utc()
-        
-        # Подзапрос: количество выполненных заказов за текущий день (с 6:00) по продавцам
-        completed_today_subq = (
-            select(
-                Order.seller_id,
-                func.count(Order.id).label("completed_today")
-            )
-            .where(
-            Order.status.in_(("done", "completed")),
-            or_(
-                Order.completed_at >= since_6am,
-                and_(Order.completed_at.is_(None), Order.created_at >= since_6am)
-            )
+
+        # Эффективный лимит: ручной (если задан на сегодня) или default_daily_limit
+        effective_limit_expr = case(
+            (and_(Seller.daily_limit_date == today, Seller.max_orders > 0), Seller.max_orders),
+            else_=func.coalesce(Seller.default_daily_limit, 0),
         )
-            .group_by(Order.seller_id)
-            .subquery()
-        )
-        
-        # Базовые условия: лимит задан на сегодня, есть свободные слоты (учитываем выполненные сегодня)
+
+        # Базовые условия: не заблокирован, не удалён, размещение не истекло, есть лимит (ручной или стандартный)
         base_conditions = [
-        Seller.is_blocked == False,
-        Seller.deleted_at.is_(None),
-        (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
-            Seller.daily_limit_date == today,
-            Seller.max_orders > 0,
+            Seller.is_blocked == False,
+            Seller.deleted_at.is_(None),
+            (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
+            effective_limit_expr > 0,
         ]
-        
+
         # Подзапрос для статистики товаров (только с количеством > 0)
         product_stats = (
-        select(
-            Product.seller_id,
-            func.min(Product.price).label("min_price"),
-            func.max(Product.price).label("max_price"),
-            func.count(Product.id).label("product_count")
-        )
-        .where(
-            Product.is_active == True,
-            Product.quantity > 0  # Только товары в наличии
-        )
+            select(
+                Product.seller_id,
+                func.min(Product.price).label("min_price"),
+                func.max(Product.price).label("max_price"),
+                func.count(Product.id).label("product_count"),
+            )
+            .where(Product.is_active == True, Product.quantity > 0)
             .group_by(Product.seller_id)
             .subquery()
         )
-        
-        # Условие: (выполнено сегодня + активные + ожидающие) < лимит
-        completed_today_scalar = (
-        select(func.count(Order.id))
-        .where(
-            Order.seller_id == Seller.seller_id,
-            Order.status.in_(("done", "completed")),
-            or_(
-                Order.completed_at >= since_6am,
-                and_(Order.completed_at.is_(None), Order.created_at >= since_6am)
-            )
-        )
-            .correlate(Seller)
-            .scalar_subquery()
-        )
-        base_conditions.append(
-            (func.coalesce(completed_today_scalar, 0) + Seller.active_orders + Seller.pending_requests) < Seller.max_orders
-        )
-        
-        # Добавляем фильтры
+
+        # Добавляем пользовательские фильтры
         if city_id:
             base_conditions.append(Seller.city_id == city_id)
         if district_id:
@@ -221,7 +190,6 @@ async def get_public_sellers(
         if metro_id:
             base_conditions.append(Seller.metro_id == metro_id)
         if delivery_type:
-            # delivery_type из query: "delivery", "pickup" или "both"; в БД могут быть русские значения
             if delivery_type == "delivery":
                 base_conditions.append(
                     Seller.delivery_type.in_(["delivery", "доставка", "both", "доставка и самовывоз"])
@@ -234,79 +202,61 @@ async def get_public_sellers(
                 base_conditions.append(
                     Seller.delivery_type.in_(["both", "доставка и самовывоз"])
                 )
-        
-        # Фильтр по бесплатной/платной доставке
+
         if free_delivery is not None:
             if free_delivery:
-                # Только бесплатная доставка (delivery_price == 0)
                 base_conditions.append(Seller.delivery_price == 0.0)
             else:
-                # Только платная доставка (delivery_price > 0)
                 base_conditions.append(Seller.delivery_price > 0.0)
-        
-        # Поиск по названию магазина и хештегам (подстрока без учёта регистра)
+
         if search:
             q = search.strip()
             if q:
                 base_conditions.append(
                     or_(
                         Seller.shop_name.ilike(f"%{q}%"),
-                        func.coalesce(Seller.hashtags, "").ilike(f"%{q}%")
+                        func.coalesce(Seller.hashtags, "").ilike(f"%{q}%"),
                     )
                 )
-        
-        # Подзапрос для статистики товаров (только с количеством > 0)
-        product_stats = (
-        select(
-            Product.seller_id,
-            func.min(Product.price).label("min_price"),
-            func.max(Product.price).label("max_price"),
-            func.count(Product.id).label("product_count")
-        )
-        .where(
-            Product.is_active == True,
-            Product.quantity > 0  # Только товары в наличии
-        )
-            .group_by(Product.seller_id)
-            .subquery()
-        )
-        
+
         # Подзапрос: количество подписчиков по продавцам
         subscriber_count_subq = (
             select(
                 BuyerFavoriteSeller.seller_id,
-                func.count(BuyerFavoriteSeller.id).label("subscriber_count")
+                func.count(BuyerFavoriteSeller.id).label("subscriber_count"),
             )
             .group_by(BuyerFavoriteSeller.seller_id)
             .subquery()
         )
 
-        # Основной запрос: join с completed_today для available_slots
+        # available_slots: effective_limit - active - pending (без completed_today)
+        available_slots_expr = effective_limit_expr - Seller.active_orders - Seller.pending_requests
+
+        # Основной запрос
         query = (
-        select(
-            Seller,
-            User.fio.label("owner_fio"),
-            City.name.label("city_name"),
-            District.name.label("district_name"),
-            Metro.name.label("metro_name"),
-            Metro.line_color.label("metro_line_color"),
-            product_stats.c.min_price,
-            product_stats.c.max_price,
-            func.coalesce(product_stats.c.product_count, 0).label("product_count"),
-            func.coalesce(completed_today_subq.c.completed_today, 0).label("completed_today"),
-            func.coalesce(subscriber_count_subq.c.subscriber_count, 0).label("subscriber_count"),
-        )
-        .outerjoin(User, Seller.seller_id == User.tg_id)
-        .outerjoin(City, Seller.city_id == City.id)
-        .outerjoin(District, Seller.district_id == District.id)
-        .outerjoin(Metro, Seller.metro_id == Metro.id)
-        .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
-            .outerjoin(completed_today_subq, Seller.seller_id == completed_today_subq.c.seller_id)
+            select(
+                Seller,
+                User.fio.label("owner_fio"),
+                City.name.label("city_name"),
+                District.name.label("district_name"),
+                Metro.name.label("metro_name"),
+                Metro.line_color.label("metro_line_color"),
+                product_stats.c.min_price,
+                product_stats.c.max_price,
+                func.coalesce(product_stats.c.product_count, 0).label("product_count"),
+                func.coalesce(subscriber_count_subq.c.subscriber_count, 0).label("subscriber_count"),
+                available_slots_expr.label("available_slots"),
+            )
+            .outerjoin(User, Seller.seller_id == User.tg_id)
+            .outerjoin(City, Seller.city_id == City.id)
+            .outerjoin(District, Seller.district_id == District.id)
+            .outerjoin(Metro, Seller.metro_id == Metro.id)
+            .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
             .outerjoin(subscriber_count_subq, Seller.seller_id == subscriber_count_subq.c.seller_id)
             .where(and_(*base_conditions))
         )
-        
-        # Сортировка
+
+        # Сортировка: доступные первыми, затем занятые
         if sort_price == "asc":
             query = query.order_by(product_stats.c.min_price.asc().nullslast())
         elif sort_price == "desc":
@@ -314,33 +264,38 @@ async def get_public_sellers(
         elif sort_mode in ("all_city", "nearby"):
             query = query.order_by(sql_func.random())
         else:
+            # Сначала доступные (slots > 0), потом занятые (slots <= 0)
             query = query.order_by(
-                (Seller.max_orders - func.coalesce(completed_today_subq.c.completed_today, 0) - Seller.active_orders - Seller.pending_requests).desc()
+                case((available_slots_expr > 0, 0), else_=1).asc(),
+                available_slots_expr.desc(),
             )
-        
-        # Подсчет общего количества (только продавцы с хотя бы одним товаром в наличии)
+
+        # Подсчет общего количества
         count_query = (
-        select(func.count(Seller.seller_id))
-        .select_from(Seller)
+            select(func.count(Seller.seller_id))
+            .select_from(Seller)
             .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
             .where(and_(*base_conditions))
         )
         total_result = await session.execute(count_query)
         total = total_result.scalar() or 0
-        
+
         # Пагинация
         offset = (page - 1) * per_page
         query = query.offset(offset).limit(per_page)
-        
+
         result = await session.execute(query)
         rows = result.all()
-        
+
         sellers = []
         for row in rows:
             seller = row[0]
-            completed_today = row.completed_today if hasattr(row, "completed_today") else 0
-            available_slots = seller.max_orders - completed_today - seller.active_orders - seller.pending_requests
-            
+            slots = row.available_slots if hasattr(row, "available_slots") else 0
+            if slots > 0:
+                availability = "available"
+            else:
+                availability = "busy"
+
             sellers.append(PublicSellerListItem(
                 seller_id=seller.seller_id,
                 shop_name=seller.shop_name,
@@ -352,26 +307,23 @@ async def get_public_sellers(
                 metro_name=row.metro_name,
                 metro_walk_minutes=seller.metro_walk_minutes,
                 metro_line_color=row.metro_line_color,
-                available_slots=available_slots,
+                available_slots=max(slots, 0),
+                availability=availability,
                 min_price=float(row.min_price) if row.min_price else None,
                 max_price=float(row.max_price) if row.max_price else None,
                 product_count=row.product_count or 0,
                 subscriber_count=row.subscriber_count or 0,
             ))
-        
-        # #region agent log
-        logger.info("Public sellers endpoint success", sellers_count=len(sellers), total=total, hypothesisId="B")
-        # #endregion
+
+        logger.info("Public sellers endpoint success", sellers_count=len(sellers), total=total)
         return PublicSellersResponse(
             sellers=sellers,
             total=total,
             page=page,
-            per_page=per_page
+            per_page=per_page,
         )
     except Exception as e:
-        # #region agent log
-        logger.error("Public sellers endpoint error", error_type=type(e).__name__, error_message=str(e), traceback=traceback.format_exc(), hypothesisId="C")
-        # #endregion
+        logger.error("Public sellers endpoint error", error_type=type(e).__name__, error_message=str(e), traceback=traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
@@ -385,8 +337,7 @@ async def get_public_seller_detail(
     """
     now = datetime.utcnow()
     today = _today_6am_date()
-    since_6am = _today_6am_utc()
-    
+
     query = (
         select(
             Seller,
@@ -400,40 +351,30 @@ async def get_public_seller_detail(
         .outerjoin(Metro, Seller.metro_id == Metro.id)
         .where(Seller.seller_id == seller_id)
     )
-    
+
     result = await session.execute(query)
     row = result.first()
-    
+
     if not row:
         raise HTTPException(status_code=404, detail="Продавец не найден")
-    
+
     seller = row[0]
-    
+
     if seller.deleted_at:
         raise HTTPException(status_code=404, detail="Продавец не найден")
-    
+
     if seller.is_blocked:
         raise HTTPException(status_code=403, detail="Продавец заблокирован")
-    
+
     if seller.placement_expired_at and seller.placement_expired_at < now:
         raise HTTPException(status_code=403, detail="Размещение продавца истекло")
-    
-    # Свободные слоты с учётом дневного лимита и выполненных сегодня
-    if seller.daily_limit_date != today or seller.max_orders <= 0:
-        available_slots = 0
-    else:
-        completed_result = await session.execute(
-            select(func.count(Order.id)).where(
-                Order.seller_id == seller_id,
-                Order.status.in_(("done", "completed")),
-                or_(
-                    Order.completed_at >= since_6am,
-                    and_(Order.completed_at.is_(None), Order.created_at >= since_6am)
-                )
-            )
-        )
-        completed_today = completed_result.scalar() or 0
-        available_slots = max(0, seller.max_orders - completed_today - seller.active_orders - seller.pending_requests)
+
+    # Эффективный лимит: ручной (если задан на сегодня) или default_daily_limit
+    manual_limit_today = seller.daily_limit_date == today and seller.max_orders > 0
+    default_limit = getattr(seller, "default_daily_limit", None) or 0
+    effective_limit = seller.max_orders if manual_limit_today else default_limit
+    available_slots = max(0, effective_limit - seller.active_orders - seller.pending_requests)
+    availability = "available" if available_slots > 0 else ("busy" if effective_limit > 0 else "unavailable")
     
     # Subscriber count
     sub_count_result = await session.execute(
@@ -547,6 +488,7 @@ async def get_public_seller_detail(
         metro_walk_minutes=seller.metro_walk_minutes,
         metro_line_color=row.metro_line_color,
         available_slots=available_slots,
+        availability=availability,
         products=products_list,
         preorder_products=preorder_products_list,
         preorder_available_dates=preorder_available_dates,

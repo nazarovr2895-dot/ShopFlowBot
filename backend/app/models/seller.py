@@ -22,6 +22,7 @@ class Seller(Base):
     delivery_type: Mapped[str] = mapped_column(String(100), nullable=True)
     delivery_price: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0.0)
     max_orders: Mapped[int] = mapped_column(Integer, default=0)
+    default_daily_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Стандартный дневной лимит (авто-применяется, если daily_limit_date != сегодня)
     daily_limit_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     active_orders: Mapped[int] = mapped_column(Integer, default=0)
     pending_requests: Mapped[int] = mapped_column(Integer, default=0)

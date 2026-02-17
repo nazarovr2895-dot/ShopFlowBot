@@ -172,7 +172,7 @@ export function SellerDashboard() {
         </div>
         {me && (
           <div className="stat-card">
-            <span className="stat-label">Лимит на сегодня</span>
+            <span className="stat-label">В работе / лимит</span>
             <span className="stat-value">
               {me.limit_set_for_today
                 ? `${me.orders_used_today ?? 0} / ${me.max_orders ?? 0}`

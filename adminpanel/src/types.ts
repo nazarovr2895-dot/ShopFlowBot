@@ -19,6 +19,7 @@ export interface Seller {
   is_deleted?: boolean
   deleted_at?: string
   max_orders?: number
+  default_daily_limit?: number
   daily_limit_date?: string
   active_orders?: number
   pending_requests?: number

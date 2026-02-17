@@ -30,6 +30,7 @@ export interface PublicSellerListItem {
   metro_walk_minutes?: number;
   metro_line_color?: string;
   available_slots: number;
+  availability?: 'available' | 'busy' | 'unavailable';
   min_price: number | null;
   max_price: number | null;
   product_count: number;
@@ -123,6 +124,7 @@ export interface PublicSellerDetail {
   metro_walk_minutes?: number;
   metro_line_color?: string;
   available_slots: number;
+  availability?: 'available' | 'busy' | 'unavailable';
   products: Product[];
   preorder_products?: Product[];
   preorder_available_dates?: string[];

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getMe, updateLimits, updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../api/sellerClient';
+import { getMe, updateLimits, updateDefaultLimit, updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../api/sellerClient';
 import type { SellerMe } from '../../api/sellerClient';
 import './SellerShop.css';
 
@@ -18,6 +18,8 @@ export function SellerShop() {
   const [loading, setLoading] = useState(true);
   const [limitValue, setLimitValue] = useState('');
   const [limitSaving, setLimitSaving] = useState(false);
+  const [defaultLimitValue, setDefaultLimitValue] = useState('');
+  const [defaultLimitSaving, setDefaultLimitSaving] = useState(false);
   const [hashtagsValue, setHashtagsValue] = useState('');
   const [hashtagsSaving, setHashtagsSaving] = useState(false);
   const [preorderEnabled, setPreorderEnabled] = useState(false);
@@ -50,6 +52,7 @@ export function SellerShop() {
       const meData = await getMe();
       setMe(meData);
       setLimitValue(String(meData?.max_orders ?? ''));
+      setDefaultLimitValue(meData?.default_daily_limit ? String(meData.default_daily_limit) : '');
       setHashtagsValue(meData?.hashtags ?? '');
       setPreorderEnabled(meData?.preorder_enabled ?? false);
       setPreorderScheduleType((meData?.preorder_schedule_type as 'weekly' | 'interval_days' | 'custom_dates') || 'weekly');
@@ -105,6 +108,24 @@ export function SellerShop() {
       alert(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setLimitSaving(false);
+    }
+  };
+
+  const handleSaveDefaultLimit = async () => {
+    const raw = defaultLimitValue.trim();
+    const num = raw === '' ? 0 : parseInt(raw, 10);
+    if (isNaN(num) || num < 0 || num > 100) {
+      alert('Введите число от 0 до 100 (0 или пусто = отключить)');
+      return;
+    }
+    setDefaultLimitSaving(true);
+    try {
+      await updateDefaultLimit(num);
+      setMe((m) => m ? { ...m, default_daily_limit: num || 0 } : null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setDefaultLimitSaving(false);
     }
   };
 
@@ -361,28 +382,57 @@ export function SellerShop() {
       {/* Лимиты */}
       <div className="card shop-section">
         <h3>⚙️ Настройка лимитов</h3>
-        <p className="section-hint">Лимит обнуляется каждый день в 6:00 (МСК). Укажите, сколько заказов сможете выполнить сегодня.</p>
-        <div className="limit-row">
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={limitValue}
-            onChange={(e) => setLimitValue(e.target.value)}
-            className="form-input"
-            style={{ width: '100px' }}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={handleSaveLimit}
-            disabled={limitSaving}
-          >
-            {limitSaving ? 'Сохранение...' : 'Сохранить'}
-          </button>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label className="section-label">Стандартный дневной лимит</label>
+          <p className="section-hint">Применяется автоматически каждый день. Задайте один раз — больше не нужно обновлять каждое утро. Пусто или 0 = отключить.</p>
+          <div className="limit-row">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={defaultLimitValue}
+              onChange={(e) => setDefaultLimitValue(e.target.value)}
+              placeholder="Не задан"
+              className="form-input"
+              style={{ width: '120px' }}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={handleSaveDefaultLimit}
+              disabled={defaultLimitSaving}
+            >
+              {defaultLimitSaving ? 'Сохранение...' : 'Сохранить'}
+            </button>
+          </div>
         </div>
+
+        <div>
+          <label className="section-label">Лимит на сегодня (переопределение)</label>
+          <p className="section-hint">Если нужно изменить лимит только на сегодня — задайте вручную. Сбросится в 6:00 (МСК), после чего снова заработает стандартный.</p>
+          <div className="limit-row">
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={limitValue}
+              onChange={(e) => setLimitValue(e.target.value)}
+              className="form-input"
+              style={{ width: '100px' }}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={handleSaveLimit}
+              disabled={limitSaving}
+            >
+              {limitSaving ? 'Сохранение...' : 'Задать на сегодня'}
+            </button>
+          </div>
+        </div>
+
         {me?.limit_set_for_today && (
-          <p className="limit-info">
-            Использовано сегодня: {me.orders_used_today ?? 0} / {me.max_orders ?? 0}
+          <p className="limit-info" style={{ marginTop: '0.75rem' }}>
+            В работе сейчас: {me.orders_used_today ?? 0} / {me.max_orders ?? 0}
           </p>
         )}
       </div>

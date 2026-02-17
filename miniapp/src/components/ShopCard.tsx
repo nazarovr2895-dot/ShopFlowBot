@@ -126,9 +126,11 @@ export function ShopCard({ seller }: ShopCardProps) {
 
       <div className="shop-card__footer">
         <div className="shop-card__price">{priceRange}</div>
-        <span className={`shop-card__slots ${seller.available_slots <= 2 ? 'low' : ''}`}>
-          {seller.available_slots} слотов
-        </span>
+        {(seller.availability ?? (seller.available_slots > 0 ? 'available' : 'busy')) === 'busy' ? (
+          <span className="shop-card__availability shop-card__availability--busy">Занят</span>
+        ) : (
+          <span className="shop-card__availability shop-card__availability--available">Принимает заказы</span>
+        )}
       </div>
     </div>
   );

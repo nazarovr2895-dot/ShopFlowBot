@@ -1708,6 +1708,21 @@ async def update_limits(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
+@router.put("/default-limit")
+async def update_default_limit(
+    default_daily_limit: int = Query(..., ge=0, le=100),
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Установить стандартный дневной лимит (авто-применяется каждый день). 0 = отключить."""
+    service = SellerService(session)
+    try:
+        return await service.update_default_limit(seller_id, default_daily_limit)
+    except SellerServiceError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
 # --- SUBSCRIBERS ---
 @router.get("/subscribers")
 async def get_subscribers(

@@ -100,11 +100,6 @@ async def delete_seller_db(tg_id: int):
 async def get_shop_info(seller_id: int):
     async with async_session() as session: return await session.get(Seller, seller_id)
 
-async def set_seller_limit(seller_id: int, limit: int):
-    async with async_session() as session:
-        await session.execute(update(Seller).where(Seller.seller_id == seller_id).values(max_orders=limit))
-        await session.commit()
-
 async def create_product(seller_id, name, price, description, photo_id):
     async with async_session() as session:
         session.add(Product(seller_id=seller_id, name=name, price=price, description=description, photo_id=photo_id)); await session.commit()

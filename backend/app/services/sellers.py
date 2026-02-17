@@ -144,27 +144,36 @@ class SellerService:
         )
         return result.scalar() or 0
     
+    def _effective_limit(self, seller: Seller) -> int:
+        """Определить действующий лимит: ручной (если задан на сегодня) или стандартный."""
+        today = _today_6am_date()
+        if seller.daily_limit_date == today and seller.max_orders > 0:
+            return seller.max_orders
+        default = getattr(seller, "default_daily_limit", None)
+        if default and default > 0:
+            return default
+        return 0
+
     async def check_limit(self, seller_id: int) -> bool:
         """
         Проверка: может ли продавец принять новый заказ.
-        Лимит — дневной (обнуляется в 6:00 МСК). Учитываются: выполненные сегодня + активные + ожидающие.
+        Лимит — дневной. Учитывается параллельная нагрузка: активные + ожидающие.
+        Если ручной лимит не задан на сегодня, используется default_daily_limit.
         """
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == seller_id)
         )
         seller = result.scalar_one_or_none()
-        
+
         if not seller:
             return False
-        
-        today = _today_6am_date()
-        if seller.daily_limit_date != today or seller.max_orders <= 0:
+
+        effective = self._effective_limit(seller)
+        if effective <= 0:
             return False
-        
-        since = _today_6am_utc()
-        completed_today = await self._count_completed_since(seller_id, since)
-        total_used = completed_today + seller.active_orders + seller.pending_requests
-        return total_used < seller.max_orders
+
+        total_used = seller.active_orders + seller.pending_requests
+        return total_used < effective
     
     async def get_seller(self, seller_id: int) -> Optional[Dict[str, Any]]:
         """Get seller data for display. Включает orders_used_today, limit_set_for_today, fio, phone from User."""
@@ -192,9 +201,11 @@ class SellerService:
         user, seller = row
 
         today = _today_6am_date()
-        limit_set_for_today = seller.daily_limit_date == today and seller.max_orders > 0
-        completed_today = await self._count_completed_since(seller_id, _today_6am_utc()) if limit_set_for_today else 0
-        orders_used_today = completed_today + seller.active_orders + seller.pending_requests
+        manual_limit_today = seller.daily_limit_date == today and seller.max_orders > 0
+        default_limit = getattr(seller, "default_daily_limit", None) or 0
+        effective_limit = seller.max_orders if manual_limit_today else default_limit
+        limit_active = effective_limit > 0
+        orders_used_today = seller.active_orders + seller.pending_requests
 
         preorder_custom_dates = getattr(seller, "preorder_custom_dates", None)
         preorder_available_dates = get_preorder_available_dates(
@@ -213,9 +224,10 @@ class SellerService:
             "shop_name": seller.shop_name or "My Shop",
             "hashtags": seller.hashtags or "",
             "description": seller.description,
-            "max_orders": seller.max_orders,
+            "max_orders": effective_limit,
+            "default_daily_limit": default_limit,
             "daily_limit_date": seller.daily_limit_date.isoformat() if seller.daily_limit_date else None,
-            "limit_set_for_today": limit_set_for_today,
+            "limit_set_for_today": limit_active,
             "orders_used_today": orders_used_today,
             "active_orders": seller.active_orders,
             "pending_requests": seller.pending_requests,
@@ -622,7 +634,78 @@ class SellerService:
         seller.daily_limit_date = today
         await self.session.commit()
         return {"status": "ok", "max_orders": max_orders}
-    
+
+    async def update_default_limit(self, tg_id: int, default_daily_limit: int) -> Dict[str, Any]:
+        """Установить стандартный дневной лимит (авто-применяется каждый день). 0 = отключить."""
+        if default_daily_limit < 0 or default_daily_limit > 100:
+            raise SellerServiceError("Стандартный лимит должен быть от 0 до 100")
+
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == tg_id)
+        )
+        seller = result.scalar_one_or_none()
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+
+        seller.default_daily_limit = default_daily_limit if default_daily_limit > 0 else None
+        await self.session.commit()
+        return {"status": "ok", "default_daily_limit": seller.default_daily_limit}
+
+    async def reconcile_all_counters(self) -> int:
+        """Пересчитать active_orders и pending_requests для всех продавцов из реальных статусов заказов."""
+        # Подсчёт реальных pending по продавцам
+        pending_subq = (
+            select(
+                Order.seller_id,
+                func.count(Order.id).label("cnt"),
+            )
+            .where(Order.status == "pending")
+            .group_by(Order.seller_id)
+            .subquery()
+        )
+        # Подсчёт реальных active (accepted, assembling, in_transit)
+        active_subq = (
+            select(
+                Order.seller_id,
+                func.count(Order.id).label("cnt"),
+            )
+            .where(Order.status.in_(("accepted", "assembling", "in_transit")))
+            .group_by(Order.seller_id)
+            .subquery()
+        )
+
+        # Загрузить всех незаблокированных продавцов
+        result = await self.session.execute(
+            select(
+                Seller,
+                func.coalesce(pending_subq.c.cnt, 0).label("real_pending"),
+                func.coalesce(active_subq.c.cnt, 0).label("real_active"),
+            )
+            .outerjoin(pending_subq, Seller.seller_id == pending_subq.c.seller_id)
+            .outerjoin(active_subq, Seller.seller_id == active_subq.c.seller_id)
+            .where(Seller.deleted_at.is_(None))
+        )
+
+        fixed = 0
+        for row in result.all():
+            seller = row[0]
+            real_pending = row.real_pending
+            real_active = row.real_active
+            if seller.pending_requests != real_pending or seller.active_orders != real_active:
+                logger.info(
+                    "Reconcile counters drift",
+                    seller_id=seller.seller_id,
+                    old_pending=seller.pending_requests, new_pending=real_pending,
+                    old_active=seller.active_orders, new_active=real_active,
+                )
+                seller.pending_requests = real_pending
+                seller.active_orders = real_active
+                fixed += 1
+
+        if fixed:
+            await self.session.commit()
+        return fixed
+
     async def list_all(self, include_deleted: bool = False) -> List[Dict[str, Any]]:
         """List all sellers with optional deleted filter."""
         conditions = []

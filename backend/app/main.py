@@ -121,7 +121,18 @@ async def _daily_scheduler():
                     await session.rollback()
                     logger.error("Daily scheduler: preorder activation failed", error=str(e))
 
-                # 4. Sync bouquet product quantities for all sellers
+                # 4. Reconcile seller order counters (fix counter drift)
+                try:
+                    from backend.app.services.sellers import SellerService
+                    seller_svc = SellerService(session)
+                    fixed = await seller_svc.reconcile_all_counters()
+                    if fixed > 0:
+                        logger.info("Daily scheduler: reconciled seller counters", fixed=fixed)
+                except Exception as e:
+                    await session.rollback()
+                    logger.error("Daily scheduler: reconcile_counters failed", error=str(e))
+
+                # 5. Sync bouquet product quantities for all sellers
                 try:
                     from backend.app.services.bouquets import sync_bouquet_product_quantities
                     from backend.app.models.seller import Seller
