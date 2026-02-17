@@ -120,17 +120,14 @@ export function SellerCustomers() {
       setTiersConfig(settings.tiers_config || []);
       setPointsExpireDays(settings.points_expire_days ? String(settings.points_expire_days) : '');
       setAllTags(tags || []);
-      // Build segment counts and map from unified list
+      // Build segment counts from unified list
       const counts: Record<string, number> = {};
-      const sMap: Record<number, string> = {};
       (list || []).forEach((c) => {
         if (c.segment) {
           counts[c.segment] = (counts[c.segment] || 0) + 1;
-          if (c.loyalty_customer_id) sMap[c.loyalty_customer_id] = c.segment;
         }
       });
       setSegmentCounts(counts);
-      setSegmentMap(sMap);
     } catch {
       setCustomers([]);
     } finally {
