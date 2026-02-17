@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSubscribers } from '../../api/sellerClient';
 import type { Subscriber } from '../../api/sellerClient';
+import { PageHeader, StatCard, SearchInput, EmptyState } from '../../components/ui';
 import './SellerSubscribers.css';
 
 function formatDate(iso: string | null): string {
@@ -61,7 +62,7 @@ export function SellerSubscribers() {
   if (loading) {
     return (
       <div className="subscribers-page">
-        <h1>Подписчики</h1>
+        <PageHeader title="Подписчики" />
         <div className="subscribers-loading">Загрузка...</div>
       </div>
     );
@@ -69,66 +70,58 @@ export function SellerSubscribers() {
 
   return (
     <div className="subscribers-page">
-      <h1>
-        Подписчики
-        {total > 0 && <span className="badge">{total}</span>}
-      </h1>
+      <PageHeader
+        title="Подписчики"
+        subtitle={total > 0 ? `Всего: ${total}` : undefined}
+      />
 
       <div className="subscribers-stats">
-        <div className="stat-card">
-          <div className="stat-value">{total}</div>
-          <div className="stat-label">Всего</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{withLoyalty}</div>
-          <div className="stat-label">С картой лояльности</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{total - withLoyalty}</div>
-          <div className="stat-label">Без карты</div>
-        </div>
+        <StatCard label="Всего" value={total} />
+        <StatCard label="С картой лояльности" value={withLoyalty} />
+        <StatCard label="Без карты" value={total - withLoyalty} />
       </div>
 
       {subscribers.length > 0 && (
         <div className="subscribers-search">
-          <input
-            type="text"
+          <SearchInput
             placeholder="Поиск по имени, @username или телефону"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={setSearch}
           />
         </div>
       )}
 
       {filtered.length === 0 ? (
-        <div className="subscribers-empty">
-          {subscribers.length === 0
-            ? 'У вас пока нет подписчиков. Покупатели могут подписаться на ваш магазин через каталог.'
-            : 'Ничего не найдено'}
-        </div>
+        <EmptyState
+          title={subscribers.length === 0 ? 'Нет подписчиков' : 'Ничего не найдено'}
+          message={subscribers.length === 0
+            ? 'Покупатели могут подписаться на ваш магазин через каталог.'
+            : undefined
+          }
+        />
       ) : (
         <div className="subscribers-list">
           {filtered.map(sub => (
             <div key={sub.buyer_id} className="subscriber-row">
-              <div className="user-info">
-                <div className="name">{sub.fio || sub.username || `ID ${sub.buyer_id}`}</div>
-                {sub.username && <div className="username">@{sub.username}</div>}
+              <div className="subscriber-user-info">
+                <div className="subscriber-name">{sub.fio || sub.username || `ID ${sub.buyer_id}`}</div>
+                {sub.username && <div className="subscriber-username">@{sub.username}</div>}
               </div>
-              <div className="phone">{formatPhone(sub.phone)}</div>
-              <div className="date">{formatDate(sub.subscribed_at)}</div>
-              <div className="loyalty-info">
+              <div className="subscriber-phone">{formatPhone(sub.phone)}</div>
+              <div className="subscriber-date">{formatDate(sub.subscribed_at)}</div>
+              <div className="subscriber-loyalty-info">
                 {sub.has_loyalty ? (
                   <>
-                    <span className="card">{sub.loyalty_card_number}</span>
-                    <span className="points">{sub.loyalty_points} б.</span>
+                    <span className="subscriber-loyalty-card">{sub.loyalty_card_number}</span>
+                    <span className="subscriber-loyalty-points">{sub.loyalty_points} б.</span>
                     {sub.loyalty_customer_id && (
-                      <Link to={`/customers/${sub.loyalty_customer_id}`} className="loyalty-link">
+                      <Link to={`/customers/${sub.loyalty_customer_id}`} className="subscriber-loyalty-link">
                         Карточка
                       </Link>
                     )}
                   </>
                 ) : (
-                  <span className="no-card">Нет карты</span>
+                  <span className="subscriber-no-card">Нет карты</span>
                 )}
               </div>
             </div>

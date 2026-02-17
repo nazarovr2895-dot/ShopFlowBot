@@ -1,9 +1,10 @@
+import type { ReactNode } from 'react';
 import './StatusBadge.css';
 
 type BadgeVariant = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
 
 interface StatusBadgeProps {
-  children: string;
+  children: ReactNode;
   variant?: BadgeVariant;
   size?: 'sm' | 'default';
 }

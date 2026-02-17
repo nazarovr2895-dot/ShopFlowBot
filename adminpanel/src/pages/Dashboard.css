@@ -1,3 +1,5 @@
+/* ── Dashboard shared ──────────────────────────────── */
+
 .dashboard-loading {
   display: flex;
   align-items: center;
@@ -18,79 +20,152 @@
   to { transform: rotate(360deg); }
 }
 
+/* ── Quick Actions ──────────────────────────────────── */
+
 .dashboard-quick-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
 }
 
 .dashboard-quick-actions .btn {
   text-decoration: none;
 }
 
-.dashboard-alerts {
-  margin-bottom: 1.5rem;
+/* ── Stats Grid ─────────────────────────────────────── */
+
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
+
+/* ── Navigation Cards Grid ──────────────────────────── */
+
+.dashboard-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+/* ── Alerts Card ────────────────────────────────────── */
+
+.dashboard-alerts-card {
+  margin-bottom: var(--space-6);
+  border-color: var(--warning) !important;
+}
+
+.dashboard-alerts-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--warning);
+  margin-bottom: var(--space-3);
+}
+
+.dashboard-alerts-header h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.dashboard-alert-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: var(--space-2) 0;
+}
+
+.dashboard-alert-link {
+  color: var(--accent);
+}
+
+/* ── Events Card ────────────────────────────────────── */
+
+.dashboard-events-card {
+  margin-bottom: var(--space-6);
+}
+
+.dashboard-section-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+  color: var(--text);
+}
+
+.dashboard-events-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-event-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--transition-fast);
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-event-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-event-row:hover {
+  background: var(--bg-surface-hover);
+}
+
+.dashboard-event-icon {
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+
+.dashboard-event-body {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.dashboard-event-body strong {
+  color: var(--text);
+}
+
+/* ── Legacy support for admin Dashboard ─────────────── */
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.5rem;
-  position: relative;
-}
-
-.stat-label {
-  display: block;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
-}
-
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-}
-
-.stat-value.accent {
-  color: var(--accent);
-}
-
-.stat-link {
-  display: inline-block;
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
-  color: var(--accent);
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 1.5rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
 
 .card h3 {
   font-size: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
 }
 
 .empty-text {
-  color: var(--text-muted);
-  padding: 1rem 0;
+  color: var(--text-secondary);
+  padding: var(--space-4) 0;
 }
 
 .card-footer-link {
   display: inline-block;
-  margin-top: 1rem;
-  font-size: 0.875rem;
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
   color: var(--accent);
+}
+
+@media (max-width: 768px) {
+  .dashboard-nav-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getAllStats, getAllSellers } from '../api/adminClient';
 import type { SellerStats } from '../types';
-import { PageHeader } from '../components/ui';
+import { PageHeader, StatCard, EmptyState } from '../components/ui';
 import './Dashboard.css';
 
 export function Dashboard() {
@@ -45,30 +45,21 @@ export function Dashboard() {
       <PageHeader title="Дашборд" subtitle="Обзор платформы" />
 
       <div className="stats-grid">
-        <div className="stat-card">
-          <span className="stat-label">Продавцов</span>
-          <span className="stat-value">{sellersCount}</span>
-          <Link to="/sellers" className="stat-link">Управление →</Link>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Заказов</span>
-          <span className="stat-value">{totalOrders}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Продажи</span>
-          <span className="stat-value">{totalSales.toLocaleString('ru')} ₽</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Доход платформы</span>
-          <span className="stat-value accent">{totalProfit.toLocaleString('ru')} ₽</span>
-        </div>
+        <StatCard
+          label="Продавцов"
+          value={sellersCount}
+          link={{ to: '/sellers', label: 'Управление →' }}
+        />
+        <StatCard label="Заказов" value={totalOrders} />
+        <StatCard label="Продажи" value={`${totalSales.toLocaleString('ru')} ₽`} />
+        <StatCard label="Доход платформы" value={`${totalProfit.toLocaleString('ru')} ₽`} accent />
       </div>
 
       <div className="dashboard-grid">
         <div className="card">
           <h3>Топ продавцов</h3>
           {sellerStats.length === 0 ? (
-            <p className="empty-text">Нет данных</p>
+            <EmptyState title="Нет данных" />
           ) : (
             <div className="table-wrap">
               <table className="table">

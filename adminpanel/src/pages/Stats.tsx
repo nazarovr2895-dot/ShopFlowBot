@@ -32,6 +32,12 @@ function getRangeDates(preset: RangePreset, customFrom?: string, customTo?: stri
   };
 }
 
+function getLoadPctClass(pct: number): string {
+  if (pct >= 100) return 'load-pct--danger';
+  if (pct >= 75) return 'load-pct--warning';
+  return '';
+}
+
 export function Stats() {
   const [sellerStats, setSellerStats] = useState<SellerStats[]>([]);
   const [dailySales, setDailySales] = useState<StatsOverviewDailyPoint[]>([]);
@@ -179,7 +185,7 @@ export function Stats() {
 
       {/* Загрузка лимитов */}
       {limitsData && (
-        <div className="stats-summary card" style={{ marginTop: '1.5rem' }}>
+        <div className="stats-summary card stats-limits-card">
           <h3>Загрузка продавцов</h3>
           <div className="summary-grid">
             <div className="summary-item">
@@ -210,24 +216,24 @@ export function Stats() {
 
           {/* По тарифам */}
           {Object.keys(limitsData.by_plan).length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <h4 style={{ margin: '0 0 0.5rem' }}>По тарифам</h4>
-              <table className="stats-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="stats-table-section">
+              <h4 className="stats-table-heading">По тарифам</h4>
+              <table className="stats-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Тариф</th>
-                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Всего</th>
-                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Активных</th>
-                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Исчерпали</th>
+                    <th>Тариф</th>
+                    <th className="text-right">Всего</th>
+                    <th className="text-right">Активных</th>
+                    <th className="text-right">Исчерпали</th>
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(limitsData.by_plan).map(([plan, info]) => (
                     <tr key={plan}>
-                      <td style={{ padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{plan === 'free' ? 'Free' : plan === 'pro' ? 'Pro' : 'Premium'}</td>
-                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{info.total}</td>
-                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{info.active}</td>
-                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{info.exhausted}</td>
+                      <td>{plan === 'free' ? 'Free' : plan === 'pro' ? 'Pro' : 'Premium'}</td>
+                      <td className="text-right">{info.total}</td>
+                      <td className="text-right">{info.active}</td>
+                      <td className="text-right">{info.exhausted}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -237,28 +243,28 @@ export function Stats() {
 
           {/* Топ загруженных */}
           {limitsData.top_loaded.length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <h4 style={{ margin: '0 0 0.5rem' }}>Топ-10 загруженных</h4>
-              <table className="stats-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="stats-table-section">
+              <h4 className="stats-table-heading">Топ-10 загруженных</h4>
+              <table className="stats-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Магазин</th>
-                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Заказы</th>
-                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Лимит</th>
-                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Загрузка</th>
-                    <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Тариф</th>
+                    <th>Магазин</th>
+                    <th className="text-right">Заказы</th>
+                    <th className="text-right">Лимит</th>
+                    <th className="text-right">Загрузка</th>
+                    <th>Тариф</th>
                   </tr>
                 </thead>
                 <tbody>
                   {limitsData.top_loaded.map((s) => (
                     <tr key={s.tg_id}>
-                      <td style={{ padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{s.shop_name || s.fio}</td>
-                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{s.used}</td>
-                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{s.limit}</td>
-                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)', color: s.load_pct >= 100 ? '#e74c3c' : s.load_pct >= 75 ? '#e67e22' : 'inherit' }}>
+                      <td>{s.shop_name || s.fio}</td>
+                      <td className="text-right">{s.used}</td>
+                      <td className="text-right">{s.limit}</td>
+                      <td className={`text-right ${getLoadPctClass(s.load_pct)}`}>
                         {s.load_pct}%
                       </td>
-                      <td style={{ padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{s.plan === 'free' ? 'Free' : s.plan === 'pro' ? 'Pro' : 'Premium'}</td>
+                      <td>{s.plan === 'free' ? 'Free' : s.plan === 'pro' ? 'Pro' : 'Premium'}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { PageHeader, useToast, useConfirm } from '../../components/ui';
+import { PageHeader, TabBar, StatusBadge, DataRow, EmptyState, FormField, useToast, useConfirm } from '../../components/ui';
 import {
   getOrders,
   acceptOrder,
@@ -28,6 +28,14 @@ type PreorderSubTab = 'requests' | 'waiting' | 'dashboard';
 
 function formatItemsInfo(itemsInfo: string): string {
   return itemsInfo.replace(/\d+:/g, '').replace(/x\s*/g, ' × ');
+}
+
+function getStatusVariant(status: string): 'success' | 'danger' | 'warning' | 'info' | 'neutral' {
+  if (['done', 'completed'].includes(status)) return 'success';
+  if (['rejected', 'cancelled'].includes(status)) return 'danger';
+  if (status === 'pending') return 'warning';
+  if (['accepted', 'assembling', 'in_transit'].includes(status)) return 'info';
+  return 'neutral';
 }
 
 /** Delivery badge component */
@@ -202,76 +210,83 @@ export function SellerOrders() {
         <span className="order-id">Заказ #{order.id}</span>
         <div className="order-header__badges">
           <DeliveryBadge type={order.delivery_type} />
-          <span className={`order-status status-${order.status}`}>
+          <StatusBadge variant={getStatusVariant(order.status)}>
             {STATUS_LABELS[order.status] || order.status}
-          </span>
+          </StatusBadge>
         </div>
       </div>
       {(order.buyer_fio || order.buyer_phone) && (
-        <div className="order-buyer" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color, #eee)', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="order-buyer-info">
           {order.buyer_fio && <span>{order.buyer_fio}</span>}
           {order.buyer_phone && <span>{order.buyer_phone}</span>}
           {order.customer_id && (
-            <Link to={`/customers/${order.customer_id}`} style={{ fontSize: '0.85rem' }}>Профиль клиента →</Link>
+            <Link to={`/customers/${order.customer_id}`} className="order-buyer-link">Профиль клиента →</Link>
           )}
         </div>
       )}
-      <div className="order-body">
-        <p><strong>Товары:</strong> {formatItemsInfo(order.items_info)}</p>
-        <p>
-          <strong>Сумма:</strong>{' '}
-          {editingPrice === order.id ? (
-            <span className="price-edit">
-              <input
-                type="number"
-                value={newPrice}
-                onChange={(e) => setNewPrice(e.target.value)}
-                className="form-input"
-                style={{ width: '100px', display: 'inline-block' }}
-              />
-              <button className="btn btn-sm btn-primary" onClick={() => handlePriceChange(order.id)}>OK</button>
-              <button className="btn btn-sm btn-secondary" onClick={() => { setEditingPrice(null); setNewPrice(''); }}>Отмена</button>
-            </span>
-          ) : (
-            <>
-              {order.total_price} ₽
-              {order.original_price != null && Math.abs((order.original_price ?? 0) - (order.total_price ?? 0)) > 0.01 && (
-                <span className="original-price"> (было: {order.original_price} ₽)</span>
-              )}
-              {(activeTab === 'pending' || isPreorderRequests) && (
-                <button
-                  className="btn btn-sm btn-secondary"
-                  style={{ marginLeft: 8 }}
-                  onClick={() => {
-                    setEditingPrice(order.id);
-                    setNewPrice(String(order.total_price ?? ''));
-                  }}
-                  title="Укажите итоговую цену перед принятием заказа"
-                >
-                  Изменить цену
-                </button>
-              )}
-            </>
-          )}
-        </p>
-        <p><strong>Доставка:</strong> {order.delivery_type === 'delivery' ? 'Доставка' : 'Самовывоз'}</p>
-        {order.address && <p><strong>Адрес:</strong> {order.address}</p>}
+      <div className="order-data-rows">
+        <DataRow label="Товары" value={formatItemsInfo(order.items_info)} />
+        <DataRow
+          label="Сумма"
+          accent
+          value={
+            editingPrice === order.id ? (
+              <span className="price-edit">
+                <input
+                  type="number"
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  className="form-input price-edit-input"
+                />
+                <button className="btn btn-sm btn-primary" onClick={() => handlePriceChange(order.id)}>OK</button>
+                <button className="btn btn-sm btn-secondary" onClick={() => { setEditingPrice(null); setNewPrice(''); }}>Отмена</button>
+              </span>
+            ) : (
+              <>
+                {order.total_price} ₽
+                {order.original_price != null && Math.abs((order.original_price ?? 0) - (order.total_price ?? 0)) > 0.01 && (
+                  <span className="original-price"> (было: {order.original_price} ₽)</span>
+                )}
+                {(activeTab === 'pending' || isPreorderRequests) && (
+                  <button
+                    className="btn btn-sm btn-secondary price-change-btn"
+                    onClick={() => {
+                      setEditingPrice(order.id);
+                      setNewPrice(String(order.total_price ?? ''));
+                    }}
+                    title="Укажите итоговую цену перед принятием заказа"
+                  >
+                    Изменить цену
+                  </button>
+                )}
+              </>
+            )
+          }
+        />
+        <DataRow label="Доставка" value={order.delivery_type === 'delivery' ? 'Доставка' : 'Самовывоз'} />
+        <DataRow label="Адрес" value={order.address} />
         {order.is_preorder && order.preorder_delivery_date && (
-          <p>
-            <strong>Дата поставки:</strong> {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU')}
-            {isPreorderWaiting && (() => {
-              const cd = getDaysUntil(order.preorder_delivery_date);
-              return <span className={cd.className}> — {cd.label}</span>;
-            })()}
-          </p>
+          <DataRow
+            label="Дата поставки"
+            value={
+              <>
+                {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU')}
+                {isPreorderWaiting && (() => {
+                  const cd = getDaysUntil(order.preorder_delivery_date);
+                  return <span className={cd.className}> — {cd.label}</span>;
+                })()}
+              </>
+            }
+          />
         )}
         {(order.points_discount ?? 0) > 0 && (
-          <p style={{ color: 'var(--accent, #e74c3c)' }}>
-            <strong>Оплата баллами:</strong> −{order.points_discount} ₽ ({order.points_used} баллов)
-          </p>
+          <DataRow
+            label="Оплата баллами"
+            value={<span className="points-discount">−{order.points_discount} ₽ ({order.points_used} баллов)</span>}
+          />
         )}
-        {order.is_preorder && <span className="preorder-label">📅 Предзаказ</span>}
-        <p className="order-date">Создан: {formatDate(order.created_at)}</p>
+        {order.is_preorder && <span className="preorder-label">Предзаказ</span>}
+        <DataRow label="Создан" value={formatDate(order.created_at)} muted />
       </div>
 
       {/* Actions for regular pending */}
@@ -330,62 +345,36 @@ export function SellerOrders() {
       <PageHeader title="Заказы" />
 
       {/* Main tabs */}
-      <div className="orders-tabs">
-        <button
-          className={`orders-tab ${activeTab === 'pending' ? 'active' : ''}`}
-          onClick={() => setActiveTab('pending')}
-        >
-          📩 Запросы на покупку
-        </button>
-        <button
-          className={`orders-tab ${activeTab === 'active' ? 'active' : ''}`}
-          onClick={() => setActiveTab('active')}
-        >
-          ⚡ Активные заказы
-        </button>
-        <button
-          className={`orders-tab ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          📋 История заказов
-        </button>
-        <button
-          className={`orders-tab ${activeTab === 'preorder' ? 'active' : ''}`}
-          onClick={() => setActiveTab('preorder')}
-        >
-          📅 Предзаказы
-        </button>
-      </div>
+      <TabBar
+        tabs={[
+          { key: 'pending', label: 'Запросы на покупку' },
+          { key: 'active', label: 'Активные заказы' },
+          { key: 'history', label: 'История заказов' },
+          { key: 'preorder', label: 'Предзаказы' },
+        ]}
+        activeTab={activeTab}
+        onChange={(key) => setActiveTab(key as MainTab)}
+      />
 
       {/* Preorder sub-tabs */}
       {activeTab === 'preorder' && (
-        <div className="preorder-subtabs">
-          <button
-            className={`preorder-subtab ${preorderSubTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setPreorderSubTab('requests')}
-          >
-            📩 Запросы
-          </button>
-          <button
-            className={`preorder-subtab ${preorderSubTab === 'waiting' ? 'active' : ''}`}
-            onClick={() => setPreorderSubTab('waiting')}
-          >
-            ⏳ Ожидание
-          </button>
-          <button
-            className={`preorder-subtab ${preorderSubTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setPreorderSubTab('dashboard')}
-          >
-            📊 Дашборд закупок
-          </button>
-        </div>
+        <TabBar
+          size="small"
+          tabs={[
+            { key: 'requests', label: 'Запросы' },
+            { key: 'waiting', label: 'Ожидание' },
+            { key: 'dashboard', label: 'Дашборд закупок' },
+          ]}
+          activeTab={preorderSubTab}
+          onChange={(key) => setPreorderSubTab(key as PreorderSubTab)}
+        />
       )}
 
       {/* Dashboard for preorders */}
       {activeTab === 'preorder' && preorderSubTab === 'dashboard' && (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-          <h3 style={{ marginTop: 0 }}>📦 Дашборд закупок на дату</h3>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="card preorder-dashboard-card">
+          <h3 className="preorder-dashboard-title">📦 Дашборд закупок на дату</h3>
+          <div className="preorder-dashboard-controls">
             <input
               type="date"
               value={summaryDate}
@@ -401,14 +390,14 @@ export function SellerOrders() {
             </button>
           </div>
           {summary && (
-            <div style={{ marginTop: '0.75rem' }}>
-              <p style={{ margin: '0.25rem 0' }}>
+            <div className="preorder-dashboard-result">
+              <p className="preorder-dashboard-summary">
                 <strong>Дата:</strong> {new Date(summary.date).toLocaleDateString('ru-RU')} &nbsp;|&nbsp;
                 <strong>Заказов:</strong> {summary.total_orders} &nbsp;|&nbsp;
                 <strong>Сумма:</strong> {summary.total_amount.toFixed(0)} ₽
               </p>
               {summary.items.length > 0 ? (
-                <div className="table-wrap" style={{ marginTop: '0.5rem' }}>
+                <div className="table-wrap preorder-dashboard-table">
                   <table className="table">
                     <thead>
                       <tr>
@@ -452,20 +441,22 @@ export function SellerOrders() {
       {/* History date filter */}
       {activeTab === 'history' && (
         <div className="orders-date-filter card">
-          <label>Период:</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="form-input"
-          />
-          <span>—</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="form-input"
-          />
+          <FormField label="С">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="form-input"
+            />
+          </FormField>
+          <FormField label="По">
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="form-input"
+            />
+          </FormField>
         </div>
       )}
 
@@ -476,13 +467,12 @@ export function SellerOrders() {
             <div className="loader" />
           </div>
         ) : orders.length === 0 ? (
-          <div className="card">
-            <p className="empty-text">
-              {isPreorderRequests ? 'Нет запросов на предзаказ' :
-               isPreorderWaiting ? 'Нет ожидающих предзаказов' :
-               'Нет заказов'}
-            </p>
-          </div>
+          <EmptyState
+            title={isPreorderRequests ? 'Нет запросов на предзаказ' :
+                   isPreorderWaiting ? 'Нет ожидающих предзаказов' :
+                   'Нет заказов'}
+            message="Заказы появятся здесь, когда покупатели оформят покупку"
+          />
         ) : (
           <div className="orders-list">
             {orders.map(renderOrderCard)}

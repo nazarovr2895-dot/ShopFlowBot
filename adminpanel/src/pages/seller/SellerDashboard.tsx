@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { AlertTriangle, Package, Users, Store, ClipboardCheck, ShoppingBag, Settings as SettingsIcon, BarChart3 } from 'lucide-react';
 import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount, getUpcomingEvents } from '../../api/sellerClient';
 import type { SellerMe, SellerStats, DashboardAlerts, UpcomingEvent } from '../../api/sellerClient';
-import { PageHeader } from '../../components/ui';
+import { PageHeader, StatCard, StatusBadge, Card, ActionCard } from '../../components/ui';
 import '../Dashboard.css';
 
 const PENDING_POLL_INTERVAL_MS = 45 * 1000;
@@ -89,6 +90,8 @@ export function SellerDashboard() {
     );
   }
 
+  const hasAlerts = (alerts?.low_stock_bouquets?.length ?? 0) + (alerts?.expiring_items?.length ?? 0) > 0;
+
   return (
     <div className="dashboard">
       <PageHeader
@@ -96,112 +99,84 @@ export function SellerDashboard() {
         subtitle={me?.shop_name || 'Мой магазин'}
       />
 
-      {(alerts?.low_stock_bouquets?.length ?? 0) + (alerts?.expiring_items?.length ?? 0) > 0 && (
-        <div className="card dashboard-alerts">
-          <h3>Внимание</h3>
+      {/* ── Alerts ──────────────────────────────── */}
+      {hasAlerts && (
+        <Card className="dashboard-alerts-card">
+          <div className="dashboard-alerts-header">
+            <AlertTriangle size={18} />
+            <h3>Внимание</h3>
+          </div>
           {alerts?.low_stock_bouquets?.length ? (
-            <p>
-              Букеты с низким остатком:{' '}
+            <p className="dashboard-alert-text">
+              <StatusBadge variant="warning" size="sm">Низкий остаток</StatusBadge>{' '}
               {alerts.low_stock_bouquets.map((b) => (
-                <Link key={b.id} to="/bouquets">{b.name} (можно собрать: {b.can_assemble_count})</Link>
-              )).reduce((prev, curr, i) => (i === 0 ? [curr] : [...prev, ', ', curr]), [] as React.ReactNode[])}
+                <Link key={b.id} to="/catalog?tab=bouquets" className="dashboard-alert-link">
+                  {b.name} (можно собрать: {b.can_assemble_count})
+                </Link>
+              )).reduce((prev, curr, i) => (i === 0 ? [curr] : [...prev, ', ', curr]) as React.ReactNode[], [] as React.ReactNode[])}
             </p>
           ) : null}
           {alerts?.expiring_items?.length ? (
-            <p>
-              Цветы с истекающим сроком (≤2 дн.):{' '}
+            <p className="dashboard-alert-text">
+              <StatusBadge variant="danger" size="sm">Истекает срок</StatusBadge>{' '}
               {alerts.expiring_items.slice(0, 5).map((e, i) => (
                 <span key={i}>{e.flower_name} в «{e.reception_name}» ({e.days_left} дн.)</span>
-              )).reduce((prev, curr, i) => (i === 0 ? [curr] : [...prev, ', ', curr]), [] as React.ReactNode[])}
-              {' '}<Link to="/receptions">→ Приёмка</Link>
+              )).reduce((prev, curr, i) => (i === 0 ? [curr] : [...prev, ', ', curr]) as React.ReactNode[], [] as React.ReactNode[])}
+              {' '}<Link to="/stock?tab=receptions" className="dashboard-alert-link">→ Приёмка</Link>
             </p>
           ) : null}
-        </div>
+        </Card>
       )}
 
+      {/* ── Upcoming Events ────────────────────── */}
       {upcomingEvents.length > 0 && (
-        <div className="card dashboard-upcoming-events" style={{ marginBottom: '1rem' }}>
-          <h3>Предстоящие события клиентов</h3>
-          {upcomingEvents.map((ev, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', borderBottom: i < upcomingEvents.length - 1 ? '1px solid var(--border-color, #eee)' : 'none' }}>
-              <span style={{ fontSize: '1.1rem' }}>{ev.type === 'birthday' ? '\uD83C\uDF82' : '\uD83D\uDCC5'}</span>
-              <Link to={`/customers/${ev.customer_id}`} style={{ flex: 1 }}>
-                <strong>{ev.customer_name}</strong> — {ev.title}
-                {ev.days_until === 0
-                  ? <span style={{ color: 'var(--accent, #e74c3c)', fontWeight: 'bold' }}> (сегодня!)</span>
-                  : ev.days_until === 1
-                    ? <span style={{ color: 'var(--warning, #f39c12)' }}> (завтра)</span>
-                    : <span style={{ color: 'var(--text-muted)' }}> (через {ev.days_until} дн.)</span>
-                }
+        <Card className="dashboard-events-card">
+          <h3 className="dashboard-section-title">Предстоящие события клиентов</h3>
+          <div className="dashboard-events-list">
+            {upcomingEvents.map((ev, i) => (
+              <Link key={i} to={`/customers/${ev.customer_id}`} className="dashboard-event-row">
+                <span className="dashboard-event-icon">{ev.type === 'birthday' ? '🎂' : '📅'}</span>
+                <span className="dashboard-event-body">
+                  <strong>{ev.customer_name}</strong> — {ev.title}
+                </span>
+                {ev.days_until === 0 && <StatusBadge variant="danger" size="sm">Сегодня</StatusBadge>}
+                {ev.days_until === 1 && <StatusBadge variant="warning" size="sm">Завтра</StatusBadge>}
+                {ev.days_until > 1 && <StatusBadge variant="neutral" size="sm">через {ev.days_until} дн.</StatusBadge>}
               </Link>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </Card>
       )}
 
+      {/* ── Quick Actions ──────────────────────── */}
       <div className="dashboard-quick-actions">
-        <Link to="/receptions" className="btn btn-primary">Приёмка</Link>
-        <Link to="/customers" className="btn btn-secondary">Добавить клиента</Link>
-        <Link to="/showcase" className="btn btn-secondary">Витрина</Link>
-        <Link to="/inventory" className="btn btn-secondary">Инвентаризация</Link>
+        <Link to="/stock?tab=receptions" className="btn btn-primary"><Package size={16} /> Приёмка</Link>
+        <Link to="/customers" className="btn btn-secondary"><Users size={16} /> Клиенты</Link>
+        <Link to="/catalog" className="btn btn-secondary"><Store size={16} /> Витрина</Link>
+        <Link to="/stock?tab=inventory" className="btn btn-secondary"><ClipboardCheck size={16} /> Инвентаризация</Link>
       </div>
 
-      <div className="stats-grid">
-        <Link to="/orders?tab=pending" className="stat-card" style={{ textDecoration: 'none' }}>
-          <span className="stat-label">Запросы на покупку</span>
-          <span className="stat-value">{pendingCount}</span>
-          <span className="stat-link">Перейти →</span>
-        </Link>
-        <Link to="/orders?tab=active" className="stat-card" style={{ textDecoration: 'none' }}>
-          <span className="stat-label">Активные заказы</span>
-          <span className="stat-value">{activeCount}</span>
-          <span className="stat-link">Перейти →</span>
-        </Link>
-        <div className="stat-card">
-          <span className="stat-label">Выполнено заказов</span>
-          <span className="stat-value">{stats?.total_completed_orders ?? 0}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Выручка (за все время)</span>
-          <span className="stat-value">{(stats?.total_revenue ?? 0).toLocaleString('ru')} ₽</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">К получению (за вычетом 18%)</span>
-          <span className="stat-value accent">{(stats?.net_revenue ?? 0).toLocaleString('ru')} ₽</span>
-        </div>
+      {/* ── Stats Grid ─────────────────────────── */}
+      <div className="dashboard-stats-grid">
+        <StatCard label="Запросы на покупку" value={pendingCount} link={{ to: '/orders?tab=pending', label: 'Перейти' }} />
+        <StatCard label="Активные заказы" value={activeCount} link={{ to: '/orders?tab=active', label: 'Перейти' }} />
+        <StatCard label="Выполнено заказов" value={stats?.total_completed_orders ?? 0} />
+        <StatCard label="Выручка (всё время)" value={`${(stats?.total_revenue ?? 0).toLocaleString('ru')} ₽`} />
+        <StatCard label="К получению (−18%)" value={`${(stats?.net_revenue ?? 0).toLocaleString('ru')} ₽`} accent />
         {me && (
-          <div className="stat-card">
-            <span className="stat-label">В работе / лимит</span>
-            <span className="stat-value">
-              {me.limit_set_for_today
-                ? `${me.orders_used_today ?? 0} / ${me.max_orders ?? 0}`
-                : 'Не задан'}
-            </span>
-          </div>
+          <StatCard
+            label="В работе / лимит"
+            value={me.limit_set_for_today ? `${me.orders_used_today ?? 0} / ${me.max_orders ?? 0}` : 'Не задан'}
+          />
         )}
-        <Link to="/subscribers" className="stat-card" style={{ textDecoration: 'none' }}>
-          <span className="stat-label">Подписчики</span>
-          <span className="stat-value">{subscriberCount}</span>
-          <span className="stat-link">Перейти →</span>
-        </Link>
+        <StatCard label="Подписчики" value={subscriberCount} link={{ to: '/customers?tab=subscribers', label: 'Перейти' }} />
       </div>
 
-      <div className="dashboard-grid">
-        <Link to="/orders" className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <h3>Заказы</h3>
-          <p className="empty-text">Запросы на покупку, активные заказы и история</p>
-          <span className="card-footer-link">Перейти к заказам →</span>
-        </Link>
-        <Link to="/shop" className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <h3>Настройки магазина</h3>
-          <p className="empty-text">Лимиты, ссылка на магазин, товары</p>
-          <span className="card-footer-link">Настройки →</span>
-        </Link>
-        <Link to="/stats" className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <h3>Статистика продаж</h3>
-          <p className="empty-text">Детальная статистика по выручке</p>
-          <span className="card-footer-link">Статистика →</span>
-        </Link>
+      {/* ── Navigation Cards ───────────────────── */}
+      <div className="dashboard-nav-grid">
+        <ActionCard to="/orders" icon={<ShoppingBag size={20} />} title="Заказы" description="Запросы, активные заказы и история" />
+        <ActionCard to="/settings" icon={<SettingsIcon size={20} />} title="Настройки магазина" description="Лимиты, ссылка, расписание" />
+        <ActionCard to="/analytics" icon={<BarChart3 size={20} />} title="Статистика продаж" description="Детальная аналитика по выручке" />
       </div>
     </div>
   );

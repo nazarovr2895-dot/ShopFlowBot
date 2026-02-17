@@ -16,7 +16,7 @@ import {
   type ReceptionDetail,
   type ReceptionItemRow,
 } from '../../api/sellerClient';
-import { useToast, useConfirm } from '../../components/ui';
+import { PageHeader, Modal, FormField, EmptyState, useToast, useConfirm } from '../../components/ui';
 import './SellerReceptions.css';
 
 const WRITE_OFF_REASONS: { value: string; label: string }[] = [
@@ -268,20 +268,37 @@ export function SellerReceptions() {
 
   return (
     <div className="seller-receptions-page">
-      <div className="receptions-actions">
-        <button className="btn btn-primary" onClick={() => setShowAddFlower(true)}>
-          Создать цветок
-        </button>
-        <button className="btn btn-primary" onClick={() => setShowAddReception(true)}>
-          Создать приёмку
-        </button>
-      </div>
+      <PageHeader
+        title="Приёмка"
+        actions={
+          <div className="receptions-actions">
+            <button className="btn btn-secondary" onClick={() => setShowAddFlower(true)}>
+              Создать цветок
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowAddReception(true)}>
+              Создать приёмку
+            </button>
+          </div>
+        }
+      />
 
-      {showAddFlower && (
-        <form onSubmit={handleCreateFlower} className="card add-form">
-          <h3>Новый цветок</h3>
-          <div className="form-group">
-            <label>Название</label>
+      {/* Modal: New Flower */}
+      <Modal
+        isOpen={showAddFlower}
+        onClose={() => setShowAddFlower(false)}
+        title="Новый цветок"
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowAddFlower(false)}>
+              Отмена
+            </button>
+            <button type="submit" form="form-add-flower" className="btn btn-primary">Добавить</button>
+          </>
+        }
+      >
+        <form id="form-add-flower" onSubmit={handleCreateFlower}>
+          <FormField label="Название" required>
             <input
               type="text"
               value={newFlowerName}
@@ -289,9 +306,8 @@ export function SellerReceptions() {
               className="form-input"
               required
             />
-          </div>
-          <div className="form-group">
-            <label>Срок жизни по умолчанию (дней)</label>
+          </FormField>
+          <FormField label="Срок жизни по умолчанию (дней)" hint="например 7">
             <input
               type="number"
               min={1}
@@ -300,21 +316,27 @@ export function SellerReceptions() {
               className="form-input"
               placeholder="например 7"
             />
-          </div>
-          <div className="form-actions">
-            <button type="button" className="btn btn-secondary" onClick={() => setShowAddFlower(false)}>
+          </FormField>
+        </form>
+      </Modal>
+
+      {/* Modal: New Reception */}
+      <Modal
+        isOpen={showAddReception}
+        onClose={() => setShowAddReception(false)}
+        title="Новая приёмка"
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowAddReception(false)}>
               Отмена
             </button>
-            <button type="submit" className="btn btn-primary">Добавить</button>
-          </div>
-        </form>
-      )}
-
-      {showAddReception && (
-        <form onSubmit={handleCreateReception} className="card add-form">
-          <h3>Новая приёмка</h3>
-          <div className="form-group">
-            <label>Название</label>
+            <button type="submit" form="form-add-reception" className="btn btn-primary">Создать</button>
+          </>
+        }
+      >
+        <form id="form-add-reception" onSubmit={handleCreateReception}>
+          <FormField label="Название" required>
             <input
               type="text"
               value={newReceptionName}
@@ -322,18 +344,16 @@ export function SellerReceptions() {
               className="form-input"
               required
             />
-          </div>
-          <div className="form-group">
-            <label>Дата приёмки</label>
+          </FormField>
+          <FormField label="Дата приёмки">
             <input
               type="date"
               value={newReceptionDate}
               onChange={(e) => setNewReceptionDate(e.target.value)}
               className="form-input"
             />
-          </div>
-          <div className="form-group">
-            <label>Поставщик</label>
+          </FormField>
+          <FormField label="Поставщик" hint="необязательно">
             <input
               type="text"
               value={newReceptionSupplier}
@@ -341,9 +361,8 @@ export function SellerReceptions() {
               className="form-input"
               placeholder="необязательно"
             />
-          </div>
-          <div className="form-group">
-            <label>Номер накладной</label>
+          </FormField>
+          <FormField label="Номер накладной" hint="необязательно">
             <input
               type="text"
               value={newReceptionInvoice}
@@ -351,21 +370,152 @@ export function SellerReceptions() {
               className="form-input"
               placeholder="необязательно"
             />
-          </div>
-          <div className="form-actions">
-            <button type="button" className="btn btn-secondary" onClick={() => setShowAddReception(false)}>
+          </FormField>
+        </form>
+      </Modal>
+
+      {/* Modal: Add Reception Item */}
+      <Modal
+        isOpen={showAddItem}
+        onClose={() => setShowAddItem(false)}
+        title="Позиция приёмки"
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowAddItem(false)}>
               Отмена
             </button>
-            <button type="submit" className="btn btn-primary">Создать</button>
+            <button type="submit" form="form-add-item" className="btn btn-primary">Добавить</button>
+          </>
+        }
+      >
+        <form id="form-add-item" onSubmit={handleAddReceptionItem}>
+          <FormField label="Цветок" required>
+            <select
+              value={newItem.flower_id}
+              onChange={(e) => setNewItem((p) => ({ ...p, flower_id: Number(e.target.value) }))}
+              className="form-input"
+              required
+            >
+              <option value={0}>-- выбрать --</option>
+              {flowers.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </FormField>
+          <div className="form-row-2">
+            <FormField label="Кол-во (шт)">
+              <input
+                type="number"
+                min={1}
+                value={newItem.quantity_initial}
+                onChange={(e) => setNewItem((p) => ({ ...p, quantity_initial: e.target.value }))}
+                className="form-input"
+              />
+            </FormField>
+            <FormField label="Дата прихода">
+              <input
+                type="date"
+                value={newItem.arrival_date}
+                onChange={(e) => setNewItem((p) => ({ ...p, arrival_date: e.target.value }))}
+                className="form-input"
+              />
+            </FormField>
+          </div>
+          <div className="form-row-2">
+            <FormField label="Срок жизни (дней)">
+              <input
+                type="number"
+                min={1}
+                value={newItem.shelf_life_days}
+                onChange={(e) => setNewItem((p) => ({ ...p, shelf_life_days: e.target.value }))}
+                className="form-input"
+              />
+            </FormField>
+            <FormField label="Цена за шт" required>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={newItem.price_per_unit}
+                onChange={(e) => setNewItem((p) => ({ ...p, price_per_unit: e.target.value }))}
+                className="form-input"
+                required
+              />
+            </FormField>
           </div>
         </form>
-      )}
+      </Modal>
+
+      {/* Modal: Write-off */}
+      <Modal
+        isOpen={!!writeOffTarget}
+        onClose={() => setWriteOffTarget(null)}
+        title={writeOffTarget ? `Списание: ${writeOffTarget.flower_name}` : 'Списание'}
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setWriteOffTarget(null)}>Отмена</button>
+            <button type="submit" form="form-write-off" className="btn btn-primary" disabled={writeOffSubmitting}>
+              {writeOffSubmitting ? '...' : 'Списать'}
+            </button>
+          </>
+        }
+      >
+        {writeOffTarget && (
+          <form id="form-write-off" onSubmit={handleWriteOff}>
+            <p className="writeoff-summary">
+              Остаток: {writeOffTarget.remaining_quantity} шт. &middot; {writeOffTarget.price_per_unit} ₽/шт
+            </p>
+            <FormField label="Количество" required>
+              <input
+                type="number"
+                min={1}
+                max={writeOffTarget.remaining_quantity}
+                value={writeOffForm.quantity}
+                onChange={(e) => setWriteOffForm((f) => ({ ...f, quantity: e.target.value }))}
+                className="form-input"
+                required
+                autoFocus
+              />
+            </FormField>
+            <FormField label="Причина">
+              <select
+                value={writeOffForm.reason}
+                onChange={(e) => setWriteOffForm((f) => ({ ...f, reason: e.target.value }))}
+                className="form-input"
+              >
+                {WRITE_OFF_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Комментарий" hint="необязательно">
+              <input
+                type="text"
+                value={writeOffForm.comment}
+                onChange={(e) => setWriteOffForm((f) => ({ ...f, comment: e.target.value }))}
+                className="form-input"
+                placeholder="необязательно"
+              />
+            </FormField>
+            {writeOffForm.quantity && !isNaN(parseInt(writeOffForm.quantity)) && (
+              <p className="writeoff-loss">
+                Потери: {(parseInt(writeOffForm.quantity) * writeOffTarget.price_per_unit).toFixed(0)} ₽
+              </p>
+            )}
+          </form>
+        )}
+      </Modal>
 
       <div className="card shop-section">
-        <h3>Справочник цветов</h3>
+        <h3 className="section-title">Справочник цветов</h3>
         <p className="section-hint">Цветы для выбора при добавлении позиций в приёмку.</p>
         {flowers.length === 0 ? (
-          <p className="empty-text">Нет цветов. Нажмите «Создать цветок».</p>
+          <EmptyState
+            title="Нет цветов"
+            message="Нажмите «Создать цветок», чтобы добавить первый."
+          />
         ) : (
           <ul className="flowers-list">
             {flowers.map((f) => (
@@ -384,10 +534,13 @@ export function SellerReceptions() {
       </div>
 
       <div className="card shop-section">
-        <h3>Приёмки</h3>
+        <h3 className="section-title">Приёмки</h3>
         <p className="section-hint">Выберите приёмку, чтобы увидеть и редактировать позиции.</p>
         {receptions.length === 0 ? (
-          <p className="empty-text">Нет приёмок. Нажмите «Создать приёмку».</p>
+          <EmptyState
+            title="Нет приёмок"
+            message="Нажмите «Создать приёмку», чтобы начать."
+          />
         ) : (
           <div className="receptions-list">
             {receptions.map((r) => (
@@ -431,77 +584,6 @@ export function SellerReceptions() {
               )}
             </div>
 
-            {showAddItem && (
-              <form onSubmit={handleAddReceptionItem} className="card add-form add-item-form">
-                <h4>Позиция приёмки</h4>
-                <div className="form-group">
-                  <label>Цветок</label>
-                  <select
-                    value={newItem.flower_id}
-                    onChange={(e) => setNewItem((p) => ({ ...p, flower_id: Number(e.target.value) }))}
-                    className="form-input"
-                    required
-                  >
-                    <option value={0}>— выбрать —</option>
-                    {flowers.map((f) => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-row-2">
-                  <div className="form-group">
-                    <label>Кол-во (шт)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={newItem.quantity_initial}
-                      onChange={(e) => setNewItem((p) => ({ ...p, quantity_initial: e.target.value }))}
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Дата прихода</label>
-                    <input
-                      type="date"
-                      value={newItem.arrival_date}
-                      onChange={(e) => setNewItem((p) => ({ ...p, arrival_date: e.target.value }))}
-                      className="form-input"
-                    />
-                  </div>
-                </div>
-                <div className="form-row-2">
-                  <div className="form-group">
-                    <label>Срок жизни (дней)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={newItem.shelf_life_days}
-                      onChange={(e) => setNewItem((p) => ({ ...p, shelf_life_days: e.target.value }))}
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Цена за шт (₽)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={newItem.price_per_unit}
-                      onChange={(e) => setNewItem((p) => ({ ...p, price_per_unit: e.target.value }))}
-                      className="form-input"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowAddItem(false)}>
-                    Отмена
-                  </button>
-                  <button type="submit" className="btn btn-primary">Добавить</button>
-                </div>
-              </form>
-            )}
-
             <div className="reception-items-wrap">
               <table className="reception-items-table">
                 <thead>
@@ -527,7 +609,7 @@ export function SellerReceptions() {
                     >
                       <td>{row.flower_name}</td>
                       <td>{row.quantity_initial}</td>
-                      <td>{row.arrival_date ?? '—'}</td>
+                      <td>{row.arrival_date ?? '---'}</td>
                       <td>
                         {editingItemId === row.id ? (
                           <input
@@ -535,8 +617,7 @@ export function SellerReceptions() {
                             min={1}
                             value={editItem.shelf_life_days}
                             onChange={(e) => setEditItem((p) => ({ ...p, shelf_life_days: e.target.value }))}
-                            className="form-input input-sm"
-                            style={{ width: '4rem' }}
+                            className="form-input input-sm input-table-cell"
                           />
                         ) : (
                           row.shelf_life_days
@@ -550,8 +631,7 @@ export function SellerReceptions() {
                             step="0.01"
                             value={editItem.price_per_unit}
                             onChange={(e) => setEditItem((p) => ({ ...p, price_per_unit: e.target.value }))}
-                            className="form-input input-sm"
-                            style={{ width: '5rem' }}
+                            className="form-input input-sm input-table-cell input-table-cell--wide"
                           />
                         ) : (
                           `${row.price_per_unit} ₽`
@@ -564,16 +644,15 @@ export function SellerReceptions() {
                             min={0}
                             value={editItem.remaining_quantity}
                             onChange={(e) => setEditItem((p) => ({ ...p, remaining_quantity: e.target.value }))}
-                            className="form-input input-sm"
-                            style={{ width: '4rem' }}
+                            className="form-input input-sm input-table-cell"
                           />
                         ) : (
                           row.remaining_quantity
                         )}
                       </td>
-                      <td>{row.days_left != null ? row.days_left : '—'}</td>
+                      <td>{row.days_left != null ? row.days_left : '---'}</td>
                       <td>{row.sold_quantity} / {row.sold_amount.toFixed(0)} ₽</td>
-                      <td>
+                      <td className="actions-cell">
                         {editingItemId === row.id ? (
                           <>
                             <button
@@ -582,7 +661,7 @@ export function SellerReceptions() {
                               onClick={handleSaveEditItem}
                               disabled={editSubmitting}
                             >
-                              {editSubmitting ? '…' : 'Сохранить'}
+                              {editSubmitting ? '...' : 'Сохранить'}
                             </button>
                             <button
                               type="button"
@@ -604,8 +683,7 @@ export function SellerReceptions() {
                             {row.remaining_quantity > 0 && (
                               <button
                                 type="button"
-                                className="btn btn-sm btn-secondary"
-                                style={{ color: '#d97706' }}
+                                className="btn btn-sm btn-warning"
                                 onClick={() => {
                                   setWriteOffTarget(row);
                                   setWriteOffForm({ quantity: '', reason: 'wilted', comment: '' });
@@ -629,67 +707,15 @@ export function SellerReceptions() {
                 </tbody>
               </table>
               {selectedReception.items.length === 0 && (
-                <p className="empty-text">Нет позиций. Нажмите «Добавить позицию».</p>
+                <EmptyState
+                  title="Нет позиций"
+                  message="Нажмите «Добавить позицию», чтобы начать."
+                />
               )}
             </div>
           </>
         )}
       </div>
-
-      {writeOffTarget && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <form onSubmit={handleWriteOff} className="card" style={{ width: '90%', maxWidth: 400, padding: '1.5rem' }}>
-            <h3 style={{ marginTop: 0 }}>Списание: {writeOffTarget.flower_name}</h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Остаток: {writeOffTarget.remaining_quantity} шт. · {writeOffTarget.price_per_unit} ₽/шт</p>
-            <div className="form-group">
-              <label>Количество</label>
-              <input
-                type="number"
-                min={1}
-                max={writeOffTarget.remaining_quantity}
-                value={writeOffForm.quantity}
-                onChange={(e) => setWriteOffForm((f) => ({ ...f, quantity: e.target.value }))}
-                className="form-input"
-                required
-                autoFocus
-              />
-            </div>
-            <div className="form-group">
-              <label>Причина</label>
-              <select
-                value={writeOffForm.reason}
-                onChange={(e) => setWriteOffForm((f) => ({ ...f, reason: e.target.value }))}
-                className="form-input"
-              >
-                {WRITE_OFF_REASONS.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Комментарий</label>
-              <input
-                type="text"
-                value={writeOffForm.comment}
-                onChange={(e) => setWriteOffForm((f) => ({ ...f, comment: e.target.value }))}
-                className="form-input"
-                placeholder="необязательно"
-              />
-            </div>
-            {writeOffForm.quantity && !isNaN(parseInt(writeOffForm.quantity)) && (
-              <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                Потери: {(parseInt(writeOffForm.quantity) * writeOffTarget.price_per_unit).toFixed(0)} ₽
-              </p>
-            )}
-            <div className="form-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setWriteOffTarget(null)}>Отмена</button>
-              <button type="submit" className="btn btn-primary" disabled={writeOffSubmitting}>
-                {writeOffSubmitting ? '…' : 'Списать'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

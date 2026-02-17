@@ -1,31 +1,21 @@
 .seller-receptions-loading {
   display: flex;
   justify-content: center;
-  padding: 3rem;
+  padding: var(--space-8);
 }
 
 .receptions-actions {
   display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.seller-receptions-page .add-form {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
+  gap: var(--space-3);
 }
 
 .seller-receptions-page .form-row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
-.seller-receptions-page .form-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
+/* --- Flowers list --- */
 
 .flowers-list {
   list-style: none;
@@ -36,8 +26,8 @@
 .flower-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -46,54 +36,92 @@
 }
 
 .flower-shelf {
-  color: var(--text-muted);
-  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
+
+/* --- Receptions list / tabs --- */
 
 .receptions-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
 .reception-tab {
-  padding: 0.5rem 1rem;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-card, var(--bg));
+  background: var(--bg-surface);
   color: var(--text);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .reception-tab:hover {
-  background: var(--bg-hover);
-  color: var(--text);
+  background: var(--bg-surface-hover);
 }
 
 .reception-tab.active {
   border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--text);
+  background: rgba(99, 102, 241, 0.12);
 }
+
+.reception-tab.reception-closed {
+  opacity: 0.65;
+}
+
+/* --- Reception header --- */
 
 .reception-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
 
 .reception-date {
-  color: var(--text-muted);
-  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
-.add-item-form {
-  margin-bottom: 1rem;
+.reception-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--warning);
+  color: #fff;
+  font-size: var(--text-xs);
+  font-weight: 600;
 }
+
+.reception-meta {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+/* --- Sections --- */
+
+.shop-section {
+  margin-bottom: var(--space-6);
+}
+
+.section-title {
+  margin: 0 0 var(--space-1) 0;
+  font-size: var(--text-lg);
+}
+
+.section-hint {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+
+/* --- Table --- */
 
 .reception-items-wrap {
   overflow-x: auto;
@@ -102,41 +130,70 @@
 .reception-items-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 .reception-items-table th,
 .reception-items-table td {
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   text-align: left;
   border-bottom: 1px solid var(--border);
 }
 
 .reception-items-table th {
   font-weight: 600;
-  background: var(--bg);
+  background: var(--bg-surface);
 }
 
 .reception-items-table tr.row-expiring {
-  background: rgba(255, 193, 7, 0.15);
+  background: rgba(255, 193, 7, 0.12);
 }
 
 .reception-items-table tr.row-expiring td:nth-child(7) {
   font-weight: 600;
-  color: var(--danger, #c62828);
+  color: var(--danger);
 }
 
-.shop-section {
-  margin-bottom: 1.5rem;
+/* Table cell inputs */
+
+.input-table-cell {
+  width: 4rem;
 }
 
-.section-hint {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
+.input-table-cell--wide {
+  width: 5rem;
 }
 
-.empty-text {
-  color: var(--text-muted);
-  font-style: italic;
+/* Actions cell in table */
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.actions-cell .btn {
+  margin-right: var(--space-1);
+}
+
+.actions-cell .btn:last-child {
+  margin-right: 0;
+}
+
+/* Write-off button */
+
+.btn-warning {
+  color: var(--warning);
+}
+
+/* --- Write-off modal content --- */
+
+.writeoff-summary {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.writeoff-loss {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-top: var(--space-2);
 }

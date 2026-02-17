@@ -8,7 +8,7 @@ import {
   type BouquetDetail,
   type FlowerStock,
 } from '../../api/sellerClient';
-import { useToast, useConfirm } from '../../components/ui';
+import { PageHeader, FormField, EmptyState, useToast, useConfirm } from '../../components/ui';
 import './SellerBouquets.css';
 
 export function SellerBouquets() {
@@ -162,15 +162,22 @@ export function SellerBouquets() {
 
   return (
     <div className="seller-bouquets-page">
-      <button className="btn btn-primary" onClick={() => { setShowCreate(true); setEditingId(null); setForm({ name: '', packaging_cost: '0', items: [] }); }}>
-        Создать букет
-      </button>
+      <PageHeader
+        title="Конструктор букетов"
+        actions={
+          <button
+            className="btn btn-primary"
+            onClick={() => { setShowCreate(true); setEditingId(null); setForm({ name: '', packaging_cost: '0', items: [] }); }}
+          >
+            Создать букет
+          </button>
+        }
+      />
 
       {showCreate && (
         <form onSubmit={handleSave} className="card bouquet-form">
           <h3>{editingId ? 'Редактировать букет' : 'Новый букет'}</h3>
-          <div className="form-group">
-            <label>Название</label>
+          <FormField label="Название" required>
             <input
               type="text"
               value={form.name}
@@ -178,9 +185,8 @@ export function SellerBouquets() {
               className="form-input"
               required
             />
-          </div>
-          <div className="form-group">
-            <label>Стоимость упаковки (₽)</label>
+          </FormField>
+          <FormField label="Стоимость упаковки (₽)">
             <input
               type="number"
               min={0}
@@ -189,7 +195,7 @@ export function SellerBouquets() {
               onChange={(e) => setForm((p) => ({ ...p, packaging_cost: e.target.value }))}
               className="form-input"
             />
-          </div>
+          </FormField>
           <h4>Состав</h4>
           <p className="section-hint">Выберите цветы из наличия в приёмках.</p>
           {form.items.map((it, idx) => {
@@ -253,7 +259,7 @@ export function SellerBouquets() {
       <div className="card shop-section">
         <h3>Мои букеты</h3>
         {bouquets.length === 0 ? (
-          <p className="empty-text">Нет букетов. Создайте букет из цветов в наличии.</p>
+          <EmptyState title="Нет букетов" message="Создайте букет из цветов в наличии." />
         ) : (
           <div className="bouquets-list">
             {bouquets.map((b) => (

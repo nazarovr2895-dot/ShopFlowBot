@@ -329,7 +329,7 @@ function InnVerificationModal({
           <small className="form-hint">Введите ИНН (10/12 цифр) или ОГРН/ОГРНИП (13/15 цифр)</small>
         </div>
 
-        <div className="modal-actions" style={{ marginTop: '1rem' }}>
+        <div className="modal-actions modal-actions--spaced">
           <button
             type="button"
             className="btn btn-primary"
@@ -340,15 +340,15 @@ function InnVerificationModal({
           </button>
         </div>
 
-        {error && <div className="modal-error" style={{ marginTop: '1rem' }}>{error}</div>}
+        {error && <div className="modal-error modal-error--spaced">{error}</div>}
 
         {orgData && (
-          <div style={{ marginTop: '1.5rem' }}>
+          <div className="org-data-section">
             <OrgDataDisplay data={orgData} showFullOkvedDescriptions={true} />
           </div>
         )}
 
-        <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+        <div className="modal-actions modal-actions--section">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Отмена
           </button>
@@ -623,8 +623,7 @@ function AddSellerModal({
           <small className="form-hint">Формат: ДД.ММ.ГГГГ или выберите дату</small>
           <input
             type="date"
-            className="form-input"
-            style={{ marginTop: '0.5rem' }}
+            className="form-input form-input--secondary"
             onChange={(e) => {
               if (e.target.value) {
                 const date = new Date(e.target.value);
@@ -1308,8 +1307,7 @@ function SellerDetailsModal({
                           />
                           <input
                             type="date"
-                            className="form-input"
-                            style={{ marginTop: '0.5rem' }}
+                            className="form-input form-input--secondary"
                             onChange={(e) => {
                               if (e.target.value) {
                                 const date = new Date(e.target.value);
@@ -1350,7 +1348,7 @@ function SellerDetailsModal({
               </div>
 
               {/* Кнопки действий */}
-              <div className="modal-actions" style={{ marginTop: '2rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <div className="modal-actions info-actions-footer">
                 {isEditMode ? (
                   <>
                     <button
@@ -1505,8 +1503,8 @@ function SellerDetailsModal({
                 <h4>Веб-панель для продавца</h4>
                 <p className="text-muted">{`Стандартные данные: логин Seller${seller.tg_id}, пароль — ${seller.tg_id}. Сменить можно во вкладке «Безопасность» веб-панели.`}</p>
                 {currentCredentials?.web_login && (
-                  <div className="credentials-block" style={{ marginBottom: '1rem' }}>
-                    <h5 style={{ marginBottom: '0.5rem', fontSize: '0.95rem' }}>Текущие данные для входа</h5>
+                  <div className="credentials-block credentials-block--spaced">
+                    <h5 className="credentials-title">Текущие данные для входа</h5>
                     <div className="credentials-value">
                       <strong>Логин:</strong> <code>{currentCredentials.web_login}</code>
                       <button type="button" className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(currentCredentials.web_login!)}>Копировать</button>

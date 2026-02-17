@@ -1,66 +1,22 @@
-.orders-tabs {
+/* ============================================
+   Buyer info row
+   ============================================ */
+.order-buyer-info {
+  padding: var(--space-2, 0.4rem) var(--space-4, 1rem);
+  font-size: var(--text-sm, 0.9rem);
+  color: var(--text-secondary, var(--text-muted));
+  border-bottom: 1px solid var(--border-subtle, var(--border-color, #eee));
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-3, 0.75rem);
+  align-items: center;
   flex-wrap: wrap;
 }
 
-.orders-tab {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.orders-tab:hover {
-  background: var(--bg);
-}
-
-.orders-tab.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-
 /* ============================================
-   Preorder sub-tabs
+   Order data rows container
    ============================================ */
-.preorder-subtabs {
-  display: flex;
-  gap: 0.35rem;
-  margin: -0.75rem 0 1.25rem;
-  padding: 0.4rem;
-  background: var(--bg);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-}
-
-.preorder-subtab {
-  flex: 1;
-  padding: 0.4rem 0.75rem;
-  border: none;
-  background: transparent;
-  border-radius: calc(var(--radius) - 2px);
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-family: inherit;
-  color: var(--text-muted);
-  transition: all 0.2s ease;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.preorder-subtab:hover {
-  background: var(--bg-card);
-  color: var(--text);
-}
-
-.preorder-subtab.active {
-  background: var(--accent);
-  color: white;
-  font-weight: 500;
+.order-data-rows {
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
 }
 
 /* ============================================
@@ -183,29 +139,6 @@
   font-family: var(--font-mono);
 }
 
-.order-status {
-  font-size: 0.85rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-}
-
-.status-pending { background: #fff3cd; color: #856404; }
-.status-accepted { background: #cce5ff; color: #004085; }
-.status-assembling { background: #d1ecf1; color: #0c5460; }
-.status-in_transit { background: #e2d4f0; color: #4a3c5c; }
-.status-done,
-.status-completed { background: #d4edda; color: #155724; }
-.status-rejected { background: #f8d7da; color: #721c24; }
-
-.order-body p {
-  margin: 0.5rem 0;
-  font-size: 0.9rem;
-}
-
-.order-date {
-  color: var(--text-muted);
-  font-size: 0.85rem !important;
-}
 
 .original-price {
   color: var(--text-muted);
@@ -223,6 +156,55 @@
   display: inline-flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.price-edit-input {
+  width: 100px;
+  display: inline-block;
+}
+
+.price-change-btn {
+  margin-left: var(--space-2);
+}
+
+.order-buyer-link {
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+
+.points-discount {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* ============================================
+   Preorder Dashboard
+   ============================================ */
+.preorder-dashboard-card {
+  margin-bottom: var(--space-4);
+}
+
+.preorder-dashboard-title {
+  margin-top: 0;
+}
+
+.preorder-dashboard-controls {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.preorder-dashboard-result {
+  margin-top: var(--space-3);
+}
+
+.preorder-dashboard-summary {
+  margin: var(--space-1) 0;
+}
+
+.preorder-dashboard-table {
+  margin-top: var(--space-2);
 }
 
 /* Скрыть блок этикетки на экране — показывать только при печати */

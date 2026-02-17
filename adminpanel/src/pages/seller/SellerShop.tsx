@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { getMe, updateLimits, updateDefaultLimit, closeForToday, updateWeeklySchedule, updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../api/sellerClient';
 import type { SellerMe } from '../../api/sellerClient';
-import { useToast, useConfirm } from '../../components/ui';
+import { PageHeader, FormField, Toggle, useToast, useConfirm } from '../../components/ui';
+import { Store, Image, Tag, Settings, CalendarDays, CalendarClock, Link as LinkIcon } from 'lucide-react';
 import './SellerShop.css';
 
 const WEEKDAYS = [
@@ -296,15 +297,19 @@ export function SellerShop() {
 
   return (
     <div className="seller-shop-page">
+      <PageHeader title="Настройки магазина" />
+
       {/* Основные настройки магазина */}
       <div className="card shop-section">
-        <h3>🏪 Основные настройки магазина</h3>
+        <div className="shop-section-header">
+          <Store size={20} className="shop-section-icon" />
+          <h3>Основные настройки магазина</h3>
+        </div>
         <p className="section-hint">
           Укажите название магазина, описание, тип и цену доставки, а также ссылку на карту для самовывоза.
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className="section-label">Название магазина</label>
+        <div className="shop-form-stack">
+          <FormField label="Название магазина">
             <input
               type="text"
               value={shopName}
@@ -312,9 +317,8 @@ export function SellerShop() {
               placeholder="Например: Цветочный рай"
               className="form-input"
             />
-          </div>
-          <div>
-            <label className="section-label">Описание</label>
+          </FormField>
+          <FormField label="Описание">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -322,9 +326,8 @@ export function SellerShop() {
               className="form-input"
               rows={3}
             />
-          </div>
-          <div>
-            <label className="section-label">Тип доставки</label>
+          </FormField>
+          <FormField label="Тип доставки">
             <select
               value={deliveryType}
               onChange={(e) => setDeliveryType(e.target.value)}
@@ -335,9 +338,8 @@ export function SellerShop() {
               <option value="самовывоз">Только самовывоз</option>
               <option value="доставка и самовывоз">Доставка и самовывоз</option>
             </select>
-          </div>
-          <div>
-            <label className="section-label">Цена доставки (₽)</label>
+          </FormField>
+          <FormField label="Цена доставки (₽)">
             <input
               type="number"
               min="0"
@@ -345,12 +347,10 @@ export function SellerShop() {
               value={deliveryPrice}
               onChange={(e) => setDeliveryPrice(e.target.value)}
               placeholder="0"
-              className="form-input"
-              style={{ width: '150px' }}
+              className="form-input input-price"
             />
-          </div>
-          <div>
-            <label className="section-label">Название адреса</label>
+          </FormField>
+          <FormField label="Название адреса">
             <input
               type="text"
               value={addressName}
@@ -358,9 +358,8 @@ export function SellerShop() {
               placeholder="Например: ул. Тверская, д. 1"
               className="form-input"
             />
-          </div>
-          <div>
-            <label className="section-label">Ссылка на карту (Google Maps и т.д.)</label>
+          </FormField>
+          <FormField label="Ссылка на карту (Google Maps и т.д.)">
             <input
               type="text"
               value={mapUrl}
@@ -368,13 +367,12 @@ export function SellerShop() {
               placeholder="https://maps.google.com/..."
               className="form-input"
             />
-          </div>
+          </FormField>
         </div>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-mt"
           onClick={handleSaveShopSettings}
           disabled={shopSettingsSaving}
-          style={{ marginTop: '1rem' }}
         >
           {shopSettingsSaving ? 'Сохранение...' : 'Сохранить настройки магазина'}
         </button>
@@ -382,7 +380,10 @@ export function SellerShop() {
 
       {/* Баннер магазина */}
       <div className="card shop-section">
-        <h3>🖼️ Баннер магазина</h3>
+        <div className="shop-section-header">
+          <Image size={20} className="shop-section-icon" />
+          <h3>Баннер магазина</h3>
+        </div>
         <p className="section-hint">
           Баннер отображается в каталоге вашего магазина в Mini App (вверху страницы магазина). Рекомендуемый размер: 1200×400 px (3:1) или 1920×640 px. На узких экранах края могут обрезаться.
         </p>
@@ -391,13 +392,13 @@ export function SellerShop() {
             <img src={getBannerImageUrl(me.banner_url) ?? ''} alt="Баннер магазина" />
           </div>
         )}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginTop: '0.75rem' }}>
+        <div className="shop-banner-actions">
           <input
             ref={bannerFileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={handleBannerUpload}
-            style={{ display: 'none' }}
+            className="shop-banner-file-input"
           />
           <button
             type="button"
@@ -420,9 +421,12 @@ export function SellerShop() {
         </div>
       </div>
 
-      {/* Хештеги — в начале, чтобы покупатели находили магазин по поиску */}
+      {/* Хештеги */}
       <div className="card shop-section">
-        <h3>🏷️ Хештеги для поиска</h3>
+        <div className="shop-section-header">
+          <Tag size={20} className="shop-section-icon" />
+          <h3>Хештеги для поиска</h3>
+        </div>
         <p className="section-hint">
           Укажите через запятую ключевые слова, по которым покупатели будут находить ваш магазин в каталоге (например: букет из 101 розы, тюльпаны 25, гвоздики).
         </p>
@@ -434,10 +438,9 @@ export function SellerShop() {
           className="form-input hashtags-input"
         />
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-mt-sm"
           onClick={handleSaveHashtags}
           disabled={hashtagsSaving}
-          style={{ marginTop: '0.5rem' }}
         >
           {hashtagsSaving ? 'Сохранение...' : 'Сохранить хештеги'}
         </button>
@@ -445,77 +448,83 @@ export function SellerShop() {
 
       {/* Лимиты */}
       <div className="card shop-section">
-        <h3>⚙️ Настройка лимитов</h3>
+        <div className="shop-section-header">
+          <Settings size={20} className="shop-section-icon" />
+          <h3>Настройка лимитов</h3>
+        </div>
 
-        <div style={{ marginBottom: '1rem' }}>
-          <label className="section-label">Стандартный дневной лимит</label>
-          <p className="section-hint">Применяется автоматически каждый день. Задайте один раз — больше не нужно обновлять каждое утро. Пусто или 0 = отключить.</p>
-          <div className="limit-row">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={defaultLimitValue}
-              onChange={(e) => setDefaultLimitValue(e.target.value)}
-              placeholder="Не задан"
-              className="form-input"
-              style={{ width: '120px' }}
-            />
-            <button
-              className="btn btn-primary"
-              onClick={handleSaveDefaultLimit}
-              disabled={defaultLimitSaving}
-            >
-              {defaultLimitSaving ? 'Сохранение...' : 'Сохранить'}
-            </button>
-          </div>
+        <div className="preorder-schedule-block">
+          <FormField
+            label="Стандартный дневной лимит"
+            hint="Применяется автоматически каждый день. Задайте один раз -- больше не нужно обновлять каждое утро. Пусто или 0 = отключить."
+          >
+            <div className="limit-row">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={defaultLimitValue}
+                onChange={(e) => setDefaultLimitValue(e.target.value)}
+                placeholder="Не задан"
+                className="form-input input-narrow"
+              />
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveDefaultLimit}
+                disabled={defaultLimitSaving}
+              >
+                {defaultLimitSaving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </FormField>
         </div>
 
         <div>
-          <label className="section-label">Лимит на сегодня (переопределение)</label>
-          <p className="section-hint">Если нужно изменить лимит только на сегодня — задайте вручную. Сбросится в 6:00 (МСК), после чего снова заработает стандартный.</p>
-          <div className="limit-row">
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={limitValue}
-              onChange={(e) => setLimitValue(e.target.value)}
-              className="form-input"
-              style={{ width: '100px' }}
-            />
-            <button
-              className="btn btn-primary"
-              onClick={handleSaveLimit}
-              disabled={limitSaving}
-            >
-              {limitSaving ? 'Сохранение...' : 'Задать на сегодня'}
-            </button>
-          </div>
+          <FormField
+            label="Лимит на сегодня (переопределение)"
+            hint="Если нужно изменить лимит только на сегодня -- задайте вручную. Сбросится в 6:00 (МСК), после чего снова заработает стандартный."
+          >
+            <div className="limit-row">
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={limitValue}
+                onChange={(e) => setLimitValue(e.target.value)}
+                className="form-input input-sm"
+              />
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveLimit}
+                disabled={limitSaving}
+              >
+                {limitSaving ? 'Сохранение...' : 'Задать на сегодня'}
+              </button>
+            </div>
+          </FormField>
         </div>
 
         {me?.limit_set_for_today && (
-          <p className="limit-info" style={{ marginTop: '0.75rem' }}>
+          <p className="limit-info">
             В работе сейчас: {me.orders_used_today ?? 0} / {me.max_orders ?? 0}
           </p>
         )}
 
         {me?.subscription_plan && (
-          <p className="section-hint" style={{ marginTop: '0.75rem' }}>
+          <p className="section-hint">
             Тариф: <strong>{me.subscription_plan === 'free' ? 'Free' : me.subscription_plan === 'pro' ? 'Pro' : 'Premium'}</strong> (макс. {me.plan_limit_cap ?? '?'} заказов/день)
           </p>
         )}
 
-        <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+        <div className="shop-divider">
           <button
             className="btn btn-danger"
             onClick={handleCloseForToday}
             disabled={closingForToday}
-            style={{ background: '#e74c3c', color: '#fff', border: 'none' }}
           >
             {closingForToday ? 'Закрытие...' : 'Закрыться на сегодня'}
           </button>
-          <p className="section-hint" style={{ marginTop: '0.25rem' }}>
+          <p className="section-hint btn-mt-sm">
             Мгновенно прекращает приём заказов до 6:00 (МСК) следующего дня.
           </p>
         </div>
@@ -523,23 +532,23 @@ export function SellerShop() {
 
       {/* Расписание лимитов по дням недели */}
       <div className="card shop-section">
-        <h3>📆 Расписание лимитов по дням</h3>
+        <div className="shop-section-header">
+          <CalendarDays size={20} className="shop-section-icon" />
+          <h3>Расписание лимитов по дням</h3>
+        </div>
         <p className="section-hint">
-          Задайте разный лимит для каждого дня недели. Например, в будни — 10, в выходные — 5. Приоритет: ручная установка &gt; расписание &gt; стандартный лимит.
+          Задайте разный лимит для каждого дня недели. Например, в будни -- 10, в выходные -- 5. Приоритет: ручная установка &gt; расписание &gt; стандартный лимит.
         </p>
-        <label className="shop-checkbox-label">
-          <input
-            type="checkbox"
-            checked={scheduleEnabled}
-            onChange={(e) => setScheduleEnabled(e.target.checked)}
-          />
-          Включить расписание
-        </label>
+        <Toggle
+          checked={scheduleEnabled}
+          onChange={setScheduleEnabled}
+          label="Включить расписание"
+        />
         {scheduleEnabled && (
-          <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div className="shop-schedule-grid">
             {WEEKDAYS.map((d) => (
-              <div key={d.value} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span style={{ minWidth: '120px' }}>{d.label}</span>
+              <div key={d.value} className="shop-schedule-day-row">
+                <span className="shop-schedule-day-label">{d.label}</span>
                 <input
                   type="number"
                   min={0}
@@ -547,18 +556,16 @@ export function SellerShop() {
                   value={weeklySchedule[String(d.value)] ?? ''}
                   onChange={(e) => setWeeklySchedule((prev) => ({ ...prev, [String(d.value)]: e.target.value }))}
                   placeholder="—"
-                  className="form-input"
-                  style={{ width: '80px' }}
+                  className="form-input input-sm"
                 />
               </div>
             ))}
           </div>
         )}
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-mt-md"
           onClick={handleSaveSchedule}
           disabled={scheduleSaving}
-          style={{ marginTop: '0.75rem' }}
         >
           {scheduleSaving ? 'Сохранение...' : 'Сохранить расписание'}
         </button>
@@ -566,140 +573,119 @@ export function SellerShop() {
 
       {/* Предзаказы */}
       <div className="card shop-section">
-        <h3>📅 Предзаказы</h3>
+        <div className="shop-section-header">
+          <CalendarClock size={20} className="shop-section-icon" />
+          <h3>Предзаказы</h3>
+        </div>
         <p className="section-hint">
-          Включите предзаказы и укажите, когда вы закупаетесь — покупатели смогут выбирать дату поставки (например, следующий понедельник или через 10 дней).
+          Включите предзаказы и укажите, когда вы закупаетесь -- покупатели смогут выбирать дату поставки (например, следующий понедельник или через 10 дней).
         </p>
-        <label className="shop-checkbox-label">
-          <input
-            type="checkbox"
-            checked={preorderEnabled}
-            onChange={(e) => setPreorderEnabled(e.target.checked)}
-          />
-          Включить предзаказы
-        </label>
+        <Toggle
+          checked={preorderEnabled}
+          onChange={setPreorderEnabled}
+          label="Включить предзаказы"
+        />
         {preorderEnabled && (
-          <div className="preorder-schedule" style={{ marginTop: '1rem' }}>
-            <label className="section-label">Тип расписания</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <label>
-                <input
-                  type="radio"
-                  name="preorderSchedule"
-                  checked={preorderScheduleType === 'weekly'}
-                  onChange={() => setPreorderScheduleType('weekly')}
-                />
-                {' '}Каждую неделю (выберите день)
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="preorderSchedule"
-                  checked={preorderScheduleType === 'interval_days'}
-                  onChange={() => setPreorderScheduleType('interval_days')}
-                />
-                {' '}Каждые N дней
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="preorderSchedule"
-                  checked={preorderScheduleType === 'custom_dates'}
-                  onChange={() => setPreorderScheduleType('custom_dates')}
-                />
-                {' '}Выбрать даты на календаре
-              </label>
-            </div>
+          <div className="preorder-schedule">
+            <FormField label="Тип расписания">
+              <div className="shop-radio-group">
+                <label>
+                  <input
+                    type="radio"
+                    name="preorderSchedule"
+                    checked={preorderScheduleType === 'weekly'}
+                    onChange={() => setPreorderScheduleType('weekly')}
+                  />
+                  Каждую неделю (выберите день)
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="preorderSchedule"
+                    checked={preorderScheduleType === 'interval_days'}
+                    onChange={() => setPreorderScheduleType('interval_days')}
+                  />
+                  Каждые N дней
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="preorderSchedule"
+                    checked={preorderScheduleType === 'custom_dates'}
+                    onChange={() => setPreorderScheduleType('custom_dates')}
+                  />
+                  Выбрать даты на календаре
+                </label>
+              </div>
+            </FormField>
             {preorderScheduleType === 'weekly' && (
-              <div style={{ marginBottom: '0.75rem' }}>
-                <label className="section-label">День недели</label>
-                <select
-                  value={preorderWeekday}
-                  onChange={(e) => setPreorderWeekday(Number(e.target.value))}
-                  className="form-input"
-                  style={{ maxWidth: '200px' }}
-                >
-                  {WEEKDAYS.map((d) => (
-                    <option key={d.value} value={d.value}>{d.label}</option>
-                  ))}
-                </select>
+              <div className="preorder-schedule-block">
+                <FormField label="День недели">
+                  <select
+                    value={preorderWeekday}
+                    onChange={(e) => setPreorderWeekday(Number(e.target.value))}
+                    className="form-input input-md"
+                  >
+                    {WEEKDAYS.map((d) => (
+                      <option key={d.value} value={d.value}>{d.label}</option>
+                    ))}
+                  </select>
+                </FormField>
               </div>
             )}
             {preorderScheduleType === 'interval_days' && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                <div>
-                  <label className="section-label">Интервал (дней)</label>
+              <div className="shop-form-row preorder-schedule-block">
+                <FormField label="Интервал (дней)">
                   <input
                     type="number"
                     min={1}
                     max={365}
                     value={preorderIntervalDays}
                     onChange={(e) => setPreorderIntervalDays(Number(e.target.value) || 10)}
-                    className="form-input"
-                    style={{ width: '80px' }}
+                    className="form-input input-sm"
                   />
-                </div>
-                <div>
-                  <label className="section-label">Базовая дата (первая поставка, ГГГГ-ММ-ДД)</label>
+                </FormField>
+                <FormField label="Базовая дата (первая поставка, ГГГГ-ММ-ДД)">
                   <input
                     type="date"
                     value={preorderBaseDate}
                     onChange={(e) => setPreorderBaseDate(e.target.value)}
                     className="form-input"
                   />
-                </div>
+                </FormField>
               </div>
             )}
             {preorderScheduleType === 'custom_dates' && (
-              <div style={{ marginBottom: '0.75rem' }}>
-                <label className="section-label">Выберите даты поставки</label>
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'flex-end' }}>
-                  <div style={{ flex: 1 }}>
-                    <input
-                      type="date"
-                      value={newCustomDate}
-                      onChange={(e) => setNewCustomDate(e.target.value)}
-                      className="form-input"
-                    />
+              <div className="preorder-schedule-block">
+                <FormField label="Выберите даты поставки">
+                  <div className="shop-date-add-row">
+                    <div className="shop-date-input-wrap">
+                      <input
+                        type="date"
+                        value={newCustomDate}
+                        onChange={(e) => setNewCustomDate(e.target.value)}
+                        className="form-input"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={addCustomDate}
+                      disabled={!newCustomDate}
+                    >
+                      Добавить
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={addCustomDate}
-                    disabled={!newCustomDate}
-                  >
-                    Добавить
-                  </button>
-                </div>
+                </FormField>
                 {preorderCustomDates.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div className="shop-date-chips">
                     {preorderCustomDates.map((d) => (
-                      <div
-                        key={d}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.25rem',
-                          padding: '0.25rem 0.5rem',
-                          background: 'var(--bg)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '4px',
-                          fontSize: '0.9rem',
-                        }}
-                      >
+                      <div key={d} className="shop-date-chip">
                         <span>{new Date(d).toLocaleDateString('ru-RU')}</span>
                         <button
                           type="button"
                           onClick={() => removeCustomDate(d)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '1.2rem',
-                            lineHeight: 1,
-                            padding: 0,
-                            color: 'var(--text-muted)',
-                          }}
+                          className="shop-date-chip-remove"
                           aria-label="Удалить"
                         >
                           ×
@@ -711,43 +697,32 @@ export function SellerShop() {
               </div>
             )}
             {/* Дополнительные настройки предзаказов */}
-            <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-              <label className="section-label" style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>Дополнительные настройки</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <label className="section-label">Минимум дней до заказа</label>
+            <div className="shop-divider">
+              <span className="shop-extra-settings-title">Дополнительные настройки</span>
+              <div className="shop-form-row">
+                <FormField label="Минимум дней до заказа" hint="Например, 2 = заказ можно оформить минимум за 2 дня до даты">
                   <input
                     type="number"
                     min={0}
                     max={30}
                     value={preorderMinLeadDays}
                     onChange={(e) => setPreorderMinLeadDays(Number(e.target.value) || 0)}
-                    className="form-input"
-                    style={{ width: '80px' }}
+                    className="form-input input-sm"
                   />
-                  <p className="section-hint" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                    Например, 2 = заказ можно оформить минимум за 2 дня до даты
-                  </p>
-                </div>
-                <div>
-                  <label className="section-label">Лимит заказов на дату</label>
+                </FormField>
+                <FormField label="Лимит заказов на дату" hint="Пусто = неограниченно">
                   <input
                     type="number"
                     min={0}
                     value={preorderMaxPerDate}
                     onChange={(e) => setPreorderMaxPerDate(e.target.value)}
                     placeholder="Без ограничений"
-                    className="form-input"
-                    style={{ width: '120px' }}
+                    className="form-input input-narrow"
                   />
-                  <p className="section-hint" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                    Пусто = неограниченно
-                  </p>
-                </div>
+                </FormField>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '0.75rem' }}>
-                <div>
-                  <label className="section-label">Скидка за ранний предзаказ (%)</label>
+              <div className="shop-form-row btn-mt-md">
+                <FormField label="Скидка за ранний предзаказ (%)" hint="Например, 10 = скидка 10% при раннем заказе">
                   <input
                     type="number"
                     min={0}
@@ -756,44 +731,34 @@ export function SellerShop() {
                     value={preorderDiscountPercent}
                     onChange={(e) => setPreorderDiscountPercent(e.target.value)}
                     placeholder="0"
-                    className="form-input"
-                    style={{ width: '80px' }}
+                    className="form-input input-sm"
                   />
-                  <p className="section-hint" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                    Например, 10 = скидка 10% при раннем заказе
-                  </p>
-                </div>
+                </FormField>
                 {parseFloat(preorderDiscountPercent) > 0 && (
-                  <div>
-                    <label className="section-label">За сколько дней скидка</label>
+                  <FormField label="За сколько дней скидка" hint={`Скидка действует если заказ за ${preorderDiscountMinDays}+ дней до даты`}>
                     <input
                       type="number"
                       min={1}
                       max={90}
                       value={preorderDiscountMinDays}
                       onChange={(e) => setPreorderDiscountMinDays(Number(e.target.value) || 7)}
-                      className="form-input"
-                      style={{ width: '80px' }}
+                      className="form-input input-sm"
                     />
-                    <p className="section-hint" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                      Скидка действует если заказ за {preorderDiscountMinDays}+ дней до даты
-                    </p>
-                  </div>
+                  </FormField>
                 )}
               </div>
             </div>
             {me?.preorder_available_dates && me.preorder_available_dates.length > 0 && (
-              <p className="section-hint" style={{ marginTop: '0.5rem' }}>
+              <p className="section-hint btn-mt-sm">
                 Ближайшие даты поставки: {me.preorder_available_dates.slice(0, 4).join(', ')}
               </p>
             )}
         </div>
         )}
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-mt-sm"
           onClick={handleSavePreorder}
           disabled={preorderSaving}
-          style={{ marginTop: '0.5rem' }}
         >
           {preorderSaving ? 'Сохранение...' : 'Сохранить настройки предзаказов'}
         </button>
@@ -801,8 +766,11 @@ export function SellerShop() {
 
       {/* Ссылка на магазин */}
       <div className="card shop-section">
-        <h3>🔗 Ссылка на магазин</h3>
-        <p className="section-hint">Отправьте эту ссылку клиентам — они сразу попадут в каталог вашего магазина.</p>
+        <div className="shop-section-header">
+          <LinkIcon size={20} className="shop-section-icon" />
+          <h3>Ссылка на магазин</h3>
+        </div>
+        <p className="section-hint">Отправьте эту ссылку клиентам -- они сразу попадут в каталог вашего магазина.</p>
         {me?.shop_link ? (
           <div className="link-box">
             <code>{me.shop_link}</code>

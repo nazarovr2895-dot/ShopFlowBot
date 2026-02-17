@@ -285,6 +285,10 @@
   }
 }
 
+.seller-stats-tab-content {
+  margin-top: var(--space-4);
+}
+
 @media (max-width: 640px) {
   .seller-stats-summary {
     grid-template-columns: 1fr;
@@ -293,4 +297,46 @@
   .seller-breakdown-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* --- Limits & table styles --- */
+
+.stats-limits-card {
+  margin-top: var(--space-6);
+}
+
+.stats-table-section {
+  margin-top: var(--space-4);
+}
+
+.stats-table-heading {
+  margin: 0 0 var(--space-2);
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats-table th,
+.stats-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-table th {
+  text-align: left;
+}
+
+.stats-table th.text-right,
+.stats-table td.text-right {
+  text-align: right;
+}
+
+.load-pct--danger {
+  color: var(--danger);
+}
+
+.load-pct--warning {
+  color: var(--warning);
 }

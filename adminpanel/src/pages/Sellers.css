@@ -408,3 +408,40 @@
   min-height: 80px;
   resize: vertical;
 }
+
+/* --- Inline-style replacements using design tokens --- */
+
+.modal-actions--spaced {
+  margin-top: var(--space-4);
+}
+
+.modal-error--spaced {
+  margin-top: var(--space-4);
+}
+
+.org-data-section {
+  margin-top: var(--space-6);
+}
+
+.modal-actions--section {
+  margin-top: var(--space-6);
+}
+
+.form-input--secondary {
+  margin-top: var(--space-2);
+}
+
+.credentials-block--spaced {
+  margin-bottom: var(--space-4);
+}
+
+.credentials-title {
+  margin-bottom: var(--space-2);
+  font-size: 0.95rem;
+}
+
+.info-actions-footer {
+  margin-top: var(--space-8, 2rem);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}

@@ -11,7 +11,7 @@ import {
   recalculateProductPrice,
 } from '../../api/sellerClient';
 import type { SellerMe, SellerProduct, BouquetDetail } from '../../api/sellerClient';
-import { useToast, useConfirm } from '../../components/ui';
+import { useToast, useConfirm, TabBar, Modal, Toggle, FormField, EmptyState } from '../../components/ui';
 import './SellerShowcase.css';
 
 type AddProductMode = 'choice' | 'manual' | 'bouquet';
@@ -278,22 +278,14 @@ export function SellerShowcase() {
         Как видят ваш каталог в приложении. Добавляйте, редактируйте товары и управляйте показом в mini app.
       </p>
 
-      <div className="seller-showcase-tabs">
-        <button
-          type="button"
-          className={`seller-showcase-tab ${activeTab === 'regular' ? 'active' : ''}`}
-          onClick={() => setActiveTab('regular')}
-        >
-          Мои товары в mini app
-        </button>
-        <button
-          type="button"
-          className={`seller-showcase-tab ${activeTab === 'preorder' ? 'active' : ''}`}
-          onClick={() => setActiveTab('preorder')}
-        >
-          Товары по предзаказу
-        </button>
-      </div>
+      <TabBar
+        tabs={[
+          { key: 'regular', label: 'Товары в mini app', count: activeTab === 'regular' ? products.length : undefined },
+          { key: 'preorder', label: 'Товары по предзаказу' },
+        ]}
+        activeTab={activeTab}
+        onChange={(key) => setActiveTab(key as ShowcaseTab)}
+      />
 
       {products.length > 0 && (
         <p className="seller-showcase-stats">
@@ -356,8 +348,7 @@ export function SellerShowcase() {
       {showAddProduct && (addProductMode === 'manual' || (addProductMode === 'bouquet' && selectedBouquetId)) && (
         <form onSubmit={handleAddProduct} className="seller-showcase-add-form card">
           <h4>{selectedBouquetId ? 'Товар из букета' : 'Новый товар'}</h4>
-          <div className="seller-showcase-form-group">
-            <label>Название</label>
+          <FormField label="Название">
             <input
               type="text"
               value={newProduct.name}
@@ -365,15 +356,14 @@ export function SellerShowcase() {
               className="form-input"
               required
             />
-          </div>
-          <div className="seller-showcase-form-group">
-            <label>Описание</label>
+          </FormField>
+          <FormField label="Описание">
             <textarea
               value={newProduct.description}
               onChange={(e) => setNewProduct((p) => ({ ...p, description: e.target.value }))}
               className="form-input"
             />
-          </div>
+          </FormField>
           {selectedBouquetId && (
             <div className="seller-showcase-cost-info">
               <span>Себестоимость букета: <strong>{selectedBouquetCost.toFixed(0)} ₽</strong></span>
@@ -381,8 +371,7 @@ export function SellerShowcase() {
           )}
           {selectedBouquetId ? (
             <div className="seller-showcase-form-row-3">
-              <div className="seller-showcase-form-group">
-                <label>Наценка (%)</label>
+              <FormField label="Наценка (%)">
                 <input
                   type="number"
                   min={0}
@@ -398,9 +387,8 @@ export function SellerShowcase() {
                   }}
                   className="form-input"
                 />
-              </div>
-              <div className="seller-showcase-form-group">
-                <label>Цена (₽)</label>
+              </FormField>
+              <FormField label="Цена (₽)" hint="Авто или введите вручную">
                 <input
                   type="number"
                   value={newProduct.price}
@@ -408,10 +396,8 @@ export function SellerShowcase() {
                   className="form-input"
                   required
                 />
-                <span className="seller-showcase-form-hint">Авто или введите вручную</span>
-              </div>
-              <div className="seller-showcase-form-group">
-                <label>Количество</label>
+              </FormField>
+              <FormField label="Количество" hint="По остаткам в приёмке">
                 <input
                   type="number"
                   min={0}
@@ -420,13 +406,11 @@ export function SellerShowcase() {
                   className="form-input seller-showcase-form-input-readonly"
                   title="По остаткам в приёмке"
                 />
-                <span className="seller-showcase-form-hint">По остаткам в приёмке</span>
-              </div>
+              </FormField>
             </div>
           ) : (
             <div className="seller-showcase-form-row-2">
-              <div className="seller-showcase-form-group">
-                <label>Цена (₽)</label>
+              <FormField label="Цена (₽)">
                 <input
                   type="number"
                   value={newProduct.price}
@@ -434,9 +418,8 @@ export function SellerShowcase() {
                   className="form-input"
                   required
                 />
-              </div>
-              <div className="seller-showcase-form-group">
-                <label>Количество</label>
+              </FormField>
+              <FormField label="Количество">
                 <input
                   type="number"
                   min={0}
@@ -444,11 +427,10 @@ export function SellerShowcase() {
                   onChange={(e) => setNewProduct((p) => ({ ...p, quantity: e.target.value }))}
                   className="form-input"
                 />
-              </div>
+              </FormField>
             </div>
           )}
-          <div className="seller-showcase-form-group">
-            <label>Фото товара (до 3 шт., JPG/PNG/WebP/GIF)</label>
+          <FormField label="Фото товара (до 3 шт., JPG/PNG/WebP/GIF)">
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -466,7 +448,7 @@ export function SellerShowcase() {
                 ))}
               </div>
             )}
-          </div>
+          </FormField>
           <div className="seller-showcase-form-actions">
             <button
               type="button"
@@ -490,98 +472,96 @@ export function SellerShowcase() {
         </form>
       )}
 
-      {editingProductId != null && (
-        <div className="seller-showcase-modal-overlay" onClick={closeEdit}>
-          <div className="seller-showcase-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Редактировать товар</h3>
-            <form onSubmit={handleSaveEdit}>
-              <div className="seller-showcase-form-group">
-                <label>Название</label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                  className="form-input"
-                  required
-                />
-              </div>
-              <div className="seller-showcase-form-group">
-                <label>Описание</label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                  className="form-input"
-                />
-              </div>
-              <div className="seller-showcase-form-row-2">
-                <div className="seller-showcase-form-group">
-                  <label>Цена (₽)</label>
-                  <input
-                    type="number"
-                    value={editForm.price}
-                    onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
-                    className="form-input"
-                    required
-                  />
-                </div>
-                <div className="seller-showcase-form-group">
-                  <label>Количество</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={editForm.quantity}
-                    onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-              <div className="seller-showcase-form-group">
-                <label>Фото (до 3 шт.)</label>
-                {editKeptPhotoIds.length > 0 && (
-                  <div className="seller-showcase-photos-preview">
-                    {editKeptPhotoIds.map((id, i) => (
-                      <div key={id} className="seller-showcase-photo-preview-wrap">
-                        <img src={getProductImageUrl(id) || ''} alt="" />
-                        <button type="button" className="seller-showcase-photo-remove" onClick={() => removeEditKeptPhoto(i)} aria-label="Удалить">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {editNewPhotoPreviews.length > 0 && (
-                  <div className="seller-showcase-photos-preview">
-                    {editNewPhotoPreviews.map((src, i) => (
-                      <div key={`new-${i}`} className="seller-showcase-photo-preview-wrap">
-                        <img src={src} alt="" />
-                        <button type="button" className="seller-showcase-photo-remove" onClick={() => removeEditNewPhoto(i)} aria-label="Удалить">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {editKeptPhotoIds.length + editNewPhotoFiles.length < 3 && (
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={handleEditNewPhotoChange}
-                    className="form-input"
-                    multiple
-                  />
-                )}
-              </div>
-              <div className="seller-showcase-form-actions">
-                <button type="button" className="btn btn-secondary" onClick={closeEdit}>
-                  Отмена
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={editSaving}>
-                  {editSaving ? 'Сохранение...' : 'Сохранить'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={editingProductId != null}
+        onClose={closeEdit}
+        title="Редактировать товар"
+        size="lg"
+        footer={
+          <div className="seller-showcase-form-actions">
+            <button type="button" className="btn btn-secondary" onClick={closeEdit}>Отмена</button>
+            <button type="button" className="btn btn-primary" disabled={editSaving} onClick={(e) => { const form = (e.target as HTMLElement).closest('.ui-modal')?.querySelector('form'); form?.requestSubmit(); }}>
+              {editSaving ? 'Сохранение...' : 'Сохранить'}
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <form onSubmit={handleSaveEdit}>
+          <FormField label="Название">
+            <input
+              type="text"
+              value={editForm.name}
+              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+              className="form-input"
+              required
+            />
+          </FormField>
+          <FormField label="Описание">
+            <textarea
+              value={editForm.description}
+              onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+              className="form-input"
+            />
+          </FormField>
+          <div className="seller-showcase-form-row-2">
+            <FormField label="Цена (₽)">
+              <input
+                type="number"
+                value={editForm.price}
+                onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                className="form-input"
+                required
+              />
+            </FormField>
+            <FormField label="Количество">
+              <input
+                type="number"
+                min={0}
+                value={editForm.quantity}
+                onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
+                className="form-input"
+              />
+            </FormField>
+          </div>
+          <FormField label="Фото (до 3 шт.)">
+            {editKeptPhotoIds.length > 0 && (
+              <div className="seller-showcase-photos-preview">
+                {editKeptPhotoIds.map((id, i) => (
+                  <div key={id} className="seller-showcase-photo-preview-wrap">
+                    <img src={getProductImageUrl(id) || ''} alt="" />
+                    <button type="button" className="seller-showcase-photo-remove" onClick={() => removeEditKeptPhoto(i)} aria-label="Удалить">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {editNewPhotoPreviews.length > 0 && (
+              <div className="seller-showcase-photos-preview">
+                {editNewPhotoPreviews.map((src, i) => (
+                  <div key={`new-${i}`} className="seller-showcase-photo-preview-wrap">
+                    <img src={src} alt="" />
+                    <button type="button" className="seller-showcase-photo-remove" onClick={() => removeEditNewPhoto(i)} aria-label="Удалить">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {editKeptPhotoIds.length + editNewPhotoFiles.length < 3 && (
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleEditNewPhotoChange}
+                className="form-input"
+                multiple
+              />
+            )}
+          </FormField>
+        </form>
+      </Modal>
 
       {products.length === 0 ? (
-        <p className="seller-showcase-empty">Нет товаров. Нажмите «Добавить товар» выше.</p>
+        <EmptyState
+          title="Нет товаров"
+          message="Нажмите «Добавить товар» чтобы начать"
+        />
       ) : (
         <div className="seller-showcase-grid">
           {products.map((p) => {
@@ -622,19 +602,12 @@ export function SellerShowcase() {
                   )}
                   <span className="seller-showcase-card-qty">В наличии: {p.quantity} шт.</span>
                   <div className="seller-showcase-card-switch">
-                    <label className="seller-showcase-switch-label">
-                      <input
-                        type="checkbox"
-                        id={`show-in-app-${p.id}`}
-                        className="seller-showcase-switch-input"
-                        checked={isActive}
-                        disabled={togglingId === p.id}
-                        onChange={() => handleToggleShowInApp(p)}
-                        aria-label="Показывать в mini app"
-                      />
-                      <span className="seller-showcase-switch-track" aria-hidden />
-                      <span className="seller-showcase-switch-text">Показывать в mini app</span>
-                    </label>
+                    <Toggle
+                      checked={isActive}
+                      disabled={togglingId === p.id}
+                      onChange={() => handleToggleShowInApp(p)}
+                      label="Показывать в mini app"
+                    />
                   </div>
                   <div className="seller-showcase-card-actions">
                     {p.bouquet_id && (

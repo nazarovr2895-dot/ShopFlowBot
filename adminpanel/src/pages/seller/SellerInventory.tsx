@@ -12,10 +12,15 @@ import {
   type GlobalInventoryItem,
   type GlobalInventoryCheckLine,
 } from '../../api/sellerClient';
-import { useToast, useConfirm } from '../../components/ui';
+import { PageHeader, TabBar, EmptyState, useToast, useConfirm } from '../../components/ui';
 import './SellerInventory.css';
 
 type InventoryMode = 'reception' | 'global';
+
+const TABS = [
+  { key: 'global', label: 'Общая' },
+  { key: 'reception', label: 'По приёмке' },
+];
 
 export function SellerInventory() {
   const toast = useToast();
@@ -191,33 +196,26 @@ export function SellerInventory() {
 
   return (
     <div className="seller-inventory-page">
-      <div className="orders-tabs" style={{ marginBottom: '1rem' }}>
-        <button
-          className={`orders-tab ${mode === 'global' ? 'active' : ''}`}
-          onClick={() => setMode('global')}
-        >
-          Общая
-        </button>
-        <button
-          className={`orders-tab ${mode === 'reception' ? 'active' : ''}`}
-          onClick={() => setMode('reception')}
-        >
-          По приёмке
-        </button>
-      </div>
+      <PageHeader title="Инвентаризация" />
+
+      <TabBar
+        tabs={TABS}
+        activeTab={mode}
+        onChange={(key) => setMode(key as InventoryMode)}
+      />
 
       {mode === 'reception' && (
-        <>
+        <div className="inventory-section">
           <p className="section-hint">Выберите приёмку и введите фактические остатки для сверки.</p>
 
-          <div className="form-group">
-            <label>Приёмка</label>
+          <div className="inventory-select-wrap">
+            <label className="inventory-select-label">Приёмка</label>
             <select
               value={selectedReceptionId ?? ''}
               onChange={(e) => setSelectedReceptionId(e.target.value ? Number(e.target.value) : null)}
               className="form-input"
             >
-              <option value="">— выбрать —</option>
+              <option value="">-- выбрать --</option>
               {receptions.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name} {r.reception_date ? ` (${r.reception_date})` : ''}
@@ -236,7 +234,7 @@ export function SellerInventory() {
                       <th>Система (остаток)</th>
                       <th>Факт</th>
                       <th>Расхождение</th>
-                      <th>Убыток (₽)</th>
+                      <th>Убыток</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -257,8 +255,8 @@ export function SellerInventory() {
                               className="form-input input-sm"
                             />
                           </td>
-                          <td>{diff !== 0 ? diff : '—'}</td>
-                          <td>{loss > 0 ? loss.toFixed(0) : '—'}</td>
+                          <td>{diff !== 0 ? diff : '---'}</td>
+                          <td>{loss > 0 ? loss.toFixed(0) : '---'}</td>
                         </tr>
                       );
                     })}
@@ -271,7 +269,7 @@ export function SellerInventory() {
 
               {checkResult && (
                 <div className="card check-result">
-                  <h3>Результат сверки</h3>
+                  <h3 className="check-result-title">Результат сверки</h3>
                   <p className="total-loss">
                     Сумма убытка: <strong>{checkResult.total_loss.toFixed(0)} ₽</strong>
                   </p>
@@ -282,7 +280,7 @@ export function SellerInventory() {
                         <th>Система</th>
                         <th>Факт</th>
                         <th>Разница</th>
-                        <th>Убыток (₽)</th>
+                        <th>Убыток</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -292,7 +290,7 @@ export function SellerInventory() {
                           <td>{line.system_quantity}</td>
                           <td>{line.actual_quantity}</td>
                           <td>{line.difference}</td>
-                          <td>{line.loss_amount > 0 ? line.loss_amount.toFixed(0) : '—'}</td>
+                          <td>{line.loss_amount > 0 ? line.loss_amount.toFixed(0) : '---'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -304,7 +302,7 @@ export function SellerInventory() {
                     onClick={handleApply}
                     disabled={applySubmitting}
                   >
-                    {applySubmitting ? 'Применение…' : 'Применить остатки'}
+                    {applySubmitting ? 'Применение...' : 'Применить остатки'}
                   </button>
                 </div>
               )}
@@ -312,17 +310,23 @@ export function SellerInventory() {
           )}
 
           {selectedReceptionId && items.length === 0 && (
-            <p className="empty-text">В этой приёмке нет позиций для сверки.</p>
+            <EmptyState
+              title="Нет позиций"
+              message="В этой приёмке нет позиций для сверки."
+            />
           )}
-        </>
+        </div>
       )}
 
       {mode === 'global' && (
-        <>
+        <div className="inventory-section">
           <p className="section-hint">Все цветы в наличии по всем открытым приёмкам, сгруппированные по названию. Введите фактические остатки.</p>
 
           {globalItems.length === 0 ? (
-            <p className="empty-text">Нет цветов в открытых приёмках.</p>
+            <EmptyState
+              title="Нет цветов"
+              message="Нет цветов в открытых приёмках."
+            />
           ) : (
             <>
               <div className="card inventory-table-wrap">
@@ -331,10 +335,10 @@ export function SellerInventory() {
                     <tr>
                       <th>Цветок</th>
                       <th>Система (суммарно)</th>
-                      <th>Ср. цена (₽)</th>
+                      <th>Ср. цена</th>
                       <th>Факт</th>
                       <th>Расхождение</th>
-                      <th>Убыток (₽)</th>
+                      <th>Убыток</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -356,8 +360,8 @@ export function SellerInventory() {
                               className="form-input input-sm"
                             />
                           </td>
-                          <td>{diff !== 0 ? diff : '—'}</td>
-                          <td>{loss > 0 ? loss.toFixed(0) : '—'}</td>
+                          <td>{diff !== 0 ? diff : '---'}</td>
+                          <td>{loss > 0 ? loss.toFixed(0) : '---'}</td>
                         </tr>
                       );
                     })}
@@ -370,7 +374,7 @@ export function SellerInventory() {
 
               {globalCheckResult && (
                 <div className="card check-result">
-                  <h3>Результат сверки</h3>
+                  <h3 className="check-result-title">Результат сверки</h3>
                   <p className="total-loss">
                     Сумма убытка: <strong>{globalCheckResult.total_loss.toFixed(0)} ₽</strong>
                   </p>
@@ -381,7 +385,7 @@ export function SellerInventory() {
                         <th>Система</th>
                         <th>Факт</th>
                         <th>Разница</th>
-                        <th>Убыток (₽)</th>
+                        <th>Убыток</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -391,7 +395,7 @@ export function SellerInventory() {
                           <td>{line.system_quantity}</td>
                           <td>{line.actual_quantity}</td>
                           <td>{line.difference}</td>
-                          <td>{line.loss_amount > 0 ? line.loss_amount.toFixed(0) : '—'}</td>
+                          <td>{line.loss_amount > 0 ? line.loss_amount.toFixed(0) : '---'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -403,13 +407,13 @@ export function SellerInventory() {
                     onClick={handleGlobalApply}
                     disabled={applySubmitting}
                   >
-                    {applySubmitting ? 'Применение…' : 'Применить остатки'}
+                    {applySubmitting ? 'Применение...' : 'Применить остатки'}
                   </button>
                 </div>
               )}
             </>
           )}
-        </>
+        </div>
       )}
     </div>
   );

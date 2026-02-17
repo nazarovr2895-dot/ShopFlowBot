@@ -18,7 +18,18 @@ import {
   deleteCustomerEvent,
 } from '../../api/sellerClient';
 import type { UnifiedCustomerBrief, SellerCustomerDetail, SellerOrder, CustomerEvent, LoyaltyTier } from '../../api/sellerClient';
-import { useToast, useConfirm } from '../../components/ui';
+import {
+  useToast,
+  useConfirm,
+  PageHeader,
+  StatCard,
+  StatusBadge,
+  DataRow,
+  EmptyState,
+  FormField,
+  Card,
+  SearchInput,
+} from '../../components/ui';
 import './SellerCustomers.css';
 
 function formatDate(iso: string | null): string {
@@ -54,13 +65,13 @@ function phoneToDigits(display: string): string {
   return ('7' + digits).slice(0, 11);
 }
 
-const SEGMENT_COLORS: Record<string, { bg: string; color: string }> = {
-  'VIP': { bg: '#fff3cd', color: '#856404' },
-  'Постоянный': { bg: '#d4edda', color: '#155724' },
-  'Новый': { bg: '#cce5ff', color: '#004085' },
-  'Уходящий': { bg: '#f8d7da', color: '#721c24' },
-  'Потерянный': { bg: '#e2e3e5', color: '#383d41' },
-  'Случайный': { bg: '#e8e8e8', color: '#555' },
+const SEGMENT_BADGE_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'neutral'> = {
+  'VIP': 'warning',
+  'Постоянный': 'success',
+  'Новый': 'info',
+  'Уходящий': 'danger',
+  'Потерянный': 'neutral',
+  'Случайный': 'neutral',
 };
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
@@ -379,6 +390,7 @@ export function SellerCustomers() {
     }
   };
 
+  /* ─────── Detail view ─────── */
   if (id) {
     if (loading) {
       return (
@@ -390,93 +402,90 @@ export function SellerCustomers() {
     if (!detail) {
       return (
         <div className="customers-page customers-detail">
-          <button type="button" className="back" onClick={() => navigate('/customers')}>
-            ← К списку клиентов
-          </button>
-          <p>Клиент не найден.</p>
+          <PageHeader
+            title="Клиент не найден"
+            breadcrumbs={[
+              { label: 'Клиенты', to: '/customers' },
+              { label: 'Не найден' },
+            ]}
+          />
+          <EmptyState title="Клиент не найден" message="Вернитесь к списку клиентов" />
         </div>
       );
     }
     return (
       <div className="customers-page customers-detail">
-        <button type="button" className="back" onClick={() => navigate('/customers')}>
-          ← К списку клиентов
-        </button>
-        <div className="customer-card">
-          <div className="card-number">{detail.card_number}</div>
-          <div className="name">
-            {detail.last_name} {detail.first_name}
-          </div>
-          <div className="row">Телефон: {detail.phone}</div>
-          <div className="balance">Баланс: {detail.points_balance} баллов</div>
+        <PageHeader
+          title={`${detail.last_name || ''} ${detail.first_name || ''}`.trim() || 'Клиент'}
+          subtitle={detail.card_number}
+          breadcrumbs={[
+            { label: 'Клиенты', to: '/customers' },
+            { label: detail.card_number || `#${detail.id}` },
+          ]}
+        />
+
+        {/* Customer info card */}
+        <Card>
+          <DataRow label="Телефон" value={detail.phone} />
+          <DataRow label="Баланс" value={`${detail.points_balance} баллов`} accent />
           {detail.tier?.name && (
-            <div className="row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{
-                display: 'inline-block', background: '#fff3cd', color: '#856404',
-                padding: '0.15rem 0.6rem', borderRadius: '0.8rem', fontSize: '0.85rem', fontWeight: 600,
-              }}>{detail.tier.name}</span>
-              <span style={{ fontSize: '0.85rem', color: '#666' }}>
+            <div className="customer-tier-row">
+              <StatusBadge variant="warning">{detail.tier.name}</StatusBadge>
+              <span className="customer-tier-percent">
                 ({detail.tier.points_percent}% баллов)
               </span>
               {detail.tier.next_tier && detail.tier.amount_to_next != null && (
-                <span style={{ fontSize: '0.8rem', color: '#999' }}>
+                <span className="customer-tier-next">
                   до «{detail.tier.next_tier}» — {detail.tier.amount_to_next.toLocaleString('ru-RU')} ₽
                 </span>
               )}
             </div>
           )}
           {detail.birthday && (
-            <div className="row customer-analytics">
-              День рождения: <strong>{new Date(detail.birthday + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</strong>
-            </div>
+            <DataRow
+              label="День рождения"
+              value={new Date(detail.birthday + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+            />
           )}
           {(detail.total_purchases != null && detail.total_purchases > 0) && (
-            <div className="row customer-analytics">
-              Сумма покупок: <strong>{detail.total_purchases.toLocaleString('ru')} ₽</strong>
-            </div>
+            <DataRow label="Сумма покупок" value={`${detail.total_purchases.toLocaleString('ru')} ₽`} />
           )}
           {detail.last_order_at && (
-            <div className="row customer-analytics">
-              Последний заказ: <strong>{formatDate(detail.last_order_at)}</strong>
-            </div>
+            <DataRow label="Последний заказ" value={formatDate(detail.last_order_at)} />
           )}
           {(detail.completed_orders_count != null && detail.completed_orders_count > 0) && (
-            <div className="row customer-analytics">
-              Выполнено заказов: <strong>{detail.completed_orders_count}</strong>
-            </div>
+            <DataRow label="Выполнено заказов" value={detail.completed_orders_count} />
           )}
-        </div>
-        <div className="customer-notes-section" style={{ marginBottom: '1rem' }}>
+        </Card>
+
+        {/* Notes & tags */}
+        <Card className="customer-detail-section">
           <h3>Заметки и теги</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Заметка</label>
+          <div className="customer-notes-form">
+            <FormField label="Заметка">
               <textarea
                 value={customerNotes}
                 onChange={(e) => setCustomerNotes(e.target.value)}
                 placeholder="Примечания о клиенте (VIP, постоянный и т.д.)"
                 rows={3}
-                style={{ width: '100%', padding: '0.5rem', fontSize: '0.95rem' }}
               />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Теги</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.4rem' }}>
+            </FormField>
+            <FormField label="Теги">
+              <div className="customer-tags-list">
                 {customerTags.map((tag, i) => (
-                  <span key={i} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
-                    background: '#e8f0fe', color: '#1a73e8', padding: '0.2rem 0.6rem',
-                    borderRadius: '1rem', fontSize: '0.85rem',
-                  }}>
+                  <span key={i} className="customer-tag">
                     {tag}
-                    <button type="button" onClick={() => setCustomerTags(customerTags.filter((_, j) => j !== i))}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: '1rem', padding: 0, lineHeight: 1 }}>
+                    <button
+                      type="button"
+                      className="customer-tag-remove"
+                      onClick={() => setCustomerTags(customerTags.filter((_, j) => j !== i))}
+                    >
                       x
                     </button>
                   </span>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: '0.3rem' }}>
+              <div className="customer-tag-input-row">
                 <input
                   type="text"
                   value={newTagInput}
@@ -491,73 +500,78 @@ export function SellerCustomers() {
                   }}
                   placeholder="Введите тег и Enter"
                   list="tag-suggestions"
-                  style={{ flex: 1, padding: '0.4rem', fontSize: '0.9rem' }}
                 />
                 <datalist id="tag-suggestions">
                   {allTags.filter((t) => !customerTags.includes(t)).map((t) => (
                     <option key={t} value={t} />
                   ))}
                 </datalist>
-                <button type="button" onClick={() => {
-                  const tag = newTagInput.trim();
-                  if (tag && !customerTags.includes(tag)) setCustomerTags([...customerTags, tag]);
-                  setNewTagInput('');
-                }} style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>+</button>
+                <button
+                  type="button"
+                  className="customer-tag-add-btn"
+                  onClick={() => {
+                    const tag = newTagInput.trim();
+                    if (tag && !customerTags.includes(tag)) setCustomerTags([...customerTags, tag]);
+                    setNewTagInput('');
+                  }}
+                >
+                  +
+                </button>
               </div>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>День рождения</label>
+            </FormField>
+            <FormField label="День рождения" className="customer-birthday-input">
               <input
                 type="date"
                 value={customerBirthday}
                 onChange={(e) => setCustomerBirthday(e.target.value)}
-                style={{ padding: '0.5rem', fontSize: '0.95rem' }}
               />
-            </div>
+            </FormField>
             <button
               type="button"
+              className="customer-notes-save"
               onClick={handleSaveNotes}
               disabled={notesSaving}
-              style={{ alignSelf: 'flex-start', padding: '0.5rem 1rem' }}
             >
               {notesSaving ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
-        </div>
-        <div className="customer-events-section" style={{ marginBottom: '1rem' }}>
+        </Card>
+
+        {/* Events */}
+        <Card className="customer-detail-section">
           <h3>Значимые даты</h3>
           {events.length > 0 && (
-            <div style={{ marginBottom: '0.75rem' }}>
+            <div className="customer-events-list">
               {events.map((ev) => (
-                <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0', borderBottom: '1px solid var(--border-color, #eee)' }}>
-                  <span style={{ flex: 1 }}>
+                <div key={ev.id} className="customer-event-item">
+                  <div className="customer-event-info">
                     <strong>{ev.title}</strong>
                     {ev.event_date && (
                       <> — {new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</>
                     )}
-                    {ev.notes && <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}> ({ev.notes})</span>}
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}> · напоминание за {ev.remind_days_before} дн.</span>
-                  </span>
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEditEvent(ev)}>Ред.</button>
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleDeleteEvent(ev.id)} style={{ color: 'var(--danger, red)' }}>✕</button>
+                    {ev.notes && <span className="customer-event-notes"> ({ev.notes})</span>}
+                    <span className="customer-event-remind"> · напоминание за {ev.remind_days_before} дн.</span>
+                  </div>
+                  <div className="customer-event-actions">
+                    <button type="button" className="customer-event-btn" onClick={() => startEditEvent(ev)}>Ред.</button>
+                    <button type="button" className="customer-event-btn customer-event-btn--danger" onClick={() => handleDeleteEvent(ev.id)}>✕</button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
-          <form onSubmit={editingEvent ? handleUpdateEvent : handleAddEvent} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <form onSubmit={editingEvent ? handleUpdateEvent : handleAddEvent} className="customer-event-form">
+            <div className="customer-event-form-row">
               <input
                 type="text"
                 placeholder="Название (ДР жены, годовщина...)"
                 value={eventForm.title}
                 onChange={(e) => setEventForm((f) => ({ ...f, title: e.target.value }))}
-                style={{ flex: 1, minWidth: '150px', padding: '0.4rem' }}
               />
               <input
                 type="date"
                 value={eventForm.event_date}
                 onChange={(e) => setEventForm((f) => ({ ...f, event_date: e.target.value }))}
-                style={{ padding: '0.4rem' }}
               />
               <input
                 type="number"
@@ -567,28 +581,32 @@ export function SellerCustomers() {
                 title="За сколько дней напоминать"
                 value={eventForm.remind_days_before}
                 onChange={(e) => setEventForm((f) => ({ ...f, remind_days_before: e.target.value }))}
-                style={{ width: '60px', padding: '0.4rem' }}
               />
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div className="customer-event-form-row">
               <input
                 type="text"
                 placeholder="Заметка (необязательно)"
                 value={eventForm.notes}
                 onChange={(e) => setEventForm((f) => ({ ...f, notes: e.target.value }))}
-                style={{ flex: 1, padding: '0.4rem' }}
               />
-              <button type="submit" disabled={eventSubmitting} style={{ padding: '0.4rem 0.75rem' }}>
-                {eventSubmitting ? '…' : editingEvent ? 'Обновить' : 'Добавить'}
+              <button type="submit" className="customer-event-submit" disabled={eventSubmitting}>
+                {eventSubmitting ? '...' : editingEvent ? 'Обновить' : 'Добавить'}
               </button>
               {editingEvent && (
-                <button type="button" onClick={() => { setEditingEvent(null); setEventForm({ title: '', event_date: '', remind_days_before: '3', notes: '' }); }} style={{ padding: '0.4rem 0.75rem' }}>
+                <button
+                  type="button"
+                  className="customer-event-cancel"
+                  onClick={() => { setEditingEvent(null); setEventForm({ title: '', event_date: '', remind_days_before: '3', notes: '' }); }}
+                >
                   Отмена
                 </button>
               )}
             </div>
           </form>
-        </div>
+        </Card>
+
+        {/* Record sale */}
         <div className="record-sale">
           <h3>Внести продажу</h3>
           <form onSubmit={handleRecordSale}>
@@ -600,10 +618,12 @@ export function SellerCustomers() {
               onChange={(e) => setSaleAmount(e.target.value)}
             />
             <button type="submit" disabled={saleSubmitting}>
-              {saleSubmitting ? '…' : 'Начислить баллы'}
+              {saleSubmitting ? '...' : 'Начислить баллы'}
             </button>
           </form>
         </div>
+
+        {/* Deduct points */}
         <div className="deduct-points">
           <h3>Списать баллы</h3>
           <form onSubmit={handleDeductPoints}>
@@ -615,10 +635,12 @@ export function SellerCustomers() {
               onChange={(e) => setDeductPointsAmount(e.target.value)}
             />
             <button type="submit" disabled={deductSubmitting}>
-              {deductSubmitting ? '…' : 'Списать'}
+              {deductSubmitting ? '...' : 'Списать'}
             </button>
           </form>
         </div>
+
+        {/* Orders */}
         {customerOrders.length > 0 && (
           <div className="customer-orders-list">
             <h3>Заказы</h3>
@@ -633,10 +655,12 @@ export function SellerCustomers() {
             </ul>
           </div>
         )}
+
+        {/* Transactions */}
         <div className="transactions-list">
           <h3>История покупок</h3>
           {detail.transactions.length === 0 ? (
-            <p className="meta">Пока нет записей.</p>
+            <EmptyState title="Пока нет записей" message="История покупок появится после первой транзакции" />
           ) : (
             detail.transactions.map((t) => (
               <div key={t.id} className="transaction-item">
@@ -656,113 +680,131 @@ export function SellerCustomers() {
     );
   }
 
+  /* ─────── List view ─────── */
   return (
     <div className="customers-page">
-      <h1>База клиентов</h1>
+      <PageHeader
+        title="База клиентов"
+        subtitle={`${customers.length} клиентов`}
+        actions={
+          <button type="button" className="customers-export-btn" onClick={handleExportCustomers}>
+            Экспорт CSV
+          </button>
+        }
+      />
+
+      {/* Loyalty settings */}
       <div className="customers-settings">
         <h2>Настройки лояльности</h2>
-        <div className="field">
-          <label>Начисление баллов (% от суммы заказа)</label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={pointsPercent}
-            onChange={(e) => setPointsPercent(e.target.value)}
-            placeholder="0"
-          />
-        </div>
-        <div className="field">
-          <label>Макс. % заказа, оплачиваемый баллами</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={maxPointsDiscount}
-            onChange={(e) => setMaxPointsDiscount(e.target.value)}
-            placeholder="100"
-          />
-        </div>
-        <div className="field">
-          <label>Курс: 1 балл = X рублей</label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={pointsToRubleRate}
-            onChange={(e) => setPointsToRubleRate(e.target.value)}
-            placeholder="1"
-          />
-        </div>
-        <div className="field">
-          <label>Срок действия баллов (дней, 0 = бессрочно)</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={pointsExpireDays}
-            onChange={(e) => setPointsExpireDays(e.target.value)}
-            placeholder="0 (бессрочно)"
-          />
-        </div>
-        <div style={{ marginTop: '1rem' }}>
-          <h3 style={{ margin: '0 0 0.5rem' }}>Уровни лояльности</h3>
-          <p style={{ fontSize: '0.85rem', color: '#666', margin: '0 0 0.5rem' }}>
-            Настройте уровни для автоматического изменения % начисления баллов в зависимости от суммы покупок клиента.
-          </p>
-          {tiersConfig.map((tier, i) => (
-            <div key={i} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.3rem', alignItems: 'center' }}>
-              <input
-                type="text"
-                placeholder="Название"
-                value={tier.name}
-                onChange={(e) => {
-                  const next = [...tiersConfig];
-                  next[i] = { ...next[i], name: e.target.value };
-                  setTiersConfig(next);
-                }}
-                style={{ flex: 2, padding: '0.3rem', fontSize: '0.9rem' }}
-              />
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="От суммы ₽"
-                value={tier.min_total}
-                onChange={(e) => {
-                  const next = [...tiersConfig];
-                  next[i] = { ...next[i], min_total: Number(e.target.value) || 0 };
-                  setTiersConfig(next);
-                }}
-                style={{ flex: 1, padding: '0.3rem', fontSize: '0.9rem' }}
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="% баллов"
-                value={tier.points_percent}
-                onChange={(e) => {
-                  const next = [...tiersConfig];
-                  next[i] = { ...next[i], points_percent: Number(e.target.value) || 0 };
-                  setTiersConfig(next);
-                }}
-                style={{ flex: 1, padding: '0.3rem', fontSize: '0.9rem' }}
-              />
-              <button type="button" onClick={() => setTiersConfig(tiersConfig.filter((_, j) => j !== i))}
-                style={{ padding: '0.3rem 0.5rem', fontSize: '0.9rem', background: '#f8d7da', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                x
-              </button>
-            </div>
-          ))}
-          <button type="button" onClick={() => setTiersConfig([...tiersConfig, { name: '', min_total: 0, points_percent: 0 }])}
-            style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem', marginTop: '0.3rem' }}>
-            + Добавить уровень
+        <div className="settings-fields">
+          <FormField label="Начисление баллов (% от суммы заказа)">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={pointsPercent}
+              onChange={(e) => setPointsPercent(e.target.value)}
+              placeholder="0"
+            />
+          </FormField>
+          <FormField label="Макс. % заказа, оплачиваемый баллами">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={maxPointsDiscount}
+              onChange={(e) => setMaxPointsDiscount(e.target.value)}
+              placeholder="100"
+            />
+          </FormField>
+          <FormField label="Курс: 1 балл = X рублей">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={pointsToRubleRate}
+              onChange={(e) => setPointsToRubleRate(e.target.value)}
+              placeholder="1"
+            />
+          </FormField>
+          <FormField label="Срок действия баллов (дней, 0 = бессрочно)">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={pointsExpireDays}
+              onChange={(e) => setPointsExpireDays(e.target.value)}
+              placeholder="0 (бессрочно)"
+            />
+          </FormField>
+          <div className="loyalty-tiers-section">
+            <h3>Уровни лояльности</h3>
+            <p className="loyalty-tiers-hint">
+              Настройте уровни для автоматического изменения % начисления баллов в зависимости от суммы покупок клиента.
+            </p>
+            {tiersConfig.map((tier, i) => (
+              <div key={i} className="loyalty-tier-row">
+                <input
+                  type="text"
+                  placeholder="Название"
+                  value={tier.name}
+                  onChange={(e) => {
+                    const next = [...tiersConfig];
+                    next[i] = { ...next[i], name: e.target.value };
+                    setTiersConfig(next);
+                  }}
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="От суммы ₽"
+                  value={tier.min_total}
+                  onChange={(e) => {
+                    const next = [...tiersConfig];
+                    next[i] = { ...next[i], min_total: Number(e.target.value) || 0 };
+                    setTiersConfig(next);
+                  }}
+                />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="% баллов"
+                  value={tier.points_percent}
+                  onChange={(e) => {
+                    const next = [...tiersConfig];
+                    next[i] = { ...next[i], points_percent: Number(e.target.value) || 0 };
+                    setTiersConfig(next);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="loyalty-tier-remove"
+                  onClick={() => setTiersConfig(tiersConfig.filter((_, j) => j !== i))}
+                >
+                  x
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="loyalty-tier-add"
+              onClick={() => setTiersConfig([...tiersConfig, { name: '', min_total: 0, points_percent: 0 }])}
+            >
+              + Добавить уровень
+            </button>
+          </div>
+          <button
+            type="button"
+            className="loyalty-save-btn"
+            onClick={handleSaveLoyaltySettings}
+            disabled={pointsSaving}
+          >
+            {pointsSaving ? 'Сохранение...' : 'Сохранить настройки'}
           </button>
         </div>
-        <button type="button" onClick={handleSaveLoyaltySettings} disabled={pointsSaving} style={{ marginTop: '1rem' }}>
-          {pointsSaving ? 'Сохранение…' : 'Сохранить настройки'}
-        </button>
       </div>
+
+      {/* Add customer */}
       <div className="customers-add">
         <h2>Добавить клиента</h2>
         <form onSubmit={handleAddCustomer}>
-          <div className="field">
-            <label>Телефон</label>
+          <FormField label="Телефон">
             <input
               type="tel"
               inputMode="numeric"
@@ -772,65 +814,54 @@ export function SellerCustomers() {
               placeholder="+7 000 000 00 00"
               maxLength={16}
             />
-          </div>
-          <div className="field">
-            <label>Имя</label>
+          </FormField>
+          <FormField label="Имя">
             <input
               type="text"
               value={addForm.first_name}
               onChange={(e) => setAddForm((f) => ({ ...f, first_name: e.target.value }))}
               placeholder="Имя"
             />
-          </div>
-          <div className="field">
-            <label>Фамилия</label>
+          </FormField>
+          <FormField label="Фамилия">
             <input
               type="text"
               value={addForm.last_name}
               onChange={(e) => setAddForm((f) => ({ ...f, last_name: e.target.value }))}
               placeholder="Фамилия"
             />
-          </div>
-          <div className="field">
-            <label>День рождения</label>
+          </FormField>
+          <FormField label="День рождения">
             <input
               type="date"
               value={addForm.birthday}
               onChange={(e) => setAddForm((f) => ({ ...f, birthday: e.target.value }))}
             />
-          </div>
-          <button type="submit" disabled={addSubmitting}>
-            {addSubmitting ? '…' : 'Добавить'}
+          </FormField>
+          <button type="submit" className="customers-add-btn" disabled={addSubmitting}>
+            {addSubmitting ? '...' : 'Добавить'}
           </button>
         </form>
       </div>
+
       {/* Stats */}
-      <div className="subscribers-stats" style={{ display: 'flex', gap: '0.5rem', margin: '0.5rem 0' }}>
-        <div className="stat-card" style={{ flex: 1, textAlign: 'center', padding: '0.5rem', background: '#f8f9fa', borderRadius: '8px' }}>
-          <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{customers.length}</div>
-          <div style={{ fontSize: '0.8rem', color: '#666' }}>Всего</div>
-        </div>
-        <div className="stat-card" style={{ flex: 1, textAlign: 'center', padding: '0.5rem', background: '#f8f9fa', borderRadius: '8px' }}>
-          <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{customers.filter(c => c.has_loyalty).length}</div>
-          <div style={{ fontSize: '0.8rem', color: '#666' }}>С картой</div>
-        </div>
-        <div className="stat-card" style={{ flex: 1, textAlign: 'center', padding: '0.5rem', background: '#f8f9fa', borderRadius: '8px' }}>
-          <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{customers.filter(c => !c.has_loyalty).length}</div>
-          <div style={{ fontSize: '0.8rem', color: '#666' }}>Без карты</div>
-        </div>
+      <div className="customers-stats-grid">
+        <StatCard label="Всего" value={customers.length} />
+        <StatCard label="С картой" value={customers.filter(c => c.has_loyalty).length} />
+        <StatCard label="Без карты" value={customers.filter(c => !c.has_loyalty).length} />
       </div>
+
+      {/* Search + filters */}
       <div className="customers-search-and-export">
-        <input
-          type="search"
-          placeholder="Поиск по имени, @username или телефону"
+        <SearchInput
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
+          placeholder="Поиск по имени, @username или телефону"
         />
         {allTags.length > 0 && (
           <select
             value={tagFilter}
             onChange={(e) => setTagFilter(e.target.value)}
-            style={{ padding: '0.4rem', fontSize: '0.9rem' }}
           >
             <option value="">Все теги</option>
             {allTags.map((t) => (
@@ -841,46 +872,44 @@ export function SellerCustomers() {
         <select
           value={segmentFilter}
           onChange={(e) => setSegmentFilter(e.target.value)}
-          style={{ padding: '0.4rem', fontSize: '0.9rem' }}
         >
           <option value="">Все сегменты</option>
           {Object.keys(segmentCounts).map((s) => (
             <option key={s} value={s}>{s} ({segmentCounts[s]})</option>
           ))}
         </select>
-        <button type="button" className="btn btn-secondary" onClick={handleExportCustomers}>
-          Экспорт CSV
-        </button>
       </div>
+
+      {/* Segment filter buttons */}
       {Object.keys(segmentCounts).length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', margin: '0.5rem 0' }}>
-          {Object.entries(segmentCounts).map(([seg, count]) => {
-            const colors = SEGMENT_COLORS[seg] || { bg: '#eee', color: '#333' };
-            return (
-              <button key={seg} type="button"
-                onClick={() => setSegmentFilter(segmentFilter === seg ? '' : seg)}
-                style={{
-                  background: segmentFilter === seg ? colors.color : colors.bg,
-                  color: segmentFilter === seg ? '#fff' : colors.color,
-                  border: 'none', padding: '0.25rem 0.7rem', borderRadius: '1rem',
-                  fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500,
-                }}>
-                {seg}: {count}
-              </button>
-            );
-          })}
+        <div className="segment-filter-row">
+          {Object.entries(segmentCounts).map(([seg, count]) => (
+            <button
+              key={seg}
+              type="button"
+              className={`segment-filter-btn ${segmentFilter === seg ? 'segment-filter-btn--active' : ''}`}
+              onClick={() => setSegmentFilter(segmentFilter === seg ? '' : seg)}
+            >
+              {seg}: {count}
+            </button>
+          ))}
         </div>
       )}
+
+      {/* Customer list */}
       {loading ? (
         <div className="customers-loading">Загрузка...</div>
       ) : (
         <div className="customers-list">
           {filteredCustomers.length === 0 ? (
-            <p className="meta">
-              {customers.length === 0
-                ? 'У вас пока нет клиентов. Покупатели могут подписаться на ваш магазин через каталог.'
-                : 'Ничего не найдено'}
-            </p>
+            <EmptyState
+              title={customers.length === 0 ? 'Нет клиентов' : 'Ничего не найдено'}
+              message={
+                customers.length === 0
+                  ? 'У вас пока нет клиентов. Покупатели могут подписаться на ваш магазин через каталог.'
+                  : 'Попробуйте изменить параметры поиска'
+              }
+            />
           ) : (
             filteredCustomers.map((c, idx) => {
               const displayName = c.fio
@@ -891,36 +920,23 @@ export function SellerCustomers() {
               return (
                 <div
                   key={c.buyer_id || `sc-${c.loyalty_customer_id || idx}`}
-                  className="customer-row"
-                  style={{ cursor: hasCard ? 'pointer' : 'default' }}
+                  className={`customer-row ${hasCard ? 'customer-row--clickable' : ''}`}
                   onClick={() => hasCard && navigate(`/customers/${c.loyalty_customer_id}`)}
                 >
-                  <div style={{ flex: 1 }}>
+                  <div className="customer-row-main">
                     <div className="name">
                       {displayName}
                       {c.username && c.fio && (
-                        <span style={{ fontSize: '0.8rem', color: '#888', marginLeft: '0.3rem' }}>@{c.username}</span>
+                        <span className="customer-username">@{c.username}</span>
                       )}
-                      {c.segment && (() => {
-                        const colors = SEGMENT_COLORS[c.segment] || { bg: '#eee', color: '#333' };
-                        return (
-                          <span style={{
-                            display: 'inline-block', background: colors.bg, color: colors.color,
-                            padding: '0.1rem 0.4rem', borderRadius: '0.8rem', fontSize: '0.7rem',
-                            marginLeft: '0.3rem', fontWeight: 500,
-                          }}>{c.segment}</span>
-                        );
-                      })()}
-                      {Array.isArray(c.tags) && c.tags.length > 0 && (
-                        <span style={{ marginLeft: '0.4rem' }}>
-                          {c.tags.map((tag, i) => (
-                            <span key={i} style={{
-                              display: 'inline-block', background: '#e8f0fe', color: '#1a73e8',
-                              padding: '0.1rem 0.4rem', borderRadius: '0.8rem', fontSize: '0.75rem', marginRight: '0.2rem',
-                            }}>{tag}</span>
-                          ))}
-                        </span>
+                      {c.segment && (
+                        <StatusBadge variant={SEGMENT_BADGE_VARIANT[c.segment] || 'neutral'} size="sm">
+                          {c.segment}
+                        </StatusBadge>
                       )}
+                      {Array.isArray(c.tags) && c.tags.length > 0 && c.tags.map((tag, i) => (
+                        <span key={i} className="customer-list-tag">{tag}</span>
+                      ))}
                     </div>
                     <div className="meta">
                       {c.phone || '—'}
@@ -928,20 +944,22 @@ export function SellerCustomers() {
                       {c.subscribed_at && <> · {formatDate(c.subscribed_at)}</>}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div className="customer-row-right">
                     {c.has_loyalty ? (
                       <>
                         <div className="points">{c.loyalty_points} б.</div>
                         {hasCard && (
-                          <Link to={`/customers/${c.loyalty_customer_id}`} className="loyalty-link"
-                            style={{ fontSize: '0.75rem' }}
-                            onClick={(e) => e.stopPropagation()}>
+                          <Link
+                            to={`/customers/${c.loyalty_customer_id}`}
+                            className="loyalty-link"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             Карточка
                           </Link>
                         )}
                       </>
                     ) : (
-                      <span style={{ fontSize: '0.8rem', color: '#999' }}>Нет карты</span>
+                      <span className="customer-no-card">Нет карты</span>
                     )}
                   </div>
                 </div>

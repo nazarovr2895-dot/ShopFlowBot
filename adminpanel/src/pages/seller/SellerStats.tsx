@@ -10,7 +10,7 @@ import {
   PreorderAnalytics,
 } from '../../api/sellerClient';
 import { SalesChart } from '../../components/SalesChart';
-import { useToast } from '../../components/ui';
+import { PageHeader, TabBar, EmptyState, useToast } from '../../components/ui';
 import '../Stats.css';
 
 type RangePreset = '1d' | '7d' | '30d' | 'custom';
@@ -47,11 +47,19 @@ const EMPTY_BREAKDOWN: SellerStatsDeliveryBreakdown = {
   unknown: { orders: 0, revenue: 0 },
 };
 
-const PRESET_LABELS: Record<Exclude<RangePreset, 'custom'>, string> = {
-  '1d': '1 день',
-  '7d': '7 дней',
-  '30d': 'Месяц',
-};
+
+const TABS: { key: StatsTab; label: string }[] = [
+  { key: 'sales', label: 'Продажи' },
+  { key: 'customers', label: 'Клиенты' },
+  { key: 'preorders', label: 'Предзаказы' },
+];
+
+const RANGE_TABS: { key: RangePreset; label: string }[] = [
+  { key: '1d', label: '1 день' },
+  { key: '7d', label: '7 дней' },
+  { key: '30d', label: 'Месяц' },
+  { key: 'custom', label: 'Свой период' },
+];
 
 function formatCurrency(value: number, precise = false): string {
   const formatter = precise ? CURRENCY_PRECISE_FORMATTER : CURRENCY_FORMATTER;
@@ -184,40 +192,24 @@ export function SellerStats() {
 
   return (
     <div className="stats-page">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '1rem' }}>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={handleExportStats}
-          style={{ fontSize: '0.9rem' }}
-        >
-          📊 Экспорт CSV
-        </button>
-      </div>
+      <PageHeader
+        title="Статистика"
+        actions={
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleExportStats}
+          >
+            Экспорт CSV
+          </button>
+        }
+      />
 
-      <div className="range-buttons" style={{ marginBottom: '1rem' }}>
-        <button
-          type="button"
-          className={`btn btn-sm ${activeTab === 'sales' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('sales')}
-        >
-          Продажи
-        </button>
-        <button
-          type="button"
-          className={`btn btn-sm ${activeTab === 'customers' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('customers')}
-        >
-          Клиенты
-        </button>
-        <button
-          type="button"
-          className={`btn btn-sm ${activeTab === 'preorders' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('preorders')}
-        >
-          Предзаказы
-        </button>
-      </div>
+      <TabBar
+        tabs={TABS}
+        activeTab={activeTab}
+        onChange={(key) => setActiveTab(key as StatsTab)}
+      />
 
       <div className="card seller-stats-card">
         <div className="seller-stats-header">
@@ -226,25 +218,12 @@ export function SellerStats() {
             {appliedRangeLabel && <p className="seller-stats-subtitle">{appliedRangeLabel}</p>}
           </div>
           <div className="seller-stats-controls">
-            <div className="range-buttons">
-              {(['1d', '7d', '30d'] as RangePreset[]).map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  className={`btn btn-sm ${rangePreset === preset ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => handlePresetChange(preset)}
-                >
-                  {PRESET_LABELS[preset as Exclude<RangePreset, 'custom'>]}
-                </button>
-              ))}
-              <button
-                type="button"
-                className={`btn btn-sm ${rangePreset === 'custom' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setRangePreset('custom')}
-              >
-                Свой период
-              </button>
-            </div>
+            <TabBar
+              tabs={RANGE_TABS}
+              activeTab={rangePreset}
+              onChange={(key) => handlePresetChange(key as RangePreset)}
+              size="small"
+            />
             {rangePreset === 'custom' && (
               <div className="range-custom">
                 <input
@@ -314,7 +293,7 @@ export function SellerStats() {
         )}
 
         {activeTab === 'customers' && (
-          <div className="seller-stats-summary" style={{ marginTop: '1rem' }}>
+          <div className="seller-stats-summary seller-stats-tab-content">
             {custLoading ? (
               <div className="seller-chart-loading" />
             ) : customerData ? (
@@ -345,13 +324,13 @@ export function SellerStats() {
                 </div>
               </>
             ) : (
-              <p className="empty-text">Нет данных</p>
+              <EmptyState title="Нет данных" />
             )}
           </div>
         )}
 
         {activeTab === 'preorders' && (
-          <div className="seller-stats-summary" style={{ marginTop: '1rem' }}>
+          <div className="seller-stats-summary seller-stats-tab-content">
             {preorderLoading ? (
               <div className="seller-chart-loading" />
             ) : preorderData ? (
@@ -386,7 +365,7 @@ export function SellerStats() {
                 </div>
               </>
             ) : (
-              <p className="empty-text">Нет данных по предзаказам</p>
+              <EmptyState title="Нет данных по предзаказам" />
             )}
           </div>
         )}
@@ -394,7 +373,7 @@ export function SellerStats() {
 
       {error && (
         <div className="card">
-          <p className="empty-text">{error}</p>
+          <EmptyState title={error} />
         </div>
       )}
 
