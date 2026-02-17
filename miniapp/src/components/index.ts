@@ -15,3 +15,5 @@ export { FilterModal } from './FilterModal';
 export { MyFlowersNavBar } from './MyFlowersNavBar';
 export { ProductModal } from './ProductModal';
 export { ImageViewer } from './ImageViewer';
+export { DeliveryNavBar } from './DeliveryNavBar';
+export type { DeliveryTab } from './DeliveryNavBar';

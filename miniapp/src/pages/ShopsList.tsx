@@ -6,7 +6,8 @@ import { useLocationCache } from '../hooks/useLocationCache';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import { useCatalogFilter } from '../contexts/CatalogFilterContext';
 import { isTelegram } from '../utils/environment';
-import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal } from '../components';
+import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal, DeliveryNavBar } from '../components';
+import type { DeliveryTab } from '../components';
 import './ShopsList.css';
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -106,20 +107,37 @@ export function ShopsList() {
     setFilters(newFilters);
   };
 
+  // Derive delivery tab from filters (sync two-way)
+  const deliveryTab: DeliveryTab =
+    filters.delivery_type === 'delivery' ? 'delivery'
+    : filters.delivery_type === 'pickup' ? 'pickup'
+    : 'all';
+
+  const handleDeliveryTabChange = (tab: DeliveryTab) => {
+    setFilters((prev: SellerFilters) => ({
+      ...prev,
+      delivery_type: tab === 'all' ? undefined : tab,
+    }));
+  };
+
+  // Exclude delivery_type from active filters count (since it has its own nav bar)
   const activeFiltersCount = Object.entries(filters).filter(
-    ([k, v]) => k !== 'search' && v !== undefined && v !== ''
+    ([k, v]) => k !== 'search' && k !== 'delivery_type' && v !== undefined && v !== ''
   ).length;
 
   return (
     <div className={`shops-list ${isTelegramEnv ? 'shops-list--telegram' : ''}`} data-telegram={isTelegramEnv}>
       {!isDesktop && (
-        <CatalogNavBar
-          searchValue={searchInput}
-          onSearchChange={setSearchInput}
-          onFilterClick={() => setIsFilterModalOpen(true)}
-          activeFiltersCount={activeFiltersCount}
-          showFilterButton
-        />
+        <>
+          <CatalogNavBar
+            searchValue={searchInput}
+            onSearchChange={setSearchInput}
+            onFilterClick={() => setIsFilterModalOpen(true)}
+            activeFiltersCount={activeFiltersCount}
+            showFilterButton
+          />
+          <DeliveryNavBar activeTab={deliveryTab} onTabChange={handleDeliveryTabChange} />
+        </>
       )}
 
       <FilterModal
@@ -130,6 +148,9 @@ export function ShopsList() {
       />
 
       <div className="shops-list__content">
+          {isDesktop && (
+            <DeliveryNavBar activeTab={deliveryTab} onTabChange={handleDeliveryTabChange} />
+          )}
           {loading && sellers.length === 0 ? (
             <Loader centered />
           ) : error ? (

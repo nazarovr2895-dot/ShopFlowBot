@@ -94,6 +94,14 @@ export function ShopDetails() {
         const id = parseInt(sellerId, 10);
         const data = await api.getSellerDetail(id);
         setSeller(data);
+        // Auto-select tab: if no regular products but preorder products exist, switch to preorder
+        const hasRegular = data.products.length > 0;
+        const hasPreorder = data.preorder_enabled && (data.preorder_products?.length ?? 0) > 0;
+        if (!hasRegular && hasPreorder) {
+          setProductTab('preorder');
+        } else {
+          setProductTab('regular');
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка загрузки');
       } finally {
@@ -439,6 +447,18 @@ export function ShopDetails() {
       </div>
 
       {/* Навигационная панель: Актуальные / Предзаказ */}
+      {(() => {
+        if (import.meta.env.MODE === 'development') {
+          console.log('[ShopDetails] Nav bar condition:', {
+            regularProducts: seller.products.length,
+            preorderProducts: seller.preorder_products?.length ?? 0,
+            preorderEnabled: seller.preorder_enabled,
+            preorderDates: seller.preorder_available_dates,
+            productTab,
+          });
+        }
+        return null;
+      })()}
       {seller.products.length > 0 && (seller.preorder_products?.length ?? 0) > 0 && seller.preorder_enabled && (
         <div className="shop-details__nav-bar">
           <LiquidGlassCard className="shop-details__nav-bar-container">

@@ -492,6 +492,24 @@ async def get_public_seller_detail(
         min_lead_days=getattr(seller, "preorder_min_lead_days", 2) or 0,
     )
     preorder_enabled = bool(getattr(seller, "preorder_enabled", False) and preorder_available_dates and preorder_products)
+    # Debug: log preorder condition for diagnostics
+    import logging
+    logging.getLogger("shopflowbot.public").info(
+        "Seller %s preorder check: db_flag=%s, schedule_type=%s, weekday=%s, "
+        "interval=%s, base_date=%s, custom_dates=%s, available_dates=%s, "
+        "preorder_products=%d, regular_products=%d, => enabled=%s",
+        seller_id,
+        getattr(seller, "preorder_enabled", False),
+        getattr(seller, "preorder_schedule_type", None),
+        getattr(seller, "preorder_weekday", None),
+        getattr(seller, "preorder_interval_days", None),
+        getattr(seller, "preorder_base_date", None),
+        preorder_custom_dates,
+        preorder_available_dates,
+        len(preorder_products),
+        len(products),
+        preorder_enabled,
+    )
 
     def _photo_ids(p):
         if p.photo_ids:

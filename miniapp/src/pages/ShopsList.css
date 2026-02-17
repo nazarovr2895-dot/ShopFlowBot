@@ -2,7 +2,8 @@
   min-height: 100vh;
   background: var(--app-bg);
   padding: 12px;
-  padding-top: calc(12px + 56px);
+  /* CatalogNavBar(56px) + DeliveryNavBar(40px) + gap */
+  padding-top: calc(12px + 56px + 44px);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
@@ -10,7 +11,8 @@
 .shops-list--telegram,
 .shops-list[data-telegram="true"] {
   padding: 0 14px;
-  padding-top: calc(12px + 48px);
+  /* CatalogNavBar(48px) + DeliveryNavBar(38px) + gap */
+  padding-top: calc(12px + 48px + 42px);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
