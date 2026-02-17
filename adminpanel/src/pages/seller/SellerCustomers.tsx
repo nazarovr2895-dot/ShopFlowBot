@@ -104,7 +104,6 @@ export function SellerCustomers() {
   const [tiersConfig, setTiersConfig] = useState<LoyaltyTier[]>([]);
   const [pointsExpireDays, setPointsExpireDays] = useState<string>('');
   const [segmentCounts, setSegmentCounts] = useState<Record<string, number>>({});
-  const [segmentMap, setSegmentMap] = useState<Record<number, string>>({});
   const [segmentFilter, setSegmentFilter] = useState('');
 
   const loadList = useCallback(async () => {
