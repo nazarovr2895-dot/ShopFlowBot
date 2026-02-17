@@ -128,16 +128,13 @@ export function ShopsList() {
   return (
     <div className={`shops-list ${isTelegramEnv ? 'shops-list--telegram' : ''}`} data-telegram={isTelegramEnv}>
       {!isDesktop && (
-        <>
-          <CatalogNavBar
-            searchValue={searchInput}
-            onSearchChange={setSearchInput}
-            onFilterClick={() => setIsFilterModalOpen(true)}
-            activeFiltersCount={activeFiltersCount}
-            showFilterButton
-          />
-          <DeliveryNavBar activeTab={deliveryTab} onTabChange={handleDeliveryTabChange} />
-        </>
+        <CatalogNavBar
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFiltersCount={activeFiltersCount}
+          showFilterButton
+        />
       )}
 
       <FilterModal
@@ -148,7 +145,8 @@ export function ShopsList() {
       />
 
       <div className="shops-list__content">
-          {isDesktop && (
+          {/* Inline delivery tabs — scrolls with content (Telegram only; desktop uses CatalogNavBar) */}
+          {!isDesktop && (
             <DeliveryNavBar activeTab={deliveryTab} onTabChange={handleDeliveryTabChange} />
           )}
           {loading && sellers.length === 0 ? (

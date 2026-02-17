@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { LiquidGlassCard } from './LiquidGlassCard';
 import { useSystemTheme } from '../hooks/useSystemTheme';
 import { isTelegram } from '../utils/environment';
+import type { DeliveryTab } from './DeliveryNavBar';
 import './CatalogNavBar.css';
 
 interface CatalogNavBarProps {
@@ -15,6 +16,9 @@ interface CatalogNavBarProps {
   desktopLayout?: boolean;
   /** Called on Enter in search input (e.g. to navigate to catalog) */
   onSearchSubmit?: () => void;
+  /** Delivery tab props — shown inside the bar on desktop when on catalog page */
+  deliveryTab?: DeliveryTab;
+  onDeliveryTabChange?: (tab: DeliveryTab) => void;
 }
 
 export function CatalogNavBar({
@@ -25,6 +29,8 @@ export function CatalogNavBar({
   showFilterButton = false,
   desktopLayout = false,
   onSearchSubmit,
+  deliveryTab,
+  onDeliveryTabChange,
 }: CatalogNavBarProps) {
   const systemTheme = useSystemTheme();
   const isTelegramEnv = isTelegram();
@@ -39,6 +45,8 @@ export function CatalogNavBar({
       onSearchSubmit?.();
     }
   };
+
+  const showDeliveryTabs = deliveryTab !== undefined && onDeliveryTabChange !== undefined;
 
   return (
     <nav
@@ -65,6 +73,34 @@ export function CatalogNavBar({
             autoComplete="off"
           />
         </div>
+
+        {/* Delivery type tabs — desktop only, inside the glass bar */}
+        {showDeliveryTabs && (
+          <div className="catalog-nav-bar__delivery-tabs">
+            <button
+              type="button"
+              className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'all' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
+              onClick={() => onDeliveryTabChange('all')}
+            >
+              Все
+            </button>
+            <button
+              type="button"
+              className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'delivery' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
+              onClick={() => onDeliveryTabChange('delivery')}
+            >
+              Доставка
+            </button>
+            <button
+              type="button"
+              className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'pickup' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
+              onClick={() => onDeliveryTabChange('pickup')}
+            >
+              Самовывоз
+            </button>
+          </div>
+        )}
+
         {showFilterButton && onFilterClick && (
           <button
             className={`catalog-nav-bar__filter-btn ${activeFiltersCount > 0 ? 'catalog-nav-bar__filter-btn--active' : ''}`}

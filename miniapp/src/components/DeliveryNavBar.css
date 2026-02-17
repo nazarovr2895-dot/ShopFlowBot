@@ -1,21 +1,17 @@
 /* ============================================
-   DeliveryNavBar — Mobile (LiquidGlass pill)
+   DeliveryNavBar — Inline LiquidGlass pill
+   Scrolls with page content (NOT fixed).
+   Used in Telegram Mini App only.
+   On desktop, tabs are embedded in CatalogNavBar.
    ============================================ */
 
 .delivery-nav-bar {
-  position: fixed;
-  top: calc(80px + 56px + env(safe-area-inset-top, 0));
-  left: 0;
-  right: 0;
-  z-index: 98;
-  padding: 4px 16px;
-  pointer-events: none;
+  padding: 6px 16px 2px;
 }
 
 .delivery-nav-bar--telegram,
 .delivery-nav-bar[data-telegram="true"] {
-  top: calc(68px + 48px + env(safe-area-inset-top, 0));
-  padding: 4px 14px;
+  padding: 6px 14px 2px;
 }
 
 .delivery-nav-bar__container {
@@ -23,7 +19,6 @@
   align-items: center;
   gap: 4px;
   padding: 5px;
-  pointer-events: auto;
   height: 40px;
   border-radius: 296px;
 }
@@ -79,7 +74,7 @@
   z-index: 1;
 }
 
-/* Opposite theme styles — Mobile */
+/* Opposite theme styles */
 [data-theme-opposite="dark"] .delivery-nav-bar__container {
   background: rgba(0, 0, 0, 0.3);
   box-shadow:
@@ -110,7 +105,7 @@
   );
 }
 
-/* Text colors — Mobile */
+/* Text colors */
 [data-theme-opposite="dark"] .delivery-nav-bar__tab {
   color: #ffffff;
 }
@@ -133,95 +128,4 @@
 
 [data-theme-opposite="light"] .delivery-nav-bar__tab--active {
   background: rgba(0, 0, 0, 0.15);
-}
-
-
-/* ============================================
-   DeliveryNavBar — Desktop (Segmented Control)
-   ============================================ */
-
-.delivery-nav-desktop {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  background: var(--app-bg-elevated, #f5f5f5);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 16px;
-}
-
-.delivery-nav-desktop__tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 20px;
-  border: none;
-  background: transparent;
-  color: var(--app-text-secondary, #666);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: inherit;
-  border-radius: 10px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.delivery-nav-desktop__tab:hover {
-  color: var(--app-text, #333);
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.delivery-nav-desktop__tab--active {
-  background: var(--app-bg, #ffffff);
-  color: var(--app-text, #000);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-
-.delivery-nav-desktop__tab--active:hover {
-  background: var(--app-bg, #ffffff);
-}
-
-.delivery-nav-desktop__icon {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.delivery-nav-desktop__tab--active .delivery-nav-desktop__icon {
-  opacity: 1;
-}
-
-/* Dark theme for desktop */
-[data-theme="dark"] .delivery-nav-desktop {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-[data-theme="dark"] .delivery-nav-desktop__tab {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-[data-theme="dark"] .delivery-nav-desktop__tab:hover {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-[data-theme="dark"] .delivery-nav-desktop__tab--active {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .delivery-nav-desktop__tab--active:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-/* Large desktop: bigger segmented control */
-@media (min-width: 1200px) {
-  .delivery-nav-desktop__tab {
-    padding: 10px 24px;
-    font-size: 15px;
-  }
 }

@@ -194,13 +194,20 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
-/* Desktop layout modifier: centered, max-width 700px */
+/* ============================================
+   Delivery tabs (inside the bar, desktop only)
+   ============================================ */
+.catalog-nav-bar__delivery-tabs {
+  display: none; /* Hidden on mobile — DeliveryNavBar is used instead */
+}
+
+/* Desktop layout modifier: centered, wider to fit delivery tabs */
 .catalog-nav-bar--desktop {
   top: calc(90px + env(safe-area-inset-top, 0));
   left: 50%;
   right: auto;
   width: 100%;
-  max-width: 700px;
+  max-width: 820px;
   transform: translateX(-50%);
   padding: 0 16px;
   box-sizing: border-box;
@@ -214,6 +221,73 @@
 
 .catalog-nav-bar--desktop .catalog-nav-bar__filter-btn {
   height: 36px;
+}
+
+/* Show delivery tabs only on desktop */
+.catalog-nav-bar--desktop .catalog-nav-bar__delivery-tabs {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  background: rgba(128, 128, 128, 0.12);
+  border-radius: 296px;
+  padding: 3px;
+  height: 34px;
+}
+
+.catalog-nav-bar__delivery-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 296px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.catalog-nav-bar__delivery-tab:hover {
+  opacity: 0.85;
+}
+
+.catalog-nav-bar__delivery-tab--active {
+  opacity: 1;
+  font-weight: 600;
+  background: rgba(128, 128, 128, 0.18);
+}
+
+/* Delivery tab theme styles */
+[data-theme-opposite="dark"] .catalog-nav-bar__delivery-tabs {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme-opposite="dark"] .catalog-nav-bar__delivery-tab {
+  color: #ffffff;
+}
+
+[data-theme-opposite="dark"] .catalog-nav-bar__delivery-tab--active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme-opposite="light"] .catalog-nav-bar__delivery-tabs {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme-opposite="light"] .catalog-nav-bar__delivery-tab {
+  color: #000000;
+}
+
+[data-theme-opposite="light"] .catalog-nav-bar__delivery-tab--active {
+  background: rgba(0, 0, 0, 0.12);
 }
 
 /* Desktop adjustments (non--desktop modifier, e.g. on ShopsList page only) */
@@ -243,6 +317,17 @@
   .catalog-nav-bar__filter-icon {
     width: 22px;
     height: 22px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .catalog-nav-bar--desktop {
+    max-width: 900px;
+  }
+
+  .catalog-nav-bar__delivery-tab {
+    padding: 0 18px;
+    font-size: 14px;
   }
 }
 

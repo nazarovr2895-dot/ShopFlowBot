@@ -257,6 +257,7 @@
   }
 }
 
+/* Light theme: чёрная кнопка с белым текстом */
 .shop-details__subscribe-btn {
   display: flex;
   align-items: center;
@@ -267,29 +268,23 @@
   font-size: 14px;
   font-weight: 600;
   color: #ffffff;
-  background: var(--app-accent, #7c3aed);
+  background: #000000;
   border: none;
   border-radius: 24px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
+  transition: opacity 0.15s ease;
 }
 
 .shop-details__subscribe-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  opacity: 0.85;
 }
 
 .shop-details__subscribe-btn--active {
-  color: #7c3aed;
-  background: rgba(124, 58, 237, 0.1);
-  border: 2px solid var(--app-accent, #7c3aed);
   font-weight: 500;
-  box-shadow: none;
 }
 
 .shop-details__subscribe-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -301,36 +296,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  min-width: 120px;
-  padding: 12px 20px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--app-accent);
-  background: transparent;
-  border: 2px solid var(--app-accent);
-  border-radius: 24px;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  color: var(--app-text);
+  background: var(--app-bg-elevated, #f0f0f0);
+  border: none;
+  border-radius: 50%;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.15s ease;
 }
 
 .shop-details__map-btn:hover {
-  background: var(--app-accent);
-  color: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+  opacity: 0.75;
 }
 
 .shop-details__map-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.96);
 }
 
-/* Мобильная версия - кнопки на всю ширину */
+/* Мобильная версия - кнопка подписки на всю ширину (кнопка карты — иконка) */
 @media (max-width: 699px) {
-  .shop-details__subscribe-btn,
-  .shop-details__map-btn {
-    width: 100%;
+  .shop-details__subscribe-btn {
+    flex: 1;
   }
 }
 
@@ -744,21 +734,15 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Кнопка подписаться в темной теме */
+/* Dark theme: белая кнопка с чёрным текстом */
 [data-theme="dark"] .shop-details__subscribe-btn {
   color: #000000;
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.2);
 }
 
-[data-theme="dark"] .shop-details__subscribe-btn:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
-}
-
-[data-theme="dark"] .shop-details__subscribe-btn--active {
-  color: #a855f7;
-  background: rgba(168, 85, 247, 0.15);
-  border-color: #a855f7;
+[data-theme="dark"] .shop-details__map-btn {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 [data-theme="dark"] .shop-details__description {
