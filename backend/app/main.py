@@ -94,7 +94,34 @@ async def _daily_scheduler():
                 except Exception as e:
                     logger.error("Daily scheduler: get_all_sellers_upcoming_events failed", error=str(e))
 
-                # 3. Sync bouquet product quantities for all sellers
+                # 3. Auto-activate preorders whose delivery date is today
+                try:
+                    from backend.app.services.orders import activate_due_preorders
+                    from backend.app.services.telegram_notify import notify_buyer_order_status
+
+                    today_msk = datetime.now(tz=msk).date()
+                    activated = await activate_due_preorders(session, today_msk)
+                    if activated:
+                        await session.commit()
+                        # Notify buyers about status change
+                        for a in activated:
+                            try:
+                                await notify_buyer_order_status(
+                                    buyer_id=a["buyer_id"],
+                                    order_id=a["order_id"],
+                                    new_status="assembling",
+                                    seller_id=a["seller_id"],
+                                    items_info=a.get("items_info"),
+                                    total_price=a.get("total_price"),
+                                )
+                            except Exception as e:
+                                logger.error("Preorder activation notify failed", order_id=a["order_id"], error=str(e))
+                        logger.info("Daily scheduler: activated preorders", count=len(activated), date=str(today_msk))
+                except Exception as e:
+                    await session.rollback()
+                    logger.error("Daily scheduler: preorder activation failed", error=str(e))
+
+                # 4. Sync bouquet product quantities for all sellers
                 try:
                     from backend.app.services.bouquets import sync_bouquet_product_quantities
                     from backend.app.models.seller import Seller

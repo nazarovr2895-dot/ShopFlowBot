@@ -1203,6 +1203,54 @@ class OrderService:
         }
 
 
+async def activate_due_preorders(session: AsyncSession, today: date) -> List[Dict[str, Any]]:
+    """
+    Find all preorders with status 'accepted' whose preorder_delivery_date == today
+    and transition them to 'assembling' (active orders).
+
+    Returns list of transitioned order dicts for notification purposes.
+    Caller must commit the session after this returns.
+    """
+    from backend.app.core.logging import get_logger
+    _log = get_logger("shopflowbot.preorder_activator")
+
+    result = await session.execute(
+        select(Order).where(
+            Order.is_preorder.is_(True),
+            Order.status == "accepted",
+            Order.preorder_delivery_date == today,
+        )
+    )
+    orders = result.scalars().all()
+
+    if not orders:
+        return []
+
+    activated: List[Dict[str, Any]] = []
+    for order in orders:
+        try:
+            old_status = order.status
+            order.status = "assembling"
+            activated.append({
+                "order_id": order.id,
+                "buyer_id": order.buyer_id,
+                "seller_id": order.seller_id,
+                "items_info": order.items_info,
+                "total_price": float(order.total_price) if order.total_price is not None else 0.0,
+                "old_status": old_status,
+                "new_status": "assembling",
+            })
+        except Exception as e:
+            _log.error(
+                "Failed to activate preorder",
+                order_id=order.id,
+                error=str(e),
+            )
+
+    _log.info("Preorder activation complete", today=str(today), activated=len(activated))
+    return activated
+
+
 # Legacy functions for backward compatibility
 async def create_new_order(session: AsyncSession, order_data: dict):
     """
