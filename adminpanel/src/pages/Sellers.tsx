@@ -7,6 +7,8 @@ import {
   blockSeller,
   deleteSeller,
   setSellerLimit,
+  setSellerSubscriptionPlan,
+  setSellerDefaultLimit,
   searchMetro,
   getSellerWebCredentials,
   setSellerWebCredentials,
@@ -656,6 +658,8 @@ function SellerDetailsModal({
 }) {
   const [activeTab, setActiveTab] = useState<'info' | 'manage'>('info');
   const [limit, setLimit] = useState(String(seller.max_orders ?? ''));
+  const [defaultLimit, setDefaultLimit] = useState(String(seller.default_daily_limit ?? ''));
+  const [subscriptionPlan, setSubscriptionPlan] = useState(seller.subscription_plan ?? 'free');
   const [manageExpiryDate, setManageExpiryDate] = useState(formatPlacementExpired(seller.placement_expired_at));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1377,8 +1381,92 @@ function SellerDetailsModal({
 
           {activeTab === 'manage' && (
             <div className="manage-seller">
+              <div className="manage-section">
+                <h4>Тарифный план</h4>
+                <p className="text-muted">Определяет максимально допустимый дневной лимит заказов.</p>
+                <div className="input-row">
+                  <select
+                    className="form-input"
+                    value={subscriptionPlan}
+                    onChange={(e) => setSubscriptionPlan(e.target.value)}
+                  >
+                    <option value="free">Free (до 10 заказов/день)</option>
+                    <option value="pro">Pro (до 50 заказов/день)</option>
+                    <option value="premium">Premium (до 100 заказов/день)</option>
+                  </select>
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      setLoading(true);
+                      setMsg('');
+                      try {
+                        const res = await setSellerSubscriptionPlan(seller.tg_id, subscriptionPlan);
+                        if (res?.status === 'ok') {
+                          showMessage('Тариф обновлён', 'success');
+                          onUpdate({ ...seller, subscription_plan: subscriptionPlan });
+                          onSuccess();
+                        } else {
+                          showMessage((res as { message?: string })?.message || 'Ошибка');
+                        }
+                      } catch (e) {
+                        showMessage(e instanceof Error ? e.message : 'Ошибка');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    Сохранить
+                  </button>
+                </div>
+              </div>
+
+              <div className="manage-section">
+                <h4>Стандартный дневной лимит</h4>
+                <p className="text-muted">Авто-применяется каждый день. 0 или пусто = отключить.</p>
+                <div className="input-row">
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={defaultLimit}
+                    onChange={(e) => setDefaultLimit(e.target.value)}
+                    placeholder="Не задан"
+                    min={0}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      const num = defaultLimit.trim() === '' ? 0 : parseInt(defaultLimit, 10);
+                      if (isNaN(num) || num < 0) {
+                        showMessage('Введите число >= 0');
+                        return;
+                      }
+                      setLoading(true);
+                      setMsg('');
+                      try {
+                        const res = await setSellerDefaultLimit(seller.tg_id, num);
+                        if (res?.status === 'ok') {
+                          showMessage('Стандартный лимит обновлён', 'success');
+                          onUpdate({ ...seller, default_daily_limit: num || undefined });
+                          onSuccess();
+                        } else {
+                          showMessage((res as { message?: string })?.message || 'Ошибка');
+                        }
+                      } catch (e) {
+                        showMessage(e instanceof Error ? e.message : 'Ошибка');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    Сохранить
+                  </button>
+                </div>
+              </div>
+
               <div className="form-group">
-                <label className="form-label">Лимит заказов</label>
+                <label className="form-label">Лимит на сегодня (переопределение)</label>
                 <div className="input-row">
                   <input
                     type="number"

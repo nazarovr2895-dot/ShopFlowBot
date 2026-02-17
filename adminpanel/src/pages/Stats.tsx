@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getAllStats, getStatsOverview, type StatsOverviewDailyPoint } from '../api/adminClient';
+import { getAllStats, getStatsOverview, getLimitsAnalytics, type StatsOverviewDailyPoint, type LimitsAnalytics } from '../api/adminClient';
 import type { SellerStats } from '../types';
 import { SalesChart } from '../components/SalesChart';
 import './Stats.css';
@@ -36,6 +36,7 @@ export function Stats() {
   const [sellerStats, setSellerStats] = useState<SellerStats[]>([]);
   const [dailySales, setDailySales] = useState<StatsOverviewDailyPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [limitsData, setLimitsData] = useState<LimitsAnalytics | null>(null);
   const [rangePreset, setRangePreset] = useState<RangePreset>('30d');
   const [customFrom, setCustomFrom] = useState(() => getRangeDates('30d').date_from);
   const [customTo, setCustomTo] = useState(() => getRangeDates('30d').date_to);
@@ -44,12 +45,14 @@ export function Stats() {
     setLoading(true);
     setDailySales([]);
     try {
-      const [list, overview] = await Promise.all([
+      const [list, overview, limits] = await Promise.all([
         getAllStats(params),
         getStatsOverview(params),
+        getLimitsAnalytics(),
       ]);
       setSellerStats(list || []);
       setDailySales(overview?.daily_sales ?? []);
+      setLimitsData(limits || null);
     } catch {
       setSellerStats([]);
       setDailySales([]);
@@ -175,6 +178,97 @@ export function Stats() {
           </div>
         </div>
       </div>
+
+      {/* Загрузка лимитов */}
+      {limitsData && (
+        <div className="stats-summary card" style={{ marginTop: '1.5rem' }}>
+          <h3>Загрузка продавцов</h3>
+          <div className="summary-grid">
+            <div className="summary-item">
+              <span className="summary-label">Всего продавцов</span>
+              <span className="summary-value">{limitsData.total_sellers}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Активны сегодня</span>
+              <span className="summary-value">{limitsData.active_today}</span>
+            </div>
+            <div className="summary-item accent">
+              <span className="summary-label">Исчерпали лимит</span>
+              <span className="summary-value">{limitsData.exhausted}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Закрыты на сегодня</span>
+              <span className="summary-value">{limitsData.closed_today}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Без лимита</span>
+              <span className="summary-value">{limitsData.no_limit}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Средняя загрузка</span>
+              <span className="summary-value">{limitsData.avg_load_pct}%</span>
+            </div>
+          </div>
+
+          {/* По тарифам */}
+          {Object.keys(limitsData.by_plan).length > 0 && (
+            <div style={{ marginTop: '1rem' }}>
+              <h4 style={{ margin: '0 0 0.5rem' }}>По тарифам</h4>
+              <table className="stats-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Тариф</th>
+                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Всего</th>
+                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Активных</th>
+                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Исчерпали</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(limitsData.by_plan).map(([plan, info]) => (
+                    <tr key={plan}>
+                      <td style={{ padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{plan === 'free' ? 'Free' : plan === 'pro' ? 'Pro' : 'Premium'}</td>
+                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{info.total}</td>
+                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{info.active}</td>
+                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{info.exhausted}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Топ загруженных */}
+          {limitsData.top_loaded.length > 0 && (
+            <div style={{ marginTop: '1rem' }}>
+              <h4 style={{ margin: '0 0 0.5rem' }}>Топ-10 загруженных</h4>
+              <table className="stats-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Магазин</th>
+                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Заказы</th>
+                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Лимит</th>
+                    <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Загрузка</th>
+                    <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>Тариф</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {limitsData.top_loaded.map((s) => (
+                    <tr key={s.tg_id}>
+                      <td style={{ padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{s.shop_name || s.fio}</td>
+                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{s.used}</td>
+                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{s.limit}</td>
+                      <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)', color: s.load_pct >= 100 ? '#e74c3c' : s.load_pct >= 75 ? '#e67e22' : 'inherit' }}>
+                        {s.load_pct}%
+                      </td>
+                      <td style={{ padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border)' }}>{s.plan === 'free' ? 'Free' : s.plan === 'pro' ? 'Pro' : 'Premium'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

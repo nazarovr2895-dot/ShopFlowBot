@@ -5,77 +5,27 @@ from datetime import datetime
 # --- ПРОДАВЕЦ ---
 
 async def api_check_limit(seller_id: int) -> bool:
-    """Проверка: может ли продавец принимать заказы (не заблокирован, лимит на сегодня задан и не исчерпан)."""
-    data = await make_request("GET", f"/sellers/{seller_id}")
-    if not data or data.get("is_blocked"):
+    """Проверка: может ли продавец принимать заказы. Использует единый endpoint can-accept."""
+    data = await make_request("GET", f"/sellers/{seller_id}/can-accept")
+    if not data:
         return False
-    if not data.get("limit_set_for_today", False):
-        return False
-    orders_used = data.get("orders_used_today", 0)
-    max_orders = data.get("max_orders", 0)
-    if max_orders - orders_used <= 0:
-        return False
-    return True
+    return data.get("can_accept", False)
 
 
 async def api_validate_seller_availability(seller_id: int) -> Tuple[bool, Optional[str]]:
     """
-    Проверяет доступность продавца для покупки.
-    
+    Проверяет доступность продавца для покупки через единый endpoint can-accept.
+
     Возвращает кортеж (is_available, error_message):
     - (True, None) - продавец доступен
     - (False, "reason") - продавец недоступен + причина
-    
-    Проверяет:
-    1. Существование продавца
-    2. Не soft-deleted
-    3. is_blocked == False
-    4. placement_expired_at == None или > now
-    5. (max_orders - active_orders - pending_requests) > 0
     """
-    data = await make_request("GET", f"/sellers/{seller_id}")
-    
-    # Продавец не найден
+    data = await make_request("GET", f"/sellers/{seller_id}/can-accept")
     if not data:
         return (False, "not_found")
-    
-    # Продавец soft-deleted
-    if data.get("is_deleted", False):
-        return (False, "deleted")
-    
-    # Продавец заблокирован
-    if data.get("is_blocked", False):
-        return (False, "blocked")
-    
-    # Проверка срока размещения
-    placement_expired_at = data.get("placement_expired_at")
-    if placement_expired_at:
-        try:
-            # Парсим дату (формат ISO 8601)
-            if isinstance(placement_expired_at, str):
-                expired_at = datetime.fromisoformat(placement_expired_at.replace("Z", "+00:00"))
-                if expired_at.tzinfo:
-                    expired_at = expired_at.replace(tzinfo=None)
-            else:
-                expired_at = placement_expired_at
-            
-            if expired_at <= datetime.utcnow():
-                return (False, "expired")
-        except (ValueError, TypeError):
-            pass  # Если не удалось распарсить - игнорируем проверку
-    
-    # Лимит дневной: после 6:00 продавец должен задать лимит на сегодня
-    if not data.get("limit_set_for_today", False):
-        return (False, "limit_not_set")
-    
-    orders_used_today = data.get("orders_used_today", 0)
-    max_orders = data.get("max_orders", 0)
-    available_slots = max_orders - orders_used_today
-    
-    if available_slots <= 0:
-        return (False, "limit_reached")
-    
-    return (True, None) 
+    if data.get("can_accept", False):
+        return (True, None)
+    return (False, data.get("reason", "unknown"))
 
 async def api_get_seller(tg_id: int):
     data = await make_request("GET", f"/sellers/{tg_id}")

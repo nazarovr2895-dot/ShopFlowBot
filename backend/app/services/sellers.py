@@ -27,6 +27,18 @@ logger = get_logger(__name__)
 LIMIT_TIMEZONE = ZoneInfo("Europe/Moscow")
 LIMIT_DAY_START_HOUR = 6
 
+# Тарифные планы: максимальный дневной лимит по подписке
+PLAN_LIMIT_CAP = {
+    "free": 10,
+    "pro": 50,
+    "premium": 100,
+}
+PLAN_NAMES = {
+    "free": "Free",
+    "pro": "Pro",
+    "premium": "Premium",
+}
+
 
 def _today_6am_date() -> date:
     """Текущая «дата дня»: после 6:00 — сегодня, до 6:00 — вчера."""
@@ -145,13 +157,28 @@ class SellerService:
         return result.scalar() or 0
     
     def _effective_limit(self, seller: Seller) -> int:
-        """Определить действующий лимит: ручной (если задан на сегодня) или стандартный."""
+        """Определить действующий лимит с учётом: ручной > расписание > стандартный. Ограничено тарифным планом."""
         today = _today_6am_date()
+        plan = getattr(seller, "subscription_plan", "free") or "free"
+        cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
+
+        # 1. Ручной лимит на сегодня (наивысший приоритет)
         if seller.daily_limit_date == today and seller.max_orders > 0:
-            return seller.max_orders
+            return min(seller.max_orders, cap)
+
+        # 2. Расписание по дням недели
+        schedule = getattr(seller, "weekly_schedule", None)
+        if schedule and isinstance(schedule, dict):
+            weekday_key = str(today.weekday())  # 0=Mon, 6=Sun
+            day_limit = schedule.get(weekday_key)
+            if day_limit is not None and int(day_limit) > 0:
+                return min(int(day_limit), cap)
+
+        # 3. Стандартный дневной лимит
         default = getattr(seller, "default_daily_limit", None)
         if default and default > 0:
-            return default
+            return min(default, cap)
+
         return 0
 
     async def check_limit(self, seller_id: int) -> bool:
@@ -174,6 +201,42 @@ class SellerService:
 
         total_used = seller.active_orders + seller.pending_requests
         return total_used < effective
+
+    async def can_accept_order(self, seller_id: int) -> Dict[str, Any]:
+        """
+        Единый источник правды: может ли продавец принять новый заказ.
+        Возвращает dict с полным контекстом: can_accept, reason, effective_limit, available_slots и т.д.
+        """
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == seller_id)
+        )
+        seller = result.scalar_one_or_none()
+
+        if not seller:
+            return {"can_accept": False, "reason": "not_found", "effective_limit": 0, "available_slots": 0}
+
+        if seller.deleted_at is not None:
+            return {"can_accept": False, "reason": "deleted", "effective_limit": 0, "available_slots": 0}
+
+        if seller.is_blocked:
+            return {"can_accept": False, "reason": "blocked", "effective_limit": 0, "available_slots": 0}
+
+        if seller.placement_expired_at:
+            from datetime import datetime
+            if seller.placement_expired_at <= datetime.utcnow():
+                return {"can_accept": False, "reason": "expired", "effective_limit": 0, "available_slots": 0}
+
+        effective = self._effective_limit(seller)
+        if effective <= 0:
+            return {"can_accept": False, "reason": "limit_not_set", "effective_limit": 0, "available_slots": 0}
+
+        total_used = seller.active_orders + seller.pending_requests
+        available = max(0, effective - total_used)
+
+        if available <= 0:
+            return {"can_accept": False, "reason": "limit_reached", "effective_limit": effective, "available_slots": 0, "used": total_used}
+
+        return {"can_accept": True, "reason": None, "effective_limit": effective, "available_slots": available, "used": total_used}
     
     async def get_seller(self, seller_id: int) -> Optional[Dict[str, Any]]:
         """Get seller data for display. Включает orders_used_today, limit_set_for_today, fio, phone from User."""
@@ -200,12 +263,11 @@ class SellerService:
             return None
         user, seller = row
 
-        today = _today_6am_date()
-        manual_limit_today = seller.daily_limit_date == today and seller.max_orders > 0
-        default_limit = getattr(seller, "default_daily_limit", None) or 0
-        effective_limit = seller.max_orders if manual_limit_today else default_limit
+        effective_limit = self._effective_limit(seller)
         limit_active = effective_limit > 0
         orders_used_today = seller.active_orders + seller.pending_requests
+        plan = getattr(seller, "subscription_plan", "free") or "free"
+        plan_cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
 
         preorder_custom_dates = getattr(seller, "preorder_custom_dates", None)
         preorder_available_dates = get_preorder_available_dates(
@@ -225,12 +287,15 @@ class SellerService:
             "hashtags": seller.hashtags or "",
             "description": seller.description,
             "max_orders": effective_limit,
-            "default_daily_limit": default_limit,
+            "default_daily_limit": getattr(seller, "default_daily_limit", None) or 0,
             "daily_limit_date": seller.daily_limit_date.isoformat() if seller.daily_limit_date else None,
             "limit_set_for_today": limit_active,
             "orders_used_today": orders_used_today,
             "active_orders": seller.active_orders,
             "pending_requests": seller.pending_requests,
+            "subscription_plan": plan,
+            "plan_limit_cap": plan_cap,
+            "weekly_schedule": getattr(seller, "weekly_schedule", None),
             "inn": seller.inn,
             "ogrn": getattr(seller, "ogrn", None),
             "is_blocked": seller.is_blocked,
@@ -617,18 +682,22 @@ class SellerService:
         return {"status": "ok"}
 
     async def update_limits(self, tg_id: int, max_orders: int) -> Dict[str, Any]:
-        """Обновить дневной лимит продавца (1-100). Применяется к текущему дню (до 6:00 следующего)."""
-        if max_orders < 1 or max_orders > 100:
-            raise SellerServiceError("Лимит должен быть от 1 до 100")
-        
+        """Обновить дневной лимит продавца. Применяется к текущему дню (до 6:00 следующего). Ограничен тарифным планом."""
+        if max_orders < 1:
+            raise SellerServiceError("Лимит должен быть >= 1")
+
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == tg_id)
         )
         seller = result.scalar_one_or_none()
-        
         if not seller:
             raise SellerNotFoundError(tg_id)
-        
+
+        plan = getattr(seller, "subscription_plan", "free") or "free"
+        cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
+        if max_orders > cap:
+            raise SellerServiceError(f"Ваш тариф ({PLAN_NAMES.get(plan, plan)}) позволяет максимум {cap} заказов/день. Обновите подписку.")
+
         today = _today_6am_date()
         seller.max_orders = max_orders
         seller.daily_limit_date = today
@@ -636,9 +705,9 @@ class SellerService:
         return {"status": "ok", "max_orders": max_orders}
 
     async def update_default_limit(self, tg_id: int, default_daily_limit: int) -> Dict[str, Any]:
-        """Установить стандартный дневной лимит (авто-применяется каждый день). 0 = отключить."""
-        if default_daily_limit < 0 or default_daily_limit > 100:
-            raise SellerServiceError("Стандартный лимит должен быть от 0 до 100")
+        """Установить стандартный дневной лимит (авто-применяется каждый день). 0 = отключить. Ограничен тарифным планом."""
+        if default_daily_limit < 0:
+            raise SellerServiceError("Стандартный лимит должен быть >= 0")
 
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == tg_id)
@@ -647,9 +716,73 @@ class SellerService:
         if not seller:
             raise SellerNotFoundError(tg_id)
 
+        plan = getattr(seller, "subscription_plan", "free") or "free"
+        cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
+        if default_daily_limit > cap:
+            raise SellerServiceError(f"Ваш тариф ({PLAN_NAMES.get(plan, plan)}) позволяет максимум {cap} заказов/день. Обновите подписку.")
+
         seller.default_daily_limit = default_daily_limit if default_daily_limit > 0 else None
         await self.session.commit()
         return {"status": "ok", "default_daily_limit": seller.default_daily_limit}
+
+    async def close_for_today(self, tg_id: int) -> Dict[str, Any]:
+        """Закрыться на сегодня: установить лимит 0 на текущий день. Стандартный лимит не затрагивается."""
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == tg_id)
+        )
+        seller = result.scalar_one_or_none()
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+
+        today = _today_6am_date()
+        seller.max_orders = 0
+        seller.daily_limit_date = today
+        await self.session.commit()
+        return {"status": "ok", "message": "Магазин закрыт на сегодня. Откроется завтра с 6:00 МСК."}
+
+    async def update_weekly_schedule(self, tg_id: int, schedule: Dict[str, int]) -> Dict[str, Any]:
+        """Обновить расписание лимитов по дням недели. Ключи: '0'-'6' (Пн-Вс), значения: лимит. Ограничен тарифным планом."""
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == tg_id)
+        )
+        seller = result.scalar_one_or_none()
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+
+        plan = getattr(seller, "subscription_plan", "free") or "free"
+        cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
+
+        # Validate schedule
+        validated: Dict[str, int] = {}
+        for key, value in schedule.items():
+            if key not in ("0", "1", "2", "3", "4", "5", "6"):
+                raise SellerServiceError(f"Некорректный день недели: {key}. Допустимые: 0-6 (Пн-Вс)")
+            val = int(value)
+            if val < 0:
+                raise SellerServiceError("Лимит не может быть отрицательным")
+            if val > cap:
+                raise SellerServiceError(f"Ваш тариф ({PLAN_NAMES.get(plan, plan)}) позволяет максимум {cap} заказов/день.")
+            validated[key] = val
+
+        seller.weekly_schedule = validated if validated else None
+        await self.session.commit()
+        return {"status": "ok", "weekly_schedule": seller.weekly_schedule}
+
+    async def update_subscription_plan(self, tg_id: int, plan: str) -> Dict[str, Any]:
+        """Изменить тарифный план продавца (admin only)."""
+        if plan not in PLAN_LIMIT_CAP:
+            raise SellerServiceError(f"Неизвестный тариф: {plan}. Допустимые: {', '.join(PLAN_LIMIT_CAP.keys())}")
+
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == tg_id)
+        )
+        seller = result.scalar_one_or_none()
+        if not seller:
+            raise SellerNotFoundError(tg_id)
+
+        seller.subscription_plan = plan
+        await self.session.commit()
+        return {"status": "ok", "subscription_plan": plan, "plan_limit_cap": PLAN_LIMIT_CAP[plan]}
 
     async def reconcile_all_counters(self) -> int:
         """Пересчитать active_orders и pending_requests для всех продавцов из реальных статусов заказов."""
@@ -840,6 +973,90 @@ class SellerService:
         
         return stats
     
+    async def get_limits_analytics(self) -> Dict[str, Any]:
+        """
+        Дашборд загрузки продавцов: сколько активных, сколько исчерпали лимит,
+        средняя загрузка, разбивка по тарифам.
+        """
+        today = _today_6am_date()
+        today_6am_utc = _today_6am_utc()
+
+        # Все активные (не удалённые, не заблокированные) продавцы
+        result = await self.session.execute(
+            select(Seller).where(
+                or_(Seller.is_deleted.is_(None), Seller.is_deleted == False),
+                or_(Seller.is_blocked.is_(None), Seller.is_blocked == False),
+            )
+        )
+        sellers = result.scalars().all()
+
+        total_sellers = len(sellers)
+        active_today = 0  # с установленным лимитом (effective > 0)
+        exhausted = 0     # лимит исчерпан
+        closed_today = 0  # закрылись на сегодня (max_orders=0, daily_limit_date=today)
+        no_limit = 0      # нет лимита вообще
+        total_load_pct = 0.0
+        by_plan: Dict[str, Dict[str, int]] = {}
+
+        for s in sellers:
+            plan = getattr(s, 'subscription_plan', 'free') or 'free'
+            if plan not in by_plan:
+                by_plan[plan] = {"total": 0, "active": 0, "exhausted": 0}
+            by_plan[plan]["total"] += 1
+
+            eff = self._effective_limit(s)
+
+            # Closed for today check
+            if s.daily_limit_date == today and (s.max_orders is not None and s.max_orders == 0):
+                closed_today += 1
+                continue
+
+            if eff <= 0:
+                no_limit += 1
+                continue
+
+            active_today += 1
+            by_plan[plan]["active"] += 1
+
+            used = (s.active_orders or 0) + (s.pending_requests or 0)
+            load_pct = min(used / eff, 1.0) * 100
+            total_load_pct += load_pct
+
+            if used >= eff:
+                exhausted += 1
+                by_plan[plan]["exhausted"] += 1
+
+        avg_load = round(total_load_pct / active_today, 1) if active_today > 0 else 0.0
+
+        # Top 10 самых загруженных продавцов
+        top_loaded = []
+        for s in sellers:
+            eff = self._effective_limit(s)
+            if eff <= 0:
+                continue
+            used = (s.active_orders or 0) + (s.pending_requests or 0)
+            top_loaded.append({
+                "tg_id": s.tg_id,
+                "fio": s.fio,
+                "shop_name": s.shop_name,
+                "used": used,
+                "limit": eff,
+                "load_pct": round(min(used / eff, 1.0) * 100, 1),
+                "plan": getattr(s, 'subscription_plan', 'free') or 'free',
+            })
+        top_loaded.sort(key=lambda x: x["load_pct"], reverse=True)
+
+        return {
+            "total_sellers": total_sellers,
+            "active_today": active_today,
+            "exhausted": exhausted,
+            "closed_today": closed_today,
+            "no_limit": no_limit,
+            "avg_load_pct": avg_load,
+            "by_plan": by_plan,
+            "top_loaded": top_loaded[:10],
+        }
+
     async def get_seller_stats_by_fio(
         self, 
         fio: str, 

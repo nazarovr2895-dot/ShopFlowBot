@@ -490,9 +490,33 @@ async def reset_seller_counters(tg_id: int, session: AsyncSession = Depends(get_
 async def set_seller_limit(tg_id: int, max_orders: int, session: AsyncSession = Depends(get_session)):
     """Установить лимит заказов продавца (админ)"""
     service = SellerService(session)
-    
+
     try:
         return await service.set_order_limit(tg_id, max_orders)
+    except SellerNotFoundError:
+        return {"status": "not_found"}
+    except SellerServiceError as e:
+        return {"status": "error", "message": e.message}
+
+
+@router.put("/sellers/{tg_id}/subscription_plan")
+async def set_subscription_plan(tg_id: int, plan: str, session: AsyncSession = Depends(get_session)):
+    """Изменить тарифный план продавца (free/pro/premium)."""
+    service = SellerService(session)
+    try:
+        return await service.update_subscription_plan(tg_id, plan)
+    except SellerNotFoundError:
+        return {"status": "not_found"}
+    except SellerServiceError as e:
+        return {"status": "error", "message": e.message}
+
+
+@router.put("/sellers/{tg_id}/default_limit")
+async def set_default_limit(tg_id: int, default_daily_limit: int, session: AsyncSession = Depends(get_session)):
+    """Установить стандартный дневной лимит продавца (админ)."""
+    service = SellerService(session)
+    try:
+        return await service.update_default_limit(tg_id, default_daily_limit)
     except SellerNotFoundError:
         return {"status": "not_found"}
     except SellerServiceError as e:
@@ -600,6 +624,13 @@ async def get_seller_stats(fio: str, session: AsyncSession = Depends(get_session
     """Статистика конкретного продавца по ФИО"""
     service = SellerService(session)
     return await service.get_seller_stats_by_fio(fio)
+
+
+@router.get("/stats/limits")
+async def get_limits_analytics(session: AsyncSession = Depends(get_session)):
+    """Аналитика загрузки лимитов продавцов: активные, исчерпавшие, средняя загрузка, разбивка по тарифам."""
+    service = SellerService(session)
+    return await service.get_limits_analytics()
 
 
 # ============================================

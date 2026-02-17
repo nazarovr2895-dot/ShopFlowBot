@@ -54,6 +54,10 @@ class Seller(Base):
     loyalty_tiers_config: Mapped[Optional[list]] = mapped_column(JSON(), nullable=True)
     # Points expire after N days (null = never expire)
     points_expire_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Subscription plan: free / pro / premium (determines max limit cap)
+    subscription_plan: Mapped[str] = mapped_column(String(20), default='free')
+    # Weekly limit schedule: JSON {"0": 10, "1": 10, ..., "6": 5} (0=Mon, 6=Sun), null = use default_daily_limit
+    weekly_schedule: Mapped[Optional[dict]] = mapped_column(JSON(), nullable=True)
     # Shop banner (YouTube-style), path like /static/uploads/shop_banners/123.webp
     banner_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 

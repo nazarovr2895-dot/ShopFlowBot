@@ -47,6 +47,9 @@ export interface SellerMe {
   orders_used_today: number;
   active_orders: number;
   pending_requests: number;
+  subscription_plan?: string;
+  plan_limit_cap?: number;
+  weekly_schedule?: Record<string, number> | null;
   shop_link: string | null;
   delivery_type?: string;
   delivery_price?: number;
@@ -375,6 +378,17 @@ export async function updateLimits(maxOrders: number): Promise<{ status: string 
 
 export async function updateDefaultLimit(defaultDailyLimit: number): Promise<{ status: string }> {
   return fetchSeller(`/seller-web/default-limit?default_daily_limit=${defaultDailyLimit}`, { method: 'PUT' });
+}
+
+export async function closeForToday(): Promise<{ status: string; message?: string }> {
+  return fetchSeller('/seller-web/close-for-today', { method: 'POST' });
+}
+
+export async function updateWeeklySchedule(schedule: Record<string, number>): Promise<{ status: string }> {
+  return fetchSeller('/seller-web/weekly-schedule', {
+    method: 'PUT',
+    body: JSON.stringify({ schedule }),
+  });
 }
 
 export async function changeCredentials(data: { old_login: string; old_password: string; new_login: string; new_password: string }): Promise<{ status: string }> {

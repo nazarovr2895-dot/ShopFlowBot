@@ -43,13 +43,13 @@ async def test_update_seller_limits(
     test_seller: Seller,
 ):
     """Test updating seller order limits."""
-    new_max_orders = 20
-    
+    new_max_orders = 8  # within free plan cap (10)
+
     response = await client.put(
         f"/sellers/{test_seller.seller_id}/limits",
         params={"max_orders": new_max_orders}
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["max_orders"] == new_max_orders

@@ -131,6 +131,18 @@ export async function setSellerLimit(tgId: number, maxOrders: number): Promise<{
   });
 }
 
+export async function setSellerSubscriptionPlan(tgId: number, plan: string): Promise<{ status?: string }> {
+  return fetchAdmin(`/admin/sellers/${tgId}/subscription_plan?plan=${plan}`, {
+    method: 'PUT',
+  });
+}
+
+export async function setSellerDefaultLimit(tgId: number, defaultDailyLimit: number): Promise<{ status?: string }> {
+  return fetchAdmin(`/admin/sellers/${tgId}/default_limit?default_daily_limit=${defaultDailyLimit}`, {
+    method: 'PUT',
+  });
+}
+
 // Stats
 export type StatsDateRange = { date_from?: string; date_to?: string };
 
@@ -158,6 +170,31 @@ export async function getStatsOverview(params?: StatsDateRange): Promise<StatsOv
   if (params?.date_to) sp.set('date_to', params.date_to);
   const q = sp.toString() ? `?${sp.toString()}` : '';
   return fetchAdmin<StatsOverview>(`/admin/stats/overview${q}`);
+}
+
+export interface LimitsAnalyticsItem {
+  tg_id: number;
+  fio: string;
+  shop_name: string;
+  used: number;
+  limit: number;
+  load_pct: number;
+  plan: string;
+}
+
+export interface LimitsAnalytics {
+  total_sellers: number;
+  active_today: number;
+  exhausted: number;
+  closed_today: number;
+  no_limit: number;
+  avg_load_pct: number;
+  by_plan: Record<string, { total: number; active: number; exhausted: number }>;
+  top_loaded: LimitsAnalyticsItem[];
+}
+
+export async function getLimitsAnalytics(): Promise<LimitsAnalytics> {
+  return fetchAdmin<LimitsAnalytics>('/admin/stats/limits');
 }
 
 export async function getSellerStats(fio: string): Promise<SellerStats | null> {

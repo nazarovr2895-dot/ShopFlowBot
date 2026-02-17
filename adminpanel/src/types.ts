@@ -23,6 +23,9 @@ export interface Seller {
   daily_limit_date?: string
   active_orders?: number
   pending_requests?: number
+  subscription_plan?: string
+  plan_limit_cap?: number
+  weekly_schedule?: Record<string, number> | null
   hashtags?: string
 }
 

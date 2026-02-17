@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getMe, updateLimits, updateDefaultLimit, updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../api/sellerClient';
+import { getMe, updateLimits, updateDefaultLimit, closeForToday, updateWeeklySchedule, updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../api/sellerClient';
 import type { SellerMe } from '../../api/sellerClient';
 import './SellerShop.css';
 
@@ -20,6 +20,11 @@ export function SellerShop() {
   const [limitSaving, setLimitSaving] = useState(false);
   const [defaultLimitValue, setDefaultLimitValue] = useState('');
   const [defaultLimitSaving, setDefaultLimitSaving] = useState(false);
+  const [closingForToday, setClosingForToday] = useState(false);
+  // Weekly schedule
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [weeklySchedule, setWeeklySchedule] = useState<Record<string, string>>({});
+  const [scheduleSaving, setScheduleSaving] = useState(false);
   const [hashtagsValue, setHashtagsValue] = useState('');
   const [hashtagsSaving, setHashtagsSaving] = useState(false);
   const [preorderEnabled, setPreorderEnabled] = useState(false);
@@ -64,6 +69,17 @@ export function SellerShop() {
       setPreorderMaxPerDate(meData?.preorder_max_per_date != null ? String(meData.preorder_max_per_date) : '');
       setPreorderDiscountPercent(meData?.preorder_discount_percent ? String(meData.preorder_discount_percent) : '');
       setPreorderDiscountMinDays(meData?.preorder_discount_min_days ?? 7);
+      // Weekly schedule
+      const ws = meData?.weekly_schedule;
+      if (ws && typeof ws === 'object' && Object.keys(ws).length > 0) {
+        setScheduleEnabled(true);
+        const mapped: Record<string, string> = {};
+        for (const [k, v] of Object.entries(ws)) mapped[k] = String(v);
+        setWeeklySchedule(mapped);
+      } else {
+        setScheduleEnabled(false);
+        setWeeklySchedule({});
+      }
       // Shop settings
       setShopName(meData?.shop_name ?? '');
       setDescription(meData?.description ?? '');
@@ -126,6 +142,53 @@ export function SellerShop() {
       alert(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setDefaultLimitSaving(false);
+    }
+  };
+
+  const handleCloseForToday = async () => {
+    if (!confirm('Закрыть магазин на сегодня? Новые заказы не будут приниматься до 6:00 (МСК).')) return;
+    setClosingForToday(true);
+    try {
+      await closeForToday();
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setClosingForToday(false);
+    }
+  };
+
+  const handleSaveSchedule = async () => {
+    if (!scheduleEnabled) {
+      setScheduleSaving(true);
+      try {
+        await updateWeeklySchedule({});
+        setWeeklySchedule({});
+        await load();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Ошибка');
+      } finally {
+        setScheduleSaving(false);
+      }
+      return;
+    }
+    const schedule: Record<string, number> = {};
+    for (const [k, v] of Object.entries(weeklySchedule)) {
+      const num = parseInt(v, 10);
+      if (!isNaN(num) && num > 0) schedule[k] = num;
+    }
+    if (Object.keys(schedule).length === 0) {
+      alert('Задайте лимит хотя бы для одного дня');
+      return;
+    }
+    setScheduleSaving(true);
+    try {
+      await updateWeeklySchedule(schedule);
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setScheduleSaving(false);
     }
   };
 
@@ -435,6 +498,69 @@ export function SellerShop() {
             В работе сейчас: {me.orders_used_today ?? 0} / {me.max_orders ?? 0}
           </p>
         )}
+
+        {me?.subscription_plan && (
+          <p className="section-hint" style={{ marginTop: '0.75rem' }}>
+            Тариф: <strong>{me.subscription_plan === 'free' ? 'Free' : me.subscription_plan === 'pro' ? 'Pro' : 'Premium'}</strong> (макс. {me.plan_limit_cap ?? '?'} заказов/день)
+          </p>
+        )}
+
+        <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+          <button
+            className="btn btn-danger"
+            onClick={handleCloseForToday}
+            disabled={closingForToday}
+            style={{ background: '#e74c3c', color: '#fff', border: 'none' }}
+          >
+            {closingForToday ? 'Закрытие...' : 'Закрыться на сегодня'}
+          </button>
+          <p className="section-hint" style={{ marginTop: '0.25rem' }}>
+            Мгновенно прекращает приём заказов до 6:00 (МСК) следующего дня.
+          </p>
+        </div>
+      </div>
+
+      {/* Расписание лимитов по дням недели */}
+      <div className="card shop-section">
+        <h3>📆 Расписание лимитов по дням</h3>
+        <p className="section-hint">
+          Задайте разный лимит для каждого дня недели. Например, в будни — 10, в выходные — 5. Приоритет: ручная установка &gt; расписание &gt; стандартный лимит.
+        </p>
+        <label className="shop-checkbox-label">
+          <input
+            type="checkbox"
+            checked={scheduleEnabled}
+            onChange={(e) => setScheduleEnabled(e.target.checked)}
+          />
+          Включить расписание
+        </label>
+        {scheduleEnabled && (
+          <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {WEEKDAYS.map((d) => (
+              <div key={d.value} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ minWidth: '120px' }}>{d.label}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={weeklySchedule[String(d.value)] ?? ''}
+                  onChange={(e) => setWeeklySchedule((prev) => ({ ...prev, [String(d.value)]: e.target.value }))}
+                  placeholder="—"
+                  className="form-input"
+                  style={{ width: '80px' }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          className="btn btn-primary"
+          onClick={handleSaveSchedule}
+          disabled={scheduleSaving}
+          style={{ marginTop: '0.75rem' }}
+        >
+          {scheduleSaving ? 'Сохранение...' : 'Сохранить расписание'}
+        </button>
       </div>
 
       {/* Предзаказы */}

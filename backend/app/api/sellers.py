@@ -132,11 +132,19 @@ async def get_seller_info(tg_id: int, session: AsyncSession = Depends(get_sessio
     return seller_data
 
 
+@router.get("/{tg_id}/can-accept")
+async def can_accept_order(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """Единый источник правды: может ли продавец принять новый заказ.
+    Возвращает can_accept, reason, effective_limit, available_slots."""
+    service = SellerService(session)
+    return await service.can_accept_order(tg_id)
+
+
 @router.put("/{tg_id}/limits")
 async def update_seller_limits(tg_id: int, max_orders: int, session: AsyncSession = Depends(get_session)):
     """Обновить лимит заказов продавца"""
     service = SellerService(session)
-    
+
     try:
         return await service.update_limits(tg_id, max_orders)
     except SellerServiceError as e:

@@ -1710,7 +1710,7 @@ async def update_limits(
 
 @router.put("/default-limit")
 async def update_default_limit(
-    default_daily_limit: int = Query(..., ge=0, le=100),
+    default_daily_limit: int = Query(..., ge=0),
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
@@ -1719,7 +1719,37 @@ async def update_default_limit(
     try:
         return await service.update_default_limit(seller_id, default_daily_limit)
     except SellerServiceError as e:
-        from fastapi import HTTPException
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/close-for-today")
+async def close_for_today(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Закрыться на сегодня: лимит = 0. Завтра в 6:00 восстановится стандартный/расписание."""
+    service = SellerService(session)
+    try:
+        return await service.close_for_today(seller_id)
+    except SellerServiceError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+class WeeklyScheduleBody(BaseModel):
+    schedule: dict  # {"0": 10, "1": 10, ..., "6": 5}
+
+
+@router.put("/weekly-schedule")
+async def update_weekly_schedule(
+    body: WeeklyScheduleBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Обновить расписание лимитов по дням недели. Пустой объект = отключить расписание."""
+    service = SellerService(session)
+    try:
+        return await service.update_weekly_schedule(seller_id, body.schedule)
+    except SellerServiceError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
