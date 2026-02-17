@@ -5,6 +5,8 @@ import {
   getLoyaltySettings,
   updateLoyaltySettings,
   getCustomers,
+  getCustomerTags,
+  getCustomerSegments,
   createCustomer,
   getCustomer,
   recordSale,
@@ -12,8 +14,11 @@ import {
   deductPoints,
   updateCustomer,
   exportCustomersCSV,
+  createCustomerEvent,
+  updateCustomerEvent,
+  deleteCustomerEvent,
 } from '../../api/sellerClient';
-import type { SellerCustomerBrief, SellerCustomerDetail, SellerOrder } from '../../api/sellerClient';
+import type { SellerCustomerBrief, SellerCustomerDetail, SellerOrder, CustomerEvent, LoyaltyTier } from '../../api/sellerClient';
 import './SellerCustomers.css';
 
 function formatDate(iso: string | null): string {
@@ -49,6 +54,15 @@ function phoneToDigits(display: string): string {
   return ('7' + digits).slice(0, 11);
 }
 
+const SEGMENT_COLORS: Record<string, { bg: string; color: string }> = {
+  'VIP': { bg: '#fff3cd', color: '#856404' },
+  'Постоянный': { bg: '#d4edda', color: '#155724' },
+  'Новый': { bg: '#cce5ff', color: '#004085' },
+  'Уходящий': { bg: '#f8d7da', color: '#721c24' },
+  'Потерянный': { bg: '#e2e3e5', color: '#383d41' },
+  'Случайный': { bg: '#e8e8e8', color: '#555' },
+};
+
 const ORDER_STATUS_LABELS: Record<string, string> = {
   pending: 'Ожидает',
   accepted: 'Принят',
@@ -66,8 +80,10 @@ export function SellerCustomers() {
   const [detail, setDetail] = useState<SellerCustomerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [pointsPercent, setPointsPercent] = useState<string>('');
+  const [maxPointsDiscount, setMaxPointsDiscount] = useState<string>('100');
+  const [pointsToRubleRate, setPointsToRubleRate] = useState<string>('1');
   const [pointsSaving, setPointsSaving] = useState(false);
-  const [addForm, setAddForm] = useState({ phone: '', first_name: '', last_name: '' });
+  const [addForm, setAddForm] = useState({ phone: '', first_name: '', last_name: '', birthday: '' });
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [saleAmount, setSaleAmount] = useState('');
   const [saleSubmitting, setSaleSubmitting] = useState(false);
@@ -76,20 +92,47 @@ export function SellerCustomers() {
   const [customerOrders, setCustomerOrders] = useState<SellerOrder[]>([]);
   const [search, setSearch] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
-  const [customerTags, setCustomerTags] = useState('');
+  const [customerTags, setCustomerTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [customerBirthday, setCustomerBirthday] = useState('');
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [tagFilter, setTagFilter] = useState('');
   const [notesSaving, setNotesSaving] = useState(false);
+  const [events, setEvents] = useState<CustomerEvent[]>([]);
+  const [eventForm, setEventForm] = useState({ title: '', event_date: '', remind_days_before: '3', notes: '' });
+  const [eventSubmitting, setEventSubmitting] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CustomerEvent | null>(null);
+  const [tiersConfig, setTiersConfig] = useState<LoyaltyTier[]>([]);
+  const [pointsExpireDays, setPointsExpireDays] = useState<string>('');
+  const [segmentCounts, setSegmentCounts] = useState<Record<string, number>>({});
+  const [segmentMap, setSegmentMap] = useState<Record<number, string>>({});
+  const [segmentFilter, setSegmentFilter] = useState('');
 
   const loadList = useCallback(async () => {
     try {
-      const [list, settings] = await Promise.all([getCustomers(), getLoyaltySettings()]);
+      const [list, settings, tags, segments] = await Promise.all([
+        getCustomers(tagFilter || undefined),
+        getLoyaltySettings(),
+        getCustomerTags(),
+        getCustomerSegments(),
+      ]);
       setCustomers(list || []);
       setPointsPercent(String(settings.points_percent ?? ''));
+      setMaxPointsDiscount(String(settings.max_points_discount_percent ?? 100));
+      setPointsToRubleRate(String(settings.points_to_ruble_rate ?? 1));
+      setTiersConfig(settings.tiers_config || []);
+      setPointsExpireDays(settings.points_expire_days ? String(settings.points_expire_days) : '');
+      setAllTags(tags || []);
+      setSegmentCounts(segments.segments || {});
+      const sMap: Record<number, string> = {};
+      (segments.customers || []).forEach((c) => { sMap[c.id] = c.segment; });
+      setSegmentMap(sMap);
     } catch {
       setCustomers([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tagFilter]);
 
   const loadDetail = useCallback(async (customerId: number) => {
     setLoading(true);
@@ -101,7 +144,10 @@ export function SellerCustomers() {
       setDetail(data);
       setCustomerOrders(orders || []);
       setCustomerNotes(data.notes || '');
-      setCustomerTags(data.tags || '');
+      setCustomerTags(Array.isArray(data.tags) ? data.tags : []);
+      setNewTagInput('');
+      setCustomerBirthday(data.birthday || '');
+      setEvents(data.events || []);
     } catch {
       setDetail(null);
       setCustomerOrders([]);
@@ -118,18 +164,39 @@ export function SellerCustomers() {
     } else {
       loadList();
     }
-  }, [id, loadList, loadDetail]);
+  }, [id, loadList, loadDetail, tagFilter]);
 
-  const handleSavePointsPercent = async () => {
+  const handleSaveLoyaltySettings = async () => {
     const num = parseFloat(pointsPercent.replace(',', '.'));
     if (isNaN(num) || num < 0 || num > 100) {
-      alert('Введите число от 0 до 100');
+      alert('Процент начисления: число от 0 до 100');
+      return;
+    }
+    const maxDisc = parseInt(maxPointsDiscount, 10);
+    if (isNaN(maxDisc) || maxDisc < 0 || maxDisc > 100) {
+      alert('Макс. % оплаты баллами: число от 0 до 100');
+      return;
+    }
+    const rate = parseFloat(pointsToRubleRate.replace(',', '.'));
+    if (isNaN(rate) || rate <= 0) {
+      alert('Курс баллов: число больше 0');
       return;
     }
     setPointsSaving(true);
     try {
-      await updateLoyaltySettings(num);
-      setPointsPercent(String(num));
+      const expDays = pointsExpireDays ? parseInt(pointsExpireDays, 10) : 0;
+      const result = await updateLoyaltySettings({
+        points_percent: num,
+        max_points_discount_percent: maxDisc,
+        points_to_ruble_rate: rate,
+        tiers_config: tiersConfig.length > 0 ? tiersConfig : null,
+        points_expire_days: expDays > 0 ? expDays : null,
+      });
+      setPointsPercent(String(result.points_percent));
+      setMaxPointsDiscount(String(result.max_points_discount_percent));
+      setPointsToRubleRate(String(result.points_to_ruble_rate));
+      setTiersConfig(result.tiers_config || []);
+      setPointsExpireDays(result.points_expire_days ? String(result.points_expire_days) : '');
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -147,8 +214,8 @@ export function SellerCustomers() {
     }
     setAddSubmitting(true);
     try {
-      await createCustomer({ phone: digits, first_name: first_name.trim(), last_name: last_name.trim() });
-      setAddForm({ phone: '', first_name: '', last_name: '' });
+      await createCustomer({ phone: digits, first_name: first_name.trim(), last_name: last_name.trim(), birthday: addForm.birthday || null });
+      setAddForm({ phone: '', first_name: '', last_name: '', birthday: '' });
       loadList();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Ошибка';
@@ -204,8 +271,8 @@ export function SellerCustomers() {
     if (!detail) return;
     setNotesSaving(true);
     try {
-      const result = await updateCustomer(detail.id, { notes: customerNotes, tags: customerTags });
-      setDetail((d) => (d ? { ...d, notes: result.notes, tags: result.tags } : null));
+      const result = await updateCustomer(detail.id, { notes: customerNotes, tags: customerTags, birthday: customerBirthday || null });
+      setDetail((d) => (d ? { ...d, notes: result.notes, tags: Array.isArray(result.tags) ? result.tags : [], birthday: result.birthday } : null));
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -213,14 +280,81 @@ export function SellerCustomers() {
     }
   };
 
-  const filteredCustomers = search.trim()
-    ? customers.filter(
-        (c) =>
-          c.phone.includes(search) ||
-          `${c.first_name} ${c.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-          c.card_number.toLowerCase().includes(search.toLowerCase())
-      )
-    : customers;
+  const handleAddEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detail || !eventForm.title.trim() || !eventForm.event_date) {
+      alert('Заполните название и дату');
+      return;
+    }
+    setEventSubmitting(true);
+    try {
+      const ev = await createCustomerEvent(detail.id, {
+        title: eventForm.title.trim(),
+        event_date: eventForm.event_date,
+        remind_days_before: parseInt(eventForm.remind_days_before) || 3,
+        notes: eventForm.notes.trim() || null,
+      });
+      setEvents((prev) => [...prev, ev]);
+      setEventForm({ title: '', event_date: '', remind_days_before: '3', notes: '' });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setEventSubmitting(false);
+    }
+  };
+
+  const handleUpdateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detail || !editingEvent) return;
+    setEventSubmitting(true);
+    try {
+      const ev = await updateCustomerEvent(detail.id, editingEvent.id, {
+        title: eventForm.title.trim() || undefined,
+        event_date: eventForm.event_date || undefined,
+        remind_days_before: parseInt(eventForm.remind_days_before) || undefined,
+        notes: eventForm.notes.trim() || null,
+      });
+      setEvents((prev) => prev.map((x) => (x.id === ev.id ? ev : x)));
+      setEditingEvent(null);
+      setEventForm({ title: '', event_date: '', remind_days_before: '3', notes: '' });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setEventSubmitting(false);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: number) => {
+    if (!detail || !confirm('Удалить это событие?')) return;
+    try {
+      await deleteCustomerEvent(detail.id, eventId);
+      setEvents((prev) => prev.filter((x) => x.id !== eventId));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    }
+  };
+
+  const startEditEvent = (ev: CustomerEvent) => {
+    setEditingEvent(ev);
+    setEventForm({
+      title: ev.title,
+      event_date: ev.event_date || '',
+      remind_days_before: String(ev.remind_days_before),
+      notes: ev.notes || '',
+    });
+  };
+
+  const filteredCustomers = customers.filter((c) => {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const match = c.phone.includes(search) ||
+        `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+        c.card_number.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    if (segmentFilter && segmentMap[c.id] !== segmentFilter) return false;
+    return true;
+  });
 
   const handleExportCustomers = async () => {
     try {
@@ -266,6 +400,27 @@ export function SellerCustomers() {
           </div>
           <div className="row">Телефон: {detail.phone}</div>
           <div className="balance">Баланс: {detail.points_balance} баллов</div>
+          {detail.tier?.name && (
+            <div className="row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{
+                display: 'inline-block', background: '#fff3cd', color: '#856404',
+                padding: '0.15rem 0.6rem', borderRadius: '0.8rem', fontSize: '0.85rem', fontWeight: 600,
+              }}>{detail.tier.name}</span>
+              <span style={{ fontSize: '0.85rem', color: '#666' }}>
+                ({detail.tier.points_percent}% баллов)
+              </span>
+              {detail.tier.next_tier && detail.tier.amount_to_next != null && (
+                <span style={{ fontSize: '0.8rem', color: '#999' }}>
+                  до «{detail.tier.next_tier}» — {detail.tier.amount_to_next.toLocaleString('ru-RU')} ₽
+                </span>
+              )}
+            </div>
+          )}
+          {detail.birthday && (
+            <div className="row customer-analytics">
+              День рождения: <strong>{new Date(detail.birthday + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</strong>
+            </div>
+          )}
           {(detail.total_purchases != null && detail.total_purchases > 0) && (
             <div className="row customer-analytics">
               Сумма покупок: <strong>{detail.total_purchases.toLocaleString('ru')} ₽</strong>
@@ -296,13 +451,58 @@ export function SellerCustomers() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Теги (через запятую)</label>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Теги</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.4rem' }}>
+                {customerTags.map((tag, i) => (
+                  <span key={i} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                    background: '#e8f0fe', color: '#1a73e8', padding: '0.2rem 0.6rem',
+                    borderRadius: '1rem', fontSize: '0.85rem',
+                  }}>
+                    {tag}
+                    <button type="button" onClick={() => setCustomerTags(customerTags.filter((_, j) => j !== i))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: '1rem', padding: 0, lineHeight: 1 }}>
+                      x
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '0.3rem' }}>
+                <input
+                  type="text"
+                  value={newTagInput}
+                  onChange={(e) => setNewTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newTagInput.trim()) {
+                      e.preventDefault();
+                      const tag = newTagInput.trim();
+                      if (!customerTags.includes(tag)) setCustomerTags([...customerTags, tag]);
+                      setNewTagInput('');
+                    }
+                  }}
+                  placeholder="Введите тег и Enter"
+                  list="tag-suggestions"
+                  style={{ flex: 1, padding: '0.4rem', fontSize: '0.9rem' }}
+                />
+                <datalist id="tag-suggestions">
+                  {allTags.filter((t) => !customerTags.includes(t)).map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+                <button type="button" onClick={() => {
+                  const tag = newTagInput.trim();
+                  if (tag && !customerTags.includes(tag)) setCustomerTags([...customerTags, tag]);
+                  setNewTagInput('');
+                }} style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>+</button>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>День рождения</label>
               <input
-                type="text"
-                value={customerTags}
-                onChange={(e) => setCustomerTags(e.target.value)}
-                placeholder="vip, частый, новый"
-                style={{ width: '100%', padding: '0.5rem', fontSize: '0.95rem' }}
+                type="date"
+                value={customerBirthday}
+                onChange={(e) => setCustomerBirthday(e.target.value)}
+                style={{ padding: '0.5rem', fontSize: '0.95rem' }}
               />
             </div>
             <button
@@ -314,6 +514,71 @@ export function SellerCustomers() {
               {notesSaving ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
+        </div>
+        <div className="customer-events-section" style={{ marginBottom: '1rem' }}>
+          <h3>Значимые даты</h3>
+          {events.length > 0 && (
+            <div style={{ marginBottom: '0.75rem' }}>
+              {events.map((ev) => (
+                <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0', borderBottom: '1px solid var(--border-color, #eee)' }}>
+                  <span style={{ flex: 1 }}>
+                    <strong>{ev.title}</strong>
+                    {ev.event_date && (
+                      <> — {new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</>
+                    )}
+                    {ev.notes && <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}> ({ev.notes})</span>}
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}> · напоминание за {ev.remind_days_before} дн.</span>
+                  </span>
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEditEvent(ev)}>Ред.</button>
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleDeleteEvent(ev.id)} style={{ color: 'var(--danger, red)' }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <form onSubmit={editingEvent ? handleUpdateEvent : handleAddEvent} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Название (ДР жены, годовщина...)"
+                value={eventForm.title}
+                onChange={(e) => setEventForm((f) => ({ ...f, title: e.target.value }))}
+                style={{ flex: 1, minWidth: '150px', padding: '0.4rem' }}
+              />
+              <input
+                type="date"
+                value={eventForm.event_date}
+                onChange={(e) => setEventForm((f) => ({ ...f, event_date: e.target.value }))}
+                style={{ padding: '0.4rem' }}
+              />
+              <input
+                type="number"
+                min="0"
+                max="90"
+                placeholder="Дни"
+                title="За сколько дней напоминать"
+                value={eventForm.remind_days_before}
+                onChange={(e) => setEventForm((f) => ({ ...f, remind_days_before: e.target.value }))}
+                style={{ width: '60px', padding: '0.4rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                placeholder="Заметка (необязательно)"
+                value={eventForm.notes}
+                onChange={(e) => setEventForm((f) => ({ ...f, notes: e.target.value }))}
+                style={{ flex: 1, padding: '0.4rem' }}
+              />
+              <button type="submit" disabled={eventSubmitting} style={{ padding: '0.4rem 0.75rem' }}>
+                {eventSubmitting ? '…' : editingEvent ? 'Обновить' : 'Добавить'}
+              </button>
+              {editingEvent && (
+                <button type="button" onClick={() => { setEditingEvent(null); setEventForm({ title: '', event_date: '', remind_days_before: '3', notes: '' }); }} style={{ padding: '0.4rem 0.75rem' }}>
+                  Отмена
+                </button>
+              )}
+            </div>
+          </form>
         </div>
         <div className="record-sale">
           <h3>Внести продажу</h3>
@@ -386,8 +651,9 @@ export function SellerCustomers() {
     <div className="customers-page">
       <h1>База клиентов</h1>
       <div className="customers-settings">
-        <label>Процент начисления баллов (%)</label>
-        <div className="row">
+        <h2>Настройки лояльности</h2>
+        <div className="field">
+          <label>Начисление баллов (% от суммы заказа)</label>
           <input
             type="text"
             inputMode="decimal"
@@ -395,10 +661,93 @@ export function SellerCustomers() {
             onChange={(e) => setPointsPercent(e.target.value)}
             placeholder="0"
           />
-          <button type="button" onClick={handleSavePointsPercent} disabled={pointsSaving}>
-            {pointsSaving ? 'Сохранение…' : 'Сохранить'}
+        </div>
+        <div className="field">
+          <label>Макс. % заказа, оплачиваемый баллами</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={maxPointsDiscount}
+            onChange={(e) => setMaxPointsDiscount(e.target.value)}
+            placeholder="100"
+          />
+        </div>
+        <div className="field">
+          <label>Курс: 1 балл = X рублей</label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={pointsToRubleRate}
+            onChange={(e) => setPointsToRubleRate(e.target.value)}
+            placeholder="1"
+          />
+        </div>
+        <div className="field">
+          <label>Срок действия баллов (дней, 0 = бессрочно)</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={pointsExpireDays}
+            onChange={(e) => setPointsExpireDays(e.target.value)}
+            placeholder="0 (бессрочно)"
+          />
+        </div>
+        <div style={{ marginTop: '1rem' }}>
+          <h3 style={{ margin: '0 0 0.5rem' }}>Уровни лояльности</h3>
+          <p style={{ fontSize: '0.85rem', color: '#666', margin: '0 0 0.5rem' }}>
+            Настройте уровни для автоматического изменения % начисления баллов в зависимости от суммы покупок клиента.
+          </p>
+          {tiersConfig.map((tier, i) => (
+            <div key={i} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.3rem', alignItems: 'center' }}>
+              <input
+                type="text"
+                placeholder="Название"
+                value={tier.name}
+                onChange={(e) => {
+                  const next = [...tiersConfig];
+                  next[i] = { ...next[i], name: e.target.value };
+                  setTiersConfig(next);
+                }}
+                style={{ flex: 2, padding: '0.3rem', fontSize: '0.9rem' }}
+              />
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="От суммы ₽"
+                value={tier.min_total}
+                onChange={(e) => {
+                  const next = [...tiersConfig];
+                  next[i] = { ...next[i], min_total: Number(e.target.value) || 0 };
+                  setTiersConfig(next);
+                }}
+                style={{ flex: 1, padding: '0.3rem', fontSize: '0.9rem' }}
+              />
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="% баллов"
+                value={tier.points_percent}
+                onChange={(e) => {
+                  const next = [...tiersConfig];
+                  next[i] = { ...next[i], points_percent: Number(e.target.value) || 0 };
+                  setTiersConfig(next);
+                }}
+                style={{ flex: 1, padding: '0.3rem', fontSize: '0.9rem' }}
+              />
+              <button type="button" onClick={() => setTiersConfig(tiersConfig.filter((_, j) => j !== i))}
+                style={{ padding: '0.3rem 0.5rem', fontSize: '0.9rem', background: '#f8d7da', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                x
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setTiersConfig([...tiersConfig, { name: '', min_total: 0, points_percent: 0 }])}
+            style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem', marginTop: '0.3rem' }}>
+            + Добавить уровень
           </button>
         </div>
+        <button type="button" onClick={handleSaveLoyaltySettings} disabled={pointsSaving} style={{ marginTop: '1rem' }}>
+          {pointsSaving ? 'Сохранение…' : 'Сохранить настройки'}
+        </button>
       </div>
       <div className="customers-add">
         <h2>Добавить клиента</h2>
@@ -433,6 +782,14 @@ export function SellerCustomers() {
               placeholder="Фамилия"
             />
           </div>
+          <div className="field">
+            <label>День рождения</label>
+            <input
+              type="date"
+              value={addForm.birthday}
+              onChange={(e) => setAddForm((f) => ({ ...f, birthday: e.target.value }))}
+            />
+          </div>
           <button type="submit" disabled={addSubmitting}>
             {addSubmitting ? '…' : 'Добавить'}
           </button>
@@ -445,10 +802,51 @@ export function SellerCustomers() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        {allTags.length > 0 && (
+          <select
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            style={{ padding: '0.4rem', fontSize: '0.9rem' }}
+          >
+            <option value="">Все теги</option>
+            {allTags.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        )}
+        <select
+          value={segmentFilter}
+          onChange={(e) => setSegmentFilter(e.target.value)}
+          style={{ padding: '0.4rem', fontSize: '0.9rem' }}
+        >
+          <option value="">Все сегменты</option>
+          {Object.keys(segmentCounts).map((s) => (
+            <option key={s} value={s}>{s} ({segmentCounts[s]})</option>
+          ))}
+        </select>
         <button type="button" className="btn btn-secondary" onClick={handleExportCustomers}>
           Экспорт CSV
         </button>
       </div>
+      {Object.keys(segmentCounts).length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', margin: '0.5rem 0' }}>
+          {Object.entries(segmentCounts).map(([seg, count]) => {
+            const colors = SEGMENT_COLORS[seg] || { bg: '#eee', color: '#333' };
+            return (
+              <button key={seg} type="button"
+                onClick={() => setSegmentFilter(segmentFilter === seg ? '' : seg)}
+                style={{
+                  background: segmentFilter === seg ? colors.color : colors.bg,
+                  color: segmentFilter === seg ? '#fff' : colors.color,
+                  border: 'none', padding: '0.25rem 0.7rem', borderRadius: '1rem',
+                  fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500,
+                }}>
+                {seg}: {count}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {loading ? (
         <div className="customers-loading">Загрузка...</div>
       ) : (
@@ -466,6 +864,27 @@ export function SellerCustomers() {
                 <div>
                   <div className="name">
                     {c.last_name} {c.first_name}
+                    {segmentMap[c.id] && (() => {
+                      const seg = segmentMap[c.id];
+                      const colors = SEGMENT_COLORS[seg] || { bg: '#eee', color: '#333' };
+                      return (
+                        <span style={{
+                          display: 'inline-block', background: colors.bg, color: colors.color,
+                          padding: '0.1rem 0.4rem', borderRadius: '0.8rem', fontSize: '0.7rem',
+                          marginLeft: '0.3rem', fontWeight: 500,
+                        }}>{seg}</span>
+                      );
+                    })()}
+                    {Array.isArray(c.tags) && c.tags.length > 0 && (
+                      <span style={{ marginLeft: '0.4rem' }}>
+                        {c.tags.map((tag, i) => (
+                          <span key={i} style={{
+                            display: 'inline-block', background: '#e8f0fe', color: '#1a73e8',
+                            padding: '0.1rem 0.4rem', borderRadius: '0.8rem', fontSize: '0.75rem', marginRight: '0.2rem',
+                          }}>{tag}</span>
+                        ))}
+                      </span>
+                    )}
                   </div>
                   <div className="meta">
                     {c.phone} · {c.card_number} · добавлен {formatDate(c.created_at)}

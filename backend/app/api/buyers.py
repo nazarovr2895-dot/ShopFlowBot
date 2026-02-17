@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 from backend.app.api.deps import get_session
@@ -221,12 +221,18 @@ class CartItemUpdate(BaseModel):
     quantity: int
 
 
+class PointsUsagePerSeller(BaseModel):
+    seller_id: int
+    points_to_use: float
+
+
 class CheckoutBody(BaseModel):
     fio: Optional[str] = None
     phone: str
     delivery_type: str  # "Доставка" | "Самовывоз"
     address: str
     comment: Optional[str] = None
+    points_usage: Optional[List[PointsUsagePerSeller]] = None
 
 
 class VisitedSellerRecord(BaseModel):
@@ -325,6 +331,13 @@ async def checkout_cart(
                 fio = f"{fio} {current_user.user.last_name}"
             fio = fio.strip() if fio else "Покупатель"
         
+        # Build points_usage dict: seller_id -> points_to_use
+        points_by_seller = {}
+        if data.points_usage:
+            for pu in data.points_usage:
+                if pu.points_to_use > 0:
+                    points_by_seller[pu.seller_id] = pu.points_to_use
+
         orders = await service.checkout(
             current_user.user.id,
             fio=fio,
@@ -332,6 +345,7 @@ async def checkout_cart(
             delivery_type=data.delivery_type,
             address=data.address,
             comment=data.comment,
+            points_by_seller=points_by_seller or None,
         )
         await session.commit()
         return {"orders": orders}
@@ -434,17 +448,23 @@ async def get_my_loyalty_at_seller(
     user = await session.get(User, current_user.user.id)
     buyer_phone = user.phone if user else None
     if not buyer_phone:
-        return {"points_balance": 0, "points_percent": 0, "card_number": None, "linked": False}
+        return {"points_balance": 0, "points_percent": 0, "card_number": None, "linked": False, "max_points_discount_percent": 100, "points_to_ruble_rate": 1}
     loyalty_svc = LoyaltyService(session)
     customer = await loyalty_svc.find_customer_by_phone(seller_id, buyer_phone)
     if not customer:
-        return {"points_balance": 0, "points_percent": 0, "card_number": None, "linked": False}
+        return {"points_balance": 0, "points_percent": 0, "card_number": None, "linked": False, "max_points_discount_percent": 100, "points_to_ruble_rate": 1}
     points_percent = await loyalty_svc.get_points_percent(seller_id)
+    from backend.app.models.seller import Seller
+    seller = await session.get(Seller, seller_id)
+    max_pct = int(getattr(seller, "max_points_discount_percent", 100) or 100) if seller else 100
+    rate = float(getattr(seller, "points_to_ruble_rate", 1) or 1) if seller else 1.0
     return {
         "points_balance": float(customer.points_balance or 0),
         "points_percent": points_percent,
         "card_number": customer.card_number,
         "linked": True,
+        "max_points_discount_percent": max_pct,
+        "points_to_ruble_rate": rate,
     }
 
 

@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import time
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,9 +38,9 @@ class WidgetAuthRequest(BaseModel):
     """Request for Telegram Widget authentication"""
     id: int
     first_name: str
-    last_name: str | None = None
-    username: str | None = None
-    photo_url: str | None = None
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+    photo_url: Optional[str] = None
     auth_date: int
     hash: str
 
@@ -48,7 +49,7 @@ class AuthResponse(BaseModel):
     """Response with JWT token"""
     token: str
     telegram_id: int
-    username: str | None = None
+    username: Optional[str] = None
     first_name: str
 
 

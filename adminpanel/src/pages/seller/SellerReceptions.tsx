@@ -10,12 +10,20 @@ import {
   addReceptionItem,
   updateReceptionItem,
   deleteReceptionItem,
+  writeOffItem,
   type Flower,
   type ReceptionBrief,
   type ReceptionDetail,
   type ReceptionItemRow,
 } from '../../api/sellerClient';
 import './SellerReceptions.css';
+
+const WRITE_OFF_REASONS: { value: string; label: string }[] = [
+  { value: 'wilted', label: 'Увяли' },
+  { value: 'broken', label: 'Сломаны' },
+  { value: 'defect', label: 'Брак' },
+  { value: 'other', label: 'Другое' },
+];
 
 export function SellerReceptions() {
   const [flowers, setFlowers] = useState<Flower[]>([]);
@@ -45,6 +53,9 @@ export function SellerReceptions() {
     shelf_life_days: '7',
     price_per_unit: '',
   });
+  const [writeOffTarget, setWriteOffTarget] = useState<ReceptionItemRow | null>(null);
+  const [writeOffForm, setWriteOffForm] = useState({ quantity: '', reason: 'wilted', comment: '' });
+  const [writeOffSubmitting, setWriteOffSubmitting] = useState(false);
 
   const loadFlowers = async () => {
     try {
@@ -212,6 +223,35 @@ export function SellerReceptions() {
       alert(err instanceof Error ? err.message : 'Ошибка');
     } finally {
       setEditSubmitting(false);
+    }
+  };
+
+  const handleWriteOff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!writeOffTarget || !selectedReception) return;
+    const qty = parseInt(writeOffForm.quantity, 10);
+    if (isNaN(qty) || qty <= 0) {
+      alert('Введите количество больше 0');
+      return;
+    }
+    if (qty > writeOffTarget.remaining_quantity) {
+      alert(`Нельзя списать больше остатка (${writeOffTarget.remaining_quantity})`);
+      return;
+    }
+    setWriteOffSubmitting(true);
+    try {
+      await writeOffItem(writeOffTarget.id, {
+        quantity: qty,
+        reason: writeOffForm.reason,
+        comment: writeOffForm.comment.trim() || undefined,
+      });
+      setWriteOffTarget(null);
+      setWriteOffForm({ quantity: '', reason: 'wilted', comment: '' });
+      await loadSelectedReception(selectedReception.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка списания');
+    } finally {
+      setWriteOffSubmitting(false);
     }
   };
 
@@ -560,6 +600,19 @@ export function SellerReceptions() {
                             >
                               Изменить
                             </button>
+                            {row.remaining_quantity > 0 && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-secondary"
+                                style={{ color: '#d97706' }}
+                                onClick={() => {
+                                  setWriteOffTarget(row);
+                                  setWriteOffForm({ quantity: '', reason: 'wilted', comment: '' });
+                                }}
+                              >
+                                Списать
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="btn btn-sm btn-secondary"
@@ -581,6 +634,61 @@ export function SellerReceptions() {
           </>
         )}
       </div>
+
+      {writeOffTarget && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <form onSubmit={handleWriteOff} className="card" style={{ width: '90%', maxWidth: 400, padding: '1.5rem' }}>
+            <h3 style={{ marginTop: 0 }}>Списание: {writeOffTarget.flower_name}</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Остаток: {writeOffTarget.remaining_quantity} шт. · {writeOffTarget.price_per_unit} ₽/шт</p>
+            <div className="form-group">
+              <label>Количество</label>
+              <input
+                type="number"
+                min={1}
+                max={writeOffTarget.remaining_quantity}
+                value={writeOffForm.quantity}
+                onChange={(e) => setWriteOffForm((f) => ({ ...f, quantity: e.target.value }))}
+                className="form-input"
+                required
+                autoFocus
+              />
+            </div>
+            <div className="form-group">
+              <label>Причина</label>
+              <select
+                value={writeOffForm.reason}
+                onChange={(e) => setWriteOffForm((f) => ({ ...f, reason: e.target.value }))}
+                className="form-input"
+              >
+                {WRITE_OFF_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Комментарий</label>
+              <input
+                type="text"
+                value={writeOffForm.comment}
+                onChange={(e) => setWriteOffForm((f) => ({ ...f, comment: e.target.value }))}
+                className="form-input"
+                placeholder="необязательно"
+              />
+            </div>
+            {writeOffForm.quantity && !isNaN(parseInt(writeOffForm.quantity)) && (
+              <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                Потери: {(parseInt(writeOffForm.quantity) * writeOffTarget.price_per_unit).toFixed(0)} ₽
+              </p>
+            )}
+            <div className="form-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setWriteOffTarget(null)}>Отмена</button>
+              <button type="submit" className="btn btn-primary" disabled={writeOffSubmitting}>
+                {writeOffSubmitting ? '…' : 'Списать'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

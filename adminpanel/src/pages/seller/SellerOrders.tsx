@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
   getOrders,
   acceptOrder,
@@ -200,6 +200,15 @@ export function SellerOrders() {
                   {STATUS_LABELS[order.status] || order.status}
                 </span>
               </div>
+              {(order.buyer_fio || order.buyer_phone) && (
+                <div className="order-buyer" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color, #eee)', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {order.buyer_fio && <span>{order.buyer_fio}</span>}
+                  {order.buyer_phone && <span>{order.buyer_phone}</span>}
+                  {order.customer_id && (
+                    <Link to={`/customers/${order.customer_id}`} style={{ fontSize: '0.85rem' }}>Профиль клиента →</Link>
+                  )}
+                </div>
+              )}
               <div className="order-body">
                 <p><strong>Товары:</strong> {formatItemsInfo(order.items_info)}</p>
                 <p>
@@ -242,6 +251,11 @@ export function SellerOrders() {
                 {order.address && <p><strong>Адрес:</strong> {order.address}</p>}
                 {order.is_preorder && order.preorder_delivery_date && (
                   <p><strong>Дата поставки:</strong> {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU')}</p>
+                )}
+                {(order.points_discount ?? 0) > 0 && (
+                  <p style={{ color: 'var(--accent, #e74c3c)' }}>
+                    <strong>Оплата баллами:</strong> −{order.points_discount} ₽ ({order.points_used} баллов)
+                  </p>
                 )}
                 <p className="order-date">Создан: {formatDate(order.created_at)}</p>
               </div>

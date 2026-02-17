@@ -80,6 +80,11 @@ export interface SellerOrder {
   completed_at?: string;
   is_preorder?: boolean;
   preorder_delivery_date?: string | null;
+  buyer_fio?: string | null;
+  buyer_phone?: string | null;
+  customer_id?: number | null;
+  points_used?: number;
+  points_discount?: number;
 }
 
 export type SellerStatsPeriod = '1d' | '7d' | '30d' | 'custom';
@@ -231,6 +236,34 @@ export async function getStats(params?: { period?: '1d' | '7d' | '30d'; date_fro
   return fetchSeller<SellerStats>(`/seller-web/stats${suffix}`);
 }
 
+export interface CustomerStatsTopCustomer {
+  buyer_id: number;
+  name: string;
+  phone: string;
+  orders_count: number;
+  total_spent: number;
+}
+
+export interface CustomerStats {
+  total_customers: number;
+  new_customers: number;
+  returning_customers: number;
+  repeat_orders: number;
+  retention_rate: number;
+  avg_ltv: number;
+  top_customers: CustomerStatsTopCustomer[];
+}
+
+export async function getCustomerStats(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<CustomerStats> {
+  const sp = new URLSearchParams();
+  if (params?.period) sp.set('period', params.period);
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  const query = sp.toString();
+  const suffix = query ? `?${query}` : '';
+  return fetchSeller<CustomerStats>(`/seller-web/stats/customers${suffix}`);
+}
+
 export async function exportStatsCSV(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<Blob> {
   const token = getSellerToken();
   if (!token) throw new Error('Не авторизован');
@@ -332,8 +365,18 @@ export async function changeCredentials(data: { old_login: string; old_password:
 }
 
 // --- Loyalty / Customers ---
+export interface LoyaltyTier {
+  name: string;
+  min_total: number;
+  points_percent: number;
+}
+
 export interface LoyaltySettings {
   points_percent: number;
+  max_points_discount_percent: number;
+  points_to_ruble_rate: number;
+  tiers_config: LoyaltyTier[] | null;
+  points_expire_days: number | null;
 }
 
 export interface SellerCustomerBrief {
@@ -345,7 +388,8 @@ export interface SellerCustomerBrief {
   points_balance: number;
   created_at: string | null;
   notes?: string | null;
-  tags?: string | null;
+  tags?: string[] | null;
+  birthday?: string | null;
 }
 
 export interface LoyaltyTransaction {
@@ -356,29 +400,66 @@ export interface LoyaltyTransaction {
   created_at: string | null;
 }
 
+export interface CustomerEvent {
+  id: number;
+  title: string;
+  event_date: string | null;
+  remind_days_before: number;
+  notes?: string | null;
+}
+
+export interface CustomerTierInfo {
+  name: string | null;
+  points_percent: number | null;
+  next_tier: string | null;
+  amount_to_next: number | null;
+}
+
 export interface SellerCustomerDetail extends SellerCustomerBrief {
   transactions: LoyaltyTransaction[];
+  events?: CustomerEvent[];
   total_purchases?: number;
   last_order_at?: string | null;
   completed_orders_count?: number;
+  tier?: CustomerTierInfo;
 }
 
 export async function getLoyaltySettings(): Promise<LoyaltySettings> {
   return fetchSeller<LoyaltySettings>('/seller-web/loyalty/settings');
 }
 
-export async function updateLoyaltySettings(points_percent: number): Promise<LoyaltySettings> {
+export async function updateLoyaltySettings(data: {
+  points_percent: number;
+  max_points_discount_percent?: number;
+  points_to_ruble_rate?: number;
+  tiers_config?: LoyaltyTier[] | null;
+  points_expire_days?: number | null;
+}): Promise<LoyaltySettings> {
   return fetchSeller<LoyaltySettings>('/seller-web/loyalty/settings', {
     method: 'PUT',
-    body: JSON.stringify({ points_percent }),
+    body: JSON.stringify(data),
   });
 }
 
-export async function getCustomers(): Promise<SellerCustomerBrief[]> {
-  return fetchSeller<SellerCustomerBrief[]>('/seller-web/customers');
+export async function getCustomers(tag?: string): Promise<SellerCustomerBrief[]> {
+  const params = tag ? `?tag=${encodeURIComponent(tag)}` : '';
+  return fetchSeller<SellerCustomerBrief[]>(`/seller-web/customers${params}`);
 }
 
-export async function createCustomer(data: { phone: string; first_name: string; last_name: string }): Promise<SellerCustomerBrief> {
+export async function getCustomerTags(): Promise<string[]> {
+  return fetchSeller<string[]>('/seller-web/customers/tags');
+}
+
+export interface CustomerSegments {
+  segments: Record<string, number>;
+  customers: Array<{ id: number; name: string; phone: string; segment: string }>;
+}
+
+export async function getCustomerSegments(): Promise<CustomerSegments> {
+  return fetchSeller<CustomerSegments>('/seller-web/customers/segments');
+}
+
+export async function createCustomer(data: { phone: string; first_name: string; last_name: string; birthday?: string | null }): Promise<SellerCustomerBrief> {
   return fetchSeller<SellerCustomerBrief>('/seller-web/customers', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -407,11 +488,50 @@ export async function deductPoints(customerId: number, points: number): Promise<
   });
 }
 
-export async function updateCustomer(customerId: number, data: { notes?: string; tags?: string }): Promise<SellerCustomerBrief> {
+export async function updateCustomer(customerId: number, data: { notes?: string; tags?: string[]; birthday?: string | null }): Promise<SellerCustomerBrief> {
   return fetchSeller<SellerCustomerBrief>(`/seller-web/customers/${customerId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
+}
+
+// --- Customer Events ---
+export async function createCustomerEvent(
+  customerId: number,
+  data: { title: string; event_date: string; remind_days_before?: number; notes?: string | null }
+): Promise<CustomerEvent> {
+  return fetchSeller<CustomerEvent>(`/seller-web/customers/${customerId}/events`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCustomerEvent(
+  customerId: number,
+  eventId: number,
+  data: { title?: string; event_date?: string; remind_days_before?: number; notes?: string | null }
+): Promise<CustomerEvent> {
+  return fetchSeller<CustomerEvent>(`/seller-web/customers/${customerId}/events/${eventId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCustomerEvent(customerId: number, eventId: number): Promise<{ ok: boolean }> {
+  return fetchSeller(`/seller-web/customers/${customerId}/events/${eventId}`, { method: 'DELETE' });
+}
+
+export interface UpcomingEvent {
+  type: string;
+  customer_id: number;
+  customer_name: string;
+  title: string;
+  event_date: string;
+  days_until: number;
+}
+
+export async function getUpcomingEvents(days: number = 7): Promise<UpcomingEvent[]> {
+  return fetchSeller<UpcomingEvent[]>(`/seller-web/dashboard/upcoming-events?days=${days}`);
 }
 
 export async function exportCustomersCSV(): Promise<Blob> {
@@ -532,6 +652,59 @@ export async function deleteReceptionItem(itemId: number): Promise<{ status: str
   return fetchSeller(`/seller-web/receptions/items/${itemId}`, { method: 'DELETE' });
 }
 
+// --- Write-off ---
+export interface WriteOffResult {
+  id: number;
+  reception_item_id: number;
+  flower_name: string;
+  quantity: number;
+  reason: string;
+  comment: string | null;
+  loss_amount: number;
+  remaining_after: number;
+  created_at: string | null;
+}
+
+export async function writeOffItem(
+  itemId: number,
+  data: { quantity: number; reason: string; comment?: string }
+): Promise<WriteOffResult> {
+  return fetchSeller<WriteOffResult>(`/seller-web/receptions/items/${itemId}/write-off`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// --- Write-off Stats ---
+export interface WriteOffStatsFlower {
+  flower_name: string;
+  quantity: number;
+  loss_amount: number;
+}
+
+export interface WriteOffStatsDaily {
+  date: string;
+  quantity: number;
+  loss_amount: number;
+}
+
+export interface WriteOffStats {
+  total_count: number;
+  total_quantity: number;
+  total_loss: number;
+  by_reason: Record<string, { quantity: number; loss_amount: number }>;
+  by_flower: WriteOffStatsFlower[];
+  daily: WriteOffStatsDaily[];
+}
+
+export async function getWriteOffStats(dateFrom?: string, dateTo?: string): Promise<WriteOffStats> {
+  const sp = new URLSearchParams();
+  if (dateFrom) sp.set('date_from', dateFrom);
+  if (dateTo) sp.set('date_to', dateTo);
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return fetchSeller<WriteOffStats>(`/seller-web/write-offs/stats${q}`);
+}
+
 // --- Inventory ---
 export interface InventoryItem {
   id: number;
@@ -561,6 +734,45 @@ export async function inventoryApply(
   lines: { reception_item_id: number; actual_quantity: number }[]
 ): Promise<{ applied: number }> {
   return fetchSeller(`/seller-web/receptions/${receptionId}/inventory/apply`, {
+    method: 'POST',
+    body: JSON.stringify(lines),
+  });
+}
+
+// --- Global Inventory ---
+export interface GlobalInventoryItem {
+  flower_id: number;
+  flower_name: string;
+  total_remaining: number;
+  avg_price: number;
+}
+
+export interface GlobalInventoryCheckLine {
+  flower_id: number;
+  flower_name: string;
+  system_quantity: number;
+  actual_quantity: number;
+  difference: number;
+  loss_amount: number;
+}
+
+export async function getGlobalInventory(): Promise<GlobalInventoryItem[]> {
+  return fetchSeller<GlobalInventoryItem[]>('/seller-web/inventory/all');
+}
+
+export async function globalInventoryCheck(
+  lines: { flower_id: number; actual_quantity: number }[]
+): Promise<{ lines: GlobalInventoryCheckLine[]; total_loss: number }> {
+  return fetchSeller(`/seller-web/inventory/all/check`, {
+    method: 'POST',
+    body: JSON.stringify(lines),
+  });
+}
+
+export async function globalInventoryApply(
+  lines: { flower_id: number; actual_quantity: number }[]
+): Promise<{ applied: number }> {
+  return fetchSeller(`/seller-web/inventory/all/apply`, {
     method: 'POST',
     body: JSON.stringify(lines),
   });

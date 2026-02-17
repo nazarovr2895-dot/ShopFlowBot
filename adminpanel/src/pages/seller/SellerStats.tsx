@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getStats,
+  getCustomerStats,
   exportStatsCSV,
   SellerStats as SellerStatsType,
   SellerStatsDeliveryBreakdown,
+  CustomerStats,
 } from '../../api/sellerClient';
 import { SalesChart } from '../../components/SalesChart';
 import '../Stats.css';
 
 type RangePreset = '1d' | '7d' | '30d' | 'custom';
+type StatsTab = 'sales' | 'customers';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Ожидают',
@@ -71,18 +74,26 @@ function formatDateRange(from?: string | null, to?: string | null): string | nul
 
 export function SellerStats() {
   const [stats, setStats] = useState<SellerStatsType | null>(null);
+  const [customerData, setCustomerData] = useState<CustomerStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [custLoading, setCustLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rangePreset, setRangePreset] = useState<RangePreset>('30d');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [activeTab, setActiveTab] = useState<StatsTab>('sales');
 
   const loadStats = useCallback(async (params?: { period?: Exclude<RangePreset, 'custom'>; date_from?: string; date_to?: string }) => {
     setLoading(true);
+    setCustLoading(true);
     setError(null);
     try {
-      const data = await getStats(params);
+      const [data, custData] = await Promise.all([
+        getStats(params),
+        getCustomerStats(params),
+      ]);
       setStats(data);
+      setCustomerData(custData);
       if (data.filters?.date_from) {
         setCustomFrom(data.filters.date_from);
       }
@@ -91,9 +102,11 @@ export function SellerStats() {
       }
     } catch {
       setStats(null);
+      setCustomerData(null);
       setError('Не удалось загрузить статистику');
     } finally {
       setLoading(false);
+      setCustLoading(false);
     }
   }, []);
 
@@ -161,7 +174,7 @@ export function SellerStats() {
   return (
     <div className="stats-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Статистика продаж</h1>
+        <h1 className="page-title" style={{ margin: 0 }}>Статистика</h1>
         <button
           type="button"
           className="btn btn-secondary"
@@ -169,6 +182,23 @@ export function SellerStats() {
           style={{ fontSize: '0.9rem' }}
         >
           📊 Экспорт CSV
+        </button>
+      </div>
+
+      <div className="range-buttons" style={{ marginBottom: '1rem' }}>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'sales' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('sales')}
+        >
+          Продажи
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'customers' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('customers')}
+        >
+          Клиенты
         </button>
       </div>
 
@@ -223,46 +253,85 @@ export function SellerStats() {
           </div>
         </div>
 
-        <div className="seller-stats-main">
-          <div className="seller-stats-chart card">
-            {loading ? <div className="seller-chart-loading" /> : <SalesChart data={dailyData} />}
-          </div>
-          <div className="seller-stats-summary">
-            <div className="summary-item">
-              <span className="summary-label">Выполнено заказов</span>
-              <span className="summary-value">{stats?.total_completed_orders ?? 0}</span>
+        {activeTab === 'sales' && (
+          <div className="seller-stats-main">
+            <div className="seller-stats-chart card">
+              {loading ? <div className="seller-chart-loading" /> : <SalesChart data={dailyData} />}
             </div>
-            <div className="summary-item">
-              <span className="summary-label">Общая выручка</span>
-              <span className="summary-value">{formatCurrency(stats?.total_revenue ?? 0, true)}</span>
-            </div>
-            <div className="summary-item">
-              <span className="summary-label">Средний чек</span>
-              <span className="summary-value">{formatCurrency(stats?.average_check ?? 0, true)}</span>
-            </div>
-            {stats?.previous_period_revenue != null && stats?.previous_period_revenue > 0 && (
+            <div className="seller-stats-summary">
               <div className="summary-item">
-                <span className="summary-label">К выручке за тот же период ранее</span>
-                <span className="summary-value">
-                  {(() => {
-                    const prev = stats.previous_period_revenue ?? 0;
-                    const curr = stats.total_revenue ?? 0;
-                    const pct = prev ? Math.round(((curr - prev) / prev) * 100) : 0;
-                    return pct >= 0 ? `+${pct}%` : `${pct}%`;
-                  })()}
-                </span>
+                <span className="summary-label">Выполнено заказов</span>
+                <span className="summary-value">{stats?.total_completed_orders ?? 0}</span>
               </div>
-            )}
-            <div className="summary-item">
-              <span className="summary-label">Комиссия платформы (18%)</span>
-              <span className="summary-value">{formatCurrency(stats?.commission_18 ?? 0, true)}</span>
-            </div>
-            <div className="summary-item accent">
-              <span className="summary-label">К получению</span>
-              <span className="summary-value accent">{formatCurrency(stats?.net_revenue ?? 0, true)}</span>
+              <div className="summary-item">
+                <span className="summary-label">Общая выручка</span>
+                <span className="summary-value">{formatCurrency(stats?.total_revenue ?? 0, true)}</span>
+              </div>
+              <div className="summary-item">
+                <span className="summary-label">Средний чек</span>
+                <span className="summary-value">{formatCurrency(stats?.average_check ?? 0, true)}</span>
+              </div>
+              {stats?.previous_period_revenue != null && stats?.previous_period_revenue > 0 && (
+                <div className="summary-item">
+                  <span className="summary-label">К выручке за тот же период ранее</span>
+                  <span className="summary-value">
+                    {(() => {
+                      const prev = stats.previous_period_revenue ?? 0;
+                      const curr = stats.total_revenue ?? 0;
+                      const pct = prev ? Math.round(((curr - prev) / prev) * 100) : 0;
+                      return pct >= 0 ? `+${pct}%` : `${pct}%`;
+                    })()}
+                  </span>
+                </div>
+              )}
+              <div className="summary-item">
+                <span className="summary-label">Комиссия платформы (18%)</span>
+                <span className="summary-value">{formatCurrency(stats?.commission_18 ?? 0, true)}</span>
+              </div>
+              <div className="summary-item accent">
+                <span className="summary-label">К получению</span>
+                <span className="summary-value accent">{formatCurrency(stats?.net_revenue ?? 0, true)}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {activeTab === 'customers' && (
+          <div className="seller-stats-summary" style={{ marginTop: '1rem' }}>
+            {custLoading ? (
+              <div className="seller-chart-loading" />
+            ) : customerData ? (
+              <>
+                <div className="summary-item">
+                  <span className="summary-label">Покупателей за период</span>
+                  <span className="summary-value">{customerData.total_customers}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Новых клиентов</span>
+                  <span className="summary-value">{customerData.new_customers}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Вернувшихся</span>
+                  <span className="summary-value">{customerData.returning_customers}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Повторных заказов</span>
+                  <span className="summary-value">{customerData.repeat_orders}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Retention rate</span>
+                  <span className="summary-value">{customerData.retention_rate}%</span>
+                </div>
+                <div className="summary-item accent">
+                  <span className="summary-label">Средний LTV</span>
+                  <span className="summary-value accent">{formatCurrency(customerData.avg_ltv, true)}</span>
+                </div>
+              </>
+            ) : (
+              <p className="empty-text">Нет данных</p>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -271,95 +340,125 @@ export function SellerStats() {
         </div>
       )}
 
-      <div className="card seller-breakdown-card">
-        <h3>Выручка по способу получения</h3>
-        <div className="seller-breakdown-grid">
-          <div className="seller-breakdown-item">
-            <span className="summary-label">Доставка</span>
-            <span className="summary-value">{formatCurrency(breakdown.delivery.revenue, true)}</span>
-            <span className="seller-breakdown-sub">{breakdown.delivery.orders} заказов</span>
-          </div>
-          <div className="seller-breakdown-item">
-            <span className="summary-label">Самовывоз</span>
-            <span className="summary-value">{formatCurrency(breakdown.pickup.revenue, true)}</span>
-            <span className="seller-breakdown-sub">{breakdown.pickup.orders} заказов</span>
-          </div>
-          {(breakdown.other.revenue > 0 || breakdown.other.orders > 0) && (
-            <div className="seller-breakdown-item">
-              <span className="summary-label">Другие</span>
-              <span className="summary-value">{formatCurrency(breakdown.other.revenue, true)}</span>
-              <span className="seller-breakdown-sub">{breakdown.other.orders} заказов</span>
+      {activeTab === 'sales' && (
+        <>
+          <div className="card seller-breakdown-card">
+            <h3>Выручка по способу получения</h3>
+            <div className="seller-breakdown-grid">
+              <div className="seller-breakdown-item">
+                <span className="summary-label">Доставка</span>
+                <span className="summary-value">{formatCurrency(breakdown.delivery.revenue, true)}</span>
+                <span className="seller-breakdown-sub">{breakdown.delivery.orders} заказов</span>
+              </div>
+              <div className="seller-breakdown-item">
+                <span className="summary-label">Самовывоз</span>
+                <span className="summary-value">{formatCurrency(breakdown.pickup.revenue, true)}</span>
+                <span className="seller-breakdown-sub">{breakdown.pickup.orders} заказов</span>
+              </div>
+              {(breakdown.other.revenue > 0 || breakdown.other.orders > 0) && (
+                <div className="seller-breakdown-item">
+                  <span className="summary-label">Другие</span>
+                  <span className="summary-value">{formatCurrency(breakdown.other.revenue, true)}</span>
+                  <span className="seller-breakdown-sub">{breakdown.other.orders} заказов</span>
+                </div>
+              )}
+              {(breakdown.unknown.revenue > 0 || breakdown.unknown.orders > 0) && (
+                <div className="seller-breakdown-item">
+                  <span className="summary-label">Не указано</span>
+                  <span className="summary-value">{formatCurrency(breakdown.unknown.revenue, true)}</span>
+                  <span className="seller-breakdown-sub">{breakdown.unknown.orders} заказов</span>
+                </div>
+              )}
             </div>
-          )}
-          {(breakdown.unknown.revenue > 0 || breakdown.unknown.orders > 0) && (
-            <div className="seller-breakdown-item">
-              <span className="summary-label">Не указано</span>
-              <span className="summary-value">{formatCurrency(breakdown.unknown.revenue, true)}</span>
-              <span className="seller-breakdown-sub">{breakdown.unknown.orders} заказов</span>
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {statusRows.length > 0 && (
-        <div className="card">
-          <h3>Заказы по статусам</h3>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Статус</th>
-                  <th>Количество</th>
-                </tr>
-              </thead>
-              <tbody>{statusRows}</tbody>
-            </table>
-          </div>
-        </div>
+          {statusRows.length > 0 && (
+            <div className="card">
+              <h3>Заказы по статусам</h3>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Статус</th>
+                      <th>Количество</th>
+                    </tr>
+                  </thead>
+                  <tbody>{statusRows}</tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {(stats?.top_products?.length ?? 0) > 0 && (
+            <div className="card seller-stats-top">
+              <h3>Популярные товары (за период)</h3>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Товар</th>
+                      <th>Продано (шт)</th>
+                      <th>В заказах</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats?.top_products?.map((p) => (
+                      <tr key={p.product_id}>
+                        <td>{p.product_name}</td>
+                        <td>{p.quantity_sold}</td>
+                        <td>{p.order_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {(stats?.top_bouquets?.length ?? 0) > 0 && (
+            <div className="card seller-stats-top">
+              <h3>Популярные букеты (за период)</h3>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Букет</th>
+                      <th>Продано (шт)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats?.top_bouquets?.map((b) => (
+                      <tr key={b.bouquet_id}>
+                        <td>{b.bouquet_name}</td>
+                        <td>{b.quantity_sold}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {(stats?.top_products?.length ?? 0) > 0 && (
+      {activeTab === 'customers' && customerData && (customerData.top_customers?.length ?? 0) > 0 && (
         <div className="card seller-stats-top">
-          <h3>Популярные товары (за период)</h3>
+          <h3>Топ покупателей (за период)</h3>
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Товар</th>
-                  <th>Продано (шт)</th>
-                  <th>В заказах</th>
+                  <th>Покупатель</th>
+                  <th>Заказов</th>
+                  <th>Сумма</th>
                 </tr>
               </thead>
               <tbody>
-                {stats?.top_products?.map((p) => (
-                  <tr key={p.product_id}>
-                    <td>{p.product_name}</td>
-                    <td>{p.quantity_sold}</td>
-                    <td>{p.order_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {(stats?.top_bouquets?.length ?? 0) > 0 && (
-        <div className="card seller-stats-top">
-          <h3>Популярные букеты (за период)</h3>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Букет</th>
-                  <th>Продано (шт)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats?.top_bouquets?.map((b) => (
-                  <tr key={b.bouquet_id}>
-                    <td>{b.bouquet_name}</td>
-                    <td>{b.quantity_sold}</td>
+                {customerData.top_customers.map((c) => (
+                  <tr key={c.buyer_id}>
+                    <td>{c.name}{c.phone ? ` (${c.phone})` : ''}</td>
+                    <td>{c.orders_count}</td>
+                    <td>{formatCurrency(c.total_spent, true)}</td>
                   </tr>
                 ))}
               </tbody>

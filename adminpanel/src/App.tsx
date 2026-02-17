@@ -19,6 +19,7 @@ import { SellerCustomers } from './pages/seller/SellerCustomers';
 import { SellerOrderDetail } from './pages/seller/SellerOrderDetail';
 import { SellerShowcase } from './pages/seller/SellerShowcase';
 import { SellerSubscribers } from './pages/seller/SellerSubscribers';
+import { SellerWasteReport } from './pages/seller/SellerWasteReport';
 import './index.css';
 import './App.css';
 
@@ -69,6 +70,7 @@ function AppRoutes() {
             <Route path="bouquets" element={<SellerBouquets />} />
             <Route path="inventory" element={<SellerInventory />} />
             <Route path="stats" element={<SellerStats />} />
+            <Route path="waste-report" element={<SellerWasteReport />} />
             <Route path="profile" element={<SellerProfile />} />
             <Route path="security" element={<SellerSecurity />} />
           </>

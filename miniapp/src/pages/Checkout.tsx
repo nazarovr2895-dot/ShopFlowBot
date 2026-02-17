@@ -14,6 +14,12 @@ function normalizePhone(phone: string): string {
   return normalized;
 }
 
+interface SellerLoyaltyInfo {
+  points_balance: number;
+  max_points_discount_percent: number;
+  points_to_ruble_rate: number;
+}
+
 export function Checkout() {
   const navigate = useNavigate();
   const { setBackButton, hapticFeedback, showAlert, requestContact, user: telegramUser } = useTelegramWebApp();
@@ -33,6 +39,8 @@ export function Checkout() {
   const [phoneInput, setPhoneInput] = useState('');
   const [fioInput, setFioInput] = useState('');
   const [commentInput, setCommentInput] = useState('');
+  const [loyaltyBySellerMap, setLoyaltyBySellerMap] = useState<Record<number, SellerLoyaltyInfo>>({});
+  const [pointsUsage, setPointsUsage] = useState<Record<number, number>>({});
 
   useEffect(() => {
     setBackButton(true, () => navigate('/cart'));
@@ -53,7 +61,29 @@ export function Checkout() {
         }),
       ]);
       setUser(userData ?? null);
-      setCart(Array.isArray(cartData) ? cartData : []);
+      const cartArr = Array.isArray(cartData) ? cartData : [];
+      setCart(cartArr);
+
+      // Fetch loyalty balances for each seller in cart
+      if (cartArr.length > 0) {
+        const loyaltyEntries = await Promise.all(
+          cartArr.map(async (g) => {
+            try {
+              const info = await api.getMyLoyaltyAtSeller(g.seller_id);
+              return [g.seller_id, {
+                points_balance: info.points_balance,
+                max_points_discount_percent: info.max_points_discount_percent,
+                points_to_ruble_rate: info.points_to_ruble_rate,
+              }] as const;
+            } catch {
+              return [g.seller_id, { points_balance: 0, max_points_discount_percent: 100, points_to_ruble_rate: 1 }] as const;
+            }
+          })
+        );
+        const map: Record<number, SellerLoyaltyInfo> = {};
+        for (const [sid, info] of loyaltyEntries) map[sid] = info;
+        setLoyaltyBySellerMap(map);
+      }
     } finally {
       setLoading(false);
     }
@@ -130,12 +160,18 @@ export function Checkout() {
       hapticFeedback('medium');
       const fio = (fioInput || '').trim() || 'Покупатель';
 
+      // Build points_usage from non-zero entries
+      const pointsArr = Object.entries(pointsUsage)
+        .filter(([, pts]) => pts > 0)
+        .map(([sid, pts]) => ({ seller_id: Number(sid), points_to_use: pts }));
+
       const { orders } = await api.checkoutCart({
         fio,
         phone: user.phone,
         delivery_type: deliveryType,
         address: deliveryType === 'Самовывоз' ? 'Самовывоз' : address.trim(),
         ...(commentInput.trim() ? { comment: commentInput.trim() } : {}),
+        ...(pointsArr.length > 0 ? { points_usage: pointsArr } : {}),
       });
       setSubmitting(false);
       const ordersMsg = orders.length > 1
@@ -153,8 +189,24 @@ export function Checkout() {
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
   const totalGoods = cart.reduce((sum, g) => sum + g.total, 0);
   const totalDelivery = cart.reduce((sum, g) => sum + (g.delivery_price ?? 0), 0);
-  const totalToPay = deliveryType === 'Доставка' ? totalGoods + totalDelivery : totalGoods;
+  // Points discount per seller
+  const totalPointsDiscount = cart.reduce((sum, g) => {
+    const pts = pointsUsage[g.seller_id] ?? 0;
+    const info = loyaltyBySellerMap[g.seller_id];
+    if (!pts || !info) return sum;
+    return sum + pts * info.points_to_ruble_rate;
+  }, 0);
+  const totalToPay = (deliveryType === 'Доставка' ? totalGoods + totalDelivery : totalGoods) - totalPointsDiscount;
   const totalItemCount = cart.reduce((s, g) => s + g.items.length, 0);
+
+  /** Max points buyer can use for a seller group (min of balance and allowed % of order). */
+  const getMaxPoints = (sellerId: number, groupTotal: number): number => {
+    const info = loyaltyBySellerMap[sellerId];
+    if (!info || info.points_balance <= 0) return 0;
+    const maxDiscountRub = groupTotal * (info.max_points_discount_percent / 100);
+    const maxPointsByDiscount = info.points_to_ruble_rate > 0 ? maxDiscountRub / info.points_to_ruble_rate : 0;
+    return Math.floor(Math.min(info.points_balance, maxPointsByDiscount));
+  };
   const itemCountLabel = (n: number) => {
     if (n === 1) return '1 товар';
     if (n >= 2 && n <= 4) return `${n} товара`;
@@ -300,10 +352,64 @@ export function Checkout() {
                 <span> + доставка {formatPrice(group.delivery_price!)}</span>
               )}
             </div>
+            {/* Points usage per seller */}
+            {(() => {
+              const maxPts = getMaxPoints(group.seller_id, group.total);
+              const info = loyaltyBySellerMap[group.seller_id];
+              if (!info || info.points_balance <= 0 || maxPts <= 0) return null;
+              const used = pointsUsage[group.seller_id] ?? 0;
+              const discountRub = used * info.points_to_ruble_rate;
+              return (
+                <div className="checkout-points" style={{ padding: '0.5rem 0', borderTop: '1px dashed var(--tg-theme-hint-color, #ccc)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={used > 0}
+                        onChange={(e) => {
+                          setPointsUsage((prev) => ({
+                            ...prev,
+                            [group.seller_id]: e.target.checked ? maxPts : 0,
+                          }));
+                        }}
+                      />
+                      <span style={{ fontSize: '0.9rem' }}>Использовать баллы</span>
+                    </label>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--tg-theme-hint-color, #999)' }}>
+                      (баланс: {info.points_balance})
+                    </span>
+                  </div>
+                  {used > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
+                      <input
+                        type="range"
+                        min={0}
+                        max={maxPts}
+                        step={1}
+                        value={used}
+                        onChange={(e) => setPointsUsage((prev) => ({
+                          ...prev,
+                          [group.seller_id]: Number(e.target.value),
+                        }))}
+                        style={{ flex: 1 }}
+                      />
+                      <span style={{ fontSize: '0.9rem', minWidth: '5rem', textAlign: 'right' }}>
+                        −{formatPrice(discountRub)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         ))}
         <div className="checkout-summary__grand-total">
           К оплате: {formatPrice(totalToPay)}
+          {totalPointsDiscount > 0 && (
+            <div style={{ fontSize: '0.85rem', color: 'var(--tg-theme-hint-color, #999)', fontWeight: 'normal' }}>
+              скидка баллами: −{formatPrice(totalPointsDiscount)}
+            </div>
+          )}
         </div>
       </div>
       <form className="checkout-form" onSubmit={handleSubmit}>

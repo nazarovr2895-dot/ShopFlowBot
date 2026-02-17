@@ -2,7 +2,7 @@
 """Send Telegram notifications to buyers and sellers for order events."""
 import os
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 import httpx
 
@@ -160,3 +160,26 @@ async def notify_buyer_order_status(
         text += f"\n💰 Сумма: {total_price:.0f} руб."
     reply_markup = _order_notification_keyboard(order_id, seller_id)
     return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
+
+
+async def notify_seller_upcoming_events(
+    seller_id: int,
+    events: List[Dict[str, Any]],
+) -> bool:
+    """Send daily event reminder to seller via Telegram bot."""
+    if not events:
+        return False
+    lines = []
+    for ev in events:
+        days = ev.get("days_until", 0)
+        if days == 0:
+            when = "сегодня!"
+        elif days == 1:
+            when = "завтра!"
+        else:
+            when = f"через {days} дн."
+        name = ev.get("customer_name", "—")
+        title = ev.get("title", "")
+        lines.append(f"  {name} — {title} ({when})")
+    text = "📅 *Предстоящие события клиентов:*\n\n" + "\n".join(lines)
+    return await _send_telegram_message(seller_id, text)

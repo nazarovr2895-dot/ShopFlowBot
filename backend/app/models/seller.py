@@ -33,6 +33,10 @@ class Seller(Base):
     web_password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     # Loyalty / club card: percent of purchase amount accrued as points (e.g. 5.00 = 5%)
     loyalty_points_percent: Mapped[float] = mapped_column(DECIMAL(5, 2), default=0)
+    # Max % of order that can be paid with points (e.g. 50 = 50%), default 100
+    max_points_discount_percent: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=100)
+    # Points to ruble rate (e.g. 1.0 = 1 point = 1 ruble), default 1.0
+    points_to_ruble_rate: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 2), nullable=True, default=1)
     # Preorder schedule
     preorder_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     preorder_schedule_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'weekly' | 'interval_days' | 'custom_dates'
@@ -41,6 +45,10 @@ class Seller(Base):
     preorder_base_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     # Temporarily commented out until migration is applied - uncomment after running: alembic upgrade head
     preorder_custom_dates: Mapped[Optional[List[str]]] = mapped_column(JSON(), nullable=True)  # List of YYYY-MM-DD dates
+    # Loyalty tiers config: [{"name": "Бронза", "min_total": 0, "points_percent": 3}, ...]
+    loyalty_tiers_config: Mapped[Optional[list]] = mapped_column(JSON(), nullable=True)
+    # Points expire after N days (null = never expire)
+    points_expire_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # Shop banner (YouTube-style), path like /static/uploads/shop_banners/123.webp
     banner_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 

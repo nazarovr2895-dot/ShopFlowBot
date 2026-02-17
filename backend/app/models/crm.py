@@ -1,13 +1,15 @@
-"""CRM models: flowers, receptions, bouquets (florist MVP)."""
-from datetime import date
+"""CRM models: flowers, receptions, bouquets, write-offs (florist MVP)."""
+from datetime import date, datetime
 from sqlalchemy import (
     BigInteger,
     String,
     ForeignKey,
     Integer,
     Date,
+    DateTime,
     DECIMAL,
     Boolean,
+    Text,
     Index,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -90,3 +92,21 @@ class BouquetItem(Base):
     bouquet: Mapped["Bouquet"] = relationship("Bouquet", back_populates="bouquet_items")
 
     __table_args__ = (Index('ix_bouquet_items_bouquet_id', 'bouquet_id'),)
+
+
+class WriteOff(Base):
+    """Write-off record: quick disposal of wilted/broken flowers."""
+    __tablename__ = 'write_offs'
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
+    reception_item_id: Mapped[int] = mapped_column(ForeignKey('reception_items.id'))
+    quantity: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(String(50))  # wilted, broken, defect, other
+    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    loss_amount: Mapped[float] = mapped_column(DECIMAL(12, 2), default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index('ix_write_offs_seller_id', 'seller_id'),
+        Index('ix_write_offs_created_at', 'created_at'),
+    )

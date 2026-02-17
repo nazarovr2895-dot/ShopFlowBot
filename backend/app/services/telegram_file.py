@@ -3,6 +3,7 @@ import os
 import uuid
 import logging
 from pathlib import Path
+from typing import Optional
 
 import httpx
 
@@ -17,7 +18,7 @@ PRODUCTS_UPLOAD_SUBDIR = Path("uploads") / "products"
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 
-async def download_telegram_photo_to_static(file_id: str) -> str | None:
+async def download_telegram_photo_to_static(file_id: str) -> Optional[str]:
     """
     Get file from Telegram by file_id, save to static/uploads/products/, return path like /static/uploads/products/xxx.jpg.
     Returns None if BOT_TOKEN missing or Telegram API error.

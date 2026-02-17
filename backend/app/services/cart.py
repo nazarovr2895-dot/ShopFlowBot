@@ -198,21 +198,26 @@ class CartService:
         delivery_type: str,
         address: str,
         comment: Optional[str] = None,
+        points_by_seller: Optional[Dict[int, float]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Create one order per (seller, is_preorder) from cart, then clear cart.
         Regular and preorder items for the same seller become separate orders.
+        points_by_seller: {seller_id: points_to_use} — optional loyalty points discount.
         Returns list of { order_id, seller_id, total_price }.
         """
+        from backend.app.services.loyalty import LoyaltyService
+
         groups = await self.get_cart(buyer_id)
         if not groups:
             raise CartServiceError("Cart is empty", 400)
-        
+
         # Ensure fio has a value (should be set by API, but add fallback for safety)
         if not fio or not fio.strip():
             fio = "Покупатель"
-        
+
         order_service = OrderService(self.session)
+        loyalty_svc = LoyaltyService(self.session)
         created = []
         for group in groups:
             seller_id = group["seller_id"]
@@ -240,6 +245,28 @@ class CartService:
                             preorder_date = date.fromisoformat(d[:10])
                         except (ValueError, TypeError):
                             pass
+                # Points discount calculation
+                points_used = Decimal("0")
+                points_discount = Decimal("0")
+                if points_by_seller and seller_id in points_by_seller and not is_preorder:
+                    requested_points = Decimal(str(points_by_seller[seller_id]))
+                    if requested_points > 0:
+                        rate = Decimal(str(getattr(seller, "points_to_ruble_rate", 1) or 1))
+                        max_pct = int(getattr(seller, "max_points_discount_percent", 100) or 100)
+                        max_discount = total * Decimal(str(max_pct)) / Decimal("100")
+                        discount = min(requested_points * rate, max_discount)
+                        # Verify customer has enough points
+                        customer = await loyalty_svc.find_customer_by_phone(seller_id, phone)
+                        if customer:
+                            balance = customer.points_balance or Decimal("0")
+                            actual_points = min(requested_points, balance)
+                            discount = min(actual_points * rate, max_discount)
+                            if discount > 0:
+                                points_used = actual_points
+                                points_discount = discount
+                                total = total - discount
+                                # Deduct points
+                                await loyalty_svc.deduct_points(seller_id, customer.id, float(actual_points))
                 try:
                     order = await order_service.create_order(
                         buyer_id=buyer_id,
@@ -252,7 +279,17 @@ class CartService:
                         is_preorder=is_preorder,
                         preorder_delivery_date=preorder_date,
                     )
-                    created.append({"order_id": order.id, "seller_id": seller_id, "total_price": float(order.total_price)})
+                    # Store points info on order
+                    if points_used > 0:
+                        order.points_used = float(points_used)
+                        order.points_discount = float(points_discount)
+                    created.append({
+                        "order_id": order.id,
+                        "seller_id": seller_id,
+                        "total_price": float(order.total_price),
+                        "points_used": float(points_used),
+                        "points_discount": float(points_discount),
+                    })
                 except OrderServiceError as e:
                     raise CartServiceError(e.message, e.status_code)
         await self.clear_cart(buyer_id)

@@ -20,6 +20,8 @@ class Order(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_preorder: Mapped[bool] = mapped_column(Boolean, default=False)
     preorder_delivery_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    points_used: Mapped[Optional[float]] = mapped_column(DECIMAL(12, 2), nullable=True, default=0)
+    points_discount: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True, default=0)
 
     __table_args__ = (
         Index('ix_orders_seller_id', 'seller_id'),

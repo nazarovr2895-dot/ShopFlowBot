@@ -399,22 +399,50 @@ class OrderService:
         preorder: Optional[bool] = None,
     ) -> List[Dict[str, Any]]:
         """Get orders for a seller with optional status and preorder filter. status can be comma-separated."""
-        query = select(Order).where(Order.seller_id == seller_id)
-        
+        query = select(Order, User.fio, User.phone).join(
+            User, Order.buyer_id == User.tg_id
+        ).where(Order.seller_id == seller_id)
+
         if status:
             statuses = [s.strip() for s in status.split(",") if s.strip()]
             if statuses:
                 query = query.where(Order.status.in_(statuses))
         if preorder is not None:
             query = query.where(Order.is_preorder == preorder)
-        
+
         query = query.order_by(Order.created_at.desc())
-        
+
         result = await self.session.execute(query)
-        orders = result.scalars().all()
-        
-        return [
-            {
+        rows = result.all()
+
+        # Batch lookup: collect unique phones and find matching loyalty customers
+        phones = set()
+        for row in rows:
+            phone = row[2]
+            if phone:
+                norm = normalize_phone(phone)
+                if norm:
+                    phones.add(norm)
+        customer_by_phone: Dict[str, int] = {}
+        if phones:
+            from backend.app.models.loyalty import SellerCustomer
+            cust_result = await self.session.execute(
+                select(SellerCustomer.phone, SellerCustomer.id).where(
+                    SellerCustomer.seller_id == seller_id,
+                    SellerCustomer.phone.in_(phones),
+                )
+            )
+            for cphone, cid in cust_result.all():
+                customer_by_phone[cphone] = cid
+
+        out = []
+        for row in rows:
+            o, buyer_fio, buyer_phone = row[0], row[1], row[2]
+            customer_id = None
+            if buyer_phone:
+                norm = normalize_phone(buyer_phone)
+                customer_id = customer_by_phone.get(norm)
+            out.append({
                 "id": o.id,
                 "buyer_id": o.buyer_id,
                 "seller_id": o.seller_id,
@@ -428,9 +456,13 @@ class OrderService:
                 "completed_at": o.completed_at.isoformat() if o.completed_at else None,
                 "is_preorder": getattr(o, "is_preorder", False),
                 "preorder_delivery_date": o.preorder_delivery_date.isoformat() if getattr(o, "preorder_delivery_date", None) else None,
-            }
-            for o in orders
-        ]
+                "buyer_fio": buyer_fio,
+                "buyer_phone": buyer_phone,
+                "customer_id": customer_id,
+                "points_used": float(o.points_used) if getattr(o, "points_used", None) else 0,
+                "points_discount": float(o.points_discount) if getattr(o, "points_discount", None) else 0,
+            })
+        return out
 
     async def get_seller_orders_by_buyer_phone(
         self, seller_id: int, customer_phone: str
@@ -508,6 +540,8 @@ class OrderService:
             "buyer_fio": buyer_fio,
             "buyer_phone": buyer_phone,
             "customer_id": customer_id,
+            "points_used": float(order.points_used) if getattr(order, "points_used", None) else 0,
+            "points_discount": float(order.points_discount) if getattr(order, "points_discount", None) else 0,
         }
 
     async def get_buyer_orders(self, buyer_id: int) -> List[Dict[str, Any]]:
@@ -807,6 +841,140 @@ class OrderService:
                 "date_from": date_from.date().isoformat() if date_from else None,
                 "date_to": date_to.date().isoformat() if date_to else None,
             },
+        }
+
+    async def get_customer_stats(
+        self,
+        seller_id: int,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Customer metrics for a seller within a date range."""
+        date_field = func.coalesce(Order.completed_at, Order.created_at)
+        end_exclusive = date_to + timedelta(days=1) if date_to else None
+
+        base = [Order.seller_id == seller_id, Order.status.in_(self.COMPLETED_ORDER_STATUSES)]
+        period_conds = list(base)
+        if date_from:
+            period_conds.append(date_field >= date_from)
+        if end_exclusive:
+            period_conds.append(date_field < end_exclusive)
+
+        # -- buyer_id list in current period --
+        period_buyers_stmt = (
+            select(Order.buyer_id)
+            .where(*period_conds)
+            .group_by(Order.buyer_id)
+        )
+        period_buyer_rows = (await self.session.execute(period_buyers_stmt)).all()
+        period_buyer_ids = {r[0] for r in period_buyer_rows}
+        total_customers = len(period_buyer_ids)
+
+        # -- new vs returning: buyers whose FIRST completed order falls in the period --
+        first_order_subq = (
+            select(Order.buyer_id, func.min(date_field).label("first_date"))
+            .where(Order.seller_id == seller_id, Order.status.in_(self.COMPLETED_ORDER_STATUSES))
+            .group_by(Order.buyer_id)
+            .subquery()
+        )
+        new_buyers_conds = [first_order_subq.c.buyer_id.in_(period_buyer_ids)]
+        if date_from:
+            new_buyers_conds.append(first_order_subq.c.first_date >= date_from)
+        if end_exclusive:
+            new_buyers_conds.append(first_order_subq.c.first_date < end_exclusive)
+        new_buyers_stmt = select(func.count()).select_from(first_order_subq).where(*new_buyers_conds)
+        new_customers = (await self.session.execute(new_buyers_stmt)).scalar() or 0
+        returning_customers = total_customers - new_customers
+
+        # -- repeat purchases: orders from returning customers in the period --
+        repeat_orders = 0
+        if returning_customers > 0 and period_buyer_ids:
+            all_new_ids_stmt = (
+                select(first_order_subq.c.buyer_id)
+                .where(*new_buyers_conds)
+            )
+            new_ids_rows = (await self.session.execute(all_new_ids_stmt)).all()
+            new_ids = {r[0] for r in new_ids_rows}
+            returning_ids = period_buyer_ids - new_ids
+            if returning_ids:
+                repeat_stmt = (
+                    select(func.count(Order.id))
+                    .where(*period_conds, Order.buyer_id.in_(returning_ids))
+                )
+                repeat_orders = (await self.session.execute(repeat_stmt)).scalar() or 0
+
+        # -- retention rate: % of prev period buyers who bought in this period --
+        retention_rate = 0.0
+        if date_from and date_to:
+            period_days = (date_to.date() - date_from.date()).days + 1
+            prev_end = date_from - timedelta(days=1)
+            prev_start = prev_end - timedelta(days=period_days - 1)
+            prev_conds = [
+                Order.seller_id == seller_id,
+                Order.status.in_(self.COMPLETED_ORDER_STATUSES),
+                date_field >= prev_start,
+                date_field < prev_end + timedelta(days=1),
+            ]
+            prev_buyers_stmt = (
+                select(Order.buyer_id).where(*prev_conds).group_by(Order.buyer_id)
+            )
+            prev_rows = (await self.session.execute(prev_buyers_stmt)).all()
+            prev_buyer_ids = {r[0] for r in prev_rows}
+            if prev_buyer_ids:
+                retained = prev_buyer_ids & period_buyer_ids
+                retention_rate = round(len(retained) / len(prev_buyer_ids) * 100, 1)
+
+        # -- average LTV: total revenue per buyer (all time) --
+        buyer_totals_sq = (
+            select(
+                Order.buyer_id,
+                func.sum(Order.total_price).label("buyer_total"),
+            )
+            .where(Order.seller_id == seller_id, Order.status.in_(self.COMPLETED_ORDER_STATUSES))
+            .group_by(Order.buyer_id)
+            .subquery()
+        )
+        ltv_stmt = select(func.avg(buyer_totals_sq.c.buyer_total)).select_from(buyer_totals_sq)
+        avg_ltv_raw = (await self.session.execute(ltv_stmt)).scalar()
+        avg_ltv = round(float(avg_ltv_raw or 0), 2)
+
+        # -- top 5 customers by revenue in period --
+        top_stmt = (
+            select(
+                Order.buyer_id,
+                func.count(Order.id).label("orders_count"),
+                func.coalesce(func.sum(Order.total_price), 0).label("total_spent"),
+            )
+            .where(*period_conds)
+            .group_by(Order.buyer_id)
+            .order_by(func.sum(Order.total_price).desc())
+            .limit(5)
+        )
+        top_rows = (await self.session.execute(top_stmt)).all()
+        top_customers: List[Dict[str, Any]] = []
+        if top_rows:
+            buyer_ids = [r.buyer_id for r in top_rows]
+            users_stmt = select(User.id, User.fio, User.phone).where(User.id.in_(buyer_ids))
+            users_rows = (await self.session.execute(users_stmt)).all()
+            users_map = {u.id: {"fio": u.fio, "phone": u.phone} for u in users_rows}
+            for r in top_rows:
+                u = users_map.get(r.buyer_id, {})
+                top_customers.append({
+                    "buyer_id": r.buyer_id,
+                    "name": u.get("fio") or f"Покупатель #{r.buyer_id}",
+                    "phone": u.get("phone") or "",
+                    "orders_count": r.orders_count or 0,
+                    "total_spent": round(float(r.total_spent or 0), 2),
+                })
+
+        return {
+            "total_customers": total_customers,
+            "new_customers": new_customers,
+            "returning_customers": returning_customers,
+            "repeat_orders": repeat_orders,
+            "retention_rate": retention_rate,
+            "avg_ltv": avg_ltv,
+            "top_customers": top_customers,
         }
 
     async def get_platform_daily_stats(

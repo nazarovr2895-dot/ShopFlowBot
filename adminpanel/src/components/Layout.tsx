@@ -20,6 +20,7 @@ const sellerNav = [
   { to: '/bouquets', label: 'Конструктор букетов', icon: '💐' },
   { to: '/inventory', label: 'Инвентаризация', icon: '📋' },
   { to: '/stats', label: 'Статистика продаж', icon: '📈' },
+  { to: '/waste-report', label: 'Отчёт о потерях', icon: '🗑️' },
   { to: '/profile', label: 'Профиль', icon: '👤' },
   { to: '/security', label: 'Безопасность', icon: '🔒' },
 ];

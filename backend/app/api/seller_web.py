@@ -5,7 +5,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
@@ -55,6 +55,13 @@ from backend.app.services.receptions import (
     inventory_check,
     inventory_apply,
     ReceptionClosedError,
+    write_off_item,
+    get_write_offs,
+    get_write_off_stats,
+    WriteOffError,
+    get_all_items_for_inventory,
+    global_inventory_check,
+    global_inventory_apply,
 )
 from backend.app.services.referrals import accrue_commissions
 from backend.app.services.loyalty import (
@@ -548,6 +555,53 @@ async def export_stats_csv(
         media_type='text/csv; charset=utf-8',
         headers={'Content-Disposition': f'attachment; filename="stats_{datetime.now().strftime("%Y%m%d")}.csv"'}
     )
+
+
+@router.get("/stats/customers")
+async def get_customer_stats(
+    period: Optional[str] = Query(None, description="Predefined range: 1d, 7d, 30d"),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Customer metrics: new vs returning, retention, LTV, top customers."""
+
+    def _parse_date(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    start_date = _parse_date(date_from)
+    end_date = _parse_date(date_to)
+
+    if start_date and not end_date:
+        end_date = start_date
+    elif end_date and not start_date:
+        start_date = end_date
+    if start_date and end_date and start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    period_key = (period or "").lower()
+    if not start_date and not end_date and period_key in {"1d", "7d", "30d"}:
+        MSK = ZoneInfo("Europe/Moscow")
+        today_msk = datetime.now(MSK).date()
+        if period_key == "1d":
+            start_day_msk = today_msk
+        elif period_key == "7d":
+            start_day_msk = today_msk - timedelta(days=6)
+        else:
+            start_day_msk = today_msk - timedelta(days=29)
+        start_datetime_msk = datetime.combine(start_day_msk, datetime.min.time()).replace(tzinfo=MSK)
+        end_datetime_msk = datetime.combine(today_msk, datetime.max.time()).replace(tzinfo=MSK)
+        start_date = start_datetime_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+        end_date = end_datetime_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+    service = OrderService(session)
+    return await service.get_customer_stats(seller_id, date_from=start_date, date_to=end_date)
 
 
 # --- PRODUCTS ---
@@ -1072,15 +1126,73 @@ async def api_inventory_apply(
     return result
 
 
+# --- WRITE-OFF (quick flower disposal) ---
+class WriteOffBody(BaseModel):
+    quantity: int
+    reason: str  # wilted, broken, defect, other
+    comment: Optional[str] = None
+
+
+@router.post("/receptions/items/{item_id}/write-off")
+async def api_write_off_item(
+    item_id: int,
+    body: WriteOffBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        result = await write_off_item(
+            session, item_id, seller_id,
+            quantity=body.quantity,
+            reason=body.reason,
+            comment=body.comment,
+        )
+        return result
+    except WriteOffError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/write-offs")
+async def api_get_write_offs(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+):
+    from datetime import date as date_type
+    df = date_type.fromisoformat(date_from) if date_from else None
+    dt = date_type.fromisoformat(date_to) if date_to else None
+    return await get_write_offs(session, seller_id, df, dt)
+
+
+@router.get("/write-offs/stats")
+async def api_get_write_off_stats(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+):
+    """Aggregated waste report: totals, by reason, by flower, daily series."""
+    from datetime import date as date_type
+    df = date_type.fromisoformat(date_from) if date_from else None
+    dt = date_type.fromisoformat(date_to) if date_to else None
+    return await get_write_off_stats(session, seller_id, df, dt)
+
+
 # --- LOYALTY / CUSTOMERS ---
 class LoyaltySettingsBody(BaseModel):
     points_percent: float
+    max_points_discount_percent: Optional[int] = None
+    points_to_ruble_rate: Optional[float] = None
+    tiers_config: Optional[List[dict]] = None
+    points_expire_days: Optional[int] = None
 
 
 class CreateCustomerBody(BaseModel):
     phone: str
     first_name: str
     last_name: str
+    birthday: Optional[str] = None
 
 
 class RecordSaleBody(BaseModel):
@@ -1093,7 +1205,8 @@ class DeductPointsBody(BaseModel):
 
 class UpdateCustomerBody(BaseModel):
     notes: Optional[str] = None
-    tags: Optional[str] = None
+    tags: Optional[List[str]] = None
+    birthday: Optional[str] = "__unset__"
 
 
 @router.get("/loyalty/settings")
@@ -1101,9 +1214,15 @@ async def get_loyalty_settings(
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    svc = LoyaltyService(session)
-    points_percent = await svc.get_points_percent(seller_id)
-    return {"points_percent": points_percent}
+    from backend.app.models.seller import Seller
+    seller = await session.get(Seller, seller_id)
+    return {
+        "points_percent": float(seller.loyalty_points_percent or 0) if seller else 0,
+        "max_points_discount_percent": seller.max_points_discount_percent if seller else 100,
+        "points_to_ruble_rate": float(seller.points_to_ruble_rate or 1) if seller else 1,
+        "tiers_config": seller.loyalty_tiers_config if seller else None,
+        "points_expire_days": seller.points_expire_days if seller else None,
+    }
 
 
 @router.put("/loyalty/settings")
@@ -1112,24 +1231,69 @@ async def update_loyalty_settings(
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    from fastapi import HTTPException
+    from decimal import Decimal
+    from backend.app.models.seller import Seller
+    seller = await session.get(Seller, seller_id)
+    if not seller:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
+    seller.loyalty_points_percent = Decimal(str(body.points_percent))
+    if body.max_points_discount_percent is not None:
+        seller.max_points_discount_percent = body.max_points_discount_percent
+    if body.points_to_ruble_rate is not None:
+        seller.points_to_ruble_rate = Decimal(str(body.points_to_ruble_rate))
+    if body.tiers_config is not None:
+        seller.loyalty_tiers_config = body.tiers_config if body.tiers_config else None
+    if body.points_expire_days is not None:
+        seller.points_expire_days = body.points_expire_days if body.points_expire_days > 0 else None
+    await session.commit()
+    return {
+        "points_percent": float(seller.loyalty_points_percent),
+        "max_points_discount_percent": seller.max_points_discount_percent,
+        "points_to_ruble_rate": float(seller.points_to_ruble_rate or 1),
+        "tiers_config": seller.loyalty_tiers_config,
+        "points_expire_days": seller.points_expire_days,
+    }
+
+
+@router.get("/customers/tags")
+async def get_customer_tags(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get all unique tags used by seller's customers (for autocomplete)."""
     svc = LoyaltyService(session)
-    try:
-        await svc.set_points_percent(seller_id, body.points_percent)
-        await session.commit()
-        return {"points_percent": body.points_percent}
-    except LoyaltyServiceError as e:
-        await session.rollback()
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return await svc.get_all_tags(seller_id)
+
+
+@router.get("/customers/segments")
+async def get_customer_segments(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get RFM segments summary for all customers."""
+    from backend.app.services.loyalty import get_customer_segments as _get_segments
+    return await _get_segments(session, seller_id)
+
+
+@router.get("/loyalty/expiring")
+async def get_expiring_points(
+    days: int = 30,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get customers with points expiring within N days."""
+    from backend.app.services.loyalty import get_expiring_points as _get_expiring
+    return await _get_expiring(session, seller_id, days)
 
 
 @router.get("/customers")
 async def list_customers(
+    tag: Optional[str] = None,
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
     svc = LoyaltyService(session)
-    return await svc.list_customers(seller_id)
+    return await svc.list_customers(seller_id, tag_filter=tag)
 
 
 @router.post("/customers")
@@ -1141,14 +1305,18 @@ async def create_customer(
     from fastapi import HTTPException
     svc = LoyaltyService(session)
     try:
+        birthday = date.fromisoformat(body.birthday) if body.birthday else None
         customer = await svc.create_customer(
             seller_id,
             body.phone,
             body.first_name,
             body.last_name,
+            birthday=birthday,
         )
         await session.commit()
         return customer
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат даты рождения")
     except (DuplicatePhoneError, LoyaltyServiceError) as e:
         await session.rollback()
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -1182,7 +1350,7 @@ async def export_customers_csv(
             c.get('points_balance', 0),
             c.get('created_at', ''),
             c.get('notes', ''),
-            c.get('tags', ''),
+            ', '.join(c.get('tags') or []) if isinstance(c.get('tags'), list) else (c.get('tags') or ''),
         ])
 
     output.seek(0)
@@ -1216,6 +1384,12 @@ async def get_customer(
     data["total_purchases"] = round(total_purchases, 2)
     data["last_order_at"] = last_order_at
     data["completed_orders_count"] = len(completed)
+    # Compute loyalty tier
+    from backend.app.services.loyalty import compute_tier
+    from backend.app.models.seller import Seller
+    seller = await session.get(Seller, seller_id)
+    tiers_config = getattr(seller, 'loyalty_tiers_config', None) if seller else None
+    data["tier"] = compute_tier(total_purchases, tiers_config)
     return data
 
 
@@ -1243,7 +1417,10 @@ async def update_customer(
 ):
     from fastapi import HTTPException
     svc = LoyaltyService(session)
-    result = await svc.update_customer(seller_id, customer_id, body.notes, body.tags)
+    result = await svc.update_customer(
+        seller_id, customer_id,
+        notes=body.notes, tags=body.tags, birthday=body.birthday,
+    )
     if not result:
         raise HTTPException(status_code=404, detail="Клиент не найден")
     await session.commit()
@@ -1375,3 +1552,127 @@ async def get_subscriber_count(
     svc = FavoriteSellersService(session)
     count = await svc.get_subscriber_count(seller_id)
     return {"count": count}
+
+
+# --- CUSTOMER EVENTS ---
+class CreateEventBody(BaseModel):
+    title: str
+    event_date: str
+    remind_days_before: int = 3
+    notes: Optional[str] = None
+
+
+class UpdateEventBody(BaseModel):
+    title: Optional[str] = None
+    event_date: Optional[str] = None
+    remind_days_before: Optional[int] = None
+    notes: Optional[str] = "__unset__"
+
+
+@router.post("/customers/{customer_id}/events")
+async def create_customer_event(
+    customer_id: int,
+    body: CreateEventBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    svc = LoyaltyService(session)
+    try:
+        event_date = date.fromisoformat(body.event_date)
+        result = await svc.add_event(
+            seller_id, customer_id,
+            title=body.title,
+            event_date=event_date,
+            remind_days_before=body.remind_days_before,
+            notes=body.notes,
+        )
+        await session.commit()
+        return result
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат даты")
+    except CustomerNotFoundError as e:
+        await session.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.put("/customers/{customer_id}/events/{event_id}")
+async def update_customer_event(
+    customer_id: int,
+    event_id: int,
+    body: UpdateEventBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    svc = LoyaltyService(session)
+    try:
+        event_date = date.fromisoformat(body.event_date) if body.event_date else None
+        result = await svc.update_event(
+            seller_id, event_id,
+            title=body.title,
+            event_date=event_date,
+            remind_days_before=body.remind_days_before,
+            notes=body.notes,
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="Событие не найдено")
+        await session.commit()
+        return result
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат даты")
+
+
+@router.delete("/customers/{customer_id}/events/{event_id}")
+async def delete_customer_event(
+    customer_id: int,
+    event_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    svc = LoyaltyService(session)
+    ok = await svc.delete_event(seller_id, event_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Событие не найдено")
+    await session.commit()
+    return {"ok": True}
+
+
+@router.get("/dashboard/upcoming-events")
+async def get_upcoming_events(
+    days: int = Query(default=7, ge=1, le=90),
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    svc = LoyaltyService(session)
+    return await svc.get_upcoming_events(seller_id, days_ahead=days)
+
+
+# --- GLOBAL INVENTORY ---
+@router.get("/inventory/all")
+async def get_global_inventory(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """All flowers with remaining stock from open receptions, grouped by flower."""
+    return await get_all_items_for_inventory(session, seller_id)
+
+
+@router.post("/inventory/all/check")
+async def check_global_inventory(
+    lines: List[dict],
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Preview differences between system and actual quantities per flower."""
+    return await global_inventory_check(session, seller_id, lines)
+
+
+@router.post("/inventory/all/apply")
+async def apply_global_inventory(
+    lines: List[dict],
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Apply actual quantities per flower across all open receptions."""
+    result = await global_inventory_apply(session, seller_id, lines)
+    await session.commit()
+    return result

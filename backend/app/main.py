@@ -47,17 +47,72 @@ logger.info(
 )
 
 
+async def _daily_scheduler():
+    """Background task: run daily at 03:00 MSK (00:00 UTC) for expiry, 09:00 MSK (06:00 UTC) for notifications."""
+    import asyncio
+    from datetime import datetime, timezone, timedelta
+
+    msk = timezone(timedelta(hours=3))
+
+    while True:
+        try:
+            now = datetime.now(tz=msk)
+            # Next run at 09:00 MSK
+            target = now.replace(hour=9, minute=0, second=0, microsecond=0)
+            if now >= target:
+                target += timedelta(days=1)
+            wait_secs = (target - now).total_seconds()
+            logger.info("Daily scheduler: sleeping", next_run=target.isoformat(), wait_seconds=int(wait_secs))
+            await asyncio.sleep(wait_secs)
+
+            # Run tasks
+            from backend.app.core.database import async_session
+            from backend.app.services.loyalty import expire_stale_points, get_all_sellers_upcoming_events
+            from backend.app.services.telegram_notify import notify_seller_upcoming_events
+
+            async with async_session() as session:
+                # 1. Expire stale points
+                try:
+                    n = await expire_stale_points(session)
+                    await session.commit()
+                    if n > 0:
+                        logger.info("Daily scheduler: expired points", count=n)
+                except Exception as e:
+                    await session.rollback()
+                    logger.error("Daily scheduler: expire_stale_points failed", error=str(e))
+
+                # 2. Send event notifications to sellers
+                try:
+                    events_by_seller = await get_all_sellers_upcoming_events(session, days_ahead=7)
+                    for sid, events in events_by_seller.items():
+                        try:
+                            await notify_seller_upcoming_events(sid, events)
+                        except Exception as e:
+                            logger.error("Daily scheduler: notify failed", seller_id=sid, error=str(e))
+                    if events_by_seller:
+                        logger.info("Daily scheduler: sent event notifications", sellers_count=len(events_by_seller))
+                except Exception as e:
+                    logger.error("Daily scheduler: get_all_sellers_upcoming_events failed", error=str(e))
+        except Exception as e:
+            logger.error("Daily scheduler: unexpected error", error=str(e))
+            import asyncio
+            await asyncio.sleep(60)  # Wait before retrying
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Application lifespan handler.
-    - Startup: initialize connections
+    - Startup: initialize connections, start background scheduler
     - Shutdown: cleanup connections (Redis, etc.)
     """
+    import asyncio
     # Startup
     logger.info("Application starting up", version="1.0.0")
+    scheduler_task = asyncio.create_task(_daily_scheduler())
     yield
-    # Shutdown: close Redis connection
+    # Shutdown: cancel scheduler, close Redis
+    scheduler_task.cancel()
     logger.info("Application shutting down")
     await CacheService.close()
 

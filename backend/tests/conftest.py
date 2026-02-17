@@ -21,6 +21,12 @@ os.environ.setdefault("ADMIN_PASSWORD", "admin")
 os.environ.setdefault("ADMIN_SECRET", "test_admin_secret")
 # JWT secret for seller auth tests
 os.environ.setdefault("JWT_SECRET", "test_admin_secret")
+# DB settings required by Settings validation (tests use SQLite in-memory, these are not actually used)
+os.environ.setdefault("DB_USER", "test")
+os.environ.setdefault("DB_PASSWORD", "test")
+os.environ.setdefault("DB_NAME", "test")
+# Development mode for tests (disables ALLOWED_ORIGINS requirement)
+os.environ.setdefault("ENVIRONMENT", "development")
 
 import pytest
 import asyncio

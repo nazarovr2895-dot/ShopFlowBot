@@ -1,18 +1,21 @@
-"""Loyalty / club card models: seller_customers, seller_loyalty_transactions."""
-from datetime import datetime
+"""Loyalty / club card models: seller_customers, seller_loyalty_transactions, customer_events."""
+from datetime import datetime, date
 from sqlalchemy import (
     BigInteger,
     String,
     ForeignKey,
     Integer,
+    Date,
     DateTime,
     DECIMAL,
     Index,
     UniqueConstraint,
     Text,
+    JSON,
+    Boolean,
 )
 from sqlalchemy.orm import Mapped, mapped_column
-from typing import Optional
+from typing import Optional, List
 from backend.app.core.base import Base
 
 
@@ -41,7 +44,8 @@ class SellerCustomer(Base):
     linked_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tags: Mapped[Optional[List[str]]] = mapped_column(JSON(), nullable=True)  # ["VIP", "корпоративный"]
+    birthday: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('seller_id', 'phone', name='uq_seller_customers_seller_phone'),
@@ -61,9 +65,29 @@ class SellerLoyaltyTransaction(Base):
     amount: Mapped[float] = mapped_column(DECIMAL(12, 2), nullable=False)
     points_accrued: Mapped[float] = mapped_column(DECIMAL(12, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_expired: Mapped[bool] = mapped_column(Boolean, default=False)
 
     __table_args__ = (
         Index('ix_seller_loyalty_tx_seller_id', 'seller_id'),
         Index('ix_seller_loyalty_tx_customer_id', 'customer_id'),
         Index('ix_seller_loyalty_tx_created_at', 'created_at'),
+        Index('ix_seller_loyalty_tx_expires_at', 'expires_at'),
+    )
+
+
+class CustomerEvent(Base):
+    """Significant date for a customer (wife's birthday, anniversary, etc.)."""
+    __tablename__ = 'customer_events'
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey('seller_customers.id'), nullable=False)
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_date: Mapped[date] = mapped_column(Date, nullable=False)
+    remind_days_before: Mapped[int] = mapped_column(Integer, default=3)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index('ix_customer_events_customer_id', 'customer_id'),
+        Index('ix_customer_events_seller_id', 'seller_id'),
     )

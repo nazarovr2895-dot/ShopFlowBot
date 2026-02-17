@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount } from '../../api/sellerClient';
-import type { SellerMe, SellerStats, DashboardAlerts } from '../../api/sellerClient';
+import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount, getUpcomingEvents } from '../../api/sellerClient';
+import type { SellerMe, SellerStats, DashboardAlerts, UpcomingEvent } from '../../api/sellerClient';
 import '../Dashboard.css';
 
 const PENDING_POLL_INTERVAL_MS = 45 * 1000;
@@ -14,19 +14,21 @@ export function SellerDashboard() {
   const [activeCount, setActiveCount] = useState(0);
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
   const [subscriberCount, setSubscriberCount] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const lastPendingCountRef = useRef<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [meData, statsData, pendingOrders, activeOrders, alertsData, subCount] = await Promise.all([
+        const [meData, statsData, pendingOrders, activeOrders, alertsData, subCount, eventsData] = await Promise.all([
           getMe(),
           getStats(),
           getOrders({ status: 'pending' }),
           getOrders({ status: 'accepted,assembling,in_transit' }),
           getDashboardAlerts(),
           getSubscriberCount().catch(() => ({ count: 0 })),
+          getUpcomingEvents(14).catch(() => []),
         ]);
         setMe(meData);
         setStats(statsData);
@@ -36,6 +38,7 @@ export function SellerDashboard() {
         setActiveCount(activeOrders?.length ?? 0);
         setAlerts(alertsData);
         setSubscriberCount(subCount.count);
+        setUpcomingEvents(eventsData);
       } catch {
         setMe(null);
         setStats(null);
@@ -114,6 +117,26 @@ export function SellerDashboard() {
               {' '}<Link to="/receptions">→ Приёмка</Link>
             </p>
           ) : null}
+        </div>
+      )}
+
+      {upcomingEvents.length > 0 && (
+        <div className="card dashboard-upcoming-events" style={{ marginBottom: '1rem' }}>
+          <h3>Предстоящие события клиентов</h3>
+          {upcomingEvents.map((ev, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', borderBottom: i < upcomingEvents.length - 1 ? '1px solid var(--border-color, #eee)' : 'none' }}>
+              <span style={{ fontSize: '1.1rem' }}>{ev.type === 'birthday' ? '\uD83C\uDF82' : '\uD83D\uDCC5'}</span>
+              <Link to={`/customers/${ev.customer_id}`} style={{ flex: 1 }}>
+                <strong>{ev.customer_name}</strong> — {ev.title}
+                {ev.days_until === 0
+                  ? <span style={{ color: 'var(--accent, #e74c3c)', fontWeight: 'bold' }}> (сегодня!)</span>
+                  : ev.days_until === 1
+                    ? <span style={{ color: 'var(--warning, #f39c12)' }}> (завтра)</span>
+                    : <span style={{ color: 'var(--text-muted)' }}> (через {ev.days_until} дн.)</span>
+                }
+              </Link>
+            </div>
+          ))}
         </div>
       )}
 
