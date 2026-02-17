@@ -27,6 +27,10 @@ export function SellerShop() {
   const [preorderBaseDate, setPreorderBaseDate] = useState('');
   const [preorderCustomDates, setPreorderCustomDates] = useState<string[]>([]);
   const [newCustomDate, setNewCustomDate] = useState('');
+  const [preorderMinLeadDays, setPreorderMinLeadDays] = useState(2);
+  const [preorderMaxPerDate, setPreorderMaxPerDate] = useState('');
+  const [preorderDiscountPercent, setPreorderDiscountPercent] = useState('');
+  const [preorderDiscountMinDays, setPreorderDiscountMinDays] = useState(7);
   const [preorderSaving, setPreorderSaving] = useState(false);
   // Shop settings
   const [shopName, setShopName] = useState('');
@@ -53,6 +57,10 @@ export function SellerShop() {
       setPreorderIntervalDays(meData?.preorder_interval_days ?? 10);
       setPreorderBaseDate(meData?.preorder_base_date ?? '');
       setPreorderCustomDates(meData?.preorder_custom_dates ?? []);
+      setPreorderMinLeadDays(meData?.preorder_min_lead_days ?? 2);
+      setPreorderMaxPerDate(meData?.preorder_max_per_date != null ? String(meData.preorder_max_per_date) : '');
+      setPreorderDiscountPercent(meData?.preorder_discount_percent ? String(meData.preorder_discount_percent) : '');
+      setPreorderDiscountMinDays(meData?.preorder_discount_min_days ?? 7);
       // Shop settings
       setShopName(meData?.shop_name ?? '');
       setDescription(meData?.description ?? '');
@@ -111,6 +119,8 @@ export function SellerShop() {
     }
     setPreorderSaving(true);
     try {
+      const maxPerDate = preorderMaxPerDate ? parseInt(preorderMaxPerDate, 10) : null;
+      const discountPct = preorderDiscountPercent ? parseFloat(preorderDiscountPercent) : 0;
       await updateMe({
         preorder_enabled: preorderEnabled,
         preorder_schedule_type: preorderEnabled ? preorderScheduleType : undefined,
@@ -118,6 +128,10 @@ export function SellerShop() {
         preorder_interval_days: preorderEnabled && preorderScheduleType === 'interval_days' ? preorderIntervalDays : undefined,
         preorder_base_date: preorderEnabled && preorderScheduleType === 'interval_days' && preorderBaseDate ? preorderBaseDate : null,
         preorder_custom_dates: preorderEnabled && preorderScheduleType === 'custom_dates' && preorderCustomDates.length > 0 ? preorderCustomDates : null,
+        preorder_min_lead_days: preorderEnabled ? preorderMinLeadDays : undefined,
+        preorder_max_per_date: preorderEnabled ? maxPerDate : null,
+        preorder_discount_percent: preorderEnabled ? discountPct : undefined,
+        preorder_discount_min_days: preorderEnabled && discountPct > 0 ? preorderDiscountMinDays : undefined,
       });
       const meData = await getMe();
       setMe(meData);
@@ -519,6 +533,78 @@ export function SellerShop() {
                 )}
               </div>
             )}
+            {/* Дополнительные настройки предзаказов */}
+            <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <label className="section-label" style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>Дополнительные настройки</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <label className="section-label">Минимум дней до заказа</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={30}
+                    value={preorderMinLeadDays}
+                    onChange={(e) => setPreorderMinLeadDays(Number(e.target.value) || 0)}
+                    className="form-input"
+                    style={{ width: '80px' }}
+                  />
+                  <p className="section-hint" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                    Например, 2 = заказ можно оформить минимум за 2 дня до даты
+                  </p>
+                </div>
+                <div>
+                  <label className="section-label">Лимит заказов на дату</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={preorderMaxPerDate}
+                    onChange={(e) => setPreorderMaxPerDate(e.target.value)}
+                    placeholder="Без ограничений"
+                    className="form-input"
+                    style={{ width: '120px' }}
+                  />
+                  <p className="section-hint" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                    Пусто = неограниченно
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '0.75rem' }}>
+                <div>
+                  <label className="section-label">Скидка за ранний предзаказ (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={0.5}
+                    value={preorderDiscountPercent}
+                    onChange={(e) => setPreorderDiscountPercent(e.target.value)}
+                    placeholder="0"
+                    className="form-input"
+                    style={{ width: '80px' }}
+                  />
+                  <p className="section-hint" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                    Например, 10 = скидка 10% при раннем заказе
+                  </p>
+                </div>
+                {parseFloat(preorderDiscountPercent) > 0 && (
+                  <div>
+                    <label className="section-label">За сколько дней скидка</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={preorderDiscountMinDays}
+                      onChange={(e) => setPreorderDiscountMinDays(Number(e.target.value) || 7)}
+                      className="form-input"
+                      style={{ width: '80px' }}
+                    />
+                    <p className="section-hint" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                      Скидка действует если заказ за {preorderDiscountMinDays}+ дней до даты
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
             {me?.preorder_available_dates && me.preorder_available_dates.length > 0 && (
               <p className="section-hint" style={{ marginTop: '0.5rem' }}>
                 Ближайшие даты поставки: {me.preorder_available_dates.slice(0, 4).join(', ')}

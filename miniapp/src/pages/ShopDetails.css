@@ -785,3 +785,95 @@
 }
 
 /* Убрано свечение при hover */
+
+/* Preorder info banner (discount & capacity) */
+.shop-details__preorder-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.shop-details__preorder-discount-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  color: #e65100;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .shop-details__preorder-discount-badge {
+  background: linear-gradient(135deg, rgba(230, 81, 0, 0.2) 0%, rgba(255, 152, 0, 0.15) 100%);
+  color: #ffb74d;
+}
+
+.shop-details__preorder-capacity {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color, #999);
+  padding-left: 2px;
+}
+
+/* ====== Shop Nav Bar (Актуальные / Предзаказ) ====== */
+.shop-details__nav-bar {
+  padding: 12px 0 4px;
+}
+
+.shop-details__nav-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  height: 48px;
+  border-radius: 296px;
+}
+
+.shop-details__nav-bar-tab {
+  flex: 1;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: var(--tg-theme-text-color, var(--app-text, #333));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 296px;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shop-details__nav-bar-tab:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.shop-details__nav-bar-tab:active {
+  transform: scale(0.98);
+}
+
+.shop-details__nav-bar-tab--active {
+  background: rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+}
+
+.shop-details__nav-bar-tab-text {
+  white-space: nowrap;
+}
+
+/* Dark theme */
+[data-theme="dark"] .shop-details__nav-bar-tab {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .shop-details__nav-bar-tab:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .shop-details__nav-bar-tab--active {
+  background: rgba(255, 255, 255, 0.18);
+}

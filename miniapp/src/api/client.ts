@@ -425,6 +425,10 @@ class ApiClient {
   async confirmOrderReceived(orderId: number): Promise<{ status: string; new_status: string }> {
     return this.fetch(`/buyers/me/orders/${orderId}/confirm`, { method: 'POST' });
   }
+
+  async cancelOrder(orderId: number): Promise<{ status: string; new_status: string; points_refunded?: number }> {
+    return this.fetch(`/buyers/me/orders/${orderId}/cancel`, { method: 'POST' });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);

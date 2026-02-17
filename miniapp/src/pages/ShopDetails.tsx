@@ -4,7 +4,7 @@ import type { PublicSellerDetail, Product } from '../types';
 import { api, hasTelegramAuth } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
-import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal } from '../components';
+import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal, LiquidGlassCard } from '../components';
 import './ShopDetails.css';
 
 type ProductTab = 'regular' | 'preorder';
@@ -438,6 +438,28 @@ export function ShopDetails() {
         </div>
       </div>
 
+      {/* Навигационная панель: Актуальные / Предзаказ */}
+      {seller.products.length > 0 && (seller.preorder_products?.length ?? 0) > 0 && seller.preorder_enabled && (
+        <div className="shop-details__nav-bar">
+          <LiquidGlassCard className="shop-details__nav-bar-container">
+            <button
+              type="button"
+              className={`shop-details__nav-bar-tab ${productTab === 'regular' ? 'shop-details__nav-bar-tab--active' : ''}`}
+              onClick={() => setProductTab('regular')}
+            >
+              <span className="shop-details__nav-bar-tab-text">Актуальные</span>
+            </button>
+            <button
+              type="button"
+              className={`shop-details__nav-bar-tab ${productTab === 'preorder' ? 'shop-details__nav-bar-tab--active' : ''}`}
+              onClick={() => setProductTab('preorder')}
+            >
+              <span className="shop-details__nav-bar-tab-text">Предзаказ</span>
+            </button>
+          </LiquidGlassCard>
+        </div>
+      )}
+
       {loyalty !== null && (
         <div className="shop-details__loyalty">
           {loyalty.linked ? (
@@ -454,22 +476,18 @@ export function ShopDetails() {
 
       {(seller.products.length > 0 || (seller.preorder_enabled && (seller.preorder_products?.length ?? 0) > 0)) && (
         <div className="shop-details__products">
-          {seller.products.length > 0 && (seller.preorder_products?.length ?? 0) > 0 && seller.preorder_enabled && (
-            <div className="shop-details__product-tabs">
-              <button
-                type="button"
-                className={`shop-details__product-tab ${productTab === 'regular' ? 'active' : ''}`}
-                onClick={() => setProductTab('regular')}
-              >
-                В наличии
-              </button>
-              <button
-                type="button"
-                className={`shop-details__product-tab ${productTab === 'preorder' ? 'active' : ''}`}
-                onClick={() => setProductTab('preorder')}
-              >
-                По предзаказу
-              </button>
+          {productTab === 'preorder' && (
+            <div className="shop-details__preorder-info">
+              {(seller.preorder_discount_percent ?? 0) > 0 && (
+                <div className="shop-details__preorder-discount-badge">
+                  🎁 Скидка {seller.preorder_discount_percent}% при заказе за {seller.preorder_discount_min_days ?? 7}+ дней
+                </div>
+              )}
+              {seller.preorder_max_per_date != null && seller.preorder_max_per_date > 0 && (
+                <div className="shop-details__preorder-capacity">
+                  Лимит: {seller.preorder_max_per_date} предзаказов на дату
+                </div>
+              )}
             </div>
           )}
           <h2 className="shop-details__products-title">

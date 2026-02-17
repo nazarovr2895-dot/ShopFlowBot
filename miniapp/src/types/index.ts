@@ -105,6 +105,8 @@ export interface BuyerOrder {
   delivery_type: string;
   address: string | null;
   created_at: string | null;
+  is_preorder?: boolean;
+  preorder_delivery_date?: string | null;
 }
 
 export interface PublicSellerDetail {
@@ -125,6 +127,9 @@ export interface PublicSellerDetail {
   preorder_products?: Product[];
   preorder_available_dates?: string[];
   preorder_enabled?: boolean;
+  preorder_discount_percent?: number;
+  preorder_discount_min_days?: number;
+  preorder_max_per_date?: number | null;
   banner_url?: string | null;
   subscriber_count?: number;
 }

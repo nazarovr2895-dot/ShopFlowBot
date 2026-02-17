@@ -6,8 +6,9 @@ import {
   rejectOrder,
   updateOrderStatus,
   updateOrderPrice,
+  getPreorderSummary,
 } from '../../api/sellerClient';
-import type { SellerOrder } from '../../api/sellerClient';
+import type { SellerOrder, PreorderSummary } from '../../api/sellerClient';
 import './SellerOrders.css';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -18,6 +19,7 @@ const STATUS_LABELS: Record<string, string> = {
   done: 'Выполнен',
   completed: 'Завершён',
   rejected: 'Отклонён',
+  cancelled: 'Отменён',
 };
 
 function formatItemsInfo(itemsInfo: string): string {
@@ -39,6 +41,9 @@ export function SellerOrders() {
   const [dateTo, setDateTo] = useState('');
   const [editingPrice, setEditingPrice] = useState<number | null>(null);
   const [newPrice, setNewPrice] = useState('');
+  const [summaryDate, setSummaryDate] = useState('');
+  const [summary, setSummary] = useState<PreorderSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -129,6 +134,19 @@ export function SellerOrders() {
     }
   };
 
+  const loadSummary = async (date: string) => {
+    if (!date) return;
+    setSummaryLoading(true);
+    try {
+      const data = await getPreorderSummary(date);
+      setSummary(data);
+    } catch {
+      setSummary(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   return (
     <div className="seller-orders-page">
       <h1 className="page-title">Заказы</h1>
@@ -160,6 +178,61 @@ export function SellerOrders() {
         </button>
       </div>
 
+      {activeTab === 'preorder' && (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <h3 style={{ marginTop: 0 }}>📦 Дашборд закупок на дату</h3>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="date"
+              value={summaryDate}
+              onChange={(e) => setSummaryDate(e.target.value)}
+              className="form-input"
+            />
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={!summaryDate || summaryLoading}
+              onClick={() => loadSummary(summaryDate)}
+            >
+              {summaryLoading ? 'Загрузка...' : 'Показать'}
+            </button>
+          </div>
+          {summary && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <p style={{ margin: '0.25rem 0' }}>
+                <strong>Дата:</strong> {new Date(summary.date).toLocaleDateString('ru-RU')} &nbsp;|&nbsp;
+                <strong>Заказов:</strong> {summary.total_orders} &nbsp;|&nbsp;
+                <strong>Сумма:</strong> {summary.total_amount.toFixed(0)} ₽
+              </p>
+              {summary.items.length > 0 ? (
+                <div className="table-wrap" style={{ marginTop: '0.5rem' }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Товар</th>
+                        <th>Кол-во</th>
+                        <th>Заказов</th>
+                        <th>Сумма</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summary.items.map((item) => (
+                        <tr key={item.product_id}>
+                          <td>{item.product_name}</td>
+                          <td>{item.total_quantity}</td>
+                          <td>{item.orders_count}</td>
+                          <td>{item.total_amount.toFixed(0)} ₽</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="empty-text">Нет принятых предзаказов на эту дату</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {activeTab === 'pending' && orders.length > 0 && (
         <p className="orders-hint">Укажите итоговую цену для покупателя (при необходимости нажмите «Изменить цену»), затем примите или отклоните заказ.</p>
       )}

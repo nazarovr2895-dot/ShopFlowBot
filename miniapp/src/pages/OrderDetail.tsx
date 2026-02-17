@@ -14,9 +14,11 @@ const STATUS_LABELS: Record<string, string> = {
   done: '📬 Доставлен (подтвердите получение)',
   completed: '✅ Получен',
   rejected: '❌ Отклонён',
+  cancelled: '🚫 Отменён',
 };
 
 const CAN_CONFIRM = ['done', 'in_transit', 'assembling', 'accepted'];
+const CAN_CANCEL = ['pending', 'accepted'];
 
 export function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -25,6 +27,7 @@ export function OrderDetail() {
   const [order, setOrder] = useState<BuyerOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     setBackButton(true, () => navigate('/orders'));
@@ -66,6 +69,28 @@ export function OrderDetail() {
     }
   };
 
+  const handleCancel = async () => {
+    if (!orderId || !order) return;
+    if (!order.is_preorder || !CAN_CANCEL.includes(order.status)) return;
+    setCancelling(true);
+    try {
+      hapticFeedback('medium');
+      const result = await api.cancelOrder(order.id);
+      let msg = 'Предзаказ отменён.';
+      if (result.points_refunded && result.points_refunded > 0) {
+        msg += ` Возвращено ${result.points_refunded} баллов.`;
+      }
+      showAlert(msg);
+      const orders = await api.getMyOrders();
+      const updated = orders.find((o) => o.id === order.id);
+      setOrder(updated ?? null);
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) return <Loader centered />;
   if (!order) {
     return (
@@ -78,15 +103,26 @@ export function OrderDetail() {
   const formatPrice = (n: number) =>
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
   const canConfirm = CAN_CONFIRM.includes(order.status);
+  const canCancel = order.is_preorder && CAN_CANCEL.includes(order.status);
 
   return (
     <div className="order-detail-page">
-      <h1 className="order-detail-page__title">Заказ #{order.id}</h1>
+      <h1 className="order-detail-page__title">
+        {order.is_preorder ? 'Предзаказ' : 'Заказ'} #{order.id}
+      </h1>
       <div className="order-detail-card">
         <div className="order-detail__row">
           <span className="order-detail__label">Статус</span>
           <span className="order-detail__value">{STATUS_LABELS[order.status] ?? order.status}</span>
         </div>
+        {order.is_preorder && order.preorder_delivery_date && (
+          <div className="order-detail__row">
+            <span className="order-detail__label">Дата доставки</span>
+            <span className="order-detail__value" style={{ fontWeight: 600 }}>
+              {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU')}
+            </span>
+          </div>
+        )}
         <div className="order-detail__row">
           <span className="order-detail__label">Товары</span>
           <span className="order-detail__value order-detail__items">{order.items_info}</span>
@@ -101,7 +137,7 @@ export function OrderDetail() {
         </div>
         {order.created_at && (
           <div className="order-detail__row">
-            <span className="order-detail__label">Дата</span>
+            <span className="order-detail__label">Дата оформления</span>
             <span className="order-detail__value">
               {new Date(order.created_at).toLocaleString('ru-RU')}
             </span>
@@ -116,6 +152,29 @@ export function OrderDetail() {
           disabled={confirming}
         >
           {confirming ? 'Отправляем…' : '✅ Подтвердить получение'}
+        </button>
+      )}
+      {canCancel && (
+        <button
+          type="button"
+          className="order-detail__cancel-btn"
+          onClick={handleCancel}
+          disabled={cancelling}
+          style={{
+            display: 'block',
+            width: '100%',
+            padding: '14px',
+            marginTop: '8px',
+            border: '1px solid #e74c3c',
+            borderRadius: '12px',
+            background: 'transparent',
+            color: '#e74c3c',
+            fontSize: '16px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          {cancelling ? 'Отменяем…' : '🚫 Отменить предзаказ'}
         </button>
       )}
     </div>

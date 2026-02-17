@@ -3,15 +3,17 @@ import {
   getStats,
   getCustomerStats,
   exportStatsCSV,
+  getPreorderAnalytics,
   SellerStats as SellerStatsType,
   SellerStatsDeliveryBreakdown,
   CustomerStats,
+  PreorderAnalytics,
 } from '../../api/sellerClient';
 import { SalesChart } from '../../components/SalesChart';
 import '../Stats.css';
 
 type RangePreset = '1d' | '7d' | '30d' | 'custom';
-type StatsTab = 'sales' | 'customers';
+type StatsTab = 'sales' | 'customers' | 'preorders';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Ожидают',
@@ -75,8 +77,10 @@ function formatDateRange(from?: string | null, to?: string | null): string | nul
 export function SellerStats() {
   const [stats, setStats] = useState<SellerStatsType | null>(null);
   const [customerData, setCustomerData] = useState<CustomerStats | null>(null);
+  const [preorderData, setPreorderData] = useState<PreorderAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [custLoading, setCustLoading] = useState(false);
+  const [preorderLoading, setPreorderLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rangePreset, setRangePreset] = useState<RangePreset>('30d');
   const [customFrom, setCustomFrom] = useState('');
@@ -86,14 +90,17 @@ export function SellerStats() {
   const loadStats = useCallback(async (params?: { period?: Exclude<RangePreset, 'custom'>; date_from?: string; date_to?: string }) => {
     setLoading(true);
     setCustLoading(true);
+    setPreorderLoading(true);
     setError(null);
     try {
-      const [data, custData] = await Promise.all([
+      const [data, custData, preorderAnalytics] = await Promise.all([
         getStats(params),
         getCustomerStats(params),
+        getPreorderAnalytics(params).catch(() => null),
       ]);
       setStats(data);
       setCustomerData(custData);
+      setPreorderData(preorderAnalytics);
       if (data.filters?.date_from) {
         setCustomFrom(data.filters.date_from);
       }
@@ -103,10 +110,12 @@ export function SellerStats() {
     } catch {
       setStats(null);
       setCustomerData(null);
+      setPreorderData(null);
       setError('Не удалось загрузить статистику');
     } finally {
       setLoading(false);
       setCustLoading(false);
+      setPreorderLoading(false);
     }
   }, []);
 
@@ -199,6 +208,13 @@ export function SellerStats() {
           onClick={() => setActiveTab('customers')}
         >
           Клиенты
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'preorders' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('preorders')}
+        >
+          Предзаказы
         </button>
       </div>
 
@@ -332,6 +348,47 @@ export function SellerStats() {
             )}
           </div>
         )}
+
+        {activeTab === 'preorders' && (
+          <div className="seller-stats-summary" style={{ marginTop: '1rem' }}>
+            {preorderLoading ? (
+              <div className="seller-chart-loading" />
+            ) : preorderData ? (
+              <>
+                <div className="summary-item">
+                  <span className="summary-label">Всего предзаказов</span>
+                  <span className="summary-value">{preorderData.total_preorders}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Выполнено</span>
+                  <span className="summary-value">{preorderData.completed_preorders}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Отменено</span>
+                  <span className="summary-value">{preorderData.cancelled_preorders}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">% выполнения</span>
+                  <span className="summary-value">{preorderData.completion_rate.toFixed(1)}%</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">% отмен</span>
+                  <span className="summary-value">{preorderData.cancellation_rate.toFixed(1)}%</span>
+                </div>
+                <div className="summary-item accent">
+                  <span className="summary-label">Выручка предзаказов</span>
+                  <span className="summary-value accent">{formatCurrency(preorderData.total_revenue, true)}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Средний срок заказа (дней до доставки)</span>
+                  <span className="summary-value">{preorderData.avg_lead_days.toFixed(1)}</span>
+                </div>
+              </>
+            ) : (
+              <p className="empty-text">Нет данных по предзаказам</p>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -439,6 +496,30 @@ export function SellerStats() {
             </div>
           )}
         </>
+      )}
+
+      {activeTab === 'preorders' && preorderData && (preorderData.top_products?.length ?? 0) > 0 && (
+        <div className="card seller-stats-top">
+          <h3>Топ товаров по предзаказам (за период)</h3>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Товар</th>
+                  <th>Предзаказов</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preorderData.top_products.map((p, i) => (
+                  <tr key={i}>
+                    <td>{p.product_name}</td>
+                    <td>{p.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {activeTab === 'customers' && customerData && (customerData.top_customers?.length ?? 0) > 0 && (

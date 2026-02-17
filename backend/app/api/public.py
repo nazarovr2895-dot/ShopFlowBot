@@ -90,6 +90,9 @@ class PublicSellerDetail(BaseModel):
     preorder_products: List[dict] = []
     preorder_available_dates: List[str] = []
     preorder_enabled: bool = False
+    preorder_discount_percent: float = 0
+    preorder_discount_min_days: int = 7
+    preorder_max_per_date: Optional[int] = None
     banner_url: Optional[str] = None
     subscriber_count: int = 0
 
@@ -530,6 +533,9 @@ async def get_public_seller_detail(
         preorder_products=preorder_products_list,
         preorder_available_dates=preorder_available_dates,
         preorder_enabled=preorder_enabled,
+        preorder_discount_percent=float(getattr(seller, "preorder_discount_percent", 0) or 0),
+        preorder_discount_min_days=getattr(seller, "preorder_discount_min_days", 7) or 7,
+        preorder_max_per_date=getattr(seller, "preorder_max_per_date", None),
         banner_url=getattr(seller, "banner_url", None),
         subscriber_count=subscriber_count,
     )

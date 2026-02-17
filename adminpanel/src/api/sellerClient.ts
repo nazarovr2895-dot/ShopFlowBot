@@ -63,6 +63,10 @@ export interface SellerMe {
   preorder_base_date?: string | null;
   preorder_custom_dates?: string[];
   preorder_available_dates?: string[];
+  preorder_min_lead_days?: number;
+  preorder_max_per_date?: number | null;
+  preorder_discount_percent?: number;
+  preorder_discount_min_days?: number;
   banner_url?: string | null;
 }
 
@@ -179,6 +183,10 @@ export async function updateMe(payload: {
   preorder_interval_days?: number;
   preorder_base_date?: string | null;
   preorder_custom_dates?: string[] | null;
+  preorder_min_lead_days?: number;
+  preorder_max_per_date?: number | null;
+  preorder_discount_percent?: number;
+  preorder_discount_min_days?: number;
   shop_name?: string;
   description?: string;
   delivery_type?: string;
@@ -895,4 +903,45 @@ export async function getSubscribers(): Promise<SubscribersResponse> {
 
 export async function getSubscriberCount(): Promise<{ count: number }> {
   return fetchSeller<{ count: number }>('/seller-web/subscribers/count');
+}
+
+// --- Preorder Summary & Analytics ---
+export interface PreorderSummaryItem {
+  product_id: number;
+  product_name: string;
+  total_quantity: number;
+  total_amount: number;
+  orders_count: number;
+}
+
+export interface PreorderSummary {
+  date: string;
+  items: PreorderSummaryItem[];
+  total_orders: number;
+  total_amount: number;
+}
+
+export async function getPreorderSummary(date: string): Promise<PreorderSummary> {
+  return fetchSeller<PreorderSummary>(`/seller-web/preorder-summary?date=${encodeURIComponent(date)}`);
+}
+
+export interface PreorderAnalytics {
+  total_preorders: number;
+  completed_preorders: number;
+  cancelled_preorders: number;
+  completion_rate: number;
+  cancellation_rate: number;
+  total_revenue: number;
+  avg_lead_days: number;
+  top_products: Array<{ product_name: string; count: number }>;
+}
+
+export async function getPreorderAnalytics(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<PreorderAnalytics> {
+  const sp = new URLSearchParams();
+  if (params?.period) sp.set('period', params.period);
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  const query = sp.toString();
+  const suffix = query ? `?${query}` : '';
+  return fetchSeller<PreorderAnalytics>(`/seller-web/preorder-analytics${suffix}`);
 }

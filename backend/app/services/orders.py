@@ -614,7 +614,13 @@ class OrderService:
                 "status": o.status,
                 "delivery_type": o.delivery_type,
                 "address": o.address,
-                "created_at": o.created_at.isoformat() if o.created_at else None
+                "created_at": o.created_at.isoformat() if o.created_at else None,
+                "is_preorder": getattr(o, "is_preorder", False),
+                "preorder_delivery_date": (
+                    o.preorder_delivery_date.isoformat()
+                    if getattr(o, "preorder_delivery_date", None)
+                    else None
+                ),
             }
             for o in orders
         ]
