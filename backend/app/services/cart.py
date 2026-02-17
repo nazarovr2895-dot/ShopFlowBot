@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 from decimal import Decimal
 
 from backend.app.models.cart import CartItem, BuyerFavoriteSeller, BuyerFavoriteProduct
+from backend.app.models.order import Order
 from backend.app.models.product import Product
 from backend.app.models.seller import Seller
 from backend.app.models.user import User
@@ -120,22 +121,44 @@ class CartService:
                     getattr(seller, "preorder_weekday", None),
                     getattr(seller, "preorder_interval_days", None),
                     getattr(seller, "preorder_base_date", None),
+                    getattr(seller, "preorder_custom_dates", None),
+                    min_lead_days=getattr(seller, "preorder_min_lead_days", 2) or 0,
                 )
                 if preorder_date.isoformat() not in available:
                     raise CartServiceError("Выбранная дата недоступна для предзаказа", 400)
+                # Check per-date capacity limit
+                max_per_date = getattr(seller, "preorder_max_per_date", None)
+                if max_per_date and max_per_date > 0:
+                    count_result = await self.session.execute(
+                        select(func.count(Order.id)).where(
+                            and_(
+                                Order.seller_id == product.seller_id,
+                                Order.is_preorder.is_(True),
+                                Order.preorder_delivery_date == preorder_date,
+                                Order.status.notin_(["rejected", "cancelled"]),
+                            )
+                        )
+                    )
+                    current_count = count_result.scalar() or 0
+                    if current_count >= max_per_date:
+                        raise CartServiceError(f"На эту дату все места заняты (лимит: {max_per_date})", 409)
         else:
             if product.quantity < 1:
                 raise CartServiceError("Product out of stock", 400)
             if quantity > product.quantity:
                 quantity = product.quantity
+        # For preorder items: match by (buyer, seller, product, date) to allow same product on different dates
+        filters = [
+            CartItem.buyer_id == buyer_id,
+            CartItem.seller_id == product.seller_id,
+            CartItem.product_id == product_id,
+        ]
+        if is_preorder:
+            filters.append(CartItem.preorder_delivery_date == preorder_date)
+        else:
+            filters.append(CartItem.preorder_delivery_date.is_(None))
         existing = await self.session.execute(
-            select(CartItem).where(
-                and_(
-                    CartItem.buyer_id == buyer_id,
-                    CartItem.seller_id == product.seller_id,
-                    CartItem.product_id == product_id,
-                )
-            )
+            select(CartItem).where(and_(*filters))
         )
         item = existing.scalar_one_or_none()
         if item:
@@ -143,9 +166,6 @@ class CartService:
             if not is_preorder and product.quantity < new_qty:
                 new_qty = product.quantity
             item.quantity = new_qty
-            if is_preorder:
-                item.is_preorder = True
-                item.preorder_delivery_date = preorder_date
         else:
             item = CartItem(
                 buyer_id=buyer_id,
@@ -245,10 +265,21 @@ class CartService:
                             preorder_date = date.fromisoformat(d[:10])
                         except (ValueError, TypeError):
                             pass
+                # Early bird preorder discount
+                preorder_discount_amount = Decimal("0")
+                if is_preorder and preorder_date and seller:
+                    discount_pct = Decimal(str(getattr(seller, "preorder_discount_percent", 0) or 0))
+                    min_days = int(getattr(seller, "preorder_discount_min_days", 7) or 7)
+                    if discount_pct > 0:
+                        from datetime import date as _date
+                        days_ahead = (preorder_date - _date.today()).days
+                        if days_ahead >= min_days:
+                            preorder_discount_amount = total * discount_pct / Decimal("100")
+                            total -= preorder_discount_amount
                 # Points discount calculation
                 points_used = Decimal("0")
                 points_discount = Decimal("0")
-                if points_by_seller and seller_id in points_by_seller and not is_preorder:
+                if points_by_seller and seller_id in points_by_seller:
                     requested_points = Decimal(str(points_by_seller[seller_id]))
                     if requested_points > 0:
                         rate = Decimal(str(getattr(seller, "points_to_ruble_rate", 1) or 1))
@@ -289,6 +320,9 @@ class CartService:
                         "total_price": float(order.total_price),
                         "points_used": float(points_used),
                         "points_discount": float(points_discount),
+                        "items_info": items_info,
+                        "is_preorder": is_preorder,
+                        "preorder_delivery_date": preorder_date.isoformat() if preorder_date else None,
                     })
                 except OrderServiceError as e:
                     raise CartServiceError(e.message, e.status_code)

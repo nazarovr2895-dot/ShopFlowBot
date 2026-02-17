@@ -20,6 +20,7 @@ STATUS_LABELS = {
     "done": "📬 Заказ доставлен. Подтвердите получение.",
     "completed": "✅ Заказ получен",
     "rejected": "❌ Заказ отклонён продавцом",
+    "cancelled": "🚫 Предзаказ отменён покупателем",
 }
 
 
@@ -82,12 +83,17 @@ async def notify_buyer_order_created(
     seller_id: int,
     items_info: str = "",
     total_price: Optional[float] = None,
+    is_preorder: bool = False,
+    preorder_delivery_date: Optional[str] = None,
 ) -> bool:
     """
     Notify buyer that order was created. "Заказ #N оформлен. Ожидайте подтверждения продавца."
     Includes 3 buttons: open order, contact seller, I received order.
     """
-    text = f"📦 *Заказ #{order_id}* оформлен. Ожидайте подтверждения продавца."
+    if is_preorder and preorder_delivery_date:
+        text = f"📋 *Предзаказ #{order_id}* на *{preorder_delivery_date}* оформлен. Ожидайте подтверждения продавца."
+    else:
+        text = f"📦 *Заказ #{order_id}* оформлен. Ожидайте подтверждения продавца."
     if items_info:
         text += f"\n\n🛒 {items_info}"
     if total_price is not None:
@@ -101,11 +107,16 @@ async def notify_seller_new_order(
     order_id: int,
     items_info: str = "",
     total_price: Optional[float] = None,
+    is_preorder: bool = False,
+    preorder_delivery_date: Optional[str] = None,
 ) -> bool:
     """
     Notify seller about new order. Принять/отклонить — в админ-панели.
     """
-    text = f"🆕 Новый заказ *#{order_id}*"
+    if is_preorder and preorder_delivery_date:
+        text = f"📋 Новый *предзаказ* *#{order_id}* на *{preorder_delivery_date}*"
+    else:
+        text = f"🆕 Новый заказ *#{order_id}*"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
     if items_info:
@@ -160,6 +171,65 @@ async def notify_buyer_order_status(
         text += f"\n💰 Сумма: {total_price:.0f} руб."
     reply_markup = _order_notification_keyboard(order_id, seller_id)
     return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
+
+
+async def notify_seller_preorder_cancelled(
+    seller_id: int,
+    order_id: int,
+    items_info: str = "",
+    preorder_delivery_date: Optional[str] = None,
+) -> bool:
+    """Notify seller that a preorder was cancelled by the buyer."""
+    date_part = f" на *{preorder_delivery_date}*" if preorder_delivery_date else ""
+    text = f"🚫 Предзаказ *#{order_id}*{date_part} отменён покупателем."
+    if items_info:
+        text += f"\n\n🛒 {items_info}"
+    return await _send_telegram_message(seller_id, text)
+
+
+async def notify_preorder_reminder_buyer(
+    buyer_id: int,
+    order_id: int,
+    seller_id: int,
+    preorder_delivery_date: str,
+    items_info: str = "",
+) -> bool:
+    """Remind buyer about upcoming preorder delivery (1 day before)."""
+    text = f"📋 Напоминание: ваш предзаказ *#{order_id}* на *{preorder_delivery_date}* будет выполнен завтра."
+    if items_info:
+        text += f"\n\n🛒 {items_info}"
+    reply_markup = _order_notification_keyboard(order_id, seller_id)
+    return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
+
+
+async def notify_preorder_summary_seller(
+    seller_id: int,
+    delivery_date: str,
+    orders_count: int,
+    total_amount: float,
+    items_summary: str = "",
+) -> bool:
+    """Send seller a summary of preorders for an upcoming date."""
+    text = f"📋 *Предзаказы на {delivery_date}*\n\n"
+    text += f"📦 Заказов: {orders_count}\n"
+    text += f"💰 Общая сумма: {total_amount:.0f} руб."
+    if items_summary:
+        text += f"\n\n📝 Что нужно подготовить:\n{items_summary}"
+    return await _send_telegram_message(seller_id, text)
+
+
+async def notify_subscriber_preorder_opened(
+    buyer_id: int,
+    shop_name: str,
+    seller_id: int,
+    message: str = "",
+) -> bool:
+    """Notify a subscriber that a seller opened preorders (e.g., for a holiday)."""
+    text = f"🌸 *{shop_name}* открыл предзаказы!"
+    if message:
+        text += f"\n\n{message}"
+    text += f"\n\n📱 Оформить предзаказ → tg://user?id={seller_id}"
+    return await _send_telegram_message(buyer_id, text)
 
 
 async def notify_seller_upcoming_events(

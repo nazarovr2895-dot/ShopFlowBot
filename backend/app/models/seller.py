@@ -43,8 +43,12 @@ class Seller(Base):
     preorder_weekday: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 0=Mon, 6=Sun
     preorder_interval_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     preorder_base_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    # Temporarily commented out until migration is applied - uncomment after running: alembic upgrade head
     preorder_custom_dates: Mapped[Optional[List[str]]] = mapped_column(JSON(), nullable=True)  # List of YYYY-MM-DD dates
+    preorder_min_lead_days: Mapped[int] = mapped_column(Integer, default=2)  # Min days before preorder date
+    preorder_max_per_date: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Max preorders per delivery date (null=unlimited)
+    # Early bird discount for preorders placed N+ days in advance
+    preorder_discount_percent: Mapped[float] = mapped_column(DECIMAL(5, 2), default=0)  # e.g. 10.00 = 10%
+    preorder_discount_min_days: Mapped[int] = mapped_column(Integer, default=7)  # Min days ahead for discount
     # Loyalty tiers config: [{"name": "Бронза", "min_total": 0, "points_percent": 3}, ...]
     loyalty_tiers_config: Mapped[Optional[list]] = mapped_column(JSON(), nullable=True)
     # Points expire after N days (null = never expire)

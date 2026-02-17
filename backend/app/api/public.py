@@ -478,7 +478,7 @@ async def get_public_seller_detail(
         raise HTTPException(status_code=404, detail="Продавец не найден")
     from backend.app.services.sellers import get_preorder_available_dates
     # Column temporarily commented out in model until migration is applied
-    preorder_custom_dates = None  # Will be available after migration: alembic upgrade head
+    preorder_custom_dates = getattr(seller, "preorder_custom_dates", None)
     preorder_available_dates = get_preorder_available_dates(
         getattr(seller, "preorder_enabled", False),
         getattr(seller, "preorder_schedule_type", None),
@@ -486,6 +486,7 @@ async def get_public_seller_detail(
         getattr(seller, "preorder_interval_days", None),
         getattr(seller, "preorder_base_date", None),
         preorder_custom_dates,
+        min_lead_days=getattr(seller, "preorder_min_lead_days", 2) or 0,
     )
     preorder_enabled = bool(getattr(seller, "preorder_enabled", False) and preorder_available_dates and preorder_products)
 

@@ -348,6 +348,40 @@ async def checkout_cart(
             points_by_seller=points_by_seller or None,
         )
         await session.commit()
+
+        # Send Telegram notifications for each created order
+        from backend.app.services.telegram_notify import (
+            notify_buyer_order_created,
+            notify_seller_new_order,
+        )
+        for o in orders:
+            preorder_date_str = o.get("preorder_delivery_date")
+            if preorder_date_str:
+                # Format YYYY-MM-DD to DD.MM.YYYY for display
+                try:
+                    from datetime import date as _date
+                    d = _date.fromisoformat(preorder_date_str)
+                    preorder_date_str = d.strftime("%d.%m.%Y")
+                except (ValueError, TypeError):
+                    pass
+            await notify_buyer_order_created(
+                buyer_id=current_user.user.id,
+                order_id=o["order_id"],
+                seller_id=o["seller_id"],
+                items_info=o.get("items_info", ""),
+                total_price=o.get("total_price"),
+                is_preorder=o.get("is_preorder", False),
+                preorder_delivery_date=preorder_date_str,
+            )
+            await notify_seller_new_order(
+                seller_id=o["seller_id"],
+                order_id=o["order_id"],
+                items_info=o.get("items_info", ""),
+                total_price=o.get("total_price"),
+                is_preorder=o.get("is_preorder", False),
+                preorder_delivery_date=preorder_date_str,
+            )
+
         return {"orders": orders}
     except CartServiceError as e:
         await session.rollback()
@@ -506,5 +540,44 @@ async def confirm_order_received(
         await session.commit()
         return {"status": "ok", "new_status": result["new_status"]}
     except (OrderNotFoundError, InvalidOrderStatusError) as e:
+        await session.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/me/orders/{order_id}/cancel")
+async def cancel_order(
+    order_id: int,
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
+    session: AsyncSession = Depends(get_session),
+):
+    """Отменить предзаказ (только для предзаказов в статусе pending/accepted)."""
+    from backend.app.services.orders import OrderServiceError
+    order_service = OrderService(session)
+    try:
+        result = await order_service.cancel_order(order_id, current_user.user.id)
+        await session.commit()
+
+        # Notify seller about cancellation
+        from backend.app.services.telegram_notify import notify_seller_preorder_cancelled
+        preorder_date = None
+        order_obj = await session.get(Order, order_id)
+        if order_obj and getattr(order_obj, "preorder_delivery_date", None):
+            preorder_date = order_obj.preorder_delivery_date.strftime("%d.%m.%Y")
+        await notify_seller_preorder_cancelled(
+            seller_id=result["seller_id"],
+            order_id=order_id,
+            items_info=result.get("items_info", ""),
+            preorder_delivery_date=preorder_date,
+        )
+
+        return {
+            "status": "ok",
+            "new_status": result["new_status"],
+            "points_refunded": result.get("points_refunded", 0),
+        }
+    except (OrderNotFoundError, InvalidOrderStatusError) as e:
+        await session.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except OrderServiceError as e:
         await session.rollback()
         raise HTTPException(status_code=e.status_code, detail=e.message)

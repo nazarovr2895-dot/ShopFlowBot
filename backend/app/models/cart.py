@@ -22,7 +22,7 @@ class CartItem(Base):
     preorder_delivery_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint('buyer_id', 'seller_id', 'product_id', name='uq_cart_buyer_seller_product'),
+        UniqueConstraint('buyer_id', 'seller_id', 'product_id', 'preorder_delivery_date', name='uq_cart_buyer_seller_product_date'),
         Index('ix_cart_items_buyer_id', 'buyer_id'),
     )
 

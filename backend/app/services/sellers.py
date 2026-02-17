@@ -52,18 +52,23 @@ def get_preorder_available_dates(
     preorder_base_date: Optional[date],
     preorder_custom_dates: Optional[List[str]] = None,
     count: int = 4,
+    min_lead_days: int = 0,
 ) -> List[str]:
-    """Compute next available delivery dates for preorder (YYYY-MM-DD)."""
+    """Compute next available delivery dates for preorder (YYYY-MM-DD).
+
+    min_lead_days: minimum days from today that a date must be to be available.
+    """
     if not preorder_enabled or not preorder_schedule_type:
         return []
     today = _today_6am_date()
+    earliest = today + timedelta(days=min_lead_days) if min_lead_days > 0 else today
     result: List[str] = []
     if preorder_schedule_type == "custom_dates" and preorder_custom_dates:
-        # Return custom dates that are >= today, sorted, limited to count
+        # Return custom dates that are >= earliest, sorted, limited to count
         for d_str in sorted(preorder_custom_dates):
             try:
                 d = date.fromisoformat(d_str[:10])
-                if d >= today:
+                if d >= earliest:
                     result.append(d.isoformat())
                     if len(result) >= count:
                         break
@@ -71,9 +76,8 @@ def get_preorder_available_dates(
                 continue
     elif preorder_schedule_type == "weekly" and preorder_weekday is not None:
         # 0=Monday, 6=Sunday
-        current = today
+        current = earliest
         while len(result) < count:
-            # weekday() in Python: 0=Mon, 6=Sun
             if current.weekday() == preorder_weekday:
                 result.append(current.isoformat())
             current += timedelta(days=1)
@@ -83,7 +87,7 @@ def get_preorder_available_dates(
         k = 0
         while len(result) < count:
             d = preorder_base_date + timedelta(days=k * preorder_interval_days)
-            if d >= today:
+            if d >= earliest:
                 result.append(d.isoformat())
             k += 1
             if k > 52:
@@ -200,6 +204,7 @@ class SellerService:
             getattr(seller, "preorder_interval_days", None),
             getattr(seller, "preorder_base_date", None),
             preorder_custom_dates,
+            min_lead_days=getattr(seller, "preorder_min_lead_days", 2) or 0,
         )
         return {
             "seller_id": seller.seller_id,

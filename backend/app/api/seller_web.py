@@ -108,6 +108,10 @@ class UpdateMeBody(BaseModel):
     preorder_interval_days: Optional[int] = None
     preorder_base_date: Optional[str] = None  # YYYY-MM-DD
     preorder_custom_dates: Optional[List[str]] = None  # List of YYYY-MM-DD dates
+    preorder_min_lead_days: Optional[int] = None  # Min days before preorder date (default 2)
+    preorder_max_per_date: Optional[int] = None  # Max preorders per delivery date (null=unlimited)
+    preorder_discount_percent: Optional[float] = None  # Early bird discount percent (e.g. 10.0)
+    preorder_discount_min_days: Optional[int] = None  # Min days ahead for discount (default 7)
     # Shop settings
     shop_name: Optional[str] = None
     description: Optional[str] = None
@@ -213,6 +217,14 @@ async def update_me(
                     error=str(e)
                 )
                 # Ignore if column doesn't exist (migration not applied)
+        if body.preorder_min_lead_days is not None:
+            seller.preorder_min_lead_days = max(0, body.preorder_min_lead_days)
+        if body.preorder_max_per_date is not None:
+            seller.preorder_max_per_date = body.preorder_max_per_date if body.preorder_max_per_date > 0 else None
+        if body.preorder_discount_percent is not None:
+            seller.preorder_discount_percent = max(0, min(100, body.preorder_discount_percent))
+        if body.preorder_discount_min_days is not None:
+            seller.preorder_discount_min_days = max(1, body.preorder_discount_min_days)
         await session.commit()
     data = await service.get_seller(seller_id)
     if not data:
@@ -415,6 +427,92 @@ async def update_order_price(
         await session.rollback()
         logger.exception("update_order_price failed for order_id=%s", order_id)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- PREORDER CAMPAIGNS ---
+class PreorderCampaignNotifyBody(BaseModel):
+    message: Optional[str] = None  # Custom message to include in notification
+
+
+@router.post("/preorder-notify-subscribers")
+async def notify_subscribers_preorder(
+    body: PreorderCampaignNotifyBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Send a push notification to all subscribers that preorders are open."""
+    from backend.app.models.cart import BuyerFavoriteSeller
+    from backend.app.services.telegram_notify import notify_subscriber_preorder_opened
+
+    seller = await session.get(Seller, seller_id)
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found")
+    shop_name = seller.shop_name or "Магазин"
+
+    result = await session.execute(
+        select(BuyerFavoriteSeller.buyer_id).where(BuyerFavoriteSeller.seller_id == seller_id)
+    )
+    subscriber_ids = [row[0] for row in result.all()]
+    if not subscriber_ids:
+        return {"sent": 0, "total_subscribers": 0}
+
+    sent = 0
+    for buyer_id in subscriber_ids:
+        ok = await notify_subscriber_preorder_opened(
+            buyer_id=buyer_id,
+            shop_name=shop_name,
+            seller_id=seller_id,
+            message=body.message or "",
+        )
+        if ok:
+            sent += 1
+
+    return {"sent": sent, "total_subscribers": len(subscriber_ids)}
+
+
+# --- PREORDER PROCUREMENT ---
+@router.get("/preorder-summary")
+async def get_preorder_summary(
+    date: str = Query(..., description="Delivery date YYYY-MM-DD"),
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Aggregated preorder summary for a specific delivery date (procurement planning)."""
+    try:
+        target_date = datetime.strptime(date[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid date format (expected YYYY-MM-DD)")
+    service = OrderService(session)
+    return await service.get_preorder_summary(seller_id, target_date)
+
+
+@router.get("/preorder-analytics")
+async def get_preorder_analytics(
+    period: Optional[str] = Query(None, description="Predefined range: 7d, 30d, 90d"),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Preorder-specific analytics (completion rate, avg lead time, revenue)."""
+    dt_from, dt_to = None, None
+    if period:
+        days_map = {"7d": 7, "30d": 30, "90d": 90}
+        days = days_map.get(period)
+        if days:
+            dt_from = datetime.utcnow() - timedelta(days=days)
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from[:10], "%Y-%m-%d")
+        except (ValueError, TypeError):
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to[:10], "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+        except (ValueError, TypeError):
+            pass
+    service = OrderService(session)
+    return await service.get_preorder_analytics(seller_id, dt_from, dt_to)
 
 
 # --- STATS ---

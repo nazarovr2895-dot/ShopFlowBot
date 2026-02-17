@@ -73,7 +73,7 @@ class OrderAccessDeniedError(OrderServiceError):
 class OrderService:
     """Service class for order operations."""
     
-    VALID_STATUSES = ["pending", "accepted", "assembling", "in_transit", "done", "completed", "rejected"]
+    VALID_STATUSES = ["pending", "accepted", "assembling", "in_transit", "done", "completed", "rejected", "cancelled"]
     
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -273,6 +273,55 @@ class OrderService:
             "new_status": "rejected"
         }
     
+    async def cancel_order(self, order_id: int, buyer_id: int) -> Dict[str, Any]:
+        """
+        Cancel a preorder by the buyer.
+        Allowed for orders in 'pending' or 'accepted' status with is_preorder=True.
+        Refunds loyalty points if they were used.
+        Returns dict with order info for notification purposes.
+        """
+        order = await self.session.get(Order, order_id)
+        if not order:
+            raise OrderNotFoundError(order_id)
+        if order.buyer_id != buyer_id:
+            raise OrderAccessDeniedError(order_id)
+        if order.status not in ("pending", "accepted"):
+            raise InvalidOrderStatusError(order_id, order.status, "pending or accepted")
+        if not getattr(order, "is_preorder", False):
+            raise OrderServiceError("Отмена доступна только для предзаказов", 400)
+
+        old_status = order.status
+        # Update seller counters
+        seller = await self._get_seller_for_update(order.seller_id)
+        if old_status == "accepted" and seller and seller.active_orders > 0:
+            seller.active_orders -= 1
+
+        # Refund loyalty points if used
+        points_refunded = 0.0
+        if order.points_used and float(order.points_used) > 0:
+            loyalty_svc = LoyaltyService(self.session)
+            # Find customer by buyer phone
+            buyer = await self.session.get(User, buyer_id)
+            if buyer and getattr(buyer, "phone", None):
+                phone = normalize_phone(buyer.phone)
+                customer = await loyalty_svc.find_customer_by_phone(order.seller_id, phone)
+                if customer:
+                    customer.points_balance = (customer.points_balance or 0) + float(order.points_used)
+                    points_refunded = float(order.points_used)
+
+        order.status = "cancelled"
+
+        return {
+            "order_id": order.id,
+            "buyer_id": order.buyer_id,
+            "seller_id": order.seller_id,
+            "items_info": order.items_info,
+            "total_price": float(order.total_price) if order.total_price is not None else 0.0,
+            "new_status": "cancelled",
+            "old_status": old_status,
+            "points_refunded": points_refunded,
+        }
+
     async def complete_order(self, order_id: int) -> Dict[str, Any]:
         """
         Mark accepted order as done (by seller). Frees up active slot.
@@ -1036,6 +1085,116 @@ class OrderService:
                 current += timedelta(days=1)
 
         return {"daily_sales": daily_series}
+
+    async def get_preorder_summary(self, seller_id: int, target_date: date) -> Dict[str, Any]:
+        """Get aggregated preorder summary for a specific delivery date.
+
+        Returns product breakdown with quantities for procurement planning.
+        """
+        result = await self.session.execute(
+            select(Order).where(
+                Order.seller_id == seller_id,
+                Order.is_preorder.is_(True),
+                Order.preorder_delivery_date == target_date,
+                Order.status.notin_(["rejected", "cancelled"]),
+            )
+        )
+        orders = list(result.scalars().all())
+        if not orders:
+            return {
+                "date": target_date.isoformat(),
+                "orders_count": 0,
+                "total_amount": 0.0,
+                "products": [],
+            }
+
+        total_amount = sum(float(o.total_price or 0) for o in orders)
+        items_pattern = re.compile(r'(\d+):(.+?)\s*[x×]\s*(\d+)')
+
+        # Aggregate products
+        product_totals: Dict[int, Dict[str, Any]] = {}
+        for order in orders:
+            for pid_str, pname, qty_str in items_pattern.findall(order.items_info or ""):
+                pid = int(pid_str)
+                qty = int(qty_str)
+                if pid not in product_totals:
+                    product_totals[pid] = {"product_id": pid, "name": pname.strip(), "total_quantity": 0, "order_count": 0}
+                product_totals[pid]["total_quantity"] += qty
+                product_totals[pid]["order_count"] += 1
+
+        # Enrich with bouquet flower breakdown
+        product_ids = list(product_totals.keys())
+        if product_ids:
+            products_result = await self.session.execute(
+                select(Product).where(Product.id.in_(product_ids))
+            )
+            products_map = {p.id: p for p in products_result.scalars().all()}
+            for pid, info in product_totals.items():
+                product = products_map.get(pid)
+                if product and getattr(product, "bouquet_id", None):
+                    info["bouquet_id"] = product.bouquet_id
+
+        products_list = sorted(product_totals.values(), key=lambda x: x["total_quantity"], reverse=True)
+
+        return {
+            "date": target_date.isoformat(),
+            "orders_count": len(orders),
+            "total_amount": round(total_amount, 2),
+            "products": products_list,
+        }
+
+    async def get_preorder_analytics(
+        self,
+        seller_id: int,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Get preorder-specific analytics for seller stats dashboard."""
+        base = select(Order).where(
+            Order.seller_id == seller_id,
+            Order.is_preorder.is_(True),
+        )
+        if date_from:
+            base = base.where(Order.created_at >= date_from)
+        if date_to:
+            base = base.where(Order.created_at <= date_to)
+        result = await self.session.execute(base)
+        preorders = list(result.scalars().all())
+
+        if not preorders:
+            return {
+                "total_preorders": 0,
+                "completed_preorders": 0,
+                "cancelled_preorders": 0,
+                "preorder_revenue": 0.0,
+                "avg_lead_days": 0,
+                "completion_rate": 0.0,
+                "cancellation_rate": 0.0,
+            }
+
+        total = len(preorders)
+        completed = [o for o in preorders if o.status in ("done", "completed")]
+        cancelled = [o for o in preorders if o.status == "cancelled"]
+        revenue = sum(float(o.total_price or 0) for o in completed)
+
+        # Average lead time (days between order creation and delivery date)
+        lead_days = []
+        for o in preorders:
+            if o.preorder_delivery_date and o.created_at:
+                delta = (o.preorder_delivery_date - o.created_at.date()).days
+                if delta >= 0:
+                    lead_days.append(delta)
+        avg_lead = round(sum(lead_days) / len(lead_days), 1) if lead_days else 0
+
+        return {
+            "total_preorders": total,
+            "completed_preorders": len(completed),
+            "cancelled_preorders": len(cancelled),
+            "preorder_revenue": round(revenue, 2),
+            "avg_lead_days": avg_lead,
+            "completion_rate": round(len(completed) / total * 100, 1) if total else 0,
+            "cancellation_rate": round(len(cancelled) / total * 100, 1) if total else 0,
+        }
 
 
 # Legacy functions for backward compatibility
