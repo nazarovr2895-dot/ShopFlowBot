@@ -459,6 +459,28 @@ export async function getCustomerSegments(): Promise<CustomerSegments> {
   return fetchSeller<CustomerSegments>('/seller-web/customers/segments');
 }
 
+/** Unified customer entry: subscriber and/or loyalty card holder */
+export interface UnifiedCustomerBrief {
+  buyer_id: number | null;
+  username: string | null;
+  fio: string | null;
+  phone: string | null;
+  subscribed_at: string | null;
+  loyalty_card_number: string | null;
+  loyalty_points: number;
+  loyalty_customer_id: number | null;
+  has_loyalty: boolean;
+  first_name: string | null;
+  last_name: string | null;
+  tags: string[] | null;
+  birthday: string | null;
+  segment: string | null;
+}
+
+export async function getAllCustomers(): Promise<UnifiedCustomerBrief[]> {
+  return fetchSeller<UnifiedCustomerBrief[]>('/seller-web/customers/all');
+}
+
 export async function createCustomer(data: { phone: string; first_name: string; last_name: string; birthday?: string | null }): Promise<SellerCustomerBrief> {
   return fetchSeller<SellerCustomerBrief>('/seller-web/customers', {
     method: 'POST',

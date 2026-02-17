@@ -1361,6 +1361,19 @@ async def export_customers_csv(
     )
 
 
+@router.get("/customers/all")
+async def list_all_customers(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Unified list: all subscribers + standalone loyalty customers.
+    Used by the Customers page to show the full client base with search support.
+    """
+    from backend.app.services.cart import FavoriteSellersService
+    svc = FavoriteSellersService(session)
+    return await svc.get_subscribers_with_customers(seller_id)
+
+
 @router.get("/customers/{customer_id}")
 async def get_customer(
     customer_id: int,

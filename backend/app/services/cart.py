@@ -416,6 +416,164 @@ class FavoriteSellersService:
             for row in rows
         ]
 
+    async def get_subscribers_with_customers(self, seller_id: int) -> List[Dict[str, Any]]:
+        """Get unified list: all subscribers + standalone loyalty customers (without subscription).
+        Used by the Customers page to show the full client base.
+        """
+        from backend.app.models.loyalty import SellerCustomer
+        from backend.app.models.order import Order
+        from backend.app.services.loyalty import compute_rfm_segment
+
+        # 1. All subscribers with user info + optional loyalty card data
+        result = await self.session.execute(
+            select(
+                BuyerFavoriteSeller,
+                User.username,
+                User.fio,
+                User.phone,
+                SellerCustomer.card_number,
+                SellerCustomer.points_balance,
+                SellerCustomer.id.label("customer_id"),
+                SellerCustomer.first_name.label("sc_first_name"),
+                SellerCustomer.last_name.label("sc_last_name"),
+                SellerCustomer.tags.label("sc_tags"),
+                SellerCustomer.birthday.label("sc_birthday"),
+                SellerCustomer.created_at.label("sc_created_at"),
+            )
+            .join(User, BuyerFavoriteSeller.buyer_id == User.tg_id)
+            .outerjoin(
+                SellerCustomer,
+                and_(
+                    SellerCustomer.seller_id == BuyerFavoriteSeller.seller_id,
+                    SellerCustomer.linked_user_id == BuyerFavoriteSeller.buyer_id,
+                )
+            )
+            .where(BuyerFavoriteSeller.seller_id == seller_id)
+            .order_by(BuyerFavoriteSeller.subscribed_at.desc())
+        )
+        subscriber_rows = result.all()
+
+        # Collect buyer_ids that are already in subscriber list (to avoid duplicates)
+        subscriber_buyer_ids = {row[0].buyer_id for row in subscriber_rows}
+
+        # 2. Standalone loyalty customers (no linked_user_id or linked but not subscribed)
+        result2 = await self.session.execute(
+            select(SellerCustomer)
+            .where(
+                SellerCustomer.seller_id == seller_id,
+                SellerCustomer.linked_user_id.is_(None),
+            )
+        )
+        standalone_customers = result2.scalars().all()
+
+        # 3. Get order stats for RFM segmentation (by buyer_id)
+        # Gather all buyer_ids to compute segments
+        all_buyer_ids = list(subscriber_buyer_ids)
+        order_stats: Dict[int, Dict[str, Any]] = {}  # buyer_id -> {last_order, count, total}
+
+        if all_buyer_ids:
+            order_result = await self.session.execute(
+                select(
+                    Order.buyer_id,
+                    func.count(Order.id).label("order_count"),
+                    func.sum(Order.total_price).label("total_spent"),
+                    func.max(Order.created_at).label("last_order_at"),
+                )
+                .where(
+                    Order.seller_id == seller_id,
+                    Order.buyer_id.in_(all_buyer_ids),
+                    Order.status.in_(["done", "completed"]),
+                )
+                .group_by(Order.buyer_id)
+            )
+            for orow in order_result.all():
+                order_stats[orow.buyer_id] = {
+                    "order_count": orow.order_count or 0,
+                    "total_spent": float(orow.total_spent or 0),
+                    "last_order_at": orow.last_order_at,
+                }
+
+        # 4. Also get order stats by phone for standalone customers
+        standalone_phones = [sc.phone for sc in standalone_customers if sc.phone]
+        phone_order_stats: Dict[str, Dict[str, Any]] = {}
+        if standalone_phones:
+            # Match orders by buyer phone
+            phone_result = await self.session.execute(
+                select(
+                    User.phone,
+                    func.count(Order.id).label("order_count"),
+                    func.sum(Order.total_price).label("total_spent"),
+                    func.max(Order.created_at).label("last_order_at"),
+                )
+                .join(Order, Order.buyer_id == User.tg_id)
+                .where(
+                    Order.seller_id == seller_id,
+                    User.phone.in_(standalone_phones),
+                    Order.status.in_(["done", "completed"]),
+                )
+                .group_by(User.phone)
+            )
+            for prow in phone_result.all():
+                if prow.phone:
+                    phone_order_stats[prow.phone] = {
+                        "order_count": prow.order_count or 0,
+                        "total_spent": float(prow.total_spent or 0),
+                        "last_order_at": prow.last_order_at,
+                    }
+
+        # 5. Build unified list
+        unified: List[Dict[str, Any]] = []
+
+        for row in subscriber_rows:
+            bfs = row[0]
+            buyer_id = bfs.buyer_id
+            stats = order_stats.get(buyer_id, {"order_count": 0, "total_spent": 0, "last_order_at": None})
+            last_dt = stats["last_order_at"]
+            last_date = last_dt.date() if last_dt else None
+            segment = compute_rfm_segment(last_date, stats["order_count"], stats["total_spent"])
+
+            unified.append({
+                "buyer_id": buyer_id,
+                "username": row.username,
+                "fio": row.fio,
+                "phone": row.phone,
+                "subscribed_at": bfs.subscribed_at.isoformat() if bfs.subscribed_at else None,
+                "loyalty_card_number": row.card_number,
+                "loyalty_points": float(row.points_balance) if row.points_balance else 0,
+                "loyalty_customer_id": row.customer_id,
+                "has_loyalty": row.card_number is not None,
+                "first_name": row.sc_first_name,
+                "last_name": row.sc_last_name,
+                "tags": row.sc_tags,
+                "birthday": row.sc_birthday.isoformat() if row.sc_birthday else None,
+                "segment": segment,
+            })
+
+        for sc in standalone_customers:
+            stats = phone_order_stats.get(sc.phone, {"order_count": 0, "total_spent": 0, "last_order_at": None})
+            last_dt = stats["last_order_at"]
+            last_date = last_dt.date() if last_dt else None
+            segment = compute_rfm_segment(last_date, stats["order_count"], stats["total_spent"])
+
+            unified.append({
+                "buyer_id": None,
+                "username": None,
+                "fio": None,
+                "phone": sc.phone,
+                "subscribed_at": sc.created_at.isoformat() if sc.created_at else None,
+                "loyalty_card_number": sc.card_number,
+                "loyalty_points": float(sc.points_balance) if sc.points_balance else 0,
+                "loyalty_customer_id": sc.id,
+                "has_loyalty": True,
+                "first_name": sc.first_name,
+                "last_name": sc.last_name,
+                "tags": sc.tags,
+                "birthday": sc.birthday.isoformat() if sc.birthday else None,
+                "segment": segment,
+            })
+
+        return unified
+
     async def auto_link_loyalty_for_subscriptions(self, buyer_id: int) -> None:
         """Auto-create loyalty records for all existing subscriptions when buyer adds phone."""
         result = await self.session.execute(

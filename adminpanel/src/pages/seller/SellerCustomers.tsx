@@ -4,9 +4,8 @@ import { Link } from 'react-router-dom';
 import {
   getLoyaltySettings,
   updateLoyaltySettings,
-  getCustomers,
+  getAllCustomers,
   getCustomerTags,
-  getCustomerSegments,
   createCustomer,
   getCustomer,
   recordSale,
@@ -18,7 +17,7 @@ import {
   updateCustomerEvent,
   deleteCustomerEvent,
 } from '../../api/sellerClient';
-import type { SellerCustomerBrief, SellerCustomerDetail, SellerOrder, CustomerEvent, LoyaltyTier } from '../../api/sellerClient';
+import type { UnifiedCustomerBrief, SellerCustomerDetail, SellerOrder, CustomerEvent, LoyaltyTier } from '../../api/sellerClient';
 import './SellerCustomers.css';
 
 function formatDate(iso: string | null): string {
@@ -76,7 +75,7 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
 export function SellerCustomers() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [customers, setCustomers] = useState<SellerCustomerBrief[]>([]);
+  const [customers, setCustomers] = useState<UnifiedCustomerBrief[]>([]);
   const [detail, setDetail] = useState<SellerCustomerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [pointsPercent, setPointsPercent] = useState<string>('');
@@ -110,11 +109,10 @@ export function SellerCustomers() {
 
   const loadList = useCallback(async () => {
     try {
-      const [list, settings, tags, segments] = await Promise.all([
-        getCustomers(tagFilter || undefined),
+      const [list, settings, tags] = await Promise.all([
+        getAllCustomers(),
         getLoyaltySettings(),
         getCustomerTags(),
-        getCustomerSegments(),
       ]);
       setCustomers(list || []);
       setPointsPercent(String(settings.points_percent ?? ''));
@@ -123,16 +121,23 @@ export function SellerCustomers() {
       setTiersConfig(settings.tiers_config || []);
       setPointsExpireDays(settings.points_expire_days ? String(settings.points_expire_days) : '');
       setAllTags(tags || []);
-      setSegmentCounts(segments.segments || {});
+      // Build segment counts and map from unified list
+      const counts: Record<string, number> = {};
       const sMap: Record<number, string> = {};
-      (segments.customers || []).forEach((c) => { sMap[c.id] = c.segment; });
+      (list || []).forEach((c) => {
+        if (c.segment) {
+          counts[c.segment] = (counts[c.segment] || 0) + 1;
+          if (c.loyalty_customer_id) sMap[c.loyalty_customer_id] = c.segment;
+        }
+      });
+      setSegmentCounts(counts);
       setSegmentMap(sMap);
     } catch {
       setCustomers([]);
     } finally {
       setLoading(false);
     }
-  }, [tagFilter]);
+  }, []);
 
   const loadDetail = useCallback(async (customerId: number) => {
     setLoading(true);
@@ -164,7 +169,7 @@ export function SellerCustomers() {
     } else {
       loadList();
     }
-  }, [id, loadList, loadDetail, tagFilter]);
+  }, [id, loadList, loadDetail]);
 
   const handleSaveLoyaltySettings = async () => {
     const num = parseFloat(pointsPercent.replace(',', '.'));
@@ -346,13 +351,18 @@ export function SellerCustomers() {
 
   const filteredCustomers = customers.filter((c) => {
     if (search.trim()) {
-      const q = search.toLowerCase();
-      const match = c.phone.includes(search) ||
-        `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
-        c.card_number.toLowerCase().includes(q);
+      const q = search.trim().toLowerCase();
+      const match =
+        (c.fio && c.fio.toLowerCase().includes(q)) ||
+        (c.username && c.username.toLowerCase().includes(q)) ||
+        (c.phone && c.phone.includes(search.trim())) ||
+        (c.first_name && c.first_name.toLowerCase().includes(q)) ||
+        (c.last_name && c.last_name.toLowerCase().includes(q)) ||
+        (c.loyalty_card_number && c.loyalty_card_number.toLowerCase().includes(q));
       if (!match) return false;
     }
-    if (segmentFilter && segmentMap[c.id] !== segmentFilter) return false;
+    if (tagFilter && !(c.tags || []).includes(tagFilter)) return false;
+    if (segmentFilter && c.segment !== segmentFilter) return false;
     return true;
   });
 
@@ -795,10 +805,25 @@ export function SellerCustomers() {
           </button>
         </form>
       </div>
+      {/* Stats */}
+      <div className="subscribers-stats" style={{ display: 'flex', gap: '0.5rem', margin: '0.5rem 0' }}>
+        <div className="stat-card" style={{ flex: 1, textAlign: 'center', padding: '0.5rem', background: '#f8f9fa', borderRadius: '8px' }}>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{customers.length}</div>
+          <div style={{ fontSize: '0.8rem', color: '#666' }}>Всего</div>
+        </div>
+        <div className="stat-card" style={{ flex: 1, textAlign: 'center', padding: '0.5rem', background: '#f8f9fa', borderRadius: '8px' }}>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{customers.filter(c => c.has_loyalty).length}</div>
+          <div style={{ fontSize: '0.8rem', color: '#666' }}>С картой</div>
+        </div>
+        <div className="stat-card" style={{ flex: 1, textAlign: 'center', padding: '0.5rem', background: '#f8f9fa', borderRadius: '8px' }}>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{customers.filter(c => !c.has_loyalty).length}</div>
+          <div style={{ fontSize: '0.8rem', color: '#666' }}>Без карты</div>
+        </div>
+      </div>
       <div className="customers-search-and-export">
         <input
           type="search"
-          placeholder="Поиск по имени, телефону или номеру карты"
+          placeholder="Поиск по имени, @username или телефону"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -852,47 +877,77 @@ export function SellerCustomers() {
       ) : (
         <div className="customers-list">
           {filteredCustomers.length === 0 ? (
-            <p className="meta">Нет клиентов. Добавьте первого.</p>
+            <p className="meta">
+              {customers.length === 0
+                ? 'У вас пока нет клиентов. Покупатели могут подписаться на ваш магазин через каталог.'
+                : 'Ничего не найдено'}
+            </p>
           ) : (
-            filteredCustomers.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className="customer-row"
-                onClick={() => navigate(`/customers/${c.id}`)}
-              >
-                <div>
-                  <div className="name">
-                    {c.last_name} {c.first_name}
-                    {segmentMap[c.id] && (() => {
-                      const seg = segmentMap[c.id];
-                      const colors = SEGMENT_COLORS[seg] || { bg: '#eee', color: '#333' };
-                      return (
-                        <span style={{
-                          display: 'inline-block', background: colors.bg, color: colors.color,
-                          padding: '0.1rem 0.4rem', borderRadius: '0.8rem', fontSize: '0.7rem',
-                          marginLeft: '0.3rem', fontWeight: 500,
-                        }}>{seg}</span>
-                      );
-                    })()}
-                    {Array.isArray(c.tags) && c.tags.length > 0 && (
-                      <span style={{ marginLeft: '0.4rem' }}>
-                        {c.tags.map((tag, i) => (
-                          <span key={i} style={{
-                            display: 'inline-block', background: '#e8f0fe', color: '#1a73e8',
-                            padding: '0.1rem 0.4rem', borderRadius: '0.8rem', fontSize: '0.75rem', marginRight: '0.2rem',
-                          }}>{tag}</span>
-                        ))}
-                      </span>
+            filteredCustomers.map((c, idx) => {
+              const displayName = c.fio
+                || (c.first_name || c.last_name ? `${c.last_name || ''} ${c.first_name || ''}`.trim() : null)
+                || (c.username ? `@${c.username}` : null)
+                || (c.buyer_id ? `ID ${c.buyer_id}` : `Клиент #${idx + 1}`);
+              const hasCard = c.has_loyalty && c.loyalty_customer_id;
+              return (
+                <div
+                  key={c.buyer_id || `sc-${c.loyalty_customer_id || idx}`}
+                  className="customer-row"
+                  style={{ cursor: hasCard ? 'pointer' : 'default' }}
+                  onClick={() => hasCard && navigate(`/customers/${c.loyalty_customer_id}`)}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div className="name">
+                      {displayName}
+                      {c.username && c.fio && (
+                        <span style={{ fontSize: '0.8rem', color: '#888', marginLeft: '0.3rem' }}>@{c.username}</span>
+                      )}
+                      {c.segment && (() => {
+                        const colors = SEGMENT_COLORS[c.segment] || { bg: '#eee', color: '#333' };
+                        return (
+                          <span style={{
+                            display: 'inline-block', background: colors.bg, color: colors.color,
+                            padding: '0.1rem 0.4rem', borderRadius: '0.8rem', fontSize: '0.7rem',
+                            marginLeft: '0.3rem', fontWeight: 500,
+                          }}>{c.segment}</span>
+                        );
+                      })()}
+                      {Array.isArray(c.tags) && c.tags.length > 0 && (
+                        <span style={{ marginLeft: '0.4rem' }}>
+                          {c.tags.map((tag, i) => (
+                            <span key={i} style={{
+                              display: 'inline-block', background: '#e8f0fe', color: '#1a73e8',
+                              padding: '0.1rem 0.4rem', borderRadius: '0.8rem', fontSize: '0.75rem', marginRight: '0.2rem',
+                            }}>{tag}</span>
+                          ))}
+                        </span>
+                      )}
+                    </div>
+                    <div className="meta">
+                      {c.phone || '—'}
+                      {c.loyalty_card_number && <> · {c.loyalty_card_number}</>}
+                      {c.subscribed_at && <> · {formatDate(c.subscribed_at)}</>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    {c.has_loyalty ? (
+                      <>
+                        <div className="points">{c.loyalty_points} б.</div>
+                        {hasCard && (
+                          <Link to={`/customers/${c.loyalty_customer_id}`} className="loyalty-link"
+                            style={{ fontSize: '0.75rem' }}
+                            onClick={(e) => e.stopPropagation()}>
+                            Карточка
+                          </Link>
+                        )}
+                      </>
+                    ) : (
+                      <span style={{ fontSize: '0.8rem', color: '#999' }}>Нет карты</span>
                     )}
                   </div>
-                  <div className="meta">
-                    {c.phone} · {c.card_number} · добавлен {formatDate(c.created_at)}
-                  </div>
                 </div>
-                <div className="points">{c.points_balance} баллов</div>
-              </button>
-            ))
+              );
+            })
           )}
         </div>
       )}
