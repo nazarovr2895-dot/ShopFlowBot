@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { FavoriteProduct } from '../types';
-import { api } from '../api/client';
-import { Loader, EmptyState, ProductImage } from '../components';
+import { api, hasTelegramAuth } from '../api/client';
+import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
+import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import './FavoriteProducts.css';
 
@@ -10,6 +11,8 @@ export function FavoriteProducts() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<FavoriteProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+  const { hapticFeedback, showAlert } = useTelegramWebApp();
 
   useEffect(() => {
     const load = async () => {
@@ -25,6 +28,22 @@ export function FavoriteProducts() {
     };
     load();
   }, []);
+
+  const removeFromFavorites = async (productId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (removingId === productId) return;
+    setRemovingId(productId);
+    try {
+      hapticFeedback('light');
+      await api.removeFavoriteProduct(productId);
+      setProducts((prev) => prev.filter((p) => p.product_id !== productId));
+      showAlert('Убрано из избранного');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   if (loading) return <Loader centered />;
 
@@ -71,7 +90,8 @@ export function FavoriteProducts() {
       <h1 className="favorite-products-page__title">Избранное</h1>
       <div className="favorite-products-grid">
         {products.map((product) => {
-          const imageUrl = api.getProductImageUrl(product.photo_id ?? null);
+          const firstPhotoId = (product.photo_ids && product.photo_ids[0]) || product.photo_id;
+          const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
           return (
             <div
               key={product.product_id}
@@ -93,6 +113,15 @@ export function FavoriteProducts() {
                   className="favorite-product-card__image"
                   placeholderClassName="favorite-product-card__image-placeholder"
                 />
+                {hasTelegramAuth() && (
+                  <div className="favorite-product-card__heart">
+                    <HeartIcon
+                      isFavorite={true}
+                      onClick={(e) => removeFromFavorites(product.product_id, e)}
+                      size={28}
+                    />
+                  </div>
+                )}
               </div>
               <div className="favorite-product-card__info">
                 <span className="favorite-product-card__shop">{product.shop_name}</span>
