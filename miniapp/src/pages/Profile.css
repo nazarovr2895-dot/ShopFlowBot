@@ -268,6 +268,23 @@
 
 /* ===== Desktop / Browser adaptation ===== */
 @media (min-width: 768px) {
+  .profile-page {
+    max-width: 520px;
+    padding: 24px 32px;
+  }
+
+  .profile-data__card {
+    max-width: 480px;
+  }
+
+  .profile-data__input {
+    max-width: 400px;
+  }
+
+  .profile-data__phone-input-block {
+    max-width: 400px;
+  }
+
   .profile-data__save {
     max-width: 320px;
   }
