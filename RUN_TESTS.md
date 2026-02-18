@@ -3,7 +3,7 @@
 ## Первый раз (установка зависимостей)
 
 ```bash
-cd ~/shopflowbot/backend
+cd ~/flurai/backend
 
 # Создать виртуальное окружение
 python3 -m venv venv
@@ -16,7 +16,7 @@ pip install -r requirements.txt
 ## Запуск тестов
 
 ```bash
-cd ~/shopflowbot
+cd ~/flurai
 source backend/venv/bin/activate
 
 # Все новые тесты (150 штук)

@@ -1,1 +1,1 @@
-# Tests package for ShopFlowBot backend
+# Tests package for Flurai backend

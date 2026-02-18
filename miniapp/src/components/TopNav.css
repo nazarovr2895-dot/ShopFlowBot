@@ -158,7 +158,7 @@
   padding: 7px;
 }
 
-/* Desktop layout: logo + flowshow left, empty center, nav right; max-width 1500px, centered */
+/* Desktop layout: logo + flurai left, empty center, nav right; max-width 1500px, centered */
 .top-nav--desktop .top-nav__container {
   display: flex;
   justify-content: space-between;

@@ -1,4 +1,4 @@
-# TDD Guide — Test-Driven Development для ShopFlowBot
+# TDD Guide — Test-Driven Development для Flurai
 
 > Руководство по написанию тестов для новых функций. Следуйте этим правилам при добавлении любой новой функциональности.
 

@@ -451,7 +451,7 @@ async def get_public_seller_detail(
     preorder_enabled = bool(getattr(seller, "preorder_enabled", False) and preorder_available_dates and preorder_products)
     # Debug: log preorder condition for diagnostics
     import logging
-    logging.getLogger("shopflowbot.public").info(
+    logging.getLogger("flurai.public").info(
         "Seller %s preorder check: db_flag=%s, schedule_type=%s, weekday=%s, "
         "interval=%s, base_date=%s, custom_dates=%s, available_dates=%s, "
         "preorder_products=%d, regular_products=%d, => enabled=%s",

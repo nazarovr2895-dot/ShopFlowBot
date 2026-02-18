@@ -66,7 +66,7 @@ volumes:
 
 **Изменения в `nginx/nginx.prod.conf`:**
 
-Для сервера `api.flowshow.ru`:
+Для сервера `api.flurai.ru`:
 ```nginx
 # Static files (product images) - proxy to backend
 location /static/ {
@@ -109,8 +109,8 @@ location /static/ {
 ```
 
 **Что это дает:**
-- ✅ Изображения доступны через https://api.flowshow.ru/static/...
-- ✅ Изображения доступны через https://app.flowshow.ru/static/...
+- ✅ Изображения доступны через https://api.flurai.ru/static/...
+- ✅ Изображения доступны через https://app.flurai.ru/static/...
 - ✅ Работает в Telegram Mini App и в браузере
 - ✅ Nginx кэширует изображения на 30 дней
 
@@ -135,14 +135,14 @@ RUN npm run build
 
 **Что это дает:**
 - ✅ Frontend всегда знает правильный API URL
-- ✅ Изображения грузятся с правильного домена (api.flowshow.ru)
+- ✅ Изображения грузятся с правильного домена (api.flurai.ru)
 - ✅ Работает и в Telegram, и в браузере
 
 ## 📊 Проверка работоспособности
 
 ### 1. Проверка health backend
 ```bash
-curl https://api.flowshow.ru/health
+curl https://api.flurai.ru/health
 ```
 
 Ожидаемый ответ:
@@ -150,9 +150,9 @@ curl https://api.flowshow.ru/health
 {"status": "healthy", "version": "1.0.0", "checks": {"database": "ok", "redis": "ok"}}
 ```
 
-### 2. Проверка доступа к изображениям через api.flowshow.ru
+### 2. Проверка доступа к изображениям через api.flurai.ru
 ```bash
-curl -I https://api.flowshow.ru/static/uploads/products/509fdc3df38d4f39a60ad9fcf475ef01.webp
+curl -I https://api.flurai.ru/static/uploads/products/509fdc3df38d4f39a60ad9fcf475ef01.webp
 ```
 
 Ожидаемый ответ:
@@ -163,9 +163,9 @@ cache-control: max-age=2592000
 cache-control: public, immutable
 ```
 
-### 3. Проверка доступа через app.flowshow.ru
+### 3. Проверка доступа через app.flurai.ru
 ```bash
-curl -I https://app.flowshow.ru/static/uploads/products/509fdc3df38d4f39a60ad9fcf475ef01.webp
+curl -I https://app.flurai.ru/static/uploads/products/509fdc3df38d4f39a60ad9fcf475ef01.webp
 ```
 
 Ожидаемый ответ:
@@ -176,7 +176,7 @@ content-type: image/webp
 
 ### 4. Проверка в браузере
 
-Открыть: https://app.flowshow.ru/shop/123456789
+Открыть: https://app.flurai.ru/shop/123456789
 
 **Если фото НЕ загружается:**
 1. Открыть DevTools (F12) → Network tab
@@ -198,21 +198,21 @@ content-type: image/webp
 Или:
 ```bash
 git push
-ssh yandex-cloud "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml restart backend nginx"
+ssh yandex-cloud "cd ~/flurai && git pull && docker compose -f docker-compose.prod.yml restart backend nginx"
 ```
 
 ### Деплой с пересборкой backend
 
 Теперь безопасно благодаря volume! Файлы НЕ удалятся:
 ```bash
-ssh yandex-cloud "cd ~/shopflowbot && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d backend"
+ssh yandex-cloud "cd ~/flurai && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d backend"
 ```
 
 ### Полная пересборка всех контейнеров
 
 Файлы сохранятся в volume:
 ```bash
-ssh yandex-cloud "cd ~/shopflowbot && docker compose -f docker-compose.prod.yml down && docker compose -f docker-compose.prod.yml up -d"
+ssh yandex-cloud "cd ~/flurai && docker compose -f docker-compose.prod.yml down && docker compose -f docker-compose.prod.yml up -d"
 ```
 
 ⚠️ **ВАЖНО:** Не используйте `docker compose down -v` (с флагом `-v`) - это удалит все volumes, включая static_uploads!
@@ -221,7 +221,7 @@ ssh yandex-cloud "cd ~/shopflowbot && docker compose -f docker-compose.prod.yml 
 
 ### В Docker volume (production)
 ```
-Docker volume: shopflowbot_static_uploads
+Docker volume: flurai_static_uploads
 ├── products/
 │   ├── 509fdc3df38d4f39a60ad9fcf475ef01.webp
 │   ├── 8cc0a9d9173845eb804e8352ac54e44c.webp
@@ -241,10 +241,10 @@ Docker volume: shopflowbot_static_uploads
 docker volume ls | grep static
 
 # Инспектировать volume
-docker volume inspect shopflowbot_static_uploads
+docker volume inspect flurai_static_uploads
 
 # Проверить содержимое
-docker run --rm -v shopflowbot_static_uploads:/data alpine ls -lh /data/products/
+docker run --rm -v flurai_static_uploads:/data alpine ls -lh /data/products/
 ```
 
 ## 🚨 Частые проблемы и решения
@@ -262,7 +262,7 @@ docker run --rm -v shopflowbot_static_uploads:/data alpine ls -lh /data/products
    ```
 2. Проверьте, что backend использует volume:
    ```bash
-   docker inspect shopflowbot-backend-1 | grep -A5 Mounts
+   docker inspect flurai-backend-1 | grep -A5 Mounts
    ```
 
 ### Проблема: Товар показывает "нет фото", но файл существует
@@ -287,12 +287,12 @@ WHERE id = 1;
 
 **Проверка:**
 ```bash
-curl https://app.flowshow.ru/config.json
+curl https://app.flurai.ru/config.json
 ```
 
 **Должно быть:**
 ```json
-{"apiUrl":"https://api.flowshow.ru"}
+{"apiUrl":"https://api.flurai.ru"}
 ```
 
 **Если пустой - пересобрать miniapp:**
@@ -326,7 +326,7 @@ chmod 755 /src/backend/static/uploads/products/
 docker compose exec backend tar -czf /tmp/static_backup.tar.gz -C /src/backend/static/uploads .
 
 # 2. Скопировать на хост
-docker cp shopflowbot-backend-1:/tmp/static_backup.tar.gz /tmp/
+docker cp flurai-backend-1:/tmp/static_backup.tar.gz /tmp/
 
 # 3. Остановить и удалить контейнер
 docker compose -f docker-compose.prod.yml stop backend
@@ -336,7 +336,7 @@ docker compose -f docker-compose.prod.yml rm -f backend
 docker compose -f docker-compose.prod.yml up -d backend
 
 # 5. Восстановить файлы
-docker cp /tmp/static_backup.tar.gz shopflowbot-backend-1:/tmp/
+docker cp /tmp/static_backup.tar.gz flurai-backend-1:/tmp/
 docker compose -f docker-compose.prod.yml exec backend tar -xzf /tmp/static_backup.tar.gz -C /src/backend/static/uploads/
 
 # 6. Проверить
@@ -346,7 +346,7 @@ docker compose -f docker-compose.prod.yml exec backend ls -la /src/backend/stati
 ## ✅ Статус исправлений
 
 - ✅ **docker-compose.prod.yml** - добавлен volume static_uploads
-- ✅ **nginx/nginx.prod.conf** - добавлено проксирование /static/ для api.flowshow.ru
+- ✅ **nginx/nginx.prod.conf** - добавлено проксирование /static/ для api.flurai.ru
 - ✅ **nginx/nginx.prod.conf** - исправлено проксирование /static/ для default server
 - ✅ **miniapp/nginx.conf** - добавлено проксирование /static/ к backend
 - ✅ **miniapp/Dockerfile** - генерация config.json с API URL при сборке
@@ -358,7 +358,7 @@ docker compose -f docker-compose.prod.yml exec backend ls -la /src/backend/stati
 Теперь система **надежна** и **устойчива к пересборкам**:
 
 1. ✅ Загруженные фото **НЕ удаляются** при деплое
-2. ✅ Изображения доступны через **api.flowshow.ru** и **app.flowshow.ru**
+2. ✅ Изображения доступны через **api.flurai.ru** и **app.flurai.ru**
 3. ✅ Работает в **Telegram Mini App** и в браузере
 4. ✅ Nginx **кэширует** изображения на 30 дней
 5. ✅ Backend **раздает** статику через FastAPI StaticFiles

@@ -1,5 +1,5 @@
 """
-Test fixtures for ShopFlowBot backend tests.
+Test fixtures for Flurai backend tests.
 
 Provides:
 - In-memory SQLite database for isolated testing

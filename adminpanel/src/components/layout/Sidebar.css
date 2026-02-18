@@ -22,17 +22,10 @@
   margin-bottom: var(--space-2);
 }
 
-.sidebar-v2-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: white;
-  font-weight: 700;
-  font-size: var(--text-sm);
+.sidebar-v2-logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -40,10 +33,7 @@
   font-size: var(--text-lg);
   font-weight: 700;
   color: var(--text);
-}
-
-.sidebar-v2-brand-accent {
-  color: var(--accent);
+  letter-spacing: -0.02em;
 }
 
 /* Nav */

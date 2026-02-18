@@ -25,7 +25,7 @@ export function TelegramAuth({
   const [error, setError] = useState<string | null>(null);
 
   // Get bot name from env or prop
-  const actualBotName = botName || import.meta.env.VITE_BOT_USERNAME || 'FlowShopBot_bot';
+  const actualBotName = botName || import.meta.env.VITE_BOT_USERNAME || 'FluRaiBot';
 
   useEffect(() => {
     // Only render widget in browser (not in Telegram)

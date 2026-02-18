@@ -83,11 +83,11 @@ echo "✅ Код отправлен в GitHub"
 
 # Обновление на сервере
 echo "🔄 Обновляем сервер..."
-ssh yandex-cloud "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
+ssh yandex-cloud "cd ~/flurai && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
 
 # Применяем миграции БД
 echo "📦 Применяем миграции БД..."
-MIGRATE_RESULT=$(ssh yandex-cloud "cd ~/shopflowbot && docker compose -f docker-compose.prod.yml exec -T backend bash -c 'cd /src/backend && alembic upgrade head'" 2>&1)
+MIGRATE_RESULT=$(ssh yandex-cloud "cd ~/flurai && docker compose -f docker-compose.prod.yml exec -T backend bash -c 'cd /src/backend && alembic upgrade head'" 2>&1)
 if echo "$MIGRATE_RESULT" | grep -qE "done|Running upgrade|OK"; then
     echo "✅ Миграции применены"
 else
@@ -96,7 +96,7 @@ fi
 
 # Перезапуск nginx для обновления upstream connections
 echo "🔧 Перезапускаем nginx..."
-ssh yandex-cloud "docker compose -f ~/shopflowbot/docker-compose.prod.yml restart nginx"
+ssh yandex-cloud "docker compose -f ~/flurai/docker-compose.prod.yml restart nginx"
 
 # Небольшая пауза для стабилизации
 sleep 2
@@ -110,14 +110,14 @@ else
     echo "⚠️  Backend: проверьте вручную"
 fi
 
-APP_CHECK=$(ssh yandex-cloud "curl -s -o /dev/null -w '%{http_code}' https://app.flowshow.ru" 2>&1)
+APP_CHECK=$(ssh yandex-cloud "curl -s -o /dev/null -w '%{http_code}' https://app.flurai.ru" 2>&1)
 if [ "$APP_CHECK" = "200" ]; then
     echo "✅ Mini App: OK"
 else
     echo "⚠️  Mini App: проверьте вручную (status: $APP_CHECK)"
 fi
 
-ADMIN_CHECK=$(ssh yandex-cloud "curl -s -o /dev/null -w '%{http_code}' https://admin.flowshow.ru" 2>&1)
+ADMIN_CHECK=$(ssh yandex-cloud "curl -s -o /dev/null -w '%{http_code}' https://admin.flurai.ru" 2>&1)
 if [ "$ADMIN_CHECK" = "200" ]; then
     echo "✅ Admin Panel: OK"
 else
@@ -128,9 +128,9 @@ echo ""
 echo "✅ Деплой завершён!"
 echo ""
 echo "🌐 Проверьте сайты:"
-echo "   https://app.flowshow.ru"
-echo "   https://admin.flowshow.ru"
+echo "   https://app.flurai.ru"
+echo "   https://admin.flurai.ru"
 echo ""
 echo "📊 Логи:"
-echo "  ssh yandex-cloud 'cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs --tail 20 backend'"
-echo "  ssh yandex-cloud 'cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs --tail 20 nginx'"
+echo "  ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 20 backend'"
+echo "  ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 20 nginx'"

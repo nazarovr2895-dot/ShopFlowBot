@@ -29,7 +29,7 @@ export function useTelegramWebApp() {
 
   const openShop = useCallback((sellerId: number) => {
     // Open shop in main bot via deep link
-    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'FlowShopBot';
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'FluRaiBot';
     const deepLink = `https://t.me/${botUsername}?start=seller_${sellerId}`;
     
     if (isTelegram()) {

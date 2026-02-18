@@ -35,5 +35,5 @@
 
 /* Desktop layout: top nav + search bar (90px + 50px + gap) */
 .main-layout--desktop {
-  padding-top: calc(150px + env(safe-area-inset-top, 0));
+  padding-top: calc(160px + env(safe-area-inset-top, 0));
 }

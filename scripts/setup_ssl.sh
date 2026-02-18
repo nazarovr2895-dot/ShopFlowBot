@@ -4,7 +4,7 @@
 
 set -e
 
-echo "🔒 Настройка SSL сертификатов для ShopFlowBot"
+echo "🔒 Настройка SSL сертификатов для Flurai"
 echo ""
 
 # Проверка, что скрипт запущен на Ubuntu/Debian
@@ -20,8 +20,8 @@ if [ -f /.dockerenv ]; then
 fi
 
 # Переход в директорию проекта
-cd ~/shopflowbot || {
-    echo "❌ Директория ~/shopflowbot не найдена"
+cd ~/flurai || {
+    echo "❌ Директория ~/flurai не найдена"
     exit 1
 }
 
@@ -35,7 +35,7 @@ echo "📁 Создание директории для SSL сертификат
 mkdir -p nginx/ssl
 
 # 3. Получение сертификатов для каждого домена
-DOMAINS=("api.flowshow.ru" "admin.flowshow.ru" "app.flowshow.ru" "flowshow.ru")
+DOMAINS=("api.flurai.ru" "admin.flurai.ru" "app.flurai.ru" "flurai.ru")
 EMAIL="${SSL_EMAIL:-your-email@example.com}"
 
 echo ""
@@ -50,14 +50,14 @@ docker compose -f docker-compose.prod.yml stop nginx || true
 for DOMAIN in "${DOMAINS[@]}"; do
     echo "🔐 Получение сертификата для $DOMAIN..."
     
-    # Для flowshow.ru добавляем www.flowshow.ru в один сертификат
-    if [ "$DOMAIN" = "flowshow.ru" ]; then
-        # Получаем сертификат для flowshow.ru и www.flowshow.ru вместе
+    # Для flurai.ru добавляем www.flurai.ru в один сертификат
+    if [ "$DOMAIN" = "flurai.ru" ]; then
+        # Получаем сертификат для flurai.ru и www.flurai.ru вместе
         sudo certbot certonly \
             --standalone \
             --preferred-challenges http \
-            -d "flowshow.ru" \
-            -d "www.flowshow.ru" \
+            -d "flurai.ru" \
+            -d "www.flurai.ru" \
             --email "$EMAIL" \
             --agree-tos \
             --non-interactive \
@@ -67,12 +67,12 @@ for DOMAIN in "${DOMAINS[@]}"; do
             exit 1
         }
         
-        # Копируем сертификаты (используем flowshow.ru как базовое имя)
+        # Копируем сертификаты (используем flurai.ru как базовое имя)
         echo "   📋 Копирование сертификатов..."
-        sudo mkdir -p "nginx/ssl/flowshow.ru"
-        sudo cp "/etc/letsencrypt/live/flowshow.ru/fullchain.pem" "nginx/ssl/flowshow.ru/fullchain.pem"
-        sudo cp "/etc/letsencrypt/live/flowshow.ru/privkey.pem" "nginx/ssl/flowshow.ru/privkey.pem"
-        sudo chown -R "$USER:$USER" "nginx/ssl/flowshow.ru"
+        sudo mkdir -p "nginx/ssl/flurai.ru"
+        sudo cp "/etc/letsencrypt/live/flurai.ru/fullchain.pem" "nginx/ssl/flurai.ru/fullchain.pem"
+        sudo cp "/etc/letsencrypt/live/flurai.ru/privkey.pem" "nginx/ssl/flurai.ru/privkey.pem"
+        sudo chown -R "$USER:$USER" "nginx/ssl/flurai.ru"
     else
         # Для остальных доменов - обычная процедура
         sudo certbot certonly \
@@ -113,20 +113,20 @@ cat > /tmp/renew_certs.sh << 'EOF'
 #!/bin/bash
 # Скрипт для обновления SSL сертификатов и перезапуска nginx
 
-cd ~/shopflowbot
+cd ~/flurai
 
 # Обновляем сертификаты
 sudo certbot renew --quiet
 
 # Копируем обновлённые сертификаты
-DOMAINS=("api.flowshow.ru" "admin.flowshow.ru" "app.flowshow.ru" "flowshow.ru")
+DOMAINS=("api.flurai.ru" "admin.flurai.ru" "app.flurai.ru" "flurai.ru")
 for DOMAIN in "${DOMAINS[@]}"; do
-    if [ "$DOMAIN" = "flowshow.ru" ]; then
-        # Для flowshow.ru используем то же имя директории
-        if [ -f "/etc/letsencrypt/live/flowshow.ru/fullchain.pem" ]; then
-            sudo cp "/etc/letsencrypt/live/flowshow.ru/fullchain.pem" "nginx/ssl/flowshow.ru/fullchain.pem"
-            sudo cp "/etc/letsencrypt/live/flowshow.ru/privkey.pem" "nginx/ssl/flowshow.ru/privkey.pem"
-            sudo chown -R "$USER:$USER" "nginx/ssl/flowshow.ru"
+    if [ "$DOMAIN" = "flurai.ru" ]; then
+        # Для flurai.ru используем то же имя директории
+        if [ -f "/etc/letsencrypt/live/flurai.ru/fullchain.pem" ]; then
+            sudo cp "/etc/letsencrypt/live/flurai.ru/fullchain.pem" "nginx/ssl/flurai.ru/fullchain.pem"
+            sudo cp "/etc/letsencrypt/live/flurai.ru/privkey.pem" "nginx/ssl/flurai.ru/privkey.pem"
+            sudo chown -R "$USER:$USER" "nginx/ssl/flurai.ru"
         fi
     else
         if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
@@ -165,9 +165,9 @@ echo ""
 echo "📋 Что дальше:"
 echo "   1. Убедитесь, что DNS записи настроены и указывают на IP сервера"
 echo "   2. Проверьте работу:"
-echo "      curl -I https://api.flowshow.ru/health"
-echo "      curl -I https://admin.flowshow.ru"
-echo "      curl -I https://app.flowshow.ru"
+echo "      curl -I https://api.flurai.ru/health"
+echo "      curl -I https://admin.flurai.ru"
+echo "      curl -I https://app.flurai.ru"
 echo ""
 echo "📝 Для ручного обновления сертификатов:"
 echo "   sudo /usr/local/bin/renew_certs.sh"

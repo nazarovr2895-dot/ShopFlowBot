@@ -40,7 +40,7 @@ docker compose restart nginx
 
 ```bash
 # Использовать prod конфигурацию
-cd ~/shopflowbot/nginx
+cd ~/flurai/nginx
 ln -sf nginx.prod.conf nginx.conf
 
 # Перезапустить nginx
@@ -77,7 +77,7 @@ ls -la nginx/nginx.conf
 
 1. Открыть `chrome://net-internals/#hsts`
 2. В разделе "Delete domain security policies"
-3. Ввести домен (например: `app.flowshow.ru`)
+3. Ввести домен (например: `app.flurai.ru`)
 4. Нажать Delete
 5. Перезапустить браузер
 
@@ -124,7 +124,7 @@ nginx:
 3. **Перед деплоем в production - убедитесь что симлинк правильный**
    ```bash
    # На сервере
-   cd ~/shopflowbot/nginx
+   cd ~/flurai/nginx
    ls -la nginx.conf  # Должен указывать на nginx.prod.conf
    ```
 
@@ -139,13 +139,13 @@ nginx:
 ```bash
 # В deploy.sh на сервере
 echo "Проверка nginx конфигурации..."
-NGINX_LINK=$(readlink ~/shopflowbot/nginx/nginx.conf)
+NGINX_LINK=$(readlink ~/flurai/nginx/nginx.conf)
 if [ "$NGINX_LINK" != "nginx.prod.conf" ]; then
     echo "⚠️  WARNING: nginx.conf не указывает на nginx.prod.conf!"
     echo "Текущий симлинк: $NGINX_LINK"
     read -p "Переключить на production конфигурацию? (y/n) " -n 1 -r
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        cd ~/shopflowbot/nginx
+        cd ~/flurai/nginx
         ln -sf nginx.prod.conf nginx.conf
         echo "✅ Переключено на nginx.prod.conf"
     fi

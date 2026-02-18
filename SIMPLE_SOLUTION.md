@@ -29,7 +29,7 @@ git push
 
 # 3. Затем на сервере вручную
 ssh yandex-cloud
-cd ~/shopflowbot
+cd ~/flurai
 git pull
 docker compose -f docker-compose.prod.yml build backend bot
 docker compose -f docker-compose.prod.yml up -d
@@ -67,7 +67,7 @@ Git сохранит это в Keychain и больше не будет спра
 
 1. Откройте: https://github.com/settings/tokens
 2. **Generate new token (classic)**
-3. **Note**: ShopFlowBot
+3. **Note**: Flurai
 4. **Expiration**: 90 days
 5. **Scopes**: отметьте `repo` (НЕ нужен workflow scope!)
 6. **Generate token**
@@ -85,7 +85,7 @@ Git сохранит это в Keychain и больше не будет спра
 git add .
 git commit -m "feat: описание"
 git push
-ssh yandex-cloud "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d"
+ssh yandex-cloud "cd ~/flurai && git pull && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d"
 
 # Способ 2: Через deploy.sh (всё в одном)
 ./deploy.sh "feat: описание"

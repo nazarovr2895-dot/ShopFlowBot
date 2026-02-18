@@ -8,7 +8,7 @@ from locust import HttpUser, task, between
 import random
 
 
-class ShopFlowBotUser(HttpUser):
+class FluraiUser(HttpUser):
     """Simulate user behavior for load testing."""
     
     wait_time = between(1, 3)  # Wait 1-3 seconds between requests

@@ -43,13 +43,18 @@ export function Landing() {
       <div className="landing__container">
         <div className="landing__content">
           <div className="landing__header">
-            <h1 className="landing__title">FlowShop</h1>
+            <img
+              src="/android-chrome-192x192.png"
+              alt="flurai"
+              className="landing__logo"
+            />
+            <h1 className="landing__title">flurai</h1>
             <p className="landing__subtitle">Ваш магазин цветов в Telegram</p>
           </div>
 
           <div className="landing__description">
             <p>
-              Добро пожаловать в FlowShop! Здесь вы найдете лучшие цветочные магазины с доставкой по городу.
+              Добро пожаловать в flurai! Здесь вы найдете лучшие цветочные магазины с доставкой по городу.
             </p>
             <p>
               Для продолжения необходимо войти через Telegram.

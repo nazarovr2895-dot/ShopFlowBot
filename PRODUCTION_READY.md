@@ -105,7 +105,7 @@ MINI_APP_URL=https://your-miniapp-domain.com
 # Database
 DB_USER=postgres
 DB_PASSWORD=strong_password
-DB_NAME=shopflowbot
+DB_NAME=flurai
 DB_HOST=db
 DB_PORT=5432
 

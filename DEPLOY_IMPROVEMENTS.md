@@ -10,8 +10,8 @@
 
 1. **Перезапускает nginx** - избегает 502 Bad Gateway ошибок
 2. **Проверяет Backend** - `curl http://localhost/health`
-3. **Проверяет Mini App** - `curl https://app.flowshow.ru`
-4. **Проверяет Admin Panel** - `curl https://admin.flowshow.ru`
+3. **Проверяет Mini App** - `curl https://app.flurai.ru`
+4. **Проверяет Admin Panel** - `curl https://admin.flurai.ru`
 5. **Показывает статус** каждого сервиса (✅ или ⚠️)
 
 ### Пример вывода:
@@ -35,8 +35,8 @@
 ✅ Деплой завершён!
 
 🌐 Проверьте сайты:
-   https://app.flowshow.ru
-   https://admin.flowshow.ru
+   https://app.flurai.ru
+   https://admin.flurai.ru
 ```
 
 ---
@@ -53,7 +53,7 @@
 
 ```bash
 # Автоматический перезапуск nginx
-ssh yandex-cloud "docker compose -f ~/shopflowbot/docker-compose.prod.yml restart nginx"
+ssh yandex-cloud "docker compose -f ~/flurai/docker-compose.prod.yml restart nginx"
 ```
 
 ---
@@ -82,11 +82,11 @@ curl http://localhost/health
 
 ```bash
 # Mini App
-curl -I https://app.flowshow.ru
+curl -I https://app.flurai.ru
 # Должен вернуть: HTTP/2 200
 
 # Admin Panel
-curl -I https://admin.flowshow.ru
+curl -I https://admin.flurai.ru
 # Должен вернуть: HTTP/2 200
 ```
 
@@ -120,26 +120,26 @@ curl -I https://admin.flowshow.ru
 
 ```bash
 # Проверить логи
-ssh yandex-cloud 'cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs --tail 50 backend'
+ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 50 backend'
 
 # Проверить статус
-ssh yandex-cloud 'docker compose -f ~/shopflowbot/docker-compose.prod.yml ps backend'
+ssh yandex-cloud 'docker compose -f ~/flurai/docker-compose.prod.yml ps backend'
 
 # Перезапустить
-ssh yandex-cloud 'docker compose -f ~/shopflowbot/docker-compose.prod.yml restart backend'
+ssh yandex-cloud 'docker compose -f ~/flurai/docker-compose.prod.yml restart backend'
 ```
 
 ### Mini App или Admin показывает ⚠️
 
 ```bash
 # Проверить логи nginx
-ssh yandex-cloud 'cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs --tail 50 nginx'
+ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 50 nginx'
 
 # Проверить статус контейнеров
-ssh yandex-cloud 'docker compose -f ~/shopflowbot/docker-compose.prod.yml ps'
+ssh yandex-cloud 'docker compose -f ~/flurai/docker-compose.prod.yml ps'
 
 # Перезапустить nginx ещё раз
-ssh yandex-cloud 'docker compose -f ~/shopflowbot/docker-compose.prod.yml restart nginx'
+ssh yandex-cloud 'docker compose -f ~/flurai/docker-compose.prod.yml restart nginx'
 ```
 
 ---
@@ -150,26 +150,26 @@ ssh yandex-cloud 'docker compose -f ~/shopflowbot/docker-compose.prod.yml restar
 
 ```bash
 # Backend
-ssh yandex-cloud 'cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs --tail 20 backend'
+ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 20 backend'
 
 # Nginx
-ssh yandex-cloud 'cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs --tail 20 nginx'
+ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 20 nginx'
 
 # Всё сразу
-ssh yandex-cloud 'cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs --tail 20'
+ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 20'
 ```
 
 ### Проверить статус всех контейнеров:
 
 ```bash
-ssh yandex-cloud 'docker compose -f ~/shopflowbot/docker-compose.prod.yml ps'
+ssh yandex-cloud 'docker compose -f ~/flurai/docker-compose.prod.yml ps'
 ```
 
 ### Ручной health check:
 
 ```bash
 # С локальной машины
-curl https://api.flowshow.ru/health
+curl https://api.flurai.ru/health
 
 # Или на сервере
 ssh yandex-cloud "curl http://localhost/health"
@@ -227,7 +227,7 @@ ssh yandex-cloud "curl http://localhost/health"
 Если видите ⚠️ - проверьте логи:
 
 ```bash
-ssh yandex-cloud 'cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs --tail 50'
+ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 50'
 ```
 
 ### 2. Перед деплоем тестируйте локально
@@ -264,7 +264,7 @@ docker-compose up -d
 Это может быть из-за задержки сети при проверке. Проверьте вручную:
 
 ```bash
-curl https://app.flowshow.ru
+curl https://app.flurai.ru
 # Если отвечает - всё ОК
 ```
 
@@ -277,7 +277,7 @@ curl https://app.flowshow.ru
 ssh yandex-cloud "echo 'Server is reachable'"
 
 # Проверить статус контейнеров
-ssh yandex-cloud 'docker compose -f ~/shopflowbot/docker-compose.prod.yml ps'
+ssh yandex-cloud 'docker compose -f ~/flurai/docker-compose.prod.yml ps'
 ```
 
 ---

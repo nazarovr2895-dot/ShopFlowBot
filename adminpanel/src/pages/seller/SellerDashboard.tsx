@@ -7,7 +7,7 @@ import { PageHeader, StatCard, StatusBadge, Card, ActionCard } from '../../compo
 import '../Dashboard.css';
 
 const PENDING_POLL_INTERVAL_MS = 45 * 1000;
-const NOTIFICATION_TITLE = 'ShopFlow';
+const NOTIFICATION_TITLE = 'flurai';
 
 export function SellerDashboard() {
   const [me, setMe] = useState<SellerMe | null>(null);

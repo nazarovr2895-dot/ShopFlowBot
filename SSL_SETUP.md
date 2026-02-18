@@ -1,20 +1,20 @@
-# Инструкция по настройке HTTPS (SSL) для ShopFlowBot
+# Инструкция по настройке HTTPS (SSL) для Flurai
 
 ## Предварительные требования
 
 1. **DNS записи настроены** в reg.ru:
-   - `flowshow.ru` → IP вашего сервера (опционально, но рекомендуется)
-   - `www.flowshow.ru` → IP вашего сервера (опционально)
-   - `api.flowshow.ru` → IP вашего сервера
-   - `admin.flowshow.ru` → IP вашего сервера
-   - `app.flowshow.ru` → IP вашего сервера
+   - `flurai.ru` → IP вашего сервера (опционально, но рекомендуется)
+   - `www.flurai.ru` → IP вашего сервера (опционально)
+   - `api.flurai.ru` → IP вашего сервера
+   - `admin.flurai.ru` → IP вашего сервера
+   - `app.flurai.ru` → IP вашего сервера
 
 2. **Проверка DNS** (выполните на локальной машине):
    ```bash
-   dig flowshow.ru +short
-   dig api.flowshow.ru +short
-   dig admin.flowshow.ru +short
-   dig app.flowshow.ru +short
+   dig flurai.ru +short
+   dig api.flurai.ru +short
+   dig admin.flurai.ru +short
+   dig app.flurai.ru +short
    ```
    Все должны возвращать IP вашего сервера.
 
@@ -25,7 +25,7 @@
 ### 1.1. Подключитесь к серверу
 ```bash
 ssh yandex-cloud
-cd ~/shopflowbot
+cd ~/flurai
 ```
 
 ### 1.2. Обновите код (если нужно)
@@ -48,7 +48,7 @@ docker compose -f docker-compose.prod.yml ps nginx
 
 ```bash
 # На сервере
-cd ~/shopflowbot
+cd ~/flurai
 
 # Создайте директорию scripts, если её нет
 mkdir -p scripts
@@ -82,7 +82,7 @@ sudo apt-get install -y certbot python3-certbot-nginx
 
 #### 2.2. Создайте директорию для сертификатов
 ```bash
-mkdir -p ~/shopflowbot/nginx/ssl
+mkdir -p ~/flurai/nginx/ssl
 ```
 
 #### 2.3. Получите сертификаты для каждого домена
@@ -93,58 +93,58 @@ mkdir -p ~/shopflowbot/nginx/ssl
 # Остановите nginx
 docker compose -f docker-compose.prod.yml stop nginx
 
-# Получите сертификат для api.flowshow.ru
+# Получите сертификат для api.flurai.ru
 sudo certbot certonly --standalone \
     --preferred-challenges http \
-    -d api.flowshow.ru \
+    -d api.flurai.ru \
     --email your-email@example.com \
     --agree-tos \
     --non-interactive
 
-# Получите сертификат для admin.flowshow.ru
+# Получите сертификат для admin.flurai.ru
 sudo certbot certonly --standalone \
     --preferred-challenges http \
-    -d admin.flowshow.ru \
+    -d admin.flurai.ru \
     --email your-email@example.com \
     --agree-tos \
     --non-interactive
 
-# Получите сертификат для app.flowshow.ru
+# Получите сертификат для app.flurai.ru
 sudo certbot certonly --standalone \
     --preferred-challenges http \
-    -d app.flowshow.ru \
+    -d app.flurai.ru \
     --email your-email@example.com \
     --agree-tos \
     --non-interactive
 
-# Получите сертификат для flowshow.ru и www.flowshow.ru (вместе)
+# Получите сертификат для flurai.ru и www.flurai.ru (вместе)
 sudo certbot certonly --standalone \
     --preferred-challenges http \
-    -d flowshow.ru \
-    -d www.flowshow.ru \
+    -d flurai.ru \
+    -d www.flurai.ru \
     --email your-email@example.com \
     --agree-tos \
     --non-interactive
 
 # Скопируйте сертификаты в нужную директорию
-sudo mkdir -p ~/shopflowbot/nginx/ssl/api.flowshow.ru
-sudo cp /etc/letsencrypt/live/api.flowshow.ru/fullchain.pem ~/shopflowbot/nginx/ssl/api.flowshow.ru/fullchain.pem
-sudo cp /etc/letsencrypt/live/api.flowshow.ru/privkey.pem ~/shopflowbot/nginx/ssl/api.flowshow.ru/privkey.pem
+sudo mkdir -p ~/flurai/nginx/ssl/api.flurai.ru
+sudo cp /etc/letsencrypt/live/api.flurai.ru/fullchain.pem ~/flurai/nginx/ssl/api.flurai.ru/fullchain.pem
+sudo cp /etc/letsencrypt/live/api.flurai.ru/privkey.pem ~/flurai/nginx/ssl/api.flurai.ru/privkey.pem
 
-sudo mkdir -p ~/shopflowbot/nginx/ssl/admin.flowshow.ru
-sudo cp /etc/letsencrypt/live/admin.flowshow.ru/fullchain.pem ~/shopflowbot/nginx/ssl/admin.flowshow.ru/fullchain.pem
-sudo cp /etc/letsencrypt/live/admin.flowshow.ru/privkey.pem ~/shopflowbot/nginx/ssl/admin.flowshow.ru/privkey.pem
+sudo mkdir -p ~/flurai/nginx/ssl/admin.flurai.ru
+sudo cp /etc/letsencrypt/live/admin.flurai.ru/fullchain.pem ~/flurai/nginx/ssl/admin.flurai.ru/fullchain.pem
+sudo cp /etc/letsencrypt/live/admin.flurai.ru/privkey.pem ~/flurai/nginx/ssl/admin.flurai.ru/privkey.pem
 
-sudo mkdir -p ~/shopflowbot/nginx/ssl/app.flowshow.ru
-sudo cp /etc/letsencrypt/live/app.flowshow.ru/fullchain.pem ~/shopflowbot/nginx/ssl/app.flowshow.ru/fullchain.pem
-sudo cp /etc/letsencrypt/live/app.flowshow.ru/privkey.pem ~/shopflowbot/nginx/ssl/app.flowshow.ru/privkey.pem
+sudo mkdir -p ~/flurai/nginx/ssl/app.flurai.ru
+sudo cp /etc/letsencrypt/live/app.flurai.ru/fullchain.pem ~/flurai/nginx/ssl/app.flurai.ru/fullchain.pem
+sudo cp /etc/letsencrypt/live/app.flurai.ru/privkey.pem ~/flurai/nginx/ssl/app.flurai.ru/privkey.pem
 
-sudo mkdir -p ~/shopflowbot/nginx/ssl/flowshow.ru
-sudo cp /etc/letsencrypt/live/flowshow.ru/fullchain.pem ~/shopflowbot/nginx/ssl/flowshow.ru/fullchain.pem
-sudo cp /etc/letsencrypt/live/flowshow.ru/privkey.pem ~/shopflowbot/nginx/ssl/flowshow.ru/privkey.pem
+sudo mkdir -p ~/flurai/nginx/ssl/flurai.ru
+sudo cp /etc/letsencrypt/live/flurai.ru/fullchain.pem ~/flurai/nginx/ssl/flurai.ru/fullchain.pem
+sudo cp /etc/letsencrypt/live/flurai.ru/privkey.pem ~/flurai/nginx/ssl/flurai.ru/privkey.pem
 
 # Измените владельца файлов
-sudo chown -R $USER:$USER ~/shopflowbot/nginx/ssl
+sudo chown -R $USER:$USER ~/flurai/nginx/ssl
 
 # Запустите nginx обратно
 docker compose -f docker-compose.prod.yml up -d nginx
@@ -169,27 +169,27 @@ docker compose -f docker-compose.prod.yml restart nginx
 ### 3.3. Проверьте доступность HTTPS
 ```bash
 # На сервере
-curl -I https://flowshow.ru
-curl -I https://api.flowshow.ru/health
-curl -I https://admin.flowshow.ru
-curl -I https://app.flowshow.ru
+curl -I https://flurai.ru
+curl -I https://api.flurai.ru/health
+curl -I https://admin.flurai.ru
+curl -I https://app.flurai.ru
 
 # Или с вашего компьютера
-curl -I https://flowshow.ru
-curl -I https://api.flowshow.ru/health
+curl -I https://flurai.ru
+curl -I https://api.flurai.ru/health
 ```
 
 Должен вернуться статус `200 OK` или `301 Moved Permanently` (редирект).
 
-**Примечание:** `flowshow.ru` будет редиректить на `app.flowshow.ru` (Mini App).
+**Примечание:** `flurai.ru` будет редиректить на `app.flurai.ru` (Mini App).
 
 ### 3.4. Проверьте в браузере
 
 Откройте в браузере:
-- `https://flowshow.ru` (должен редиректить на `app.flowshow.ru`)
-- `https://api.flowshow.ru/health`
-- `https://admin.flowshow.ru`
-- `https://app.flowshow.ru`
+- `https://flurai.ru` (должен редиректить на `app.flurai.ru`)
+- `https://api.flurai.ru/health`
+- `https://admin.flurai.ru`
+- `https://app.flurai.ru`
 
 В адресной строке должен быть зелёный замочек 🔒.
 
@@ -210,13 +210,13 @@ sudo nano /usr/local/bin/renew_certs.sh
 Содержимое:
 ```bash
 #!/bin/bash
-cd ~/shopflowbot
+cd ~/flurai
 
 # Обновляем сертификаты
 sudo certbot renew --quiet
 
 # Копируем обновлённые сертификаты
-DOMAINS=("api.flowshow.ru" "admin.flowshow.ru" "app.flowshow.ru")
+DOMAINS=("api.flurai.ru" "admin.flurai.ru" "app.flurai.ru")
 for DOMAIN in "${DOMAINS[@]}"; do
     if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
         sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "nginx/ssl/$DOMAIN/fullchain.pem"
@@ -258,14 +258,14 @@ sudo /usr/local/bin/renew_certs.sh
 
 ## Устранение проблем
 
-### Ошибка: "Failed to connect to api.flowshow.ru"
+### Ошибка: "Failed to connect to api.flurai.ru"
 
 **Причина:** DNS записи не настроены или не распространились.
 
 **Решение:**
 1. Проверьте DNS записи в reg.ru
 2. Подождите 5-10 минут для распространения DNS
-3. Проверьте: `dig api.flowshow.ru +short`
+3. Проверьте: `dig api.flurai.ru +short`
 
 ### Ошибка: "Port 80 is already in use"
 
@@ -285,7 +285,7 @@ docker compose -f docker-compose.prod.yml start nginx
 **Решение:**
 1. Проверьте, что файлы существуют:
    ```bash
-   ls -la ~/shopflowbot/nginx/ssl/api.flowshow.ru/
+   ls -la ~/flurai/nginx/ssl/api.flurai.ru/
    ```
 2. Убедитесь, что пути в `nginx.conf` правильные
 3. Проверьте права доступа: `chmod 644 nginx/ssl/*/fullchain.pem`
@@ -315,18 +315,18 @@ docker compose -f docker-compose.prod.yml exec nginx nginx -t
 docker compose -f docker-compose.prod.yml logs nginx
 
 # Проверить SSL сертификат
-openssl s_client -connect api.flowshow.ru:443 -servername api.flowshow.ru
+openssl s_client -connect api.flurai.ru:443 -servername api.flurai.ru
 ```
 
 ---
 
 ## Важно: поведение корневого домена
 
-**`flowshow.ru`** настроен на редирект на **`app.flowshow.ru`** (Mini App). Это означает:
-- `http://flowshow.ru` → `https://app.flowshow.ru`
-- `https://flowshow.ru` → `https://app.flowshow.ru`
+**`flurai.ru`** настроен на редирект на **`app.flurai.ru`** (Mini App). Это означает:
+- `http://flurai.ru` → `https://app.flurai.ru`
+- `https://flurai.ru` → `https://app.flurai.ru`
 
-Если вы хотите изменить это поведение (например, редиректить на `admin.flowshow.ru` или проксировать на backend), отредактируйте `nginx/nginx.conf` и измените блок для `flowshow.ru`.
+Если вы хотите изменить это поведение (например, редиректить на `admin.flurai.ru` или проксировать на backend), отредактируйте `nginx/nginx.conf` и измените блок для `flurai.ru`.
 
 ---
 
@@ -336,8 +336,8 @@ openssl s_client -connect api.flowshow.ru:443 -servername api.flowshow.ru
 
 1. ✅ Обновите `.env` на сервере:
    ```bash
-   PUBLIC_API_URL=https://api.flowshow.ru
-   ALLOWED_ORIGINS=https://admin.flowshow.ru,https://app.flowshow.ru
+   PUBLIC_API_URL=https://api.flurai.ru
+   ALLOWED_ORIGINS=https://admin.flurai.ru,https://app.flurai.ru
    ```
 
 2. ✅ Перезапустите backend:
@@ -346,6 +346,6 @@ openssl s_client -connect api.flowshow.ru:443 -servername api.flowshow.ru
    ```
 
 3. ✅ Настройте Mini App URL в BotFather:
-   - Web App URL: `https://app.flowshow.ru`
+   - Web App URL: `https://app.flurai.ru`
 
 4. ✅ Протестируйте все три домена в браузере

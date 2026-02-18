@@ -19,7 +19,7 @@ Docker контейнеры (backend, bot, admin, miniapp)
 ### 1. Разработка локально
 
 ```bash
-cd ~/shopflowbot   # или путь к вашему клону репозитория
+cd ~/flurai   # или путь к вашему клону репозитория
 
 # Внести изменения в код
 # Протестировать локально (если нужно)
@@ -40,7 +40,7 @@ git push
 ```bash
 # На сервере (подключение: ssh your-server или ssh user@your-server-ip)
 ssh your-server
-cd ~/shopflowbot
+cd ~/flurai
 git pull
 docker compose -f docker-compose.prod.yml build backend  # или bot, admin, miniapp
 docker compose -f docker-compose.prod.yml up -d backend
@@ -93,7 +93,7 @@ echo "✅ Код отправлен в GitHub"
 
 # 5. Обновление на сервере (подставьте свой хост: алиас из ~/.ssh/config или user@host)
 echo "🔄 Обновляем сервер..."
-ssh your-server "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
+ssh your-server "cd ~/flurai && git pull && docker compose -f docker-compose.prod.yml build backend bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
 
 echo "✅ Деплой завершён!"
 ```
@@ -135,7 +135,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ~/shopflowbot
+            cd ~/flurai
             git pull
             docker compose -f docker-compose.prod.yml build backend bot admin miniapp
             docker compose -f docker-compose.prod.yml up -d
@@ -159,7 +159,7 @@ jobs:
 
 ```bash
 # Локально
-cd ~/shopflowbot
+cd ~/flurai
 # Внести изменения
 git add .
 git commit -m "fix: исправил баг X"
@@ -167,7 +167,7 @@ git push
 
 # На сервере (вручную или через скрипт)
 ssh your-server
-cd ~/shopflowbot
+cd ~/flurai
 git pull
 docker compose -f docker-compose.prod.yml build backend
 docker compose -f docker-compose.prod.yml up -d backend
@@ -224,7 +224,7 @@ docker compose -f docker-compose.prod.yml logs backend | grep -i error
 
 ```bash
 # На сервере
-cd ~/shopflowbot
+cd ~/flurai
 
 # Посмотреть историю коммитов
 git log --oneline -10
@@ -279,7 +279,7 @@ git push
 
 # На сервере: применить миграцию (см. также SERVER_COMMANDS.md)
 ssh your-server
-cd ~/shopflowbot
+cd ~/flurai
 git pull
 docker compose -f docker-compose.prod.yml exec backend bash -c "cd /src/backend && alembic upgrade head"
 ```
@@ -288,7 +288,7 @@ docker compose -f docker-compose.prod.yml exec backend bash -c "cd /src/backend 
 
 ```bash
 # На сервере: отредактировать .env
-nano ~/shopflowbot/.env
+nano ~/flurai/.env
 
 # Перезапустить сервисы (чтобы подхватили новые переменные)
 docker compose -f docker-compose.prod.yml restart backend bot
@@ -303,7 +303,7 @@ git commit -m "ui: обновил интерфейс"
 git push
 
 # На сервере
-cd ~/shopflowbot
+cd ~/flurai
 git pull
 docker compose -f docker-compose.prod.yml build admin miniapp
 docker compose -f docker-compose.prod.yml up -d admin miniapp
@@ -328,13 +328,13 @@ docker compose -f docker-compose.prod.yml up -d admin miniapp
 
 ```bash
 # Быстрый деплой
-alias deploy='cd ~/shopflowbot && git add . && git commit -m "$1" && git push && ssh your-server "cd ~/shopflowbot && git pull && docker compose -f docker-compose.prod.yml build backend bot && docker compose -f docker-compose.prod.yml up -d"'
+alias deploy='cd ~/flurai && git add . && git commit -m "$1" && git push && ssh your-server "cd ~/flurai && git pull && docker compose -f docker-compose.prod.yml build backend bot && docker compose -f docker-compose.prod.yml up -d"'
 
 # Подключение к серверу
 alias server='ssh your-server'
 
 # Логи backend
-alias logs-backend='ssh your-server "cd ~/shopflowbot && docker compose -f docker-compose.prod.yml logs -f backend"'
+alias logs-backend='ssh your-server "cd ~/flurai && docker compose -f docker-compose.prod.yml logs -f backend"'
 ```
 
 Использование: `deploy "описание изменений"`

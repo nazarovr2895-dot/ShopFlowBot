@@ -90,7 +90,7 @@ export function TopNav() {
                 width={40}
                 height={40}
               />
-              <span className="top-nav__brand-name">flowshow</span>
+              <span className="top-nav__brand-name">flurai</span>
             </div>
             <div className="top-nav__center" aria-hidden />
             <div className="top-nav__right">

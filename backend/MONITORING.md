@@ -35,7 +35,7 @@
 
 ```yaml
 scrape_configs:
-  - job_name: 'shopflowbot'
+  - job_name: 'flurai'
     static_configs:
       - targets: ['localhost:8000']
     metrics_path: '/metrics'
@@ -67,7 +67,7 @@ scrape_configs:
 
 ```yaml
 groups:
-  - name: shopflowbot_alerts
+  - name: flurai_alerts
     rules:
       - alert: HighErrorRate
         expr: rate(http_requests_total{status_code=~"5.."}[5m]) > 0.1

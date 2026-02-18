@@ -143,7 +143,7 @@ services:
       context: ./adminpanel
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${PUBLIC_API_URL:-https://api.flowshow.ru}
+        VITE_API_URL: ${PUBLIC_API_URL:-https://api.flurai.ru}
     restart: always
     networks:
       - app_net
@@ -153,7 +153,7 @@ services:
       context: ./miniapp
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${PUBLIC_API_URL:-https://api.flowshow.ru}
+        VITE_API_URL: ${PUBLIC_API_URL:-https://api.flurai.ru}
         VITE_BOT_USERNAME: ${BOT_USERNAME:-}
     restart: always
     networks:

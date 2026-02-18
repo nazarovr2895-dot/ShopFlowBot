@@ -61,10 +61,8 @@ export function Sidebar() {
     <aside className="sidebar-v2">
       {/* Brand */}
       <div className="sidebar-v2-brand">
-        <span className="sidebar-v2-logo">S</span>
-        <span className="sidebar-v2-brand-text">
-          Shop<span className="sidebar-v2-brand-accent">Flow</span>
-        </span>
+        <img src="/android-chrome-192x192.png" alt="flurai" className="sidebar-v2-logo-img" width={28} height={28} />
+        <span className="sidebar-v2-brand-text">flurai</span>
       </div>
 
       {/* Navigation */}

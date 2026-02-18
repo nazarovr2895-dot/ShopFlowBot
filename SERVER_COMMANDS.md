@@ -13,7 +13,7 @@ ssh ubuntu@your-server-ip -i ~/.ssh/your_key
 
 ### Просмотр статуса контейнеров
 ```bash
-cd ~/shopflowbot
+cd ~/flurai
 docker compose -f docker-compose.prod.yml ps
 # Показывает все контейнеры и их статус (Up, Restarting, Exited)
 ```
@@ -83,19 +83,19 @@ docker compose -f docker-compose.prod.yml exec backend bash -c "cd /src/backend 
 ### Подключиться к PostgreSQL
 ```bash
 # Войти в контейнер БД
-docker compose -f docker-compose.prod.yml exec db psql -U postgres -d shopflowbot
+docker compose -f docker-compose.prod.yml exec db psql -U postgres -d flurai
 
 # Выполнить SQL запрос напрямую
-docker compose -f docker-compose.prod.yml exec db psql -U postgres -d shopflowbot -c "SELECT COUNT(*) FROM users;"
+docker compose -f docker-compose.prod.yml exec db psql -U postgres -d flurai -c "SELECT COUNT(*) FROM users;"
 ```
 
 ### Бэкап базы данных
 ```bash
 # Создать бэкап
-docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres shopflowbot > backup_$(date +%Y%m%d_%H%M%S).sql
+docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres flurai > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Восстановить из бэкапа
-cat backup_20260209_120000.sql | docker compose -f docker-compose.prod.yml exec -T db psql -U postgres shopflowbot
+cat backup_20260209_120000.sql | docker compose -f docker-compose.prod.yml exec -T db psql -U postgres flurai
 ```
 
 ---
@@ -130,7 +130,7 @@ docker compose -f docker-compose.prod.yml exec backend getent hosts redis
 
 ### Обновить код и перезапустить
 ```bash
-cd ~/shopflowbot
+cd ~/flurai
 git pull
 docker compose -f docker-compose.prod.yml build backend bot admin miniapp
 docker compose -f docker-compose.prod.yml up -d
@@ -138,7 +138,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 ### Обновить только backend
 ```bash
-cd ~/shopflowbot
+cd ~/flurai
 git pull
 docker compose -f docker-compose.prod.yml build backend
 docker compose -f docker-compose.prod.yml up -d backend

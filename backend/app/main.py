@@ -177,7 +177,7 @@ async def lifespan(app: FastAPI):
     await CacheService.close()
 
 
-app = FastAPI(title="FlowShop Backend", lifespan=lifespan)
+app = FastAPI(title="Flurai Backend", lifespan=lifespan)
 
 # Use shared limiter (routers use the same instance for @limiter.limit)
 app.state.limiter = limiter

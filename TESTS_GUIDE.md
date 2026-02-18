@@ -1,12 +1,12 @@
-# TESTS_GUIDE.md — Руководство по тестированию ShopFlowBot
+# TESTS_GUIDE.md — Руководство по тестированию Flurai
 
-> Полное руководство по тестированию проекта ShopFlowBot: структура, типы тестов, запуск, примеры и рекомендации.
+> Полное руководство по тестированию проекта Flurai: структура, типы тестов, запуск, примеры и рекомендации.
 
 ---
 
 ## 1. Введение
 
-ShopFlowBot — это e-commerce платформа на базе Telegram Mini App. Проект включает:
+Flurai — это e-commerce платформа на базе Telegram Mini App. Проект включает:
 
 - **Backend API** (FastAPI + SQLAlchemy async + PostgreSQL + Redis)
 - **Telegram Bot** (aiogram 3.x)

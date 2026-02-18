@@ -1267,7 +1267,7 @@ async def activate_due_preorders(session: AsyncSession, today: date) -> List[Dic
     Caller must commit the session after this returns.
     """
     from backend.app.core.logging import get_logger
-    _log = get_logger("shopflowbot.preorder_activator")
+    _log = get_logger("flurai.preorder_activator")
 
     result = await session.execute(
         select(Order).where(

@@ -91,7 +91,7 @@ docker compose -f docker-compose.prod.yml restart nginx
 ```bash
 # На сервере
 ssh yandex-cloud
-cd ~/shopflowbot/nginx
+cd ~/flurai/nginx
 
 # Убедиться что используется prod конфигурация
 ls -la nginx.conf  # Должно быть: nginx.conf -> nginx.prod.conf
@@ -125,7 +125,7 @@ docker compose exec nginx cat /etc/nginx/conf.d/default.conf | grep "return 30"
 ```
 1. Открыть: chrome://net-internals/#hsts
 2. В разделе "Delete domain security policies"
-3. Ввести: app.flowshow.ru
+3. Ввести: app.flurai.ru
 4. Нажать: Delete
 5. Перезапустить Chrome
 ```
@@ -156,8 +156,8 @@ docker compose exec nginx cat /etc/nginx/conf.d/default.conf | grep "return 30"
 ### Проблема: "Failed to fetch" первые 10 секунд после деплоя
 
 **Симптомы:**
-- После деплоя admin.flowshow.ru показывает CORS ошибки
-- В консоли браузера: `Access to fetch at 'https://flowshow.ru/admin/login' has been blocked by CORS policy`
+- После деплоя admin.flurai.ru показывает CORS ошибки
+- В консоли браузера: `Access to fetch at 'https://flurai.ru/admin/login' has been blocked by CORS policy`
 - Через 10-15 секунд всё начинает работать нормально
 
 **Причина:**
@@ -190,11 +190,11 @@ proxy_connect_timeout 15s;  # Было 10s
 
 **Проверить что исправление работает:**
 ```bash
-# Сразу после деплоя открыть admin.flowshow.ru
+# Сразу после деплоя открыть admin.flurai.ru
 # Должно работать без CORS ошибок!
 
 # Проверить логи nginx
-ssh yandex-cloud "docker compose -f ~/shopflowbot/docker-compose.prod.yml logs nginx | grep upstream | tail -20"
+ssh yandex-cloud "docker compose -f ~/flurai/docker-compose.prod.yml logs nginx | grep upstream | tail -20"
 
 # Проверить keepalive соединения
 ssh yandex-cloud "docker compose exec nginx netstat -tnp | grep :8000"
@@ -202,7 +202,7 @@ ssh yandex-cloud "docker compose exec nginx netstat -tnp | grep :8000"
 ```
 
 **Если проблема сохраняется:**
-1. Проверить healthcheck backend: `curl https://flowshow.ru/health`
+1. Проверить healthcheck backend: `curl https://flurai.ru/health`
 2. Проверить логи backend: `docker compose logs backend | grep -E '(startup|CORS)'`
 3. Увеличить `start_period` в `docker-compose.prod.yml` (сейчас 60s)
 4. Добавить startup delay для nginx (см. альтернативный подход в плане)
