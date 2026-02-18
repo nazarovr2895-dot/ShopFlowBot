@@ -160,19 +160,6 @@ export function OrderDetail() {
           className="order-detail__cancel-btn"
           onClick={handleCancel}
           disabled={cancelling}
-          style={{
-            display: 'block',
-            width: '100%',
-            padding: '14px',
-            marginTop: '8px',
-            border: '1px solid #e74c3c',
-            borderRadius: '12px',
-            background: 'transparent',
-            color: '#e74c3c',
-            fontSize: '16px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
         >
           {cancelling ? 'Отменяем…' : '🚫 Отменить предзаказ'}
         </button>

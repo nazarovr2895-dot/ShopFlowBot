@@ -281,3 +281,23 @@
 .cart-page__profile-link:active {
   opacity: 0.9;
 }
+
+/* ===== Desktop / Browser adaptation ===== */
+@media (min-width: 768px) {
+  .cart-page__footer {
+    position: static;
+    margin: 16px 0 0;
+    border-radius: 12px;
+    border: 1px solid var(--app-border);
+    border-top: 1px solid var(--app-border);
+    padding-bottom: 16px;
+  }
+
+  .cart-page__checkout-btn {
+    max-width: 320px;
+  }
+
+  .cart-page__profile-link {
+    max-width: 320px;
+  }
+}

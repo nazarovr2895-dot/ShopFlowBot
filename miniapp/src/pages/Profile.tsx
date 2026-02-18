@@ -47,6 +47,7 @@ export function Profile() {
   const [loading, setLoading] = useState(true);
   const [requestingContact, setRequestingContact] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [phoneInput, setPhoneInput] = useState('');
 
   const loadUser = useCallback(async () => {
     try {
@@ -169,14 +170,34 @@ export function Profile() {
             </div>
             {saveError && <p className="profile-data__error">{saveError}</p>}
             {!user.phone && (
-              <button
-                type="button"
-                className="profile-data__save"
-                onClick={handleRequestContact}
-                disabled={requestingContact}
-              >
-                {requestingContact ? 'Запрос…' : 'Поделиться номером телефона'}
-              </button>
+              isBrowser() ? (
+                <div className="profile-data__phone-input-block">
+                  <input
+                    type="tel"
+                    className="profile-data__input"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    placeholder="+7 999 123 45 67"
+                  />
+                  <button
+                    type="button"
+                    className="profile-data__save"
+                    onClick={() => handleSavePhone(phoneInput)}
+                    disabled={!phoneInput.trim()}
+                  >
+                    Сохранить номер
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="profile-data__save"
+                  onClick={handleRequestContact}
+                  disabled={requestingContact}
+                >
+                  {requestingContact ? 'Запрос…' : 'Поделиться номером телефона'}
+                </button>
+              )
             )}
           </section>
 

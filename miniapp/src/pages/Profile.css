@@ -185,3 +185,21 @@
 .profile-data__save:active:not(:disabled) {
   opacity: 0.9;
 }
+
+/* Browser phone input block */
+.profile-data__phone-input-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ===== Desktop / Browser adaptation ===== */
+@media (min-width: 768px) {
+  .profile-data__save {
+    max-width: 320px;
+  }
+
+  .profile-nav__item {
+    max-width: 480px;
+  }
+}

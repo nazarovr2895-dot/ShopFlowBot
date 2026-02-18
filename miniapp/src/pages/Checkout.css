@@ -299,6 +299,19 @@
   cursor: not-allowed;
 }
 
+/* Inline secondary/ghost buttons (e.g. phone save/cancel) */
+.checkout-form__submit--secondary {
+  flex: 0 1 auto;
+  margin-top: 0;
+}
+
+.checkout-form__submit--ghost {
+  flex: 0 1 auto;
+  margin-top: 0;
+  background: var(--tg-theme-secondary-bg-color);
+  color: var(--tg-theme-text-color);
+}
+
 .checkout-form__link-btn {
   padding: 6px 12px;
   font-size: 14px;
@@ -338,4 +351,26 @@
   font-size: 15px;
   font-weight: 500;
   color: var(--tg-theme-text-color);
+}
+
+/* ===== Desktop / Browser adaptation ===== */
+@media (min-width: 768px) {
+  .checkout-page {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px 32px;
+    padding-bottom: 48px;
+  }
+
+  .checkout-delivery-segment__buttons {
+    max-width: 400px;
+  }
+
+  .checkout-form__submit {
+    max-width: 320px;
+  }
+
+  .checkout-pickup-map__btn {
+    max-width: 400px;
+  }
 }

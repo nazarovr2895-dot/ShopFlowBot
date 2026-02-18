@@ -4,6 +4,7 @@ import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { EmptyState, ProductImage } from '../components';
+import { isBrowser } from '../utils/environment';
 import './Checkout.css';
 
 function normalizePhone(phone: string): string {
@@ -413,7 +414,7 @@ export function Checkout() {
         </div>
       </div>
       <form className="checkout-form" onSubmit={handleSubmit}>
-        {(!user?.phone || editingPhone) && (
+        {(!user?.phone || editingPhone || (isBrowser() && !user?.phone)) && (
           <div className="checkout-form__label" style={{ marginBottom: '1rem' }}>
             <p style={{ marginBottom: '0.5rem', color: user?.phone ? undefined : '#ff6b6b' }}>
               {user?.phone ? 'Изменить номер телефона' : 'Для оформления заказа необходим номер телефона'}
@@ -427,41 +428,41 @@ export function Checkout() {
               style={{ marginBottom: 8 }}
             />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {!isBrowser() && (
+                <button
+                  type="button"
+                  className="checkout-form__submit checkout-form__submit--secondary"
+                  onClick={handleRequestContact}
+                  disabled={requestingContact}
+                >
+                  {requestingContact ? 'Запрос…' : 'Поделиться номером'}
+                </button>
+              )}
               <button
                 type="button"
-                className="checkout-form__submit"
-                onClick={handleRequestContact}
-                disabled={requestingContact}
+                className="checkout-form__submit checkout-form__submit--secondary"
+                onClick={async () => {
+                  const ok = await handleSavePhone(phoneInput);
+                  if (ok) {
+                    setEditingPhone(false);
+                    setPhoneInput('');
+                  }
+                }}
+                disabled={!phoneInput.trim()}
               >
-                {requestingContact ? 'Запрос…' : 'Поделиться номером'}
+                Сохранить
               </button>
               {editingPhone && (
-                <>
-                  <button
-                    type="button"
-                    className="checkout-form__submit"
-                    onClick={async () => {
-                      const ok = await handleSavePhone(phoneInput);
-                      if (ok) {
-                        setEditingPhone(false);
-                        setPhoneInput('');
-                      }
-                    }}
-                  >
-                    Сохранить
-                  </button>
-                  <button
-                    type="button"
-                    className="checkout-form__submit"
-                    onClick={() => {
-                      setEditingPhone(false);
-                      setPhoneInput('');
-                    }}
-                    style={{ background: 'var(--tg-theme-secondary-bg-color)', color: 'var(--tg-theme-text-color)' }}
-                  >
-                    Отмена
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="checkout-form__submit checkout-form__submit--ghost"
+                  onClick={() => {
+                    setEditingPhone(false);
+                    setPhoneInput('');
+                  }}
+                >
+                  Отмена
+                </button>
               )}
             </div>
           </div>
