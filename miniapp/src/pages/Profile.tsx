@@ -33,9 +33,10 @@ function normalizePhone(phone: string): string {
 
 export function Profile() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fromParam = searchParams.get('from');
-  const { showAlert, requestContact, user: telegramUser } = useTelegramWebApp();
+  const section = searchParams.get('section');
+  const { showAlert, requestContact, hapticFeedback, setBackButton, user: telegramUser } = useTelegramWebApp();
   const [user, setUser] = useState<{
     tg_id: number;
     fio?: string;
@@ -93,6 +94,16 @@ export function Profile() {
     }
   }, [telegramUser, user?.phone, handleSavePhone]);
 
+  // Telegram BackButton for section views
+  useEffect(() => {
+    if (section) {
+      setBackButton(true, () => navigate('/profile'));
+      return () => setBackButton(false);
+    } else {
+      setBackButton(false);
+    }
+  }, [section, setBackButton, navigate]);
+
   const handleAuthSuccess = useCallback(() => {
     loadUser();
     if (fromParam === REQUIRE_AUTH_FROM_CHECKOUT) {
@@ -121,96 +132,170 @@ export function Profile() {
     }
   };
 
-  if (loading) return <Loader centered />;
+  // --- Helpers ---
 
-  const showAuthBlock = isBrowser() && !user;
+  const getUserDisplayName = (): string => {
+    if (telegramUser?.first_name) {
+      return `${telegramUser.first_name}${telegramUser.last_name ? ' ' + telegramUser.last_name : ''}`.trim();
+    }
+    return user?.fio || 'Пользователь';
+  };
 
-  return (
+  const getUserInitial = (): string => {
+    const name = getUserDisplayName();
+    return (name[0] || 'U').toUpperCase();
+  };
+
+  // --- Section: Мои данные ---
+
+  const renderPersonalSection = () => (
     <div className="profile-page">
-      <h1 className="profile-page__title">Профиль</h1>
-
-      {showAuthBlock && (
-        <section className="profile-auth-block">
-          <p className="profile-auth-block__text">
-            Войдите через Telegram, чтобы сохранять избранные магазины, оформлять заказы и видеть историю.
-          </p>
-          <TelegramAuth onAuthSuccess={handleAuthSuccess} onAuthError={(err) => showAlert(err)} />
-        </section>
+      {isBrowser() && (
+        <button
+          type="button"
+          className="profile-section__back"
+          onClick={() => navigate('/profile')}
+        >
+          ‹ Профиль
+        </button>
       )}
 
-      {user && (
-        <>
-          <section className="profile-data">
-            <h2 className="profile-data__heading">Мои данные</h2>
-            <div className="profile-data__card">
-              <div className="profile-data__row">
-                <span className="profile-data__label">Telegram ID</span>
-                <span className="profile-data__value profile-data__value_readonly">{user.tg_id}</span>
-              </div>
-              {telegramUser?.first_name && (
-                <div className="profile-data__row">
-                  <span className="profile-data__label">Имя</span>
-                  <span className="profile-data__value profile-data__value_readonly">
-                    {telegramUser.first_name} {telegramUser.last_name || ''}
-                  </span>
-                </div>
-              )}
-              <div className="profile-data__row">
-                <span className="profile-data__label">Номер телефона</span>
-                {user.phone ? (
-                  <span className="profile-data__value profile-data__value_readonly">
-                    {formatPhoneForDisplay(user.phone)}
-                  </span>
-                ) : (
-                  <span className="profile-data__value profile-data__value_readonly" style={{ color: '#999' }}>
-                    Не указан
-                  </span>
-                )}
-              </div>
-            </div>
-            {saveError && <p className="profile-data__error">{saveError}</p>}
-            {!user.phone && (
-              isBrowser() ? (
-                <div className="profile-data__phone-input-block">
-                  <input
-                    type="tel"
-                    className="profile-data__input"
-                    value={phoneInput}
-                    onChange={(e) => setPhoneInput(e.target.value)}
-                    placeholder="+7 999 123 45 67"
-                  />
-                  <button
-                    type="button"
-                    className="profile-data__save"
-                    onClick={() => handleSavePhone(phoneInput)}
-                    disabled={!phoneInput.trim()}
-                  >
-                    Сохранить номер
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="profile-data__save"
-                  onClick={handleRequestContact}
-                  disabled={requestingContact}
-                >
-                  {requestingContact ? 'Запрос…' : 'Поделиться номером телефона'}
-                </button>
-              )
-            )}
-          </section>
+      <h1 className="profile-section__title">Мои данные</h1>
 
-          <div className="profile-card">
+      {user ? (
+        <section className="profile-data">
+          <div className="profile-data__card">
+            <div className="profile-data__row">
+              <span className="profile-data__label">Telegram ID</span>
+              <span className="profile-data__value profile-data__value_readonly">{user.tg_id}</span>
+            </div>
+            {telegramUser?.first_name && (
+              <div className="profile-data__row">
+                <span className="profile-data__label">Имя</span>
+                <span className="profile-data__value profile-data__value_readonly">
+                  {telegramUser.first_name} {telegramUser.last_name || ''}
+                </span>
+              </div>
+            )}
+            <div className="profile-data__row">
+              <span className="profile-data__label">Номер телефона</span>
+              {user.phone ? (
+                <span className="profile-data__value profile-data__value_readonly">
+                  {formatPhoneForDisplay(user.phone)}
+                </span>
+              ) : (
+                <span className="profile-data__value profile-data__value_readonly" style={{ color: '#999' }}>
+                  Не указан
+                </span>
+              )}
+            </div>
             {user.username && (
-              <div className="profile-card__row">
-                <span className="profile-card__label">Username</span>
-                <span className="profile-card__value">@{user.username}</span>
+              <div className="profile-data__row">
+                <span className="profile-data__label">Username</span>
+                <span className="profile-data__value profile-data__value_readonly">@{user.username}</span>
               </div>
             )}
           </div>
-        </>
+          {saveError && <p className="profile-data__error">{saveError}</p>}
+          {!user.phone && (
+            isBrowser() ? (
+              <div className="profile-data__phone-input-block">
+                <input
+                  type="tel"
+                  className="profile-data__input"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="+7 999 123 45 67"
+                />
+                <button
+                  type="button"
+                  className="profile-data__save"
+                  onClick={() => handleSavePhone(phoneInput)}
+                  disabled={!phoneInput.trim()}
+                >
+                  Сохранить номер
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="profile-data__save"
+                onClick={handleRequestContact}
+                disabled={requestingContact}
+              >
+                {requestingContact ? 'Запрос…' : 'Поделиться номером телефона'}
+              </button>
+            )
+          )}
+        </section>
+      ) : (
+        <p style={{ color: 'var(--app-text-secondary)' }}>
+          Войдите в профиль, чтобы увидеть ваши данные.
+        </p>
       )}
     </div>
   );
+
+  // --- Menu View ---
+
+  const renderMenuView = () => {
+    const showAuthBlock = isBrowser() && !user;
+
+    return (
+      <div className="profile-page">
+        <h1 className="profile-page__title">Профиль</h1>
+
+        {showAuthBlock && (
+          <section className="profile-auth-block">
+            <p className="profile-auth-block__text">
+              Войдите через Telegram, чтобы сохранять избранные магазины, оформлять заказы и видеть историю.
+            </p>
+            <TelegramAuth onAuthSuccess={handleAuthSuccess} onAuthError={(err) => showAlert(err)} />
+          </section>
+        )}
+
+        {user && (
+          <>
+            {/* User header with avatar */}
+            <div className="profile-header">
+              <div className="profile-header__avatar">
+                {getUserInitial()}
+              </div>
+              <div className="profile-header__info">
+                <span className="profile-header__name">{getUserDisplayName()}</span>
+                {user.username && (
+                  <span className="profile-header__username">@{user.username}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Section navigation */}
+            <nav className="profile-nav">
+              <button
+                type="button"
+                className="profile-nav__item"
+                onClick={() => {
+                  hapticFeedback('light');
+                  setSearchParams({ section: 'personal' });
+                }}
+              >
+                <span className="profile-nav__icon">👤</span>
+                Мои данные
+                <span className="profile-nav__arrow">›</span>
+              </button>
+              {/* Future sections go here */}
+            </nav>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // --- Main Render ---
+
+  if (loading) return <Loader centered />;
+
+  if (section === 'personal') return renderPersonalSection();
+
+  return renderMenuView();
 }
