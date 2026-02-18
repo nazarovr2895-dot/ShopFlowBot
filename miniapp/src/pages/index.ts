@@ -9,3 +9,5 @@ export { Profile } from './Profile';
 export { OrdersList } from './OrdersList';
 export { OrderDetail } from './OrderDetail';
 export { ProductDetail } from './ProductDetail';
+export { GuestCheckout } from './GuestCheckout';
+export { GuestOrderConfirmation } from './GuestOrderConfirmation';

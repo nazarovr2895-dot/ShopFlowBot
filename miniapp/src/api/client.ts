@@ -373,6 +373,37 @@ class ApiClient {
     });
   }
 
+  /** Guest checkout — no auth headers, sends cart items directly. */
+  async guestCheckout(data: {
+    guest_name: string;
+    guest_phone: string;
+    delivery_type: string;
+    address: string;
+    comment?: string;
+    items: Array<{
+      product_id: number;
+      seller_id: number;
+      quantity: number;
+      name: string;
+      price: number;
+    }>;
+  }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
+    const url = `${this.getBaseUrl()}/orders/guest-checkout`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Ошибка оформления' }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  }
+
   // Favorite products API
   async getFavoriteProducts(): Promise<FavoriteProduct[]> {
     return this.fetch<FavoriteProduct[]>('/buyers/me/favorite-products');

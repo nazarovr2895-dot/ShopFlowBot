@@ -17,3 +17,4 @@ export { ProductModal } from './ProductModal';
 export { ImageViewer } from './ImageViewer';
 export { DeliveryNavBar } from './DeliveryNavBar';
 export type { DeliveryTab } from './DeliveryNavBar';
+export { LoyaltyLoginBanner } from './LoyaltyLoginBanner';

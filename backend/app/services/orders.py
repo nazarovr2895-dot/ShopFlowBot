@@ -160,7 +160,55 @@ class OrderService:
             ).inc()
 
         return order
-    
+
+    async def create_guest_order(
+        self,
+        seller_id: int,
+        items_info: str,
+        total_price: Decimal,
+        delivery_type: str,
+        address: Optional[str] = None,
+        comment: Optional[str] = None,
+        guest_name: str = "",
+        guest_phone: str = "",
+        guest_address: Optional[str] = None,
+    ) -> Order:
+        """
+        Create a new order for a guest (no Telegram account).
+        buyer_id is None; guest contact fields are stored on the order.
+        """
+        seller = await self._get_seller_for_update(seller_id)
+        self._validate_seller(seller, seller_id)
+
+        seller_service = SellerService(self.session)
+        if not await seller_service.check_limit(seller_id):
+            raise SellerLimitReachedError(seller_id)
+        seller.pending_requests += 1
+
+        order = Order(
+            buyer_id=None,
+            seller_id=seller_id,
+            items_info=items_info,
+            total_price=total_price,
+            delivery_type=delivery_type,
+            address=address,
+            comment=comment,
+            status="pending",
+            guest_name=guest_name,
+            guest_phone=guest_phone,
+            guest_address=guest_address,
+        )
+        self.session.add(order)
+        await self.session.flush()
+
+        if orders_created_total:
+            orders_created_total.labels(
+                seller_id=str(seller_id),
+                status="pending"
+            ).inc()
+
+        return order
+
     async def accept_order(self, order_id: int, verify_seller_id: Optional[int] = None) -> Dict[str, Any]:
         """
         Accept a pending order. Moves counter from pending to active.
@@ -419,7 +467,7 @@ class OrderService:
 
         # Accrue loyalty points when order first reaches done or completed (by buyer phone)
         if new_status in ("done", "completed") and old_status not in ("done", "completed"):
-            buyer = await self.session.get(User, order.buyer_id)
+            buyer = await self.session.get(User, order.buyer_id) if order.buyer_id else None
             buyer_phone = buyer.phone if buyer else None
             if buyer_phone:
                 loyalty_svc = LoyaltyService(self.session)
@@ -448,7 +496,7 @@ class OrderService:
         preorder: Optional[bool] = None,
     ) -> List[Dict[str, Any]]:
         """Get orders for a seller with optional status and preorder filter. status can be comma-separated."""
-        query = select(Order, User.fio, User.phone).join(
+        query = select(Order, User.fio, User.phone).outerjoin(
             User, Order.buyer_id == User.tg_id
         ).where(Order.seller_id == seller_id)
 
@@ -467,7 +515,7 @@ class OrderService:
         # Batch lookup: collect unique phones and find matching loyalty customers
         phones = set()
         for row in rows:
-            phone = row[2]
+            phone = row[2] or getattr(row[0], 'guest_phone', None)
             if phone:
                 norm = normalize_phone(phone)
                 if norm:
@@ -487,9 +535,12 @@ class OrderService:
         out = []
         for row in rows:
             o, buyer_fio, buyer_phone = row[0], row[1], row[2]
+            # Fall back to guest fields for guest orders (buyer_id is None)
+            effective_fio = buyer_fio or getattr(o, 'guest_name', None)
+            effective_phone = buyer_phone or getattr(o, 'guest_phone', None)
             customer_id = None
-            if buyer_phone:
-                norm = normalize_phone(buyer_phone)
+            if effective_phone:
+                norm = normalize_phone(effective_phone)
                 customer_id = customer_by_phone.get(norm)
             out.append({
                 "id": o.id,
@@ -505,11 +556,12 @@ class OrderService:
                 "completed_at": o.completed_at.isoformat() if o.completed_at else None,
                 "is_preorder": getattr(o, "is_preorder", False),
                 "preorder_delivery_date": o.preorder_delivery_date.isoformat() if getattr(o, "preorder_delivery_date", None) else None,
-                "buyer_fio": buyer_fio,
-                "buyer_phone": buyer_phone,
+                "buyer_fio": effective_fio,
+                "buyer_phone": effective_phone,
                 "customer_id": customer_id,
                 "points_used": float(o.points_used) if getattr(o, "points_used", None) else 0,
                 "points_discount": float(o.points_discount) if getattr(o, "points_discount", None) else 0,
+                "is_guest": o.buyer_id is None,
             })
         return out
 
@@ -559,17 +611,19 @@ class OrderService:
         """Get one order by id for seller, with buyer fio, phone, and customer_id if loyalty customer."""
         result = await self.session.execute(
             select(Order, User.fio, User.phone)
-            .join(User, Order.buyer_id == User.tg_id)
+            .outerjoin(User, Order.buyer_id == User.tg_id)
             .where(Order.id == order_id, Order.seller_id == seller_id)
         )
         row = result.one_or_none()
         if not row:
             return None
         order, buyer_fio, buyer_phone = row[0], row[1], row[2]
+        effective_fio = buyer_fio or getattr(order, 'guest_name', None)
+        effective_phone = buyer_phone or getattr(order, 'guest_phone', None)
         customer_id = None
-        if buyer_phone:
+        if effective_phone:
             loyalty_svc = LoyaltyService(self.session)
-            customer = await loyalty_svc.find_customer_by_phone(seller_id, buyer_phone)
+            customer = await loyalty_svc.find_customer_by_phone(seller_id, effective_phone)
             if customer:
                 customer_id = customer.id
         return {
@@ -586,11 +640,12 @@ class OrderService:
             "completed_at": order.completed_at.isoformat() if order.completed_at else None,
             "is_preorder": getattr(order, "is_preorder", False),
             "preorder_delivery_date": order.preorder_delivery_date.isoformat() if getattr(order, "preorder_delivery_date", None) else None,
-            "buyer_fio": buyer_fio,
-            "buyer_phone": buyer_phone,
+            "buyer_fio": effective_fio,
+            "buyer_phone": effective_phone,
             "customer_id": customer_id,
             "points_used": float(order.points_used) if getattr(order, "points_used", None) else 0,
             "points_discount": float(order.points_discount) if getattr(order, "points_discount", None) else 0,
+            "is_guest": order.buyer_id is None,
         }
 
     async def get_buyer_orders(self, buyer_id: int) -> List[Dict[str, Any]]:

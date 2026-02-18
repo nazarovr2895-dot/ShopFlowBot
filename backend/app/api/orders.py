@@ -1,15 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from typing import Optional, List
+from decimal import Decimal
+from collections import defaultdict
 
 from backend.app.api.deps import get_session
-from backend.app.schemas import OrderCreate, OrderResponse
+from backend.app.schemas import OrderCreate, OrderResponse, GuestCheckoutBody
 from backend.app.core.auth import (
     TelegramInitData,
     get_current_user_optional,
     verify_user_id,
 )
 from backend.app.core.logging import get_logger
+from backend.app.models.seller import Seller
+from backend.app.models.loyalty import normalize_phone
 from backend.app.services.orders import (
     OrderService,
     OrderServiceError,
@@ -334,3 +338,99 @@ async def get_seller_order_stats(
     """
     service = OrderService(session)
     return await service.get_seller_stats(seller_id)
+
+
+# --- 10. ГОСТЕВОЙ CHECKOUT (без авторизации) ---
+@router.post("/guest-checkout")
+async def guest_checkout(
+    data: GuestCheckoutBody,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Create orders for a guest buyer (no Telegram auth required).
+    Cart items are sent directly from the frontend localStorage.
+    """
+    # Validate phone
+    normalized_phone = normalize_phone(data.guest_phone)
+    if not normalized_phone or len(normalized_phone) != 11:
+        raise HTTPException(status_code=400, detail="Неверный формат телефона")
+
+    guest_name = data.guest_name.strip() or "Покупатель"
+
+    # Group items by seller
+    by_seller: dict = defaultdict(list)
+    for item in data.items:
+        by_seller[item.seller_id].append(item)
+
+    order_service = OrderService(session)
+    created = []
+
+    try:
+        for seller_id, items in by_seller.items():
+            total = sum(Decimal(str(it.price)) * it.quantity for it in items)
+
+            # Add delivery price from seller settings
+            seller = await session.get(Seller, seller_id)
+            delivery_price = Decimal("0")
+            if seller and data.delivery_type == "Доставка" and getattr(seller, "delivery_price", None):
+                delivery_price = Decimal(str(seller.delivery_price))
+                total += delivery_price
+
+            items_info = ", ".join(
+                f"{it.product_id}:{it.name} x {it.quantity}" for it in items
+            )
+
+            # Build address (same format as authenticated checkout)
+            if data.delivery_type == "Самовывоз" and seller and getattr(seller, "map_url", None):
+                addr = f"{seller.map_url}\n📞 {normalized_phone}\n👤 {guest_name}"
+            else:
+                addr = f"{data.address}\n📞 {normalized_phone}\n👤 {guest_name}"
+
+            order = await order_service.create_guest_order(
+                seller_id=seller_id,
+                items_info=items_info,
+                total_price=total,
+                delivery_type=data.delivery_type,
+                address=addr,
+                guest_name=guest_name,
+                guest_phone=normalized_phone,
+                guest_address=data.address if data.delivery_type == "Доставка" else None,
+                comment=(data.comment or "").strip() or None,
+            )
+            created.append({
+                "order_id": order.id,
+                "seller_id": seller_id,
+                "total_price": float(order.total_price),
+                "items_info": items_info,
+            })
+
+        await session.commit()
+
+        # Send seller notifications (no buyer notification — guest has no Telegram)
+        from backend.app.services.telegram_notify import notify_seller_new_order_guest
+        for o in created:
+            await notify_seller_new_order_guest(
+                seller_id=o["seller_id"],
+                order_id=o["order_id"],
+                items_info=o["items_info"],
+                total_price=o["total_price"],
+                guest_name=guest_name,
+                guest_phone=normalized_phone,
+            )
+
+        logger.info(
+            "Guest checkout completed",
+            guest_phone=normalized_phone,
+            orders_count=len(created),
+        )
+
+        return {
+            "orders": [
+                {"order_id": o["order_id"], "seller_id": o["seller_id"], "total_price": o["total_price"]}
+                for o in created
+            ]
+        }
+    except OrderServiceError as e:
+        await session.rollback()
+        logger.warning("Guest checkout failed", error=e.message)
+        _handle_service_error(e)

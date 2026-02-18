@@ -58,6 +58,47 @@ class OrderResponse(BaseModel):
     id: int
     status: str
 
+
+# --- Гостевой checkout (без Telegram-авторизации) ---
+class GuestCartItem(BaseModel):
+    product_id: int
+    seller_id: int
+    name: str
+    price: Decimal
+    quantity: int = Field(gt=0)
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
+        return sanitize_user_input(v, max_length=500)
+
+
+class GuestCheckoutBody(BaseModel):
+    guest_name: str
+    guest_phone: str
+    delivery_type: str  # "Доставка" | "Самовывоз"
+    address: str
+    comment: Optional[str] = None
+    items: List[GuestCartItem] = Field(min_length=1)
+
+    @field_validator("guest_name")
+    @classmethod
+    def sanitize_guest_name(cls, v: str) -> str:
+        return sanitize_user_input(v, max_length=255)
+
+    @field_validator("address")
+    @classmethod
+    def sanitize_address(cls, v: str) -> str:
+        return sanitize_user_input(v, max_length=5000)
+
+    @field_validator("comment")
+    @classmethod
+    def sanitize_comment(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return sanitize_user_input(v, max_length=2000)
+
+
 # --- Товары ---
 MAX_PRODUCT_PHOTOS = 3
 

@@ -1,0 +1,66 @@
+.loyalty-banner {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(51, 144, 236, 0.08), rgba(51, 144, 236, 0.15));
+  border: 1px solid var(--tg-theme-button-color, #3390ec);
+  border-radius: 12px;
+}
+
+.loyalty-banner__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.loyalty-banner__icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.loyalty-banner__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--tg-theme-text-color);
+}
+
+.loyalty-banner__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.loyalty-banner__login-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tg-theme-button-text-color, #fff);
+  background: var(--tg-theme-button-color, #3390ec);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.loyalty-banner__login-btn:active {
+  opacity: 0.9;
+}
+
+.loyalty-banner__dismiss {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tg-theme-hint-color, #999);
+  background: transparent;
+  border: 1px solid var(--tg-theme-hint-color, rgba(0, 0, 0, 0.15));
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.loyalty-banner__dismiss:active {
+  opacity: 0.8;
+}

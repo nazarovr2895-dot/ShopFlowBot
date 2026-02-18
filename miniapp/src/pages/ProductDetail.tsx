@@ -4,6 +4,7 @@ import type { PublicSellerDetail, Product } from '../types';
 import { api, hasTelegramAuth } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
+import { addToGuestCart } from '../utils/guestCart';
 import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
 import './ProductDetail.css';
 
@@ -106,6 +107,23 @@ export function ProductDetail() {
     setAdding(true);
     try {
       hapticFeedback('medium');
+
+      // Guest cart: browser + not authenticated → save to localStorage
+      if (isBrowser() && !api.isAuthenticated()) {
+        addToGuestCart({
+          product_id: product.id,
+          seller_id: Number(sellerId),
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          photo_id: product.photo_id ?? null,
+          seller_name: shopName || undefined,
+        });
+        showAlert(preorderDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
+        setSelectedPreorderDate(null);
+        return;
+      }
+
       await api.addCartItem(product.id, 1, preorderDate);
       showAlert(preorderDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
       setSelectedPreorderDate(null);

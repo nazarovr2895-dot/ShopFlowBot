@@ -7,7 +7,7 @@ from backend.app.core.base import Base
 class Order(Base):
     __tablename__ = 'orders'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
+    buyer_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=True)
     seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
     items_info: Mapped[str] = mapped_column(Text)
     total_price: Mapped[float] = mapped_column(DECIMAL(10, 2))
@@ -22,6 +22,10 @@ class Order(Base):
     preorder_delivery_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     points_used: Mapped[Optional[float]] = mapped_column(DECIMAL(12, 2), nullable=True, default=0)
     points_discount: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True, default=0)
+    # Guest checkout fields (for orders placed without Telegram auth)
+    guest_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    guest_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    guest_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         Index('ix_orders_seller_id', 'seller_id'),

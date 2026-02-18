@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { Loader, EmptyState, ProductImage } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
+import { getGuestCart, guestCartToGroups, updateGuestCartItem, removeGuestCartItem } from '../utils/guestCart';
 import './Cart.css';
 
 export function Cart() {
@@ -17,11 +18,19 @@ export function Cart() {
     setBackButton(false);
   }, [setBackButton]);
 
+  const isGuest = isBrowser() && !api.isAuthenticated();
+
   const loadCart = async () => {
     setLoading(true);
     try {
-      const data = await api.getCart();
-      setCart(data);
+      if (isGuest) {
+        // Guest: read from localStorage
+        const guestItems = getGuestCart();
+        setCart(guestCartToGroups(guestItems));
+      } else {
+        const data = await api.getCart();
+        setCart(data);
+      }
     } catch (e) {
       console.error(e);
       setCart([]);
@@ -34,21 +43,31 @@ export function Cart() {
     loadCart();
   }, []);
 
-  const updateQuantity = async (productId: number, quantity: number) => {
+  const updateQuantity = async (productId: number, quantity: number, sellerId?: number) => {
     try {
       hapticFeedback('light');
-      await api.updateCartItem(productId, quantity);
-      await loadCart();
+      if (isGuest && sellerId != null) {
+        updateGuestCartItem(productId, sellerId, quantity);
+        setCart(guestCartToGroups(getGuestCart()));
+      } else {
+        await api.updateCartItem(productId, quantity);
+        await loadCart();
+      }
     } catch (e) {
       showAlert(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
-  const removeItem = async (productId: number) => {
+  const removeItem = async (productId: number, sellerId?: number) => {
     try {
       hapticFeedback('medium');
-      await api.removeCartItem(productId);
-      await loadCart();
+      if (isGuest && sellerId != null) {
+        removeGuestCartItem(productId, sellerId);
+        setCart(guestCartToGroups(getGuestCart()));
+      } else {
+        await api.removeCartItem(productId);
+        await loadCart();
+      }
     } catch (e) {
       showAlert(e instanceof Error ? e.message : 'Ошибка');
     }
@@ -60,23 +79,13 @@ export function Cart() {
   if (loading) return <Loader centered />;
 
   if (cart.length === 0) {
-    const needsAuth = isBrowser() && !api.isAuthenticated();
     return (
       <div className="cart-page">
         <EmptyState
           title="Корзина пуста"
-          description={needsAuth ? 'Войдите в аккаунт, чтобы добавлять товары в корзину' : 'Добавьте товары из каталога'}
+          description="Добавьте товары из каталога"
           icon="🛒"
         />
-        {needsAuth && (
-          <button
-            type="button"
-            className="cart-page__profile-link"
-            onClick={() => navigate('/profile')}
-          >
-            Перейти в профиль
-          </button>
-        )}
       </div>
     );
   }
@@ -122,7 +131,7 @@ export function Cart() {
                     <button
                       type="button"
                       className="cart-item__remove"
-                      onClick={() => removeItem(item.product_id)}
+                      onClick={() => removeItem(item.product_id, group.seller_id)}
                       aria-label="Удалить"
                     >
                       <span aria-hidden>🗑</span>
@@ -131,7 +140,7 @@ export function Cart() {
                       <button
                         type="button"
                         className="cart-item__qty-btn"
-                        onClick={() => updateQuantity(item.product_id, Math.max(0, item.quantity - 1))}
+                        onClick={() => updateQuantity(item.product_id, Math.max(0, item.quantity - 1), group.seller_id)}
                         aria-label="Уменьшить"
                       >
                         −
@@ -140,7 +149,7 @@ export function Cart() {
                       <button
                         type="button"
                         className="cart-item__qty-btn"
-                        onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.product_id, item.quantity + 1, group.seller_id)}
                         aria-label="Увеличить"
                       >
                         +
@@ -190,7 +199,7 @@ export function Cart() {
           className="cart-page__checkout-btn"
           onClick={() => {
             hapticFeedback('medium');
-            navigate('/cart/checkout');
+            navigate(isGuest ? '/cart/guest-checkout' : '/cart/checkout');
           }}
         >
           Оформить заказ

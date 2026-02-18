@@ -49,6 +49,9 @@ async def _send_telegram_message(
     """
     Send a Telegram message. Returns True if sent successfully.
     """
+    if not chat_id:
+        logger.debug("No chat_id provided, skip Telegram notification (guest order?)")
+        return False
     if not BOT_TOKEN:
         logger.warning("BOT_TOKEN not set, skip Telegram notification")
         return False
@@ -252,4 +255,24 @@ async def notify_seller_upcoming_events(
         title = ev.get("title", "")
         lines.append(f"  {name} — {title} ({when})")
     text = "📅 *Предстоящие события клиентов:*\n\n" + "\n".join(lines)
+    return await _send_telegram_message(seller_id, text)
+
+
+async def notify_seller_new_order_guest(
+    seller_id: int,
+    order_id: int,
+    items_info: str = "",
+    total_price: Optional[float] = None,
+    guest_name: str = "",
+    guest_phone: str = "",
+) -> bool:
+    """Notify seller about new guest order (web checkout, no Telegram account)."""
+    text = f"🆕 Новый заказ *#{order_id}* (гость)"
+    if total_price is not None:
+        text += f"\n💰 Сумма: {total_price:.0f} руб."
+    if items_info:
+        text += f"\n\n🛒 {items_info}"
+    text += f"\n\n👤 Покупатель: {guest_name}"
+    text += f"\n📞 Телефон: {guest_phone}"
+    text += "\n\nПринять или отклонить заказ — в админ-панели."
     return await _send_telegram_message(seller_id, text)

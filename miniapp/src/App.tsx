@@ -11,6 +11,8 @@ import {
   Profile,
   OrderDetail,
   ProductDetail,
+  GuestCheckout,
+  GuestOrderConfirmation,
 } from './pages';
 import { MainLayout, RequireAuth } from './components';
 import { CatalogFilterProvider } from './contexts/CatalogFilterContext';
@@ -99,6 +101,8 @@ function AppContent() {
       </Route>
 
       <Route path="/cart/checkout" element={<RequireAuth from="checkout"><Checkout /></RequireAuth>} />
+      <Route path="/cart/guest-checkout" element={<GuestCheckout />} />
+      <Route path="/order/guest-confirm" element={<GuestOrderConfirmation />} />
       <Route path="/shop/:sellerId" element={<ShopDetails />} />
       <Route path="/shop/:sellerId/product/:productId" element={<ProductDetail />} />
       <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
