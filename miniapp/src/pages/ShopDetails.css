@@ -370,6 +370,143 @@
   border-left: 3px solid var(--app-accent, #7c3aed);
 }
 
+/* Working Hours */
+.shop-details__working-hours {
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  background: var(--app-surface, #f9fafb);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.shop-details__working-hours-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.shop-details__working-hours-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.shop-details__working-hours-title svg {
+  color: var(--app-accent, #7c3aed);
+  flex-shrink: 0;
+}
+
+.shop-details__working-hours-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.shop-details__working-hours-badge--open {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+.shop-details__working-hours-badge--closed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+[data-theme="dark"] .shop-details__working-hours-badge--open {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .shop-details__working-hours-badge--closed {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+.shop-details__working-hours-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.shop-details__working-hours-day {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--app-border, #e5e7eb);
+}
+
+.shop-details__working-hours-day:last-child {
+  border-bottom: none;
+}
+
+.shop-details__working-hours-day-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-text);
+  min-width: 28px;
+}
+
+.shop-details__working-hours-day-value {
+  font-size: 13px;
+  color: var(--app-text-secondary);
+}
+
+.shop-details__working-hours-day--off .shop-details__working-hours-day-label {
+  color: var(--app-text-secondary);
+}
+
+.shop-details__working-hours-day--off .shop-details__working-hours-day-value {
+  color: var(--app-text-secondary);
+  opacity: 0.7;
+}
+
+[data-theme="dark"] .shop-details__working-hours {
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+@media (min-width: 700px) {
+  .shop-details__working-hours {
+    padding: 20px 24px;
+    margin-bottom: 32px;
+  }
+
+  .shop-details__working-hours-schedule {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    text-align: center;
+  }
+
+  .shop-details__working-hours-day {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 4px;
+    border-bottom: none;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  [data-theme="dark"] .shop-details__working-hours-day {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .shop-details__working-hours-day--off {
+    background: rgba(239, 68, 68, 0.04);
+  }
+
+  [data-theme="dark"] .shop-details__working-hours-day--off {
+    background: rgba(239, 68, 68, 0.08);
+  }
+}
+
 .shop-details__info {
   padding: 20px;
   margin-bottom: 24px;

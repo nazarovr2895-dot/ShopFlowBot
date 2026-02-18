@@ -7,7 +7,7 @@ import './TopNav.css';
 const FlowerIcon = ({ className }: { className?: string }) => (
   <img 
     src="/favicon-32x32.png" 
-    alt="Мои цветочные"
+    alt="Подписки"
     className={className}
     width="24"
     height="24"
@@ -55,14 +55,14 @@ const OrderListIcon = ({ className }: { className?: string }) => (
 );
 
 const tabs = [
-  { path: '/', label: 'Мои цветочные', Icon: FlowerIcon },
+  { path: '/', label: 'Подписки', Icon: FlowerIcon },
   { path: '/catalog', label: 'Каталог', Icon: BagIcon },
   { path: '/favorites', label: 'Избранное', Icon: HeartIcon },
   { path: '/cart', label: 'Корзина', Icon: CartIcon },
   { path: '/profile', label: 'Профиль', Icon: PersonIcon },
 ] as const;
 
-/** Desktop top nav: all except single "My flowers" link (tabs Мои цветочные/Мои заказы rendered separately) */
+/** Desktop top nav: all except home link (tabs Подписки/Мои заказы rendered separately) */
 const desktopTabs = tabs.filter((t) => t.path !== '/');
 
 export function TopNav() {
@@ -101,7 +101,7 @@ export function TopNav() {
                 <span className="top-nav__icon">
                   <FlowerIcon />
                 </span>
-                <span className="top-nav__label">Мои цветочные</span>
+                <span className="top-nav__label">Подписки</span>
               </NavLink>
               <NavLink
                 to="/?tab=orders"

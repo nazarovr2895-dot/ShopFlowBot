@@ -44,6 +44,15 @@ const AddressIcon = () => (
   </svg>
 );
 
+const ClockIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
 const DeliveryIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="1" y="3" width="15" height="13" />
@@ -409,6 +418,38 @@ export function ShopDetails() {
 
       {seller.description && (
         <p className="shop-details__description">{seller.description}</p>
+      )}
+
+      {seller.working_hours && Object.keys(seller.working_hours).length > 0 && (
+        <div className="shop-details__working-hours">
+          <div className="shop-details__working-hours-header">
+            <span className="shop-details__working-hours-title">
+              <ClockIcon />
+              Время работы
+            </span>
+            {seller.is_open_now != null && (
+              <span className={`shop-details__working-hours-badge ${seller.is_open_now ? 'shop-details__working-hours-badge--open' : 'shop-details__working-hours-badge--closed'}`}>
+                {seller.is_open_now ? 'Открыто' : 'Закрыто'}
+              </span>
+            )}
+          </div>
+          <div className="shop-details__working-hours-schedule">
+            {WEEKDAY_LABELS.map((label, idx) => {
+              const key = String(idx);
+              const day = seller.working_hours?.[key];
+              const isDayOff = day === null;
+              const hasHours = day && typeof day === 'object' && day.open && day.close;
+              return (
+                <div key={idx} className={`shop-details__working-hours-day${isDayOff ? ' shop-details__working-hours-day--off' : ''}`}>
+                  <span className="shop-details__working-hours-day-label">{label}</span>
+                  <span className="shop-details__working-hours-day-value">
+                    {isDayOff ? 'Выходной' : hasHours ? `${day.open} — ${day.close}` : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <div className="shop-details__info">

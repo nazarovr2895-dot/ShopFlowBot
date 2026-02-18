@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import type { VisitedSeller, BuyerOrder } from '../types';
+import type { VisitedSeller, BuyerOrder, PublicSellerListItem } from '../types';
 import { api } from '../api/client';
-import { Loader, EmptyState, MyFlowersNavBar } from '../components';
+import { Loader, EmptyState, MyFlowersNavBar, ShopCard } from '../components';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import { isBrowser, isTelegram } from '../utils/environment';
 import './MyFlowers.css';
@@ -28,7 +28,7 @@ export function MyFlowers() {
   // Flowers state
   const [sellers, setSellers] = useState<VisitedSeller[]>([]);
   const [flowersLoading, setFlowersLoading] = useState(true);
-  
+
   // Orders state
   const [orders, setOrders] = useState<BuyerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
@@ -104,22 +104,11 @@ export function MyFlowers() {
     }
 
     return (
-      <ul className="my-flowers-list">
+      <div className="my-flowers-grid">
         {sellers.map((s) => (
-          <li key={s.seller_id}>
-            <button
-              type="button"
-              className="my-flowers-card"
-              onClick={() => navigate(`/shop/${s.seller_id}`)}
-            >
-              <span className="my-flowers-card__name">{s.shop_name}</span>
-              {s.owner_fio && (
-                <span className="my-flowers-card__owner">{s.owner_fio}</span>
-              )}
-            </button>
-          </li>
+          <ShopCard key={s.seller_id} seller={s as unknown as PublicSellerListItem} />
         ))}
-      </ul>
+      </div>
     );
   };
 
@@ -173,7 +162,7 @@ export function MyFlowers() {
   const isDesktop = useDesktopLayout();
 
   return (
-    <div 
+    <div
       className={`my-flowers-page ${isTelegramEnv ? 'my-flowers-page--telegram' : ''} ${isDesktop ? 'my-flowers-page--desktop' : ''}`}
       data-telegram={isTelegramEnv}
     >

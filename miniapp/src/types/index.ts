@@ -35,6 +35,8 @@ export interface PublicSellerListItem {
   max_price: number | null;
   product_count: number;
   subscriber_count?: number;
+  working_hours?: Record<string, { open: string; close: string } | null> | null;
+  is_open_now?: boolean | null;
 }
 
 export interface Product {
@@ -73,12 +75,27 @@ export interface CartSellerGroup {
   map_url?: string | null;
 }
 
-// Visited sellers
+// Visited / Subscribed sellers (rich data, same shape as PublicSellerListItem)
 export interface VisitedSeller {
   seller_id: number;
   shop_name: string;
   owner_fio: string | null;
-  visited_at: string | null;
+  visited_at?: string | null;
+  delivery_type: 'delivery' | 'pickup' | 'both' | null;
+  delivery_price: number;
+  city_name: string | null;
+  district_name: string | null;
+  metro_name: string | null;
+  metro_walk_minutes?: number;
+  metro_line_color?: string;
+  available_slots: number;
+  availability?: 'available' | 'busy' | 'unavailable';
+  min_price: number | null;
+  max_price: number | null;
+  product_count: number;
+  subscriber_count?: number;
+  working_hours?: Record<string, { open: string; close: string } | null> | null;
+  is_open_now?: boolean | null;
 }
 
 // Favorite products
@@ -134,6 +151,8 @@ export interface PublicSellerDetail {
   preorder_max_per_date?: number | null;
   banner_url?: string | null;
   subscriber_count?: number;
+  working_hours?: Record<string, { open: string; close: string } | null> | null;
+  is_open_now?: boolean | null;
 }
 
 export interface PublicSellersResponse {

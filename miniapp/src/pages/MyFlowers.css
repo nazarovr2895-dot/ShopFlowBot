@@ -32,39 +32,38 @@
   opacity: 0.9;
 }
 
-.my-flowers-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
+/* Shop cards grid — same as catalog */
+.my-flowers-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
-.my-flowers-card {
-  width: 100%;
-  text-align: left;
-  padding: 14px 16px;
-  background: var(--app-bg-elevated);
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* Telegram: single column for mobile */
+.my-flowers-page--telegram .my-flowers-grid,
+.my-flowers-page[data-telegram="true"] .my-flowers-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
-.my-flowers-card:active {
-  opacity: 0.9;
+@media (max-width: 360px) {
+  .my-flowers-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.my-flowers-card__name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--app-text);
+@media (min-width: 768px) {
+  .my-flowers-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
 }
 
-.my-flowers-card__owner {
-  font-size: 13px;
-  color: var(--app-text-secondary);
+@media (min-width: 1200px) {
+  .my-flowers-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
 }
 
 /* Orders styles */

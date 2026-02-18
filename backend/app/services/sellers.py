@@ -48,6 +48,44 @@ def _today_6am_date() -> date:
     return (now - timedelta(days=1)).date()
 
 
+def _current_weekday_msk() -> int:
+    """Current weekday (0=Mon, 6=Sun) respecting 6:00 MSK day boundary."""
+    now = datetime.now(LIMIT_TIMEZONE)
+    if now.hour >= LIMIT_DAY_START_HOUR:
+        return now.weekday()
+    return (now - timedelta(days=1)).weekday()
+
+
+def _is_open_now(working_hours: Optional[dict]) -> Optional[bool]:
+    """Check if the shop is currently open based on working_hours.
+
+    Returns None if working_hours is not set (no restrictions — always open).
+    Returns False if day off OR current MSK time is outside open-close interval.
+    Returns True if within open-close interval.
+    """
+    if not working_hours or not isinstance(working_hours, dict):
+        return None  # No restrictions
+    weekday = _current_weekday_msk()
+    day_key = str(weekday)
+    # Day not present in config → treat as no restriction for that day
+    if day_key not in working_hours:
+        return None
+    day_config = working_hours[day_key]
+    if day_config is None:
+        return False  # Day off
+    if not isinstance(day_config, dict):
+        return None
+    open_time = day_config.get("open")
+    close_time = day_config.get("close")
+    if not open_time or not close_time:
+        return None
+    try:
+        current_time = datetime.now(LIMIT_TIMEZONE).strftime("%H:%M")
+        return open_time <= current_time < close_time
+    except (ValueError, TypeError):
+        return None
+
+
 def _today_6am_utc() -> datetime:
     """Начало текущего «дня» (6:00 МСК) в UTC (naive) для сравнения с БД."""
     d = _today_6am_date()
@@ -318,6 +356,7 @@ class SellerService:
             "preorder_custom_dates": preorder_custom_dates if preorder_custom_dates else [],
             "preorder_available_dates": preorder_available_dates,
             "banner_url": getattr(seller, "banner_url", None),
+            "working_hours": getattr(seller, "working_hours", None),
         }
     
     async def create_seller(

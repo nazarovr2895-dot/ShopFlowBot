@@ -50,6 +50,7 @@ export interface SellerMe {
   subscription_plan?: string;
   plan_limit_cap?: number;
   weekly_schedule?: Record<string, number> | null;
+  working_hours?: Record<string, { open: string; close: string } | null> | null;
   shop_link: string | null;
   delivery_type?: string;
   delivery_price?: number;
@@ -388,6 +389,15 @@ export async function updateWeeklySchedule(schedule: Record<string, number>): Pr
   return fetchSeller('/seller-web/weekly-schedule', {
     method: 'PUT',
     body: JSON.stringify({ schedule }),
+  });
+}
+
+export async function updateWorkingHours(
+  working_hours: Record<string, { open: string; close: string } | null> | null
+): Promise<{ status: string; working_hours: Record<string, { open: string; close: string } | null> | null }> {
+  return fetchSeller('/seller-web/working-hours', {
+    method: 'PUT',
+    body: JSON.stringify({ working_hours }),
   });
 }
 

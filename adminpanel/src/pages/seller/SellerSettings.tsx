@@ -6,6 +6,7 @@ import type { SellerMe } from '../../api/sellerClient';
 import { ShopSettingsTab } from './settings/ShopSettingsTab';
 import { HashtagsSettingsTab } from './settings/HashtagsSettingsTab';
 import { LimitsSettingsTab } from './settings/LimitsSettingsTab';
+import { WorkingHoursSettingsTab } from './settings/WorkingHoursSettingsTab';
 import { PreordersSettingsTab } from './settings/PreordersSettingsTab';
 import { AccountSettingsTab } from './settings/AccountSettingsTab';
 
@@ -13,6 +14,7 @@ const TABS = [
   { key: 'shop', label: 'Магазин' },
   { key: 'hashtags', label: 'Хештеги' },
   { key: 'limits', label: 'Лимиты' },
+  { key: 'hours', label: 'Время работы' },
   { key: 'preorders', label: 'Предзаказы' },
   { key: 'account', label: 'Аккаунт' },
 ];
@@ -43,7 +45,7 @@ export function SellerSettings() {
   if (loading) {
     return (
       <div>
-        <PageHeader title="Настройки" subtitle="Магазин, хештеги, лимиты, предзаказы и аккаунт" />
+        <PageHeader title="Настройки" subtitle="Магазин, хештеги, лимиты, время работы, предзаказы и аккаунт" />
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
           <div className="loader" />
         </div>
@@ -54,7 +56,7 @@ export function SellerSettings() {
   if (!me) {
     return (
       <div>
-        <PageHeader title="Настройки" subtitle="Магазин, хештеги, лимиты, предзаказы и аккаунт" />
+        <PageHeader title="Настройки" subtitle="Магазин, хештеги, лимиты, время работы, предзаказы и аккаунт" />
         <div className="card">
           <p className="empty-text">Не удалось загрузить данные. Попробуйте обновить страницу.</p>
         </div>
@@ -64,11 +66,12 @@ export function SellerSettings() {
 
   return (
     <div>
-      <PageHeader title="Настройки" subtitle="Магазин, хештеги, лимиты, предзаказы и аккаунт" />
+      <PageHeader title="Настройки" subtitle="Магазин, хештеги, лимиты, время работы, предзаказы и аккаунт" />
       <TabBar tabs={TABS} activeTab={tab} onChange={setTab} />
       {tab === 'shop' && <ShopSettingsTab me={me} reload={reload} />}
       {tab === 'hashtags' && <HashtagsSettingsTab me={me} reload={reload} />}
       {tab === 'limits' && <LimitsSettingsTab me={me} reload={reload} />}
+      {tab === 'hours' && <WorkingHoursSettingsTab me={me} reload={reload} />}
       {tab === 'preorders' && <PreordersSettingsTab me={me} reload={reload} />}
       {tab === 'account' && <AccountSettingsTab me={me} />}
     </div>

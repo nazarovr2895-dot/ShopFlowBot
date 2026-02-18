@@ -60,6 +60,9 @@ class Seller(Base):
     weekly_schedule: Mapped[Optional[dict]] = mapped_column(JSON(), nullable=True)
     # Shop banner (YouTube-style), path like /static/uploads/shop_banners/123.webp
     banner_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    # Working hours: JSON {"0": {"open": "09:00", "close": "18:00"}, "5": null, ...}
+    # Keys: "0"=Mon, "6"=Sun. null = day off. If working_hours is null, no restrictions.
+    working_hours: Mapped[Optional[dict]] = mapped_column(JSON(), nullable=True)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

@@ -1753,6 +1753,53 @@ async def update_weekly_schedule(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
+# --- WORKING HOURS ---
+class WorkingHoursBody(BaseModel):
+    working_hours: Optional[dict] = None  # {"0": {"open": "09:00", "close": "18:00"}, "5": null, ...}
+
+
+@router.put("/working-hours")
+async def update_working_hours(
+    body: WorkingHoursBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Обновить время работы магазина. null = отключить (нет ограничений)."""
+    from backend.app.models.seller import Seller
+    import re
+
+    result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
+    seller = result.scalar_one_or_none()
+    if not seller:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
+
+    wh = body.working_hours
+    if wh is not None:
+        validated = {}
+        time_pattern = re.compile(r"^\d{2}:\d{2}$")
+        for key, value in wh.items():
+            if key not in ("0", "1", "2", "3", "4", "5", "6"):
+                raise HTTPException(status_code=400, detail=f"Некорректный день недели: {key}")
+            if value is None:
+                validated[key] = None  # Day off
+            elif isinstance(value, dict):
+                open_time = value.get("open", "")
+                close_time = value.get("close", "")
+                if not time_pattern.match(str(open_time)) or not time_pattern.match(str(close_time)):
+                    raise HTTPException(status_code=400, detail=f"Время должно быть в формате HH:MM для дня {key}")
+                if open_time >= close_time:
+                    raise HTTPException(status_code=400, detail=f"Время открытия должно быть раньше закрытия для дня {key}")
+                validated[key] = {"open": open_time, "close": close_time}
+            else:
+                raise HTTPException(status_code=400, detail=f"Некорректный формат для дня {key}")
+        seller.working_hours = validated if validated else None
+    else:
+        seller.working_hours = None
+
+    await session.commit()
+    return {"status": "ok", "working_hours": seller.working_hours}
+
+
 # --- SUBSCRIBERS ---
 @router.get("/subscribers")
 async def get_subscribers(

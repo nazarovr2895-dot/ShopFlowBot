@@ -388,15 +388,112 @@ async def checkout_cart(
         _handle_cart_error(e)
 
 
-# --- Favorite sellers / Мои цветочные (Mini App) ---
+# --- Favorite sellers / Подписки (Mini App) ---
 @router.get("/me/favorite-sellers")
 async def get_favorite_sellers(
     current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
-    """Список избранных магазинов (мои цветочные)."""
-    fav = FavoriteSellersService(session)
-    return await fav.get_favorite_sellers(current_user.user.id)
+    """Список избранных магазинов с полными данными (как в каталоге)."""
+    from sqlalchemy import select, func, and_, case
+    from backend.app.models.seller import Seller, City, District, Metro
+    from backend.app.models.product import Product
+    from backend.app.models.user import User
+    from backend.app.models.cart import BuyerFavoriteSeller
+    from backend.app.services.sellers import _today_6am_date
+    from backend.app.api.public import _normalize_delivery_type
+
+    # Get favorite seller IDs
+    fav_result = await session.execute(
+        select(BuyerFavoriteSeller.seller_id).where(
+            BuyerFavoriteSeller.buyer_id == current_user.user.id
+        )
+    )
+    fav_ids = [row[0] for row in fav_result.all()]
+    if not fav_ids:
+        return []
+
+    today = _today_6am_date()
+
+    effective_limit_expr = case(
+        (and_(Seller.daily_limit_date == today, Seller.max_orders > 0), Seller.max_orders),
+        else_=func.coalesce(Seller.default_daily_limit, 0),
+    )
+
+    product_stats = (
+        select(
+            Product.seller_id,
+            func.min(Product.price).label("min_price"),
+            func.max(Product.price).label("max_price"),
+            func.count(Product.id).label("product_count"),
+        )
+        .where(Product.is_active == True, Product.quantity > 0)
+        .group_by(Product.seller_id)
+        .subquery()
+    )
+
+    subscriber_count_subq = (
+        select(
+            BuyerFavoriteSeller.seller_id,
+            func.count(BuyerFavoriteSeller.id).label("subscriber_count"),
+        )
+        .group_by(BuyerFavoriteSeller.seller_id)
+        .subquery()
+    )
+
+    available_slots_expr = effective_limit_expr - Seller.active_orders - Seller.pending_requests
+
+    query = (
+        select(
+            Seller,
+            User.fio.label("owner_fio"),
+            City.name.label("city_name"),
+            District.name.label("district_name"),
+            Metro.name.label("metro_name"),
+            Metro.line_color.label("metro_line_color"),
+            product_stats.c.min_price,
+            product_stats.c.max_price,
+            func.coalesce(product_stats.c.product_count, 0).label("product_count"),
+            func.coalesce(subscriber_count_subq.c.subscriber_count, 0).label("subscriber_count"),
+            available_slots_expr.label("available_slots"),
+        )
+        .outerjoin(User, Seller.seller_id == User.tg_id)
+        .outerjoin(City, Seller.city_id == City.id)
+        .outerjoin(District, Seller.district_id == District.id)
+        .outerjoin(Metro, Seller.metro_id == Metro.id)
+        .outerjoin(product_stats, Seller.seller_id == product_stats.c.seller_id)
+        .outerjoin(subscriber_count_subq, Seller.seller_id == subscriber_count_subq.c.seller_id)
+        .where(Seller.seller_id.in_(fav_ids), Seller.deleted_at.is_(None))
+    )
+
+    result = await session.execute(query)
+    rows = result.all()
+
+    sellers = []
+    for row in rows:
+        seller = row[0]
+        slots = row.available_slots if hasattr(row, "available_slots") and row.available_slots else 0
+        availability = "available" if slots > 0 else "busy"
+
+        sellers.append({
+            "seller_id": seller.seller_id,
+            "shop_name": seller.shop_name or "Магазин",
+            "owner_fio": row.owner_fio,
+            "delivery_type": _normalize_delivery_type(seller.delivery_type),
+            "delivery_price": float(seller.delivery_price) if seller.delivery_price else 0.0,
+            "city_name": row.city_name,
+            "district_name": row.district_name,
+            "metro_name": row.metro_name,
+            "metro_walk_minutes": seller.metro_walk_minutes,
+            "metro_line_color": row.metro_line_color,
+            "available_slots": max(slots, 0),
+            "availability": availability,
+            "min_price": float(row.min_price) if row.min_price else None,
+            "max_price": float(row.max_price) if row.max_price else None,
+            "product_count": row.product_count or 0,
+            "subscriber_count": row.subscriber_count or 0,
+        })
+    return sellers
 
 
 @router.post("/me/favorite-sellers")

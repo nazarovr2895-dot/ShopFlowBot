@@ -20,7 +20,7 @@ from backend.app.models.product import Product
 from backend.app.models.user import User
 from backend.app.models.cart import BuyerFavoriteSeller
 from backend.app.services.cache import CacheService
-from backend.app.services.sellers import _today_6am_date
+from backend.app.services.sellers import _today_6am_date, _is_open_now
 from backend.app.services.bouquets import get_active_bouquet_ids
 from backend.app.core.logging import get_logger
 from sqlalchemy import or_
@@ -69,6 +69,8 @@ class PublicSellerListItem(BaseModel):
     max_price: Optional[float]
     product_count: int
     subscriber_count: int = 0
+    working_hours: Optional[dict] = None
+    is_open_now: Optional[bool] = None
 
 
 class PublicSellerDetail(BaseModel):
@@ -96,6 +98,8 @@ class PublicSellerDetail(BaseModel):
     preorder_max_per_date: Optional[int] = None
     banner_url: Optional[str] = None
     subscriber_count: int = 0
+    working_hours: Optional[dict] = None
+    is_open_now: Optional[bool] = None
 
 
 class PublicSellersResponse(BaseModel):
@@ -288,8 +292,17 @@ async def get_public_sellers(
         rows = result.all()
 
         sellers = []
+        filtered_out = 0
         for row in rows:
             seller = row[0]
+
+            # Filter by working hours: hide shops that are closed or on day off
+            wh = getattr(seller, "working_hours", None)
+            is_open = _is_open_now(wh)
+            if is_open is False:
+                filtered_out += 1
+                continue
+
             slots = row.available_slots if hasattr(row, "available_slots") else 0
             if slots > 0:
                 availability = "available"
@@ -313,7 +326,10 @@ async def get_public_sellers(
                 max_price=float(row.max_price) if row.max_price else None,
                 product_count=row.product_count or 0,
                 subscriber_count=row.subscriber_count or 0,
+                working_hours=wh,
+                is_open_now=is_open,
             ))
+        total = max(0, total - filtered_out)
 
         logger.info("Public sellers endpoint success", sellers_count=len(sellers), total=total)
         return PublicSellersResponse(
@@ -498,6 +514,8 @@ async def get_public_seller_detail(
         preorder_max_per_date=getattr(seller, "preorder_max_per_date", None),
         banner_url=getattr(seller, "banner_url", None),
         subscriber_count=subscriber_count,
+        working_hours=getattr(seller, "working_hours", None),
+        is_open_now=_is_open_now(getattr(seller, "working_hours", None)),
     )
 
 
