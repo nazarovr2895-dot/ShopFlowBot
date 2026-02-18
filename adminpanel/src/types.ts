@@ -53,3 +53,188 @@ export interface MetroStation {
   district_id?: number
   line_color?: string
 }
+
+// ── Dashboard ──
+
+export interface DashboardTodayMetrics {
+  orders: number
+  orders_yesterday: number
+  revenue: number
+  revenue_yesterday: number
+  profit: number
+  profit_yesterday: number
+  avg_check: number
+  avg_check_yesterday: number
+  new_customers: number
+  new_customers_yesterday: number
+}
+
+export interface PipelineItem {
+  count: number
+  amount: number
+}
+
+export interface DashboardPipeline {
+  pending: PipelineItem
+  in_progress: PipelineItem
+  in_transit: PipelineItem
+  completed_today: PipelineItem
+  rejected_today: PipelineItem
+}
+
+export interface AlertExpiringPlacement {
+  tg_id: number
+  shop_name: string
+  expires_in_days: number
+}
+
+export interface AlertExhaustedLimit {
+  tg_id: number
+  shop_name: string
+  used: number
+  limit: number
+}
+
+export interface AlertStuckOrder {
+  order_id: number
+  seller_name: string
+  minutes_pending: number
+  amount: number
+}
+
+export interface DashboardAlerts {
+  expiring_placements: AlertExpiringPlacement[]
+  exhausted_limits: AlertExhaustedLimit[]
+  stuck_orders: AlertStuckOrder[]
+}
+
+export interface WeeklyRevenuePoint {
+  date: string
+  revenue: number
+  orders: number
+}
+
+export interface DashboardTopSeller {
+  tg_id: number
+  shop_name: string
+  orders: number
+  revenue: number
+  load_pct: number
+}
+
+export interface DashboardTotals {
+  sellers: number
+  buyers: number
+  orders: number
+}
+
+export interface AdminDashboardData {
+  today: DashboardTodayMetrics
+  pipeline: DashboardPipeline
+  alerts: DashboardAlerts
+  weekly_revenue: WeeklyRevenuePoint[]
+  top_sellers_today: DashboardTopSeller[]
+  totals: DashboardTotals
+}
+
+// ── Orders ──
+
+export interface AdminOrder {
+  id: number
+  buyer_id: number
+  seller_id: number
+  items_info: string
+  total_price: number
+  original_price: number | null
+  points_discount: number
+  status: string
+  delivery_type: string | null
+  address: string | null
+  comment: string | null
+  created_at: string | null
+  completed_at: string | null
+  is_preorder: boolean
+  preorder_delivery_date: string | null
+  seller_name: string
+  buyer_fio: string
+  buyer_phone: string
+}
+
+export interface AdminOrdersResponse {
+  orders: AdminOrder[]
+  total: number
+  pages: number
+  page: number
+  status_breakdown: Record<string, number>
+  total_amount: number
+  sellers_list: { id: number; name: string }[]
+}
+
+// ── Customers ──
+
+export interface AdminCustomer {
+  tg_id: number
+  fio: string | null
+  username: string | null
+  phone: string | null
+  city: string | null
+  orders_count: number
+  total_spent: number
+  last_order_at: string | null
+  registered_at: string | null
+}
+
+export interface CustomersSummary {
+  total_buyers: number
+  active_buyers: number
+  new_today: number
+  avg_ltv: number
+}
+
+export interface CityDistribution {
+  city: string
+  count: number
+}
+
+export interface AdminCustomersResponse {
+  customers: AdminCustomer[]
+  total: number
+  pages: number
+  page: number
+  summary: CustomersSummary
+  city_distribution: CityDistribution[]
+}
+
+// ── Finance ──
+
+export interface FinancePeriodMetrics {
+  revenue: number
+  profit: number
+  orders: number
+  avg_check: number
+}
+
+export interface FinanceSeriesPoint {
+  period: string
+  orders: number
+  revenue: number
+}
+
+export interface FinanceSellerRow {
+  seller_id: number
+  shop_name: string
+  plan: string
+  orders: number
+  revenue: number
+  commission: number
+  share_pct: number
+}
+
+export interface AdminFinanceResponse {
+  period: FinancePeriodMetrics
+  previous_period: FinancePeriodMetrics
+  series: FinanceSeriesPoint[]
+  by_seller: FinanceSellerRow[]
+  date_from: string
+  date_to: string
+}

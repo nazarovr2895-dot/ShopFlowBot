@@ -1,4 +1,7 @@
-import type { Seller, SellerStats, City, District, MetroStation } from '../types';
+import type {
+  Seller, SellerStats, City, District, MetroStation,
+  AdminDashboardData, AdminOrdersResponse, AdminCustomersResponse, AdminFinanceResponse,
+} from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -274,4 +277,69 @@ export async function checkAuth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ── Dashboard ──
+export async function getAdminDashboard(): Promise<AdminDashboardData> {
+  return fetchAdmin<AdminDashboardData>('/admin/dashboard');
+}
+
+// ── Orders ──
+export interface AdminOrdersParams {
+  status?: string;
+  seller_id?: number;
+  date_from?: string;
+  date_to?: string;
+  delivery_type?: string;
+  is_preorder?: boolean;
+  page?: number;
+  per_page?: number;
+}
+
+export async function getAdminOrders(params?: AdminOrdersParams): Promise<AdminOrdersResponse> {
+  const sp = new URLSearchParams();
+  if (params?.status) sp.set('status', params.status);
+  if (params?.seller_id) sp.set('seller_id', String(params.seller_id));
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.delivery_type) sp.set('delivery_type', params.delivery_type);
+  if (params?.is_preorder !== undefined) sp.set('is_preorder', String(params.is_preorder));
+  if (params?.page) sp.set('page', String(params.page));
+  if (params?.per_page) sp.set('per_page', String(params.per_page));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return fetchAdmin<AdminOrdersResponse>(`/admin/orders${q}`);
+}
+
+// ── Customers ──
+export interface AdminCustomersParams {
+  city_id?: number;
+  min_orders?: number;
+  page?: number;
+  per_page?: number;
+}
+
+export async function getAdminCustomers(params?: AdminCustomersParams): Promise<AdminCustomersResponse> {
+  const sp = new URLSearchParams();
+  if (params?.city_id) sp.set('city_id', String(params.city_id));
+  if (params?.min_orders) sp.set('min_orders', String(params.min_orders));
+  if (params?.page) sp.set('page', String(params.page));
+  if (params?.per_page) sp.set('per_page', String(params.per_page));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return fetchAdmin<AdminCustomersResponse>(`/admin/customers${q}`);
+}
+
+// ── Finance ──
+export interface AdminFinanceParams {
+  date_from?: string;
+  date_to?: string;
+  group_by?: 'day' | 'week' | 'month';
+}
+
+export async function getFinanceSummary(params?: AdminFinanceParams): Promise<AdminFinanceResponse> {
+  const sp = new URLSearchParams();
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.group_by) sp.set('group_by', params.group_by);
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return fetchAdmin<AdminFinanceResponse>(`/admin/finance/summary${q}`);
 }

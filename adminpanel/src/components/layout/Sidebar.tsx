@@ -11,6 +11,7 @@ import {
   LogOut,
   UserCircle,
   Shield,
+  DollarSign,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import './Sidebar.css';
@@ -36,7 +37,10 @@ const sellerNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { to: '/', label: 'Дашборд', icon: LayoutDashboard },
+  { to: '/orders', label: 'Заказы', icon: ShoppingBag },
   { to: '/sellers', label: 'Продавцы', icon: UserCircle },
+  { to: '/customers', label: 'Покупатели', icon: Users },
+  { to: '/finance', label: 'Финансы', icon: DollarSign },
   { to: '/analytics', label: 'Аналитика', icon: BarChart3 },
   { to: '/security-admin', label: 'Безопасность', icon: Shield, dividerBefore: true },
 ];

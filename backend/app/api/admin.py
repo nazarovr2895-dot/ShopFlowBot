@@ -671,6 +671,599 @@ async def invalidate_cache(
     else:
         logger.warning("Invalid cache type requested", cache_type=cache_type)
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Invalid cache_type: {cache_type}. Use: cities, districts, metro, or omit for all."
         )
+
+
+# ============================================
+# DASHBOARD  (агрегированные данные для главной)
+# ============================================
+
+@router.get("/dashboard")
+async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _token: None = Depends(require_admin_token)):
+    """Агрегированные данные для главной страницы админ-панели."""
+    from datetime import datetime as dt, time, timedelta, date as date_type
+    from sqlalchemy import select, func, case, and_, or_, literal_column
+    from decimal import Decimal
+    from backend.app.models.order import Order
+    from backend.app.models.seller import Seller
+    from backend.app.models.user import User
+
+    today_start = dt.combine(date_type.today(), time.min)
+    yesterday_start = today_start - timedelta(days=1)
+    week_ago = today_start - timedelta(days=7)
+    COMMISSION = Decimal("0.18")
+
+    # ── today vs yesterday ──
+    q_today = select(
+        func.count(Order.id).label("cnt"),
+        func.coalesce(func.sum(Order.total_price), 0).label("rev"),
+        func.coalesce(func.avg(Order.total_price), 0).label("avg_chk"),
+    ).where(Order.created_at >= today_start)
+
+    q_yesterday = select(
+        func.count(Order.id).label("cnt"),
+        func.coalesce(func.sum(Order.total_price), 0).label("rev"),
+        func.coalesce(func.avg(Order.total_price), 0).label("avg_chk"),
+    ).where(and_(Order.created_at >= yesterday_start, Order.created_at < today_start))
+
+    q_new_cust_today = select(func.count(User.tg_id)).where(
+        and_(User.created_at >= today_start, User.role == "BUYER")
+    )
+    q_new_cust_yest = select(func.count(User.tg_id)).where(
+        and_(User.created_at >= yesterday_start, User.created_at < today_start, User.role == "BUYER")
+    )
+
+    r_today = (await session.execute(q_today)).one()
+    r_yest = (await session.execute(q_yesterday)).one()
+    new_today = (await session.execute(q_new_cust_today)).scalar() or 0
+    new_yest = (await session.execute(q_new_cust_yest)).scalar() or 0
+
+    rev_today = float(r_today.rev)
+    rev_yest = float(r_yest.rev)
+
+    today_data = {
+        "orders": r_today.cnt,
+        "orders_yesterday": r_yest.cnt,
+        "revenue": round(rev_today),
+        "revenue_yesterday": round(rev_yest),
+        "profit": round(rev_today * float(COMMISSION)),
+        "profit_yesterday": round(rev_yest * float(COMMISSION)),
+        "avg_check": round(float(r_today.avg_chk)),
+        "avg_check_yesterday": round(float(r_yest.avg_chk)),
+        "new_customers": new_today,
+        "new_customers_yesterday": new_yest,
+    }
+
+    # ── pipeline ──
+    pipe_statuses = {
+        "pending": ["pending"],
+        "in_progress": ["accepted", "assembling"],
+        "in_transit": ["in_transit"],
+    }
+    pipeline = {}
+    for key, statuses in pipe_statuses.items():
+        q = select(
+            func.count(Order.id), func.coalesce(func.sum(Order.total_price), 0)
+        ).where(Order.status.in_(statuses))
+        row = (await session.execute(q)).one()
+        pipeline[key] = {"count": row[0], "amount": round(float(row[1]))}
+
+    for label, status_list in [("completed_today", ["done", "completed"]), ("rejected_today", ["rejected", "cancelled"])]:
+        q = select(
+            func.count(Order.id), func.coalesce(func.sum(Order.total_price), 0)
+        ).where(and_(Order.status.in_(status_list), Order.created_at >= today_start))
+        row = (await session.execute(q)).one()
+        pipeline[label] = {"count": row[0], "amount": round(float(row[1]))}
+
+    # ── alerts ──
+    # expiring placements (< 7 days)
+    seven_days = dt.now() + timedelta(days=7)
+    q_exp = select(Seller.seller_id, Seller.shop_name, Seller.placement_expired_at).where(
+        and_(
+            Seller.placement_expired_at.isnot(None),
+            Seller.placement_expired_at <= seven_days,
+            Seller.placement_expired_at > dt.now(),
+            Seller.deleted_at.is_(None),
+        )
+    )
+    exp_rows = (await session.execute(q_exp)).all()
+    expiring = [
+        {"tg_id": r[0], "shop_name": r[1] or "", "expires_in_days": max(0, (r[2] - dt.now()).days)}
+        for r in exp_rows
+    ]
+
+    # exhausted limits
+    q_exh = select(Seller.seller_id, Seller.shop_name, Seller.active_orders, Seller.max_orders).where(
+        and_(
+            Seller.max_orders > 0,
+            Seller.active_orders >= Seller.max_orders,
+            Seller.deleted_at.is_(None),
+            Seller.is_blocked == False,
+        )
+    )
+    exh_rows = (await session.execute(q_exh)).all()
+    exhausted = [
+        {"tg_id": r[0], "shop_name": r[1] or "", "used": r[2] or 0, "limit": r[3] or 0}
+        for r in exh_rows
+    ]
+
+    # stuck orders (pending > 30 min)
+    thirty_min_ago = dt.now() - timedelta(minutes=30)
+    q_stuck = (
+        select(Order.id, Order.total_price, Order.created_at, Seller.shop_name)
+        .join(Seller, Seller.seller_id == Order.seller_id)
+        .where(and_(Order.status == "pending", Order.created_at < thirty_min_ago))
+        .order_by(Order.created_at)
+        .limit(10)
+    )
+    stuck_rows = (await session.execute(q_stuck)).all()
+    stuck = [
+        {
+            "order_id": r[0],
+            "seller_name": r[3] or "",
+            "minutes_pending": int((dt.now() - r[2]).total_seconds() / 60),
+            "amount": round(float(r[1] or 0)),
+        }
+        for r in stuck_rows
+    ]
+
+    # ── weekly revenue ──
+    q_weekly = (
+        select(
+            func.date(Order.created_at).label("d"),
+            func.count(Order.id).label("orders"),
+            func.coalesce(func.sum(Order.total_price), 0).label("revenue"),
+        )
+        .where(Order.created_at >= week_ago)
+        .group_by(func.date(Order.created_at))
+        .order_by(literal_column("d"))
+    )
+    weekly_rows = (await session.execute(q_weekly)).all()
+    weekly_revenue = [
+        {"date": str(r.d), "revenue": round(float(r.revenue)), "orders": r.orders}
+        for r in weekly_rows
+    ]
+
+    # ── top sellers today ──
+    q_top = (
+        select(
+            Seller.seller_id,
+            Seller.shop_name,
+            func.count(Order.id).label("orders"),
+            func.coalesce(func.sum(Order.total_price), 0).label("revenue"),
+            Seller.max_orders,
+            Seller.active_orders,
+        )
+        .join(Order, Order.seller_id == Seller.seller_id)
+        .where(and_(Order.created_at >= today_start, Order.status.notin_(["rejected", "cancelled"])))
+        .group_by(Seller.seller_id, Seller.shop_name, Seller.max_orders, Seller.active_orders)
+        .order_by(func.count(Order.id).desc())
+        .limit(5)
+    )
+    top_rows = (await session.execute(q_top)).all()
+    top_sellers = [
+        {
+            "tg_id": r.seller_id,
+            "shop_name": r.shop_name or "",
+            "orders": r.orders,
+            "revenue": round(float(r.revenue)),
+            "load_pct": round((r.active_orders or 0) / r.max_orders * 100) if r.max_orders else 0,
+        }
+        for r in top_rows
+    ]
+
+    # ── totals ──
+    total_sellers = (await session.execute(
+        select(func.count(Seller.seller_id)).where(Seller.deleted_at.is_(None))
+    )).scalar() or 0
+    total_buyers = (await session.execute(
+        select(func.count(User.tg_id)).where(User.role == "BUYER")
+    )).scalar() or 0
+    total_orders = (await session.execute(select(func.count(Order.id)))).scalar() or 0
+
+    return {
+        "today": today_data,
+        "pipeline": pipeline,
+        "alerts": {
+            "expiring_placements": expiring,
+            "exhausted_limits": exhausted,
+            "stuck_orders": stuck,
+        },
+        "weekly_revenue": weekly_revenue,
+        "top_sellers_today": top_sellers,
+        "totals": {"sellers": total_sellers, "buyers": total_buyers, "orders": total_orders},
+    }
+
+
+# ============================================
+# ЗАКАЗЫ (полный список с фильтрами)
+# ============================================
+
+@router.get("/orders")
+async def get_admin_orders(
+    status: Optional[str] = None,
+    seller_id: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    delivery_type: Optional[str] = None,
+    is_preorder: Optional[bool] = None,
+    page: int = 1,
+    per_page: int = 50,
+    session: AsyncSession = Depends(get_session),
+    _token: None = Depends(require_admin_token),
+):
+    """Список всех заказов платформы с фильтрами и пагинацией."""
+    from datetime import datetime as dt, time as time_t
+    from sqlalchemy import select, func, and_
+    from backend.app.models.order import Order
+    from backend.app.models.seller import Seller
+    from backend.app.models.user import User
+
+    filters = []
+    if status:
+        filters.append(Order.status == status)
+    if seller_id:
+        filters.append(Order.seller_id == seller_id)
+    if date_from:
+        filters.append(Order.created_at >= dt.combine(dt.fromisoformat(date_from[:10]).date(), time_t.min))
+    if date_to:
+        filters.append(Order.created_at <= dt.combine(dt.fromisoformat(date_to[:10]).date(), time_t.max))
+    if delivery_type:
+        filters.append(Order.delivery_type == delivery_type)
+    if is_preorder is not None:
+        filters.append(Order.is_preorder == is_preorder)
+
+    where = and_(*filters) if filters else True
+
+    # counts by status
+    q_counts = select(Order.status, func.count(Order.id)).where(where).group_by(Order.status)
+    count_rows = (await session.execute(q_counts)).all()
+    status_breakdown = {r[0]: r[1] for r in count_rows}
+    total = sum(status_breakdown.values())
+
+    # total amount
+    q_sum = select(func.coalesce(func.sum(Order.total_price), 0)).where(where)
+    total_amount = float((await session.execute(q_sum)).scalar() or 0)
+
+    # paginated orders
+    offset = (page - 1) * per_page
+    q_orders = (
+        select(
+            Order.id,
+            Order.buyer_id,
+            Order.seller_id,
+            Order.items_info,
+            Order.total_price,
+            Order.original_price,
+            Order.points_discount,
+            Order.status,
+            Order.delivery_type,
+            Order.address,
+            Order.comment,
+            Order.created_at,
+            Order.completed_at,
+            Order.is_preorder,
+            Order.preorder_delivery_date,
+            Seller.shop_name.label("seller_name"),
+            User.fio.label("buyer_fio"),
+            User.phone.label("buyer_phone"),
+        )
+        .outerjoin(Seller, Seller.seller_id == Order.seller_id)
+        .outerjoin(User, User.tg_id == Order.buyer_id)
+        .where(where)
+        .order_by(Order.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+    )
+    rows = (await session.execute(q_orders)).all()
+
+    orders = []
+    for r in rows:
+        orders.append({
+            "id": r.id,
+            "buyer_id": r.buyer_id,
+            "seller_id": r.seller_id,
+            "items_info": r.items_info,
+            "total_price": round(float(r.total_price or 0)),
+            "original_price": round(float(r.original_price)) if r.original_price else None,
+            "points_discount": round(float(r.points_discount or 0)),
+            "status": r.status,
+            "delivery_type": r.delivery_type,
+            "address": r.address,
+            "comment": r.comment,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+            "is_preorder": r.is_preorder or False,
+            "preorder_delivery_date": str(r.preorder_delivery_date) if r.preorder_delivery_date else None,
+            "seller_name": r.seller_name or "",
+            "buyer_fio": r.buyer_fio or "",
+            "buyer_phone": r.buyer_phone or "",
+        })
+
+    # sellers list for filter dropdown
+    q_sellers = select(Seller.seller_id, Seller.shop_name).where(Seller.deleted_at.is_(None)).order_by(Seller.shop_name)
+    seller_rows = (await session.execute(q_sellers)).all()
+    sellers_list = [{"id": r[0], "name": r[1] or f"#{r[0]}"} for r in seller_rows]
+
+    pages = max(1, -(-total // per_page))  # ceil division
+
+    return {
+        "orders": orders,
+        "total": total,
+        "pages": pages,
+        "page": page,
+        "status_breakdown": status_breakdown,
+        "total_amount": round(total_amount),
+        "sellers_list": sellers_list,
+    }
+
+
+# ============================================
+# ПОКУПАТЕЛИ (клиентская база)
+# ============================================
+
+@router.get("/customers")
+async def get_admin_customers(
+    city_id: Optional[int] = None,
+    min_orders: Optional[int] = None,
+    page: int = 1,
+    per_page: int = 30,
+    session: AsyncSession = Depends(get_session),
+    _token: None = Depends(require_admin_token),
+):
+    """Список покупателей с агрегированной статистикой."""
+    from datetime import datetime as dt, time as time_t, date as date_type
+    from sqlalchemy import select, func, and_, desc, case
+    from backend.app.models.order import Order
+    from backend.app.models.user import User
+    from backend.app.models.seller import City
+
+    today_start = dt.combine(date_type.today(), time_t.min)
+
+    # summary
+    total_buyers = (await session.execute(
+        select(func.count(User.tg_id)).where(User.role == "BUYER")
+    )).scalar() or 0
+
+    active_buyers = (await session.execute(
+        select(func.count(func.distinct(Order.buyer_id)))
+    )).scalar() or 0
+
+    new_today = (await session.execute(
+        select(func.count(User.tg_id)).where(and_(User.role == "BUYER", User.created_at >= today_start))
+    )).scalar() or 0
+
+    avg_ltv_r = (await session.execute(
+        select(func.avg(func.coalesce(Order.total_price, 0))).where(
+            Order.status.in_(["done", "completed"])
+        )
+    )).scalar()
+    avg_ltv = round(float(avg_ltv_r or 0))
+
+    # city distribution
+    q_city = (
+        select(City.name, func.count(User.tg_id))
+        .join(User, User.city_id == City.id)
+        .where(User.role == "BUYER")
+        .group_by(City.name)
+        .order_by(func.count(User.tg_id).desc())
+        .limit(10)
+    )
+    city_rows = (await session.execute(q_city)).all()
+    city_distribution = [{"city": r[0], "count": r[1]} for r in city_rows]
+
+    # customers with aggregation
+    subq = (
+        select(
+            Order.buyer_id,
+            func.count(Order.id).label("orders_count"),
+            func.coalesce(func.sum(Order.total_price), 0).label("total_spent"),
+            func.max(Order.created_at).label("last_order_at"),
+        )
+        .group_by(Order.buyer_id)
+        .subquery()
+    )
+
+    q_base = (
+        select(
+            User.tg_id,
+            User.fio,
+            User.username,
+            User.phone,
+            User.created_at.label("registered_at"),
+            City.name.label("city"),
+            func.coalesce(subq.c.orders_count, 0).label("orders_count"),
+            func.coalesce(subq.c.total_spent, 0).label("total_spent"),
+            subq.c.last_order_at,
+        )
+        .outerjoin(subq, subq.c.buyer_id == User.tg_id)
+        .outerjoin(City, City.id == User.city_id)
+        .where(User.role == "BUYER")
+    )
+
+    if city_id:
+        q_base = q_base.where(User.city_id == city_id)
+    if min_orders:
+        q_base = q_base.where(func.coalesce(subq.c.orders_count, 0) >= min_orders)
+
+    # count for pagination
+    from sqlalchemy import text
+    count_q = select(func.count()).select_from(q_base.subquery())
+    total_filtered = (await session.execute(count_q)).scalar() or 0
+    pages = max(1, -(-total_filtered // per_page))
+
+    offset = (page - 1) * per_page
+    q_final = q_base.order_by(desc("orders_count")).offset(offset).limit(per_page)
+    rows = (await session.execute(q_final)).all()
+
+    customers = []
+    for r in rows:
+        customers.append({
+            "tg_id": r.tg_id,
+            "fio": r.fio,
+            "username": r.username,
+            "phone": r.phone,
+            "city": r.city,
+            "orders_count": r.orders_count,
+            "total_spent": round(float(r.total_spent)),
+            "last_order_at": r.last_order_at.isoformat() if r.last_order_at else None,
+            "registered_at": r.registered_at.isoformat() if r.registered_at else None,
+        })
+
+    return {
+        "customers": customers,
+        "total": total_filtered,
+        "pages": pages,
+        "page": page,
+        "summary": {
+            "total_buyers": total_buyers,
+            "active_buyers": active_buyers,
+            "new_today": new_today,
+            "avg_ltv": avg_ltv,
+        },
+        "city_distribution": city_distribution,
+    }
+
+
+# ============================================
+# ФИНАНСЫ (финансовая аналитика)
+# ============================================
+
+@router.get("/finance/summary")
+async def get_finance_summary(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    group_by: str = "day",
+    session: AsyncSession = Depends(get_session),
+    _token: None = Depends(require_admin_token),
+):
+    """Финансовая сводка с динамикой и разбивкой по продавцам."""
+    from datetime import datetime as dt, time as time_t, timedelta, date as date_type
+    from sqlalchemy import select, func, and_, desc, extract, literal_column
+    from decimal import Decimal
+    from backend.app.models.order import Order
+    from backend.app.models.seller import Seller
+
+    COMMISSION = Decimal("0.18")
+
+    # Date range
+    if date_from:
+        d_from = dt.combine(dt.fromisoformat(date_from[:10]).date(), time_t.min)
+    else:
+        d_from = dt.combine(date_type.today() - timedelta(days=30), time_t.min)
+    if date_to:
+        d_to = dt.combine(dt.fromisoformat(date_to[:10]).date(), time_t.max)
+    else:
+        d_to = dt.combine(date_type.today(), time_t.max)
+
+    completed_statuses = ["done", "completed"]
+    where_current = and_(
+        Order.status.in_(completed_statuses),
+        Order.created_at >= d_from,
+        Order.created_at <= d_to,
+    )
+
+    # Current period KPIs
+    q_kpi = select(
+        func.count(Order.id).label("cnt"),
+        func.coalesce(func.sum(Order.total_price), 0).label("rev"),
+        func.coalesce(func.avg(Order.total_price), 0).label("avg_chk"),
+    ).where(where_current)
+    kpi = (await session.execute(q_kpi)).one()
+
+    revenue = float(kpi.rev)
+    profit = round(revenue * float(COMMISSION))
+
+    # Previous period (same length)
+    period_len = (d_to - d_from).days or 1
+    prev_from = d_from - timedelta(days=period_len)
+    prev_to = d_from - timedelta(seconds=1)
+    where_prev = and_(
+        Order.status.in_(completed_statuses),
+        Order.created_at >= prev_from,
+        Order.created_at <= prev_to,
+    )
+    q_prev = select(
+        func.count(Order.id).label("cnt"),
+        func.coalesce(func.sum(Order.total_price), 0).label("rev"),
+        func.coalesce(func.avg(Order.total_price), 0).label("avg_chk"),
+    ).where(where_prev)
+    prev = (await session.execute(q_prev)).one()
+
+    period_data = {
+        "revenue": round(revenue),
+        "profit": profit,
+        "orders": kpi.cnt,
+        "avg_check": round(float(kpi.avg_chk)),
+    }
+    previous_period_data = {
+        "revenue": round(float(prev.rev)),
+        "profit": round(float(prev.rev) * float(COMMISSION)),
+        "orders": prev.cnt,
+        "avg_check": round(float(prev.avg_chk)),
+    }
+
+    # Time series
+    if group_by == "week":
+        grp = func.date(func.date(Order.created_at) - func.strftime('%w', Order.created_at) + literal_column("'0 days'"))
+    elif group_by == "month":
+        grp = func.strftime('%Y-%m-01', Order.created_at)
+    else:
+        grp = func.date(Order.created_at)
+
+    q_series = (
+        select(
+            grp.label("period"),
+            func.count(Order.id).label("orders"),
+            func.coalesce(func.sum(Order.total_price), 0).label("revenue"),
+        )
+        .where(where_current)
+        .group_by(literal_column("period"))
+        .order_by(literal_column("period"))
+    )
+    series_rows = (await session.execute(q_series)).all()
+    series = [
+        {"period": str(r.period), "orders": r.orders, "revenue": round(float(r.revenue))}
+        for r in series_rows
+    ]
+
+    # By seller
+    q_sellers = (
+        select(
+            Seller.seller_id,
+            Seller.shop_name,
+            Seller.subscription_plan,
+            func.count(Order.id).label("orders"),
+            func.coalesce(func.sum(Order.total_price), 0).label("revenue"),
+        )
+        .join(Order, Order.seller_id == Seller.seller_id)
+        .where(where_current)
+        .group_by(Seller.seller_id, Seller.shop_name, Seller.subscription_plan)
+        .order_by(desc("revenue"))
+    )
+    seller_rows = (await session.execute(q_sellers)).all()
+
+    total_rev = revenue or 1
+    sellers = [
+        {
+            "seller_id": r.seller_id,
+            "shop_name": r.shop_name or f"#{r.seller_id}",
+            "plan": r.subscription_plan or "free",
+            "orders": r.orders,
+            "revenue": round(float(r.revenue)),
+            "commission": round(float(r.revenue) * float(COMMISSION)),
+            "share_pct": round(float(r.revenue) / total_rev * 100, 1),
+        }
+        for r in seller_rows
+    ]
+
+    return {
+        "period": period_data,
+        "previous_period": previous_period_data,
+        "series": series,
+        "by_seller": sellers,
+        "date_from": d_from.date().isoformat(),
+        "date_to": d_to.date().isoformat(),
+    }

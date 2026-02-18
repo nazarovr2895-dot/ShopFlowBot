@@ -8,6 +8,9 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Sellers } from './pages/Sellers';
 import { AdminAnalytics } from './pages/admin/AdminAnalytics';
+import { AdminOrders } from './pages/admin/AdminOrders';
+import { AdminCustomers } from './pages/admin/AdminCustomers';
+import { AdminFinance } from './pages/admin/AdminFinance';
 
 /* ── Seller pages ────────────────────────────────────────── */
 import { SellerDashboard } from './pages/seller/SellerDashboard';
@@ -55,7 +58,10 @@ function AppRoutes() {
         {/* ── Admin routes ───────────────────────────────── */}
         {isAdmin && (
           <>
+            <Route path="orders" element={<AdminOrders />} />
             <Route path="sellers" element={<Sellers />} />
+            <Route path="customers" element={<AdminCustomers />} />
+            <Route path="finance" element={<AdminFinance />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             {/* Legacy redirects */}
             <Route path="stats" element={<Navigate to="/analytics" replace />} />
