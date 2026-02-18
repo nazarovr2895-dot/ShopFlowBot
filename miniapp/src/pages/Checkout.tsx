@@ -126,7 +126,7 @@ export function Checkout() {
     try {
       const phoneNumber = await requestContact();
       if (!phoneNumber) {
-        showAlert('Номер телефона не получен');
+        showAlert('Не удалось получить номер — введите вручную');
         return;
       }
       const saved = await handleSavePhone(phoneNumber);

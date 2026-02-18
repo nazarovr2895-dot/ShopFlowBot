@@ -49,6 +49,7 @@ export function Profile() {
   const [requestingContact, setRequestingContact] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [phoneInput, setPhoneInput] = useState('');
+  const [showManualPhoneInput, setShowManualPhoneInput] = useState(false);
 
   const loadUser = useCallback(async () => {
     try {
@@ -119,7 +120,8 @@ export function Profile() {
     try {
       const phoneNumber = await requestContact();
       if (!phoneNumber) {
-        showAlert('Номер телефона не получен');
+        setShowManualPhoneInput(true);
+        showAlert('Введите номер телефона вручную');
         return;
       }
       await handleSavePhone(phoneNumber);
@@ -216,6 +218,24 @@ export function Profile() {
                   Сохранить номер
                 </button>
               </div>
+            ) : showManualPhoneInput ? (
+              <div className="profile-data__phone-input-block">
+                <input
+                  type="tel"
+                  className="profile-data__input"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="+7 999 123 45 67"
+                />
+                <button
+                  type="button"
+                  className="profile-data__save"
+                  onClick={() => handleSavePhone(phoneInput)}
+                  disabled={!phoneInput.trim()}
+                >
+                  Сохранить номер
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
@@ -285,6 +305,19 @@ export function Profile() {
               </button>
               {/* Future sections go here */}
             </nav>
+
+            {isBrowser() && (
+              <button
+                type="button"
+                className="profile-logout"
+                onClick={() => {
+                  api.logout();
+                  navigate('/landing', { replace: true });
+                }}
+              >
+                Выйти
+              </button>
+            )}
           </>
         )}
       </div>

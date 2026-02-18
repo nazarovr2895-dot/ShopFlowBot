@@ -266,6 +266,26 @@
   color: var(--app-text);
 }
 
+/* ===== Logout button ===== */
+.profile-logout {
+  display: block;
+  width: 100%;
+  margin-top: 24px;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #e74c3c;
+  background: var(--app-bg-elevated);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.profile-logout:active {
+  opacity: 0.8;
+}
+
 /* ===== Desktop / Browser adaptation ===== */
 @media (min-width: 768px) {
   .profile-page {
@@ -295,5 +315,9 @@
 
   .profile-header {
     max-width: 480px;
+  }
+
+  .profile-logout {
+    max-width: 320px;
   }
 }

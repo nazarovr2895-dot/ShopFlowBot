@@ -14,7 +14,7 @@ import {
   GuestCheckout,
   GuestOrderConfirmation,
 } from './pages';
-import { MainLayout, RequireAuth } from './components';
+import { MainLayout, RequireAuth, ToastProvider } from './components';
 import { CatalogFilterProvider } from './contexts/CatalogFilterContext';
 import { useTheme } from './hooks/useTheme';
 import { api } from './api/client';
@@ -121,7 +121,9 @@ export function App() {
         v7_relativeSplatPath: true,
       }}
     >
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </BrowserRouter>
   );
 }

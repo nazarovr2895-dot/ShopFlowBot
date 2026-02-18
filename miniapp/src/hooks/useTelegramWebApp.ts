@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import WebApp from '@twa-dev/sdk';
 import { isTelegram } from '../utils/environment';
+import { showBrowserToast } from '../components/Toast';
 
 let telegramWebAppInitialized = false;
 
@@ -49,19 +50,19 @@ export function useTelegramWebApp() {
 
   const showAlert = useCallback((message: string) => {
     try {
-      if (typeof WebApp.showAlert === 'function') {
+      if (typeof WebApp.showAlert === 'function' && isTelegram()) {
         WebApp.showAlert(message);
       } else {
-        window.alert(message);
+        showBrowserToast(message);
       }
     } catch {
-      window.alert(message);
+      showBrowserToast(message);
     }
   }, []);
 
   const showConfirm = useCallback((message: string, callback: (confirmed: boolean) => void) => {
     try {
-      if (typeof WebApp.showConfirm === 'function') {
+      if (typeof WebApp.showConfirm === 'function' && isTelegram()) {
         WebApp.showConfirm(message, callback);
       } else {
         callback(window.confirm(message));
