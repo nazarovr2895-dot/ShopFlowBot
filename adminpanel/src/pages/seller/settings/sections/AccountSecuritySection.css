@@ -1,0 +1,71 @@
+.account-security-hint {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+
+.account-security-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.account-security-subtitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.account-security-subtitle--spaced {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+/* Password input with toggle */
+.account-security-password {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.account-security-password .form-input {
+  padding-right: 2.5rem;
+}
+
+.account-security-toggle {
+  position: absolute;
+  right: var(--space-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  transition: color var(--transition-fast);
+  z-index: 1;
+}
+
+.account-security-toggle:hover {
+  color: var(--text);
+}
+
+/* Feedback messages */
+.account-security-error {
+  color: var(--danger);
+  padding: var(--space-3);
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+.account-security-success {
+  color: var(--success);
+  padding: var(--space-3);
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}

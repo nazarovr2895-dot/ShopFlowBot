@@ -1,0 +1,132 @@
+.settings-shop-section {
+  margin-bottom: var(--space-6);
+}
+
+.settings-shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.settings-shop-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settings-shop-header-left h3 {
+  margin: 0;
+}
+
+.settings-shop-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.settings-shop-hint {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+
+.settings-shop-muted {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+/* View mode */
+.settings-shop-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Edit mode */
+.settings-shop-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings-shop-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.settings-shop-input-price {
+  max-width: 150px;
+}
+
+/* Banner */
+.settings-shop-banner-preview {
+  max-height: 180px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: var(--space-4);
+}
+
+.settings-shop-banner-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+.settings-shop-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.settings-shop-file-input {
+  display: none;
+}
+
+/* Shop link */
+.settings-shop-link-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.settings-shop-link-box code {
+  flex: 1;
+  word-break: break-all;
+  font-size: var(--text-sm);
+}
+
+.settings-shop-link {
+  color: var(--accent);
+}
+
+.settings-shop-link:hover {
+  text-decoration: underline;
+}
+
+/* Ghost button (shared utility) */
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text);
+}
