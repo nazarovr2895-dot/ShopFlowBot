@@ -1,17 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { FavoriteProduct } from '../types';
+import type { FavoriteProduct, Product } from '../types';
 import { api } from '../api/client';
-import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
+import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import './FavoriteProducts.css';
+
+/** Convert FavoriteProduct → Product for the modal */
+function toProduct(fp: FavoriteProduct): Product {
+  return {
+    id: fp.product_id,
+    name: fp.name,
+    description: fp.description,
+    price: fp.price,
+    photo_id: fp.photo_id,
+    photo_ids: fp.photo_ids,
+    quantity: fp.quantity,
+    is_preorder: fp.is_preorder,
+    composition: fp.composition,
+  };
+}
 
 export function FavoriteProducts() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<FavoriteProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [addingId, setAddingId] = useState<number | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<FavoriteProduct | null>(null);
   const { hapticFeedback, showAlert } = useTelegramWebApp();
 
   useEffect(() => {
@@ -37,11 +54,27 @@ export function FavoriteProducts() {
       hapticFeedback('light');
       await api.removeFavoriteProduct(productId);
       setProducts((prev) => prev.filter((p) => p.product_id !== productId));
+      setSelectedProduct(null);
       showAlert('Убрано из избранного');
     } catch (err) {
       console.error(err);
     } finally {
       setRemovingId(null);
+    }
+  };
+
+  const addToCart = async (productId: number, _date: string | null, quantity: number) => {
+    setAddingId(productId);
+    try {
+      hapticFeedback('medium');
+      await api.addCartItem(productId, quantity);
+      showAlert('Добавлено в корзину');
+      setSelectedProduct(null);
+    } catch (err) {
+      console.error(err);
+      showAlert('Не удалось добавить в корзину');
+    } finally {
+      setAddingId(null);
     }
   };
 
@@ -96,13 +129,13 @@ export function FavoriteProducts() {
             <div
               key={product.product_id}
               className="favorite-product-card"
-              onClick={() => navigate(`/shop/${product.seller_id}/product/${product.product_id}`)}
+              onClick={() => setSelectedProduct(product)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  navigate(`/shop/${product.seller_id}/product/${product.product_id}`);
+                  setSelectedProduct(product);
                 }
               }}
             >
@@ -135,6 +168,21 @@ export function FavoriteProducts() {
           );
         })}
       </div>
+
+      {/* Product modal — same as in ShopDetails */}
+      {selectedProduct && (
+        <ProductModal
+          product={toProduct(selectedProduct)}
+          isOpen={!!selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          isFavorite={true}
+          onToggleFavorite={(e) => removeFromFavorites(selectedProduct.product_id, e)}
+          onAddToCart={(qty: number) => addToCart(selectedProduct.product_id, null, qty)}
+          isAdding={addingId === selectedProduct.product_id}
+          inStock={(selectedProduct.quantity ?? 0) > 0}
+          isPreorder={selectedProduct.is_preorder || false}
+        />
+      )}
     </div>
   );
 }
