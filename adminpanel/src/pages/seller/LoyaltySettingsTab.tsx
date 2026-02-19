@@ -2,11 +2,9 @@ import { useEffect, useState } from 'react';
 import {
   getLoyaltySettings,
   updateLoyaltySettings,
-  createCustomer,
 } from '../../api/sellerClient';
 import type { LoyaltyTier } from '../../api/sellerClient';
 import { useToast, FormField, Card } from '../../components/ui';
-import { formatPhoneInput, phoneToDigits } from '../../utils/phone';
 import './LoyaltySettingsTab.css';
 
 function TierPreview({ tiers }: { tiers: LoyaltyTier[] }) {
@@ -45,10 +43,6 @@ export function LoyaltySettingsTab() {
   const [pointsExpireDays, setPointsExpireDays] = useState('');
   const [tiersConfig, setTiersConfig] = useState<LoyaltyTier[]>([]);
   const [saving, setSaving] = useState(false);
-
-  // Add customer form
-  const [addForm, setAddForm] = useState({ phone: '', first_name: '', last_name: '', birthday: '' });
-  const [addSubmitting, setAddSubmitting] = useState(false);
 
   useEffect(() => {
     getLoyaltySettings()
@@ -99,31 +93,6 @@ export function LoyaltySettingsTab() {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleAddCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { phone, first_name, last_name } = addForm;
-    const digits = phoneToDigits(phone);
-    if (digits.length < 11) {
-      toast.warning('Введите номер в формате +7 000 000 00 00');
-      return;
-    }
-    setAddSubmitting(true);
-    try {
-      await createCustomer({ phone: digits, first_name: first_name.trim(), last_name: last_name.trim(), birthday: addForm.birthday || null });
-      setAddForm({ phone: '', first_name: '', last_name: '', birthday: '' });
-      toast.success('Клиент добавлен');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Ошибка';
-      if (typeof msg === 'string' && (msg.includes('уже есть') || msg.includes('409'))) {
-        toast.warning('Клиент с таким номером телефона уже есть.');
-      } else {
-        toast.error(msg);
-      }
-    } finally {
-      setAddSubmitting(false);
     }
   };
 
@@ -266,49 +235,6 @@ export function LoyaltySettingsTab() {
         {saving ? 'Сохранение...' : 'Сохранить настройки'}
       </button>
 
-      {/* Add customer form */}
-      <Card>
-        <h2 className="loyalty-section-title">Добавить клиента</h2>
-        <form onSubmit={handleAddCustomer} className="loyalty-add-form">
-          <FormField label="Телефон">
-            <input
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel"
-              value={addForm.phone}
-              onChange={(e) => setAddForm((f) => ({ ...f, phone: formatPhoneInput(e.target.value) }))}
-              placeholder="+7 000 000 00 00"
-              maxLength={16}
-            />
-          </FormField>
-          <FormField label="Имя">
-            <input
-              type="text"
-              value={addForm.first_name}
-              onChange={(e) => setAddForm((f) => ({ ...f, first_name: e.target.value }))}
-              placeholder="Имя"
-            />
-          </FormField>
-          <FormField label="Фамилия">
-            <input
-              type="text"
-              value={addForm.last_name}
-              onChange={(e) => setAddForm((f) => ({ ...f, last_name: e.target.value }))}
-              placeholder="Фамилия"
-            />
-          </FormField>
-          <FormField label="День рождения">
-            <input
-              type="date"
-              value={addForm.birthday}
-              onChange={(e) => setAddForm((f) => ({ ...f, birthday: e.target.value }))}
-            />
-          </FormField>
-          <button type="submit" className="loyalty-add-btn" disabled={addSubmitting}>
-            {addSubmitting ? '...' : 'Добавить'}
-          </button>
-        </form>
-      </Card>
     </div>
   );
 }

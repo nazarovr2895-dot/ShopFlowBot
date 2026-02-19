@@ -1,0 +1,172 @@
+/* ── Add Customer Tab ──────────────────────────────── */
+
+.add-customer-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-top: var(--space-4);
+}
+
+.add-customer-section-title {
+  font-size: var(--text-base, 1rem);
+  font-weight: 600;
+  margin: 0 0 var(--space-4);
+}
+
+.add-customer-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  margin-top: var(--space-1);
+}
+
+/* ── Customer info grid ── */
+
+.add-customer-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+/* ── Events list ── */
+
+.add-customer-events-empty {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.add-customer-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.add-customer-event-row {
+  position: relative;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.add-customer-event-row-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3);
+  padding-right: var(--space-6);
+}
+
+.add-customer-event-remove {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.add-customer-event-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+/* ── Events actions ── */
+
+.add-customer-events-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.add-customer-event-add-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.add-customer-event-add-btn:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+/* ── Preset chips ── */
+
+.add-customer-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.add-customer-preset-chip {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.add-customer-preset-chip:hover {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.14);
+}
+
+/* ── Submit button ── */
+
+.add-customer-submit {
+  width: 100%;
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-base, 1rem);
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.add-customer-submit:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.add-customer-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 640px) {
+  .add-customer-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .add-customer-event-row-fields {
+    grid-template-columns: 1fr;
+  }
+}
