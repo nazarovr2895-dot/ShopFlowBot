@@ -45,7 +45,7 @@
   }
 }
 
-/* Card — transparent, with right separator like catalog */
+/* Card — transparent, matching catalog style */
 .favorite-product-card {
   background: transparent;
   border: none;
@@ -55,20 +55,6 @@
   display: flex;
   flex-direction: column;
   position: relative;
-}
-
-.favorite-product-card::after {
-  content: '';
-  position: absolute;
-  top: 10%;
-  right: 0;
-  width: 1px;
-  height: 80%;
-  background: rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="dark"] .favorite-product-card::after {
-  background: rgba(255, 255, 255, 0.15);
 }
 
 /* Image wrap */
@@ -82,25 +68,12 @@
   background: transparent;
 }
 
-/* Heart icon */
-.favorite-product-card__heart {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 10;
-}
-
-/* Circular image — same as catalog */
+/* Rounded square image — same as catalog */
 .favorite-product-card__image {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="dark"] .favorite-product-card__image {
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
 }
 
 .favorite-product-card__image-placeholder {
@@ -111,7 +84,7 @@
   justify-content: center;
   font-size: 40px;
   opacity: 0.3;
-  border-radius: 50%;
+  border-radius: 12px;
   background: rgba(0, 0, 0, 0.03);
   border: 2px dashed rgba(0, 0, 0, 0.15);
 }
@@ -121,7 +94,7 @@
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Info section — centered text like catalog */
+/* Info section */
 .favorite-product-card__info {
   padding: 4px 16px 16px;
   display: flex;
@@ -151,20 +124,45 @@
   min-height: 2.8em;
 }
 
-/* Gradient price — same as catalog */
+/* Bottom row: heart left, price right */
+.favorite-product-card__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.favorite-product-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Heart icon styling — match catalog */
+.favorite-product-card__heart-icon.heart-icon {
+  filter: none;
+}
+
+.favorite-product-card__heart-icon.heart-icon--filled {
+  color: #ff3b6e;
+}
+
+/* Price pill — match catalog add button style */
 .favorite-product-card__price {
-  font-size: 16px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-align: center;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  background: #000000;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 [data-theme="dark"] .favorite-product-card__price {
-  background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  background: #ffffff;
+  color: #000000;
 }

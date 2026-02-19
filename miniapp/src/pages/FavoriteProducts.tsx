@@ -113,20 +113,23 @@ export function FavoriteProducts() {
                   className="favorite-product-card__image"
                   placeholderClassName="favorite-product-card__image-placeholder"
                 />
-                {api.isAuthenticated() && (
-                  <div className="favorite-product-card__heart">
-                    <HeartIcon
-                      isFavorite={true}
-                      onClick={(e) => removeFromFavorites(product.product_id, e)}
-                      size={28}
-                    />
-                  </div>
-                )}
               </div>
               <div className="favorite-product-card__info">
                 <span className="favorite-product-card__shop">{product.shop_name}</span>
                 <span className="favorite-product-card__name">{product.name}</span>
-                <span className="favorite-product-card__price">{formatPrice(product.price)}</span>
+                <div className="favorite-product-card__bottom">
+                  <div className="favorite-product-card__actions">
+                    {api.isAuthenticated() && (
+                      <HeartIcon
+                        isFavorite={true}
+                        onClick={(e) => removeFromFavorites(product.product_id, e)}
+                        size={20}
+                        className="favorite-product-card__heart-icon"
+                      />
+                    )}
+                  </div>
+                  <span className="favorite-product-card__price">{formatPrice(product.price)}</span>
+                </div>
               </div>
             </div>
           );
