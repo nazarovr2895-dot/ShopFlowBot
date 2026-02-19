@@ -19,6 +19,7 @@ class Product(Base):
     is_preorder: Mapped[bool] = mapped_column(Boolean, default=False)
     cost_price: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True)
     markup_percent: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 2), nullable=True)
+    composition: Mapped[Optional[list]] = mapped_column(JSON(), nullable=True)
 
     __table_args__ = (
         Index('ix_products_seller_id', 'seller_id'),

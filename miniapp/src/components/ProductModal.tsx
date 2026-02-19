@@ -3,6 +3,7 @@ import type { Product } from '../types';
 import { ProductImage } from './ProductImage';
 import { HeartIcon } from './HeartIcon';
 import { ImageViewer } from './ImageViewer';
+import { ProductComposition } from './ProductComposition';
 import { api } from '../api/client';
 import './ProductModal.css';
 
@@ -241,6 +242,27 @@ export function ProductModal({
                 </div>
               )}
             </div>
+
+            {/* Thumbnails strip */}
+            {images.length > 1 && (
+              <div className="product-modal__thumbs">
+                {images.map((img, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`product-modal__thumb${i === currentImageIndex ? ' product-modal__thumb--active' : ''}`}
+                    onClick={() => setCurrentImageIndex(i)}
+                  >
+                    <ProductImage
+                      src={img}
+                      alt={`${product.name} ${i + 1}`}
+                      className="product-modal__thumb-img"
+                      placeholderClassName="product-modal__thumb-placeholder"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Info */}
@@ -252,6 +274,10 @@ export function ProductModal({
 
             {product.description && (
               <p className="product-modal__desc">{product.description}</p>
+            )}
+
+            {product.composition && product.composition.length > 0 && (
+              <ProductComposition items={product.composition} />
             )}
 
             {/* Preorder date picker */}

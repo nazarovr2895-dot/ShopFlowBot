@@ -151,6 +151,12 @@ export interface SellerStats {
   filters?: SellerStatsFilters;
 }
 
+export interface CompositionItem {
+  name: string;
+  qty: number | null;
+  unit: string | null;
+}
+
 export interface SellerProduct {
   id: number;
   seller_id: number;
@@ -166,6 +172,7 @@ export interface SellerProduct {
   cost_price?: number | null;
   markup_percent?: number | null;
   stock_shortage?: { flower: string; need: number; have: number; deficit: number }[] | null;
+  composition?: CompositionItem[] | null;
 }
 
 export async function getMe(): Promise<SellerMe> {
@@ -352,14 +359,14 @@ export async function uploadBannerPhoto(file: File): Promise<{ banner_url: strin
   return res.json();
 }
 
-export async function createProduct(data: { seller_id: number; name: string; description: string; price: number; photo_id?: string; photo_ids?: string[]; quantity: number; bouquet_id?: number; is_preorder?: boolean; cost_price?: number; markup_percent?: number }): Promise<SellerProduct> {
+export async function createProduct(data: { seller_id: number; name: string; description: string; price: number; photo_id?: string; photo_ids?: string[]; quantity: number; bouquet_id?: number; is_preorder?: boolean; cost_price?: number; markup_percent?: number; composition?: CompositionItem[] }): Promise<SellerProduct> {
   return fetchSeller<SellerProduct>('/seller-web/products', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateProduct(productId: number, data: Partial<{ name: string; description: string; price: number; quantity: number; photo_ids: string[]; is_active: boolean; is_preorder: boolean; cost_price: number; markup_percent: number }>): Promise<SellerProduct> {
+export async function updateProduct(productId: number, data: Partial<{ name: string; description: string; price: number; quantity: number; photo_ids: string[]; is_active: boolean; is_preorder: boolean; cost_price: number; markup_percent: number; composition: CompositionItem[] }>): Promise<SellerProduct> {
   return fetchSeller<SellerProduct>(`/seller-web/products/${productId}`, {
     method: 'PUT',
     body: JSON.stringify(data),

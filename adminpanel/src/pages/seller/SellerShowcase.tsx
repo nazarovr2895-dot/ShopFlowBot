@@ -10,9 +10,10 @@ import {
   getProductImageUrl,
   recalculateProductPrice,
 } from '../../api/sellerClient';
-import type { SellerMe, SellerProduct, BouquetDetail } from '../../api/sellerClient';
+import type { SellerMe, SellerProduct, BouquetDetail, CompositionItem } from '../../api/sellerClient';
 import { useToast, useConfirm, TabBar, Modal, Toggle, FormField, EmptyState } from '../../components/ui';
 import { ImageCropModal } from '../../components/ImageCropModal';
+import { CompositionEditor } from '../../components/CompositionEditor';
 import './SellerShowcase.css';
 
 type AddProductMode = 'choice' | 'manual' | 'bouquet';
@@ -33,6 +34,7 @@ export function SellerShowcase() {
   const [bouquets, setBouquets] = useState<BouquetDetail[]>([]);
   const [selectedBouquetId, setSelectedBouquetId] = useState<number | null>(null);
   const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', quantity: '1' });
+  const [newProductComposition, setNewProductComposition] = useState<CompositionItem[]>([]);
   const [productPhotoFiles, setProductPhotoFiles] = useState<File[]>([]);
   const [productPhotoPreviews, setProductPhotoPreviews] = useState<string[]>([]);
 
@@ -42,6 +44,7 @@ export function SellerShowcase() {
 
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; description: string; price: string; quantity: string }>({ name: '', description: '', price: '', quantity: '0' });
+  const [editComposition, setEditComposition] = useState<CompositionItem[]>([]);
   const [editKeptPhotoIds, setEditKeptPhotoIds] = useState<string[]>([]);
   const [editNewPhotoFiles, setEditNewPhotoFiles] = useState<File[]>([]);
   const [editNewPhotoPreviews, setEditNewPhotoPreviews] = useState<string[]>([]);
@@ -119,6 +122,8 @@ export function SellerShowcase() {
         is_preorder: activeTab === 'preorder',
       };
       if (photo_ids.length) payload.photo_ids = photo_ids;
+      const validComposition = newProductComposition.filter((c) => c.name.trim());
+      if (validComposition.length) payload.composition = validComposition;
       if (selectedBouquetId != null) {
         payload.bouquet_id = selectedBouquetId;
         payload.cost_price = selectedBouquetCost;
@@ -126,6 +131,7 @@ export function SellerShowcase() {
       }
       await createProduct(payload);
       setNewProduct({ name: '', description: '', price: '', quantity: '1' });
+      setNewProductComposition([]);
       setProductPhotoFiles([]);
       setProductPhotoPreviews([]);
       setShowAddProduct(false);
@@ -207,6 +213,7 @@ export function SellerShowcase() {
     setEditKeptPhotoIds(ids);
     setEditNewPhotoFiles([]);
     setEditNewPhotoPreviews([]);
+    setEditComposition(p.composition ?? []);
   };
 
   const closeEdit = () => {
@@ -216,6 +223,7 @@ export function SellerShowcase() {
     setEditNewPhotoFiles([]);
     editNewPhotoPreviews.forEach((url) => URL.revokeObjectURL(url));
     setEditNewPhotoPreviews([]);
+    setEditComposition([]);
   };
 
   const removeEditKeptPhoto = (index: number) => {
@@ -292,12 +300,14 @@ export function SellerShowcase() {
         if (res.photo_id) newIds.push(res.photo_id);
       }
       const photo_ids = [...editKeptPhotoIds, ...newIds].slice(0, 3);
+      const validComposition = editComposition.filter((c) => c.name.trim());
       await updateProduct(editingProductId, {
         name: editForm.name,
         description: editForm.description,
         price,
         quantity,
         photo_ids,
+        composition: validComposition,
       });
       closeEdit();
       load();
@@ -408,6 +418,7 @@ export function SellerShowcase() {
               className="form-input"
             />
           </FormField>
+          <CompositionEditor items={newProductComposition} onChange={setNewProductComposition} />
           {selectedBouquetId && (
             <div className="seller-showcase-cost-info">
               <span>Себестоимость букета: <strong>{selectedBouquetCost.toFixed(0)} ₽</strong></span>
@@ -547,6 +558,7 @@ export function SellerShowcase() {
               className="form-input"
             />
           </FormField>
+          <CompositionEditor items={editComposition} onChange={setEditComposition} />
           <div className="seller-showcase-form-row-2">
             <FormField label="Цена (₽)">
               <input

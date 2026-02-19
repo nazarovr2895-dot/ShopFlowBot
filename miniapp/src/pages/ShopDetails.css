@@ -275,6 +275,162 @@
   transform: scale(0.98);
 }
 
+/* Header actions: subscribe + chat buttons */
+.shop-details__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Chat with seller button — outlined pill */
+.shop-details__chat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-text);
+  background: transparent;
+  border: 1.5px solid var(--app-border, #e5e7eb);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  text-decoration: none;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shop-details__chat-btn:hover {
+  opacity: 0.75;
+}
+
+.shop-details__chat-btn:active {
+  transform: scale(0.98);
+}
+
+[data-theme="dark"] .shop-details__chat-btn {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Clickable shop name */
+.shop-details__name--clickable {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.shop-details__name--clickable:hover {
+  opacity: 0.7;
+}
+
+/* ====== Legal Info Modal ====== */
+.shop-details__legal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+
+[data-theme="dark"] .shop-details__legal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.shop-details__legal-modal {
+  width: 100%;
+  max-width: 360px;
+  background: var(--app-bg);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  animation: fadeIn 0.25s ease;
+}
+
+[data-theme="dark"] .shop-details__legal-modal {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.shop-details__legal-title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.shop-details__legal-line {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--app-text);
+}
+
+.shop-details__legal-line:last-of-type {
+  margin-bottom: 0;
+}
+
+.shop-details__legal-label {
+  font-weight: 600;
+  color: var(--app-text-secondary);
+}
+
+.shop-details__legal-close {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  background: #000000;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: center;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+
+.shop-details__legal-close:active {
+  opacity: 0.75;
+}
+
+[data-theme="dark"] .shop-details__legal-close {
+  background: #ffffff;
+  color: #000000;
+}
+
+@media (min-width: 700px) {
+  .shop-details__chat-btn {
+    padding: 8px 18px;
+    font-size: 13px;
+  }
+
+  .shop-details__legal-modal {
+    max-width: 400px;
+    padding: 28px;
+  }
+
+  .shop-details__legal-title {
+    font-size: 20px;
+  }
+
+  .shop-details__legal-line {
+    font-size: 15px;
+  }
+}
+
 /* Loyalty — compact chip */
 .shop-details__loyalty {
   margin-bottom: 10px;

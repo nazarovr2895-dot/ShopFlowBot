@@ -485,7 +485,7 @@ class TestINNValidation:
     def test_valid_inn_10_digits(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", inn="1234567890",
         )
         assert schema.inn == "1234567890"
@@ -493,7 +493,7 @@ class TestINNValidation:
     def test_valid_inn_12_digits(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", inn="123456789012",
         )
         assert schema.inn == "123456789012"
@@ -502,7 +502,7 @@ class TestINNValidation:
         from backend.app.api.admin import SellerCreateSchema
         with pytest.raises(Exception):
             SellerCreateSchema(
-                fio="Test", phone="+7900", shop_name="Shop",
+                tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
                 delivery_type="both", inn="12345",
             )
 
@@ -510,14 +510,14 @@ class TestINNValidation:
         from backend.app.api.admin import SellerCreateSchema
         with pytest.raises(Exception):
             SellerCreateSchema(
-                fio="Test", phone="+7900", shop_name="Shop",
+                tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
                 delivery_type="both", inn="123abc7890",
             )
 
     def test_inn_none_allowed(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", inn=None,
         )
         assert schema.inn is None
@@ -525,7 +525,7 @@ class TestINNValidation:
     def test_inn_empty_string_normalized(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", inn="",
         )
         assert schema.inn is None
@@ -533,7 +533,7 @@ class TestINNValidation:
     def test_inn_with_spaces(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", inn=" 1234567890 ",
         )
         assert schema.inn == "1234567890"
@@ -549,7 +549,7 @@ class TestOGRNValidation:
     def test_valid_ogrn_13_digits(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", ogrn="1234567890123",
         )
         assert schema.ogrn == "1234567890123"
@@ -557,7 +557,7 @@ class TestOGRNValidation:
     def test_valid_ogrn_15_digits(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", ogrn="123456789012345",
         )
         assert schema.ogrn == "123456789012345"
@@ -566,7 +566,7 @@ class TestOGRNValidation:
         from backend.app.api.admin import SellerCreateSchema
         with pytest.raises(Exception):
             SellerCreateSchema(
-                fio="Test", phone="+7900", shop_name="Shop",
+                tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
                 delivery_type="both", ogrn="12345",
             )
 
@@ -574,7 +574,7 @@ class TestOGRNValidation:
         from backend.app.api.admin import SellerCreateSchema
         with pytest.raises(Exception):
             SellerCreateSchema(
-                fio="Test", phone="+7900", shop_name="Shop",
+                tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
                 delivery_type="both", ogrn="12345678901234",
             )
 
@@ -582,14 +582,14 @@ class TestOGRNValidation:
         from backend.app.api.admin import SellerCreateSchema
         with pytest.raises(Exception):
             SellerCreateSchema(
-                fio="Test", phone="+7900", shop_name="Shop",
+                tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
                 delivery_type="both", ogrn="123abc7890123",
             )
 
     def test_ogrn_none_allowed(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", ogrn=None,
         )
         assert schema.ogrn is None
@@ -597,7 +597,7 @@ class TestOGRNValidation:
     def test_ogrn_empty_string_normalized(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", ogrn="",
         )
         assert schema.ogrn is None
@@ -605,7 +605,7 @@ class TestOGRNValidation:
     def test_ogrn_with_spaces(self):
         from backend.app.api.admin import SellerCreateSchema
         schema = SellerCreateSchema(
-            fio="Test", phone="+7900", shop_name="Shop",
+            tg_id=1, fio="Test", phone="+7900", shop_name="Shop",
             delivery_type="both", ogrn=" 1234567890123 ",
         )
         assert schema.ogrn == "1234567890123"

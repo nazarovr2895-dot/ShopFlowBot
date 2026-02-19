@@ -100,6 +100,11 @@ class PublicSellerDetail(BaseModel):
     subscriber_count: int = 0
     working_hours: Optional[dict] = None
     is_open_now: Optional[bool] = None
+    owner_username: Optional[str] = None
+    owner_tg_id: Optional[int] = None
+    owner_fio: Optional[str] = None
+    inn: Optional[str] = None
+    ogrn: Optional[str] = None
 
 
 class PublicSellersResponse(BaseModel):
@@ -360,11 +365,14 @@ async def get_public_seller_detail(
             City.name.label("city_name"),
             District.name.label("district_name"),
             Metro.name.label("metro_name"),
-            Metro.line_color.label("metro_line_color")
+            Metro.line_color.label("metro_line_color"),
+            User.username.label("owner_username"),
+            User.fio.label("owner_fio"),
         )
         .outerjoin(City, Seller.city_id == City.id)
         .outerjoin(District, Seller.district_id == District.id)
         .outerjoin(Metro, Seller.metro_id == Metro.id)
+        .outerjoin(User, Seller.seller_id == User.tg_id)
         .where(Seller.seller_id == seller_id)
     )
 
@@ -483,6 +491,7 @@ async def get_public_seller_detail(
             "photo_ids": _photo_ids(p),
             "quantity": p.quantity,
             "is_preorder": getattr(p, "is_preorder", False),
+            "composition": getattr(p, "composition", None),
         }
 
     products_list = [_product_dict(p) for p in products]
@@ -516,6 +525,11 @@ async def get_public_seller_detail(
         subscriber_count=subscriber_count,
         working_hours=getattr(seller, "working_hours", None),
         is_open_now=_is_open_now(getattr(seller, "working_hours", None)),
+        owner_username=row.owner_username,
+        owner_tg_id=seller.seller_id,
+        owner_fio=row.owner_fio,
+        inn=seller.inn,
+        ogrn=seller.ogrn,
     )
 
 

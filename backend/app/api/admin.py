@@ -58,7 +58,7 @@ def _extract_fio(org_data: dict) -> Optional[str]:
 # ============================================
 
 class SellerCreateSchema(BaseModel):
-    tg_id: Optional[int] = None
+    tg_id: int
     fio: str
     phone: str
     shop_name: str

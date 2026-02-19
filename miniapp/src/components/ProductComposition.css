@@ -1,0 +1,47 @@
+.product-composition {
+  margin: 12px 0 0;
+}
+
+.product-composition__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin: 0 0 8px;
+}
+
+.product-composition__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.product-composition__item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.product-composition__name {
+  font-size: 15px;
+  color: var(--app-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.product-composition__dots {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 1.5px dashed var(--app-text-secondary, #999);
+  opacity: 0.4;
+  align-self: center;
+  margin-bottom: 2px;
+}
+
+.product-composition__qty {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--app-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}

@@ -65,6 +65,7 @@ export function ShopDetails() {
   const [bannerLoaded, setBannerLoaded] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [hoursExpanded, setHoursExpanded] = useState(false);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
 
   // Set up back button
   useEffect(() => {
@@ -373,17 +374,34 @@ export function ShopDetails() {
           <img className="shop-details__logo" src="/android-chrome-512x512.png" alt="" />
           <div className="shop-details__header-text">
             <div className="shop-details__name-row">
-              <h1 className="shop-details__name">{seller.shop_name || 'Без названия'}</h1>
-              {showFavoriteBtn && (
-                <button
-                  type="button"
-                  className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
-                  onClick={toggleFavorite}
-                  disabled={togglingFavorite}
-                >
-                  {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
-                </button>
-              )}
+              <h1
+                className={`shop-details__name${(seller.owner_fio || seller.inn || seller.ogrn) ? ' shop-details__name--clickable' : ''}`}
+                onClick={() => { if (seller.owner_fio || seller.inn || seller.ogrn) setLegalModalOpen(true); }}
+              >
+                {seller.shop_name || 'Без названия'}
+              </h1>
+              <div className="shop-details__header-actions">
+                {showFavoriteBtn && (
+                  <button
+                    type="button"
+                    className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
+                    onClick={toggleFavorite}
+                    disabled={togglingFavorite}
+                  >
+                    {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
+                  </button>
+                )}
+                {(seller.owner_username || seller.owner_tg_id) && (
+                  <a
+                    href={seller.owner_username ? `https://t.me/${seller.owner_username}` : `tg://user?id=${seller.owner_tg_id}`}
+                    target={isBrowser() ? '_blank' : undefined}
+                    rel={isBrowser() ? 'noopener noreferrer' : undefined}
+                    className="shop-details__chat-btn"
+                  >
+                    Написать
+                  </a>
+                )}
+              </div>
             </div>
             {(seller.subscriber_count ?? 0) > 0 && (
               <div className="shop-details__subscriber-count">
@@ -665,6 +683,40 @@ export function ShopDetails() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Legal Info Modal */}
+      {legalModalOpen && seller && (
+        <div
+          className="shop-details__legal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setLegalModalOpen(false); }}
+        >
+          <div className="shop-details__legal-modal">
+            <h3 className="shop-details__legal-title">Информация о продавце</h3>
+            {seller.owner_fio && (
+              <p className="shop-details__legal-line">
+                <span className="shop-details__legal-label">ИП</span> {seller.owner_fio}
+              </p>
+            )}
+            {seller.inn && (
+              <p className="shop-details__legal-line">
+                <span className="shop-details__legal-label">ИНН:</span> {seller.inn}
+              </p>
+            )}
+            {seller.ogrn && (
+              <p className="shop-details__legal-line">
+                <span className="shop-details__legal-label">ОГРН:</span> {seller.ogrn}
+              </p>
+            )}
+            <button
+              type="button"
+              className="shop-details__legal-close"
+              onClick={() => setLegalModalOpen(false)}
+            >
+              Закрыть
+            </button>
           </div>
         </div>
       )}

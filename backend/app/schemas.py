@@ -102,6 +102,26 @@ class GuestCheckoutBody(BaseModel):
 # --- Товары ---
 MAX_PRODUCT_PHOTOS = 3
 
+COMPOSITION_UNITS = ("шт.", "м", "г", "кг", "упак.", "мл", "л")
+
+
+class CompositionItem(BaseModel):
+    name: str
+    qty: Optional[float] = None
+    unit: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
+        return sanitize_user_input(v, max_length=255)
+
+    @field_validator("unit")
+    @classmethod
+    def validate_unit(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in COMPOSITION_UNITS:
+            return None
+        return v
+
 
 class ProductCreate(BaseModel):
     seller_id: int
@@ -115,6 +135,7 @@ class ProductCreate(BaseModel):
     is_preorder: bool = False
     cost_price: Optional[float] = Field(default=None, ge=0)
     markup_percent: Optional[float] = Field(default=None, ge=0)
+    composition: Optional[List[CompositionItem]] = None
 
     @field_validator("name", "description")
     @classmethod
@@ -142,7 +163,8 @@ class ProductUpdate(BaseModel):
     is_preorder: Optional[bool] = None
     cost_price: Optional[float] = Field(default=None, ge=0)
     markup_percent: Optional[float] = Field(default=None, ge=0)
-    
+    composition: Optional[List[CompositionItem]] = None
+
     @field_validator("name", "description")
     @classmethod
     def sanitize_text_fields(cls, v: Optional[str]) -> Optional[str]:
@@ -168,6 +190,7 @@ class ProductResponse(BaseModel):
     is_preorder: bool = False
     cost_price: Optional[float] = None
     markup_percent: Optional[float] = None
+    composition: Optional[list] = None
 
     @model_validator(mode="after")
     def fill_photo_ids(self):

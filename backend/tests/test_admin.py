@@ -532,7 +532,7 @@ async def test_admin_create_seller_with_ogrn(
 async def test_admin_create_seller_without_tg_id(
     client: AsyncClient, test_session, test_city: City, test_district: District,
 ):
-    """Test creating a seller without tg_id (auto-generates one)."""
+    """Test creating a seller without tg_id returns 422 (tg_id is required)."""
     response = await client.post(
         "/admin/create_seller",
         json={
@@ -545,9 +545,7 @@ async def test_admin_create_seller_without_tg_id(
         },
         headers=admin_headers(),
     )
-    assert response.status_code == 200
-    data = response.json()
-    assert "tg_id" in data or "seller_id" in data
+    assert response.status_code == 422
 
 
 # ============================================

@@ -742,6 +742,7 @@ async def get_products(
             "is_preorder": p.is_preorder,
             "cost_price": p.cost_price,
             "markup_percent": p.markup_percent,
+            "composition": p.composition,
         }
         if p.bouquet_id and p.bouquet_id in shortages:
             d["stock_shortage"] = shortages[p.bouquet_id]
@@ -778,6 +779,8 @@ async def add_product(
         product_data["cost_price"] = data.cost_price
     if data.markup_percent is not None:
         product_data["markup_percent"] = data.markup_percent
+    if data.composition is not None:
+        product_data["composition"] = [item.model_dump() for item in data.composition]
     return await create_product_service(session, product_data)
 
 

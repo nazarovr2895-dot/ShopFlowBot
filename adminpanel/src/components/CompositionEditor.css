@@ -1,0 +1,40 @@
+.composition-editor {
+  margin-bottom: 12px;
+}
+
+.composition-editor__row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.composition-editor__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.composition-editor__qty {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.composition-editor__unit {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.composition-editor__remove {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-danger, #e74c3c);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.composition-editor__remove:hover {
+  opacity: 0.7;
+}

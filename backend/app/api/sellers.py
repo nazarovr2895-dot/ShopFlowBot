@@ -83,6 +83,8 @@ async def add_product(data: ProductCreate, session: AsyncSession = Depends(get_s
         product_data["photo_id"] = data.photo_id
     if data.bouquet_id is not None:
         product_data["bouquet_id"] = data.bouquet_id
+    if data.composition is not None:
+        product_data["composition"] = [item.model_dump() for item in data.composition]
     result = await create_product_service(session, product_data)
     logger.info("Product added", product_id=result.id, seller_id=data.seller_id)
     return result

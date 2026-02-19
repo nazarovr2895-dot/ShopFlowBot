@@ -39,6 +39,12 @@ export interface PublicSellerListItem {
   is_open_now?: boolean | null;
 }
 
+export interface CompositionItem {
+  name: string;
+  qty: number | null;
+  unit: string | null;
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -49,6 +55,7 @@ export interface Product {
   photo_ids?: string[] | null;
   quantity?: number;
   is_preorder?: boolean;
+  composition?: CompositionItem[] | null;
 }
 
 // Cart (backend)
@@ -108,6 +115,7 @@ export interface FavoriteProduct {
   photo_ids?: string[] | null;
   quantity?: number;
   is_preorder?: boolean;
+  composition?: CompositionItem[] | null;
   seller_id: number;
   shop_name: string;
 }
@@ -153,6 +161,11 @@ export interface PublicSellerDetail {
   subscriber_count?: number;
   working_hours?: Record<string, { open: string; close: string } | null> | null;
   is_open_now?: boolean | null;
+  owner_username?: string | null;
+  owner_tg_id?: number | null;
+  owner_fio?: string | null;
+  inn?: string | null;
+  ogrn?: string | null;
 }
 
 export interface PublicSellersResponse {

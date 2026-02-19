@@ -6,6 +6,7 @@ import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import { addToGuestCart } from '../utils/guestCart';
 import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
+import { ProductComposition } from '../components/ProductComposition';
 import './ProductDetail.css';
 
 export function ProductDetail() {
@@ -244,6 +245,9 @@ export function ProductDetail() {
         <h1 className="product-detail__name">{product.name}</h1>
         {product.description && (
           <p className="product-detail__description">{product.description}</p>
+        )}
+        {product.composition && product.composition.length > 0 && (
+          <ProductComposition items={product.composition} />
         )}
         {isPreorder ? (
           <p className="product-detail__qty">Товар по предзаказу</p>

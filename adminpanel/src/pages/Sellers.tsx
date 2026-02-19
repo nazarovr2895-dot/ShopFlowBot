@@ -454,19 +454,22 @@ function AddSellerModal({
       return;
     }
     
-    // Validate tg_id if provided
-    if (tgId.trim()) {
-      const parsedTgId = parseInt(tgId.trim(), 10);
-      if (isNaN(parsedTgId) || parsedTgId <= 0) {
-        setError('Telegram ID должен быть положительным числом');
-        return;
-      }
+    // Validate tg_id — required
+    if (!tgId.trim()) {
+      setError('Telegram ID обязателен');
+      return;
+    }
+    const parsedTgId = parseInt(tgId.trim(), 10);
+    if (isNaN(parsedTgId) || parsedTgId <= 0) {
+      setError('Telegram ID должен быть положительным числом');
+      return;
     }
 
     setSubmitting(true);
     setCredentials(null);
     try {
       const payload: Record<string, unknown> = {
+        tg_id: parseInt(tgId.trim(), 10),
         fio,
         phone: phoneDigits,
         shop_name: shopName,
@@ -477,9 +480,6 @@ function AddSellerModal({
         metro_walk_minutes: metroWalkMinutes || undefined,
         map_url: addressLink || undefined,
       };
-      if (tgId.trim()) {
-        payload.tg_id = parseInt(tgId.trim(), 10);
-      }
       if (initialInnData?.inn) {
         payload.inn = initialInnData.inn;
       }
@@ -565,15 +565,16 @@ function AddSellerModal({
           </div>
         )}
         <div className="form-group">
-          <label className="form-label">Telegram ID</label>
+          <label className="form-label">Telegram ID *</label>
           <input
             type="text"
             className="form-input"
             value={tgId}
             onChange={(e) => setTgId(e.target.value.replace(/\D/g, ''))}
-            placeholder="Необязательно. Если пусто — сгенерируется автоматически"
+            placeholder="Введите Telegram ID пользователя"
+            required
           />
-          <small className="form-hint">Telegram ID пользователя (числовой). Оставьте пустым для автогенерации.</small>
+          <small className="form-hint">Telegram ID пользователя (числовой). Обязательное поле.</small>
         </div>
         <FormRow label="ФИО" value={fio} onChange={setFio} required />
         <div className="form-group">
