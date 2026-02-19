@@ -1,26 +1,25 @@
 /* =======================================================
-   ProductModal v3 — clean, jank-free bottom-sheet / card
+   ProductModal v4 — centered card on ALL screen sizes
    ======================================================= */
 
 /* ---- Keyframes ---- */
 @keyframes pm-overlayIn  { from { opacity: 0 } to { opacity: 1 } }
 @keyframes pm-overlayOut { from { opacity: 1 } to { opacity: 0 } }
-@keyframes pm-sheetIn    { from { transform: translateY(100%) } to { transform: translateY(0) } }
-@keyframes pm-sheetOut   { from { transform: translateY(0) } to { transform: translateY(100%) } }
-@keyframes pm-cardIn     { from { opacity: 0; transform: scale(0.96) translateY(8px) } to { opacity: 1; transform: scale(1) translateY(0) } }
-@keyframes pm-cardOut    { from { opacity: 1; transform: scale(1) translateY(0) } to { opacity: 0; transform: scale(0.96) translateY(8px) } }
+@keyframes pm-cardIn     { from { opacity: 0; transform: scale(0.94) } to { opacity: 1; transform: scale(1) } }
+@keyframes pm-cardOut    { from { opacity: 1; transform: scale(1) } to { opacity: 0; transform: scale(0.94) } }
 
 /* ---- Overlay (backdrop) ---- */
 .product-modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
+  padding: 16px;
   animation: pm-overlayIn 0.25s ease both;
 }
 
@@ -30,26 +29,32 @@
 }
 
 [data-theme="dark"] .product-modal-overlay {
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.7);
 }
 
-/* ---- Modal sheet ---- */
+/* ---- Modal card (centered on all sizes) ---- */
 .product-modal {
   position: relative;
   width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
+  max-width: 420px;
+  max-height: min(88vh, 700px);
   background: var(--app-bg);
-  border-radius: 16px 16px 0 0;
+  border-radius: 20px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: pm-sheetIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) both;
-  will-change: transform;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  animation: pm-cardIn 0.25s cubic-bezier(0.25, 1, 0.5, 1) both;
+  will-change: transform, opacity;
 }
 
 .product-modal-overlay--closing .product-modal {
-  animation: pm-sheetOut 0.2s cubic-bezier(0.5, 0, 0.75, 0) both;
+  animation: pm-cardOut 0.18s ease both;
+}
+
+[data-theme="dark"] .product-modal {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* When dragging — kill all CSS animations/transitions */
@@ -64,7 +69,7 @@
   animation: none !important;
 }
 
-/* ---- Drag handle ---- */
+/* ---- Drag handle (visible on touch devices) ---- */
 .product-modal__handle {
   width: 36px;
   height: 4px;
@@ -114,32 +119,35 @@
   opacity: 0.2;
 }
 
-/* ---- Close button (overlaid on image) ---- */
+/* ---- Close button — small text pill overlaid on image ---- */
 .product-modal__close {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 10;
-  width: 34px;
-  height: 34px;
-  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: none;
-  border-radius: 50%;
-  color: #fff;
+  border-radius: 20px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  letter-spacing: 0.01em;
 }
 
 .product-modal__close:active {
-  transform: scale(0.9);
+  opacity: 0.7;
+  transform: scale(0.95);
 }
 
 [data-theme="dark"] .product-modal__close {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ---- Favorite (overlaid on image) ---- */
@@ -322,37 +330,19 @@
 }
 
 /* =======================================================
-   Desktop (>= 768px) — centered card
+   Desktop (>= 768px) — minor refinements
    ======================================================= */
 @media (min-width: 768px) {
   .product-modal-overlay {
-    align-items: center;
     padding: 24px;
   }
 
   .product-modal {
-    max-width: 480px;
-    max-height: 88vh;
-    border-radius: 20px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-    animation: pm-cardIn 0.25s ease both;
-  }
-
-  .product-modal-overlay--closing .product-modal {
-    animation: pm-cardOut 0.2s ease both;
-  }
-
-  [data-theme="dark"] .product-modal {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    max-width: 460px;
   }
 
   .product-modal__handle {
     display: none;
-  }
-
-  .product-modal__image-wrap {
-    max-height: 420px;
   }
 
   .product-modal__info {
@@ -372,19 +362,12 @@
     font-size: 15px;
   }
 
-  .product-modal__close {
-    width: 36px;
-    height: 36px;
-    top: 12px;
-    right: 12px;
-  }
-
   .product-modal__close:hover {
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.6);
   }
 
   [data-theme="dark"] .product-modal__close:hover {
-    background: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.3);
   }
 
   .product-modal__nav:hover {
