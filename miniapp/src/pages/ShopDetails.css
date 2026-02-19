@@ -748,8 +748,8 @@
 
 .shop-details__product-card-heart {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 16px;
+  right: 16px;
   z-index: 10;
 }
 
