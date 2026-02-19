@@ -7,6 +7,8 @@ from typing import Optional
 
 import httpx
 
+from backend.app.core.image_convert import convert_image_to_webp, validate_image_content
+
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -52,10 +54,20 @@ async def download_telegram_photo_to_static(file_id: str) -> Optional[str]:
         if len(content) > 10 * 1024 * 1024:  # 10 MB
             logger.warning("Telegram file too large: %s bytes", len(content))
             return None
-        # guess extension from path or content
-        ext = Path(file_path).suffix.lower()
-        if ext not in ALLOWED_IMAGE_EXTENSIONS:
-            ext = ".jpg"
+        # Convert to square WebP (same as web upload)
+        if validate_image_content(content):
+            try:
+                content = convert_image_to_webp(content, max_side_px=1200, force_square=True)
+                ext = ".webp"
+            except ValueError:
+                logger.warning("Failed to convert Telegram photo, saving as-is")
+                ext = Path(file_path).suffix.lower()
+                if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                    ext = ".jpg"
+        else:
+            ext = Path(file_path).suffix.lower()
+            if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                ext = ".jpg"
         upload_dir = UPLOAD_DIR / PRODUCTS_UPLOAD_SUBDIR
         upload_dir.mkdir(parents=True, exist_ok=True)
         name = f"{uuid.uuid4().hex}{ext}"

@@ -152,6 +152,20 @@
   color: var(--text-secondary);
 }
 
+.seller-showcase-card-qty--shortage {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.seller-showcase-card-shortage {
+  font-size: var(--text-xs);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+}
+
 .seller-showcase-card-switch {
   margin-top: var(--space-2);
 }

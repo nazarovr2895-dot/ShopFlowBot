@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   getMe,
   getProducts,
@@ -12,6 +12,7 @@ import {
 } from '../../api/sellerClient';
 import type { SellerMe, SellerProduct, BouquetDetail } from '../../api/sellerClient';
 import { useToast, useConfirm, TabBar, Modal, Toggle, FormField, EmptyState } from '../../components/ui';
+import { ImageCropModal } from '../../components/ImageCropModal';
 import './SellerShowcase.css';
 
 type AddProductMode = 'choice' | 'manual' | 'bouquet';
@@ -45,6 +46,11 @@ export function SellerShowcase() {
   const [editNewPhotoFiles, setEditNewPhotoFiles] = useState<File[]>([]);
   const [editNewPhotoPreviews, setEditNewPhotoPreviews] = useState<string[]>([]);
   const [editSaving, setEditSaving] = useState(false);
+
+  // Crop modal state
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<'add' | 'edit'>('add');
+  const pendingCropFiles = useRef<File[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -135,10 +141,14 @@ export function SellerShowcase() {
 
   const handleProductPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
-    const next = productPhotoFiles.concat(files).slice(0, 3);
-    setProductPhotoFiles(next);
-    setProductPhotoPreviews(next.map((f) => URL.createObjectURL(f)));
+    if (files.length === 0) return;
     e.target.value = '';
+    const remaining = 3 - productPhotoFiles.length;
+    if (remaining <= 0) return;
+    const toProcess = files.slice(0, remaining);
+    pendingCropFiles.current = toProcess.slice(1);
+    setCropTarget('add');
+    setCropImageSrc(URL.createObjectURL(toProcess[0]));
   };
 
   const removeProductPhoto = (index: number) => {
@@ -214,13 +224,14 @@ export function SellerShowcase() {
 
   const handleEditNewPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
-    const next = editNewPhotoFiles.concat(files).slice(0, Math.max(0, 3 - editKeptPhotoIds.length));
-    setEditNewPhotoFiles(next);
-    setEditNewPhotoPreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return next.map((f) => URL.createObjectURL(f));
-    });
+    if (files.length === 0) return;
     e.target.value = '';
+    const remaining = 3 - editKeptPhotoIds.length - editNewPhotoFiles.length;
+    if (remaining <= 0) return;
+    const toProcess = files.slice(0, remaining);
+    pendingCropFiles.current = toProcess.slice(1);
+    setCropTarget('edit');
+    setCropImageSrc(URL.createObjectURL(toProcess[0]));
   };
 
   const removeEditNewPhoto = (index: number) => {
@@ -229,6 +240,39 @@ export function SellerShowcase() {
       URL.revokeObjectURL(prev[index]);
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const handleCropComplete = (blob: Blob) => {
+    const file = new File([blob], `cropped-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    if (cropTarget === 'add') {
+      const next = [...productPhotoFiles, file].slice(0, 3);
+      setProductPhotoFiles(next);
+      setProductPhotoPreviews((prev) => {
+        prev.forEach((url) => URL.revokeObjectURL(url));
+        return next.map((f) => URL.createObjectURL(f));
+      });
+    } else {
+      const next = [...editNewPhotoFiles, file].slice(0, Math.max(0, 3 - editKeptPhotoIds.length));
+      setEditNewPhotoFiles(next);
+      setEditNewPhotoPreviews((prev) => {
+        prev.forEach((url) => URL.revokeObjectURL(url));
+        return next.map((f) => URL.createObjectURL(f));
+      });
+    }
+    if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+    setCropImageSrc(null);
+
+    // Process next pending file
+    const nextFile = pendingCropFiles.current.shift();
+    if (nextFile) {
+      setCropImageSrc(URL.createObjectURL(nextFile));
+    }
+  };
+
+  const handleCropClose = () => {
+    if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+    setCropImageSrc(null);
+    pendingCropFiles.current = [];
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -600,7 +644,19 @@ export function SellerShowcase() {
                       {p.markup_percent != null && ` | Наценка: ${Number(p.markup_percent).toFixed(0)}%`}
                     </span>
                   )}
-                  <span className="seller-showcase-card-qty">В наличии: {p.quantity} шт.</span>
+                  <span className={`seller-showcase-card-qty${p.stock_shortage?.length ? ' seller-showcase-card-qty--shortage' : ''}`}>
+                    В наличии: {p.quantity} шт.
+                  </span>
+                  {p.stock_shortage && p.stock_shortage.length > 0 && (
+                    <div className="seller-showcase-card-shortage">
+                      Не хватает цветов:
+                      {p.stock_shortage.map((s, i) => (
+                        <div key={i}>
+                          {s.flower} — нужно {s.need}, есть {s.have} (−{s.deficit})
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="seller-showcase-card-switch">
                     <Toggle
                       checked={isActive}
@@ -650,6 +706,15 @@ export function SellerShowcase() {
             );
           })}
         </div>
+      )}
+
+      {cropImageSrc && (
+        <ImageCropModal
+          isOpen={!!cropImageSrc}
+          imageSrc={cropImageSrc}
+          onCropComplete={handleCropComplete}
+          onClose={handleCropClose}
+        />
       )}
     </div>
   );

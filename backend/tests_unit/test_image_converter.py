@@ -11,6 +11,7 @@ from PIL import Image
 from backend.app.core.image_convert import (
     validate_image_content,
     convert_image_to_webp,
+    crop_to_square,
 )
 
 
@@ -98,3 +99,54 @@ def test_convert_image_to_webp_banner_max_side():
     out = convert_image_to_webp(png, max_side_px=1920)
     img = Image.open(io.BytesIO(out))
     assert img.size == (1920, 768)
+
+
+# --- crop_to_square ---
+
+
+def test_crop_to_square_landscape():
+    """Landscape image is center-cropped to square."""
+    img = Image.new("RGB", (200, 100), color=(128, 128, 128))
+    result = crop_to_square(img)
+    assert result.size == (100, 100)
+
+
+def test_crop_to_square_portrait():
+    """Portrait image is center-cropped to square."""
+    img = Image.new("RGB", (100, 200), color=(128, 128, 128))
+    result = crop_to_square(img)
+    assert result.size == (100, 100)
+
+
+def test_crop_to_square_already_square():
+    """Square image is returned unchanged."""
+    img = Image.new("RGB", (100, 100), color=(128, 128, 128))
+    result = crop_to_square(img)
+    assert result.size == (100, 100)
+
+
+# --- convert_image_to_webp with force_square ---
+
+
+def test_convert_image_to_webp_force_square():
+    """With force_square=True, non-square image becomes square."""
+    png = _png_bytes(200, 100)
+    out = convert_image_to_webp(png, max_side_px=1200, force_square=True)
+    img = Image.open(io.BytesIO(out))
+    assert img.size == (100, 100)
+
+
+def test_convert_image_to_webp_force_square_large():
+    """Large non-square image is cropped to square then resized."""
+    png = _png_bytes(2400, 1600)
+    out = convert_image_to_webp(png, max_side_px=1200, force_square=True)
+    img = Image.open(io.BytesIO(out))
+    assert img.size == (1200, 1200)
+
+
+def test_convert_image_to_webp_force_square_already_square():
+    """Square image with force_square=True stays the same size."""
+    png = _png_bytes(500, 500)
+    out = convert_image_to_webp(png, max_side_px=1200, force_square=True)
+    img = Image.open(io.BytesIO(out))
+    assert img.size == (500, 500)

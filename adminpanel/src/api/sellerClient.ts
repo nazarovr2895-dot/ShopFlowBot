@@ -165,6 +165,7 @@ export interface SellerProduct {
   bouquet_id?: number | null;
   cost_price?: number | null;
   markup_percent?: number | null;
+  stock_shortage?: { flower: string; need: number; have: number; deficit: number }[] | null;
 }
 
 export async function getMe(): Promise<SellerMe> {

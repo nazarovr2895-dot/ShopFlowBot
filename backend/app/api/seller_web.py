@@ -716,10 +716,39 @@ async def get_products(
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
+    from backend.app.services.bouquets import get_stock_shortages_by_bouquet
+
     products = await get_products_by_seller_service(
         session, seller_id, only_available=False, preorder=preorder
     )
-    return products or []
+    if not products:
+        return []
+
+    shortages = await get_stock_shortages_by_bouquet(session, seller_id)
+
+    result = []
+    for p in products:
+        d = {
+            "id": p.id,
+            "seller_id": p.seller_id,
+            "name": p.name,
+            "price": p.price,
+            "description": p.description,
+            "photo_id": p.photo_id,
+            "photo_ids": p.photo_ids,
+            "is_active": p.is_active,
+            "quantity": p.quantity,
+            "bouquet_id": p.bouquet_id,
+            "is_preorder": p.is_preorder,
+            "cost_price": p.cost_price,
+            "markup_percent": p.markup_percent,
+        }
+        if p.bouquet_id and p.bouquet_id in shortages:
+            d["stock_shortage"] = shortages[p.bouquet_id]
+        else:
+            d["stock_shortage"] = None
+        result.append(d)
+    return result
 
 
 @router.post("/products")
@@ -787,11 +816,11 @@ def _validate_image_content(content: bytes) -> bool:
     return validate_image_content(content)
 
 
-def _convert_image_to_webp(content: bytes, max_side_px: int) -> bytes:
+def _convert_image_to_webp(content: bytes, max_side_px: int, force_square: bool = False) -> bytes:
     """Общий конвертер (делегирует в core); при ошибке — HTTPException 400."""
     from backend.app.core.image_convert import convert_image_to_webp
     try:
-        return convert_image_to_webp(content, max_side_px, quality=UPLOAD_OUTPUT_QUALITY)
+        return convert_image_to_webp(content, max_side_px, quality=UPLOAD_OUTPUT_QUALITY, force_square=force_square)
     except ValueError as e:
         logger.warning("Image conversion failed: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -840,8 +869,8 @@ async def upload_product_photo(
         raise HTTPException(status_code=400, detail="Файл слишком маленький")
     
     # Convert to WebP (same converter as banner: PNG/heavy images get compressed)
-    content = _convert_image_to_webp(content, UPLOAD_MAX_SIDE_PX)
-    
+    content = _convert_image_to_webp(content, UPLOAD_MAX_SIDE_PX, force_square=True)
+
     # Secure file path generation
     upload_dir = UPLOAD_DIR / PRODUCTS_UPLOAD_SUBDIR
     upload_dir.mkdir(parents=True, exist_ok=True)

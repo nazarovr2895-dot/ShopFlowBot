@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import type { Product } from '../types';
 import { ProductImage } from './ProductImage';
 import { HeartIcon } from './HeartIcon';
@@ -39,64 +39,123 @@ export function ProductModal({
 }: ProductModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const images = product.photo_ids && product.photo_ids.length > 0
     ? product.photo_ids
     : product.photo_id
     ? [product.photo_id]
     : [];
 
-  // Закрытие по ESC
+  // Swipe-to-dismiss state
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartY = useRef(0);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const animateClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsClosing(false);
+      onClose();
+    }, 250);
+  }, [onClose]);
+
+  // Close on ESC
   useEffect(() => {
     if (!isOpen) return;
 
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') animateClose();
     };
 
     document.addEventListener('keydown', handleEsc);
-    // Блокируем скролл body
     document.body.style.overflow = 'hidden';
 
     return () => {
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, animateClose]);
+
+  // Reset state when opening
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentImageIndex(0);
+      setDragY(0);
+      setIsDragging(false);
+      setIsClosing(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      onClose();
+      animateClose();
     }
   };
 
-  const nextImage = () => {
+  const nextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
 
-  const prevImage = () => {
+  const prevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
+  // Touch handlers for swipe-to-dismiss
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Only allow drag from handle area or when content is at top
+    const content = modalRef.current?.querySelector('.product-modal__content') as HTMLElement | null;
+    if (content && content.scrollTop > 0) return;
+    dragStartY.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const diff = e.touches[0].clientY - dragStartY.current;
+    if (diff > 0) {
+      setDragY(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (dragY > 150) {
+      animateClose();
+    }
+    setDragY(0);
+  };
+
+  const modalStyle = isDragging && dragY > 0
+    ? { transform: `translateY(${dragY}px)`, transition: 'none' }
+    : undefined;
+
+  const modalClassName = [
+    'product-modal',
+    isDragging && 'product-modal--dragging',
+    isClosing && 'product-modal--closing',
+  ].filter(Boolean).join(' ');
+
   return (
     <div className="product-modal-backdrop" onClick={handleBackdropClick}>
-      <div className="product-modal">
-        {/* Кнопка закрытия */}
-        <button
-          type="button"
-          className="product-modal__close"
-          onClick={onClose}
-          aria-label="Закрыть"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+      <div
+        ref={modalRef}
+        className={modalClassName}
+        style={modalStyle}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Drag handle */}
+        <div className="product-modal__handle" />
 
         <div className="product-modal__content">
-          {/* Левая часть - галерея */}
+          {/* Gallery */}
           <div className="product-modal__gallery">
             <div
               className="product-modal__image-container"
@@ -110,9 +169,28 @@ export function ProductModal({
                 placeholderClassName="product-modal__image-placeholder"
               />
 
-              {/* Лайк */}
+              {/* Close button on image */}
+              <button
+                type="button"
+                className="product-modal__close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  animateClose();
+                }}
+                aria-label="Закрыть"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+
+              {/* Heart on image */}
               {api.isAuthenticated() && (
-                <div className="product-modal__favorite">
+                <div
+                  className="product-modal__favorite"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <HeartIcon
                     isFavorite={isFavorite}
                     onClick={onToggleFavorite}
@@ -121,7 +199,7 @@ export function ProductModal({
                 </div>
               )}
 
-              {/* Навигация по фото */}
+              {/* Nav arrows */}
               {images.length > 1 && (
                 <>
                   <button
@@ -130,7 +208,7 @@ export function ProductModal({
                     onClick={prevImage}
                     aria-label="Предыдущее фото"
                   >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="15 18 9 12 15 6" />
                     </svg>
                   </button>
@@ -140,43 +218,45 @@ export function ProductModal({
                     onClick={nextImage}
                     aria-label="Следующее фото"
                   >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
                   </button>
                 </>
               )}
-            </div>
 
-            {/* Точки индикатора */}
-            {images.length > 1 && (
-              <div className="product-modal__dots">
-                {images.map((_, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    className={`product-modal__dot ${index === currentImageIndex ? 'product-modal__dot--active' : ''}`}
-                    onClick={() => setCurrentImageIndex(index)}
-                    aria-label={`Фото ${index + 1}`}
-                  />
-                ))}
-              </div>
-            )}
+              {/* Dots on image */}
+              {images.length > 1 && (
+                <div className="product-modal__dots">
+                  {images.map((_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className={`product-modal__dot ${index === currentImageIndex ? 'product-modal__dot--active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex(index);
+                      }}
+                      aria-label={`Фото ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Правая часть - информация */}
+          {/* Info */}
           <div className="product-modal__info">
-            <h2 className="product-modal__name">{product.name}</h2>
-            <div className="product-modal__price">{product.price.toLocaleString('ru-RU')} ₽</div>
+            <div className="product-modal__name-price">
+              <h2 className="product-modal__name">{product.name}</h2>
+              <div className="product-modal__price">{product.price.toLocaleString('ru-RU')} ₽</div>
+            </div>
 
             {product.description && (
-              <div className="product-modal__description">
-                <h3 className="product-modal__section-title">Описание</h3>
-                <p className="product-modal__description-text">{product.description}</p>
-              </div>
+              <p className="product-modal__description-text">{product.description}</p>
             )}
 
-            {/* Выбор даты для предзаказа */}
+            {/* Date picker for pre-order */}
             {showDatePicker && isPreorder && availableDates.length > 0 ? (
               <div className="product-modal__dates">
                 <h3 className="product-modal__section-title">Выберите дату доставки</h3>

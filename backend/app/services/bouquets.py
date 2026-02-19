@@ -155,6 +155,50 @@ async def get_active_bouquet_ids(session: AsyncSession, seller_id: int) -> set:
     return active
 
 
+async def get_stock_shortages_by_bouquet(
+    session: AsyncSession, seller_id: int
+) -> Dict[int, List[dict]]:
+    """Return per bouquet_id a list of flowers with shortage info.
+
+    Only bouquets where at least one flower is insufficient are included.
+    Returns: {bouquet_id: [{flower: "Роза", need: 71, have: 49, deficit: 22}, ...]}
+    """
+    stock = await _flower_stock_and_avg_price(session, seller_id)
+
+    # Load flower names
+    fl_result = await session.execute(
+        select(Flower).where(Flower.seller_id == seller_id)
+    )
+    flower_names: Dict[int, str] = {f.id: f.name for f in fl_result.scalars().all()}
+
+    # Load bouquets with items
+    bq_result = await session.execute(
+        select(Bouquet)
+        .where(Bouquet.seller_id == seller_id)
+        .options(selectinload(Bouquet.bouquet_items))
+    )
+    bouquets = bq_result.scalars().all()
+
+    shortages: Dict[int, List[dict]] = {}
+    for b in bouquets:
+        if not b.bouquet_items:
+            continue
+        items_short = []
+        for bi in b.bouquet_items:
+            have = stock.get(bi.flower_id, (0, Decimal("0")))[0]
+            need = bi.quantity
+            if have < need:
+                items_short.append({
+                    "flower": flower_names.get(bi.flower_id, f"#{bi.flower_id}"),
+                    "need": need,
+                    "have": have,
+                    "deficit": need - have,
+                })
+        if items_short:
+            shortages[b.id] = items_short
+    return shortages
+
+
 async def sync_bouquet_product_quantities(
     session: AsyncSession, seller_id: int
 ) -> int:
