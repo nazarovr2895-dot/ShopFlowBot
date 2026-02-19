@@ -890,13 +890,6 @@
   background: transparent;
 }
 
-.shop-details__product-card-heart {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 10;
-}
-
 .shop-details__product-card-image {
   width: 100%;
   aspect-ratio: 1;
@@ -952,22 +945,41 @@
   margin-top: auto;
 }
 
-.shop-details__product-card-price {
-  font-size: 14px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  white-space: nowrap;
+/* Группа иконок слева (лайк + поделиться) */
+.shop-details__product-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-[data-theme="dark"] .shop-details__product-card-price {
-  background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* Сердечко в нижней строке */
+.shop-details__product-card-action-heart.heart-icon {
+  filter: none;
+  color: var(--app-text-secondary, #999);
+}
+
+.shop-details__product-card-action-heart.heart-icon--filled {
+  color: #ff3b6e;
+}
+
+/* Кнопка поделиться */
+.shop-details__product-card-share {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-text-secondary, #999);
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.shop-details__product-card-share svg {
+  pointer-events: none;
 }
 
 .shop-details__product-card-add {
@@ -999,6 +1011,15 @@
   background: #ffffff;
   color: #000000;
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .shop-details__product-card-action-heart.heart-icon {
+  filter: none;
+  color: var(--app-text-secondary, #999);
+}
+
+[data-theme="dark"] .shop-details__product-card-share {
+  color: var(--app-text-secondary, #999);
 }
 
 /* Темная тема - специфичные стили */

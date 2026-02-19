@@ -110,7 +110,7 @@ export function Profile() {
     if (fromParam === REQUIRE_AUTH_FROM_CHECKOUT) {
       navigate('/cart/checkout', { replace: true });
     } else if (fromParam === REQUIRE_AUTH_FROM_ORDERS) {
-      navigate('/', { replace: true });
+      navigate('/orders', { replace: true });
     }
   }, [fromParam, loadUser, navigate]);
 
@@ -296,6 +296,18 @@ export function Profile() {
                 className="profile-nav__item"
                 onClick={() => {
                   hapticFeedback('light');
+                  navigate('/orders');
+                }}
+              >
+                <span className="profile-nav__icon">📦</span>
+                Мои заказы
+                <span className="profile-nav__arrow">›</span>
+              </button>
+              <button
+                type="button"
+                className="profile-nav__item"
+                onClick={() => {
+                  hapticFeedback('light');
                   setSearchParams({ section: 'personal' });
                 }}
               >
@@ -303,7 +315,6 @@ export function Profile() {
                 Мои данные
                 <span className="profile-nav__arrow">›</span>
               </button>
-              {/* Future sections go here */}
             </nav>
 
             {isBrowser() && (
