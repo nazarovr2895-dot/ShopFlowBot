@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { isBrowser } from '../utils/environment';
 import './TelegramAuth.css';
