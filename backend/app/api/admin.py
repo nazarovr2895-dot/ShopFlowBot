@@ -1207,9 +1207,9 @@ async def get_finance_summary(
 
     # Time series
     if group_by == "week":
-        grp = func.date(func.date(Order.created_at) - func.strftime('%w', Order.created_at) + literal_column("'0 days'"))
+        grp = func.date_trunc('week', Order.created_at)
     elif group_by == "month":
-        grp = func.strftime('%Y-%m-01', Order.created_at)
+        grp = func.date_trunc('month', Order.created_at)
     else:
         grp = func.date(Order.created_at)
 

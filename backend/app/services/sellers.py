@@ -201,7 +201,7 @@ class SellerService:
         cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
 
         # 1. Ручной лимит на сегодня (наивысший приоритет)
-        if seller.daily_limit_date == today and seller.max_orders > 0:
+        if seller.daily_limit_date == today and (seller.max_orders or 0) > 0:
             return min(seller.max_orders, cap)
 
         # 2. Расписание по дням недели
@@ -1023,7 +1023,7 @@ class SellerService:
         # Все активные (не удалённые, не заблокированные) продавцы
         result = await self.session.execute(
             select(Seller).where(
-                or_(Seller.is_deleted.is_(None), Seller.is_deleted == False),
+                Seller.deleted_at.is_(None),
                 or_(Seller.is_blocked.is_(None), Seller.is_blocked == False),
             )
         )
