@@ -65,13 +65,10 @@ export function ProductModal({
         : [];
 
   /* ---------- close helpers ---------- */
-  const beginClose = useCallback(() => {
-    if (closing) return;
-    setClosing(true);
-  }, [closing]);
-
   // When closing animation ends on the overlay → actually unmount
-  const handleOverlayAnimationEnd = useCallback(() => {
+  // IMPORTANT: check e.target === e.currentTarget to ignore bubbled events from children
+  const handleAnimationEnd = useCallback((e: React.AnimationEvent) => {
+    if (e.target !== e.currentTarget) return;
     if (closing) {
       setClosing(false);
       onClose();
@@ -90,7 +87,7 @@ export function ProductModal({
     html.classList.add('scroll-locked');
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') beginClose();
+      if (e.key === 'Escape') setClosing(true);
     };
     document.addEventListener('keydown', onKey);
 
@@ -98,13 +95,13 @@ export function ProductModal({
       html.classList.remove('scroll-locked');
       document.removeEventListener('keydown', onKey);
     };
-  }, [isOpen, beginClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   /* ---------- backdrop click ---------- */
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) beginClose();
+    if (e.target === e.currentTarget) setClosing(true);
   };
 
   /* ---------- image nav ---------- */
@@ -151,7 +148,7 @@ export function ProductModal({
 
     if (diff > SWIPE_THRESHOLD) {
       // Dismiss
-      beginClose();
+      setClosing(true);
       el.style.transform = '';
     } else {
       // Snap back
@@ -173,7 +170,7 @@ export function ProductModal({
       ref={overlayRef}
       className={overlayClass}
       onClick={handleOverlayClick}
-      onAnimationEnd={handleOverlayAnimationEnd}
+      onAnimationEnd={handleAnimationEnd}
     >
       <div
         ref={modalRef}
@@ -205,7 +202,7 @@ export function ProductModal({
               <button
                 type="button"
                 className="product-modal__close"
-                onClick={(e) => { e.stopPropagation(); beginClose(); }}
+                onClick={(e) => { e.stopPropagation(); setClosing(true); }}
                 aria-label="Закрыть"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
