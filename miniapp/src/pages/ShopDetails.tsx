@@ -11,25 +11,10 @@ import './ShopDetails.css';
 type ProductTab = 'regular' | 'preorder';
 
 // Иконки для информационных полей
-const CityIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    <polyline points="9 22 9 12 15 12 15 22" />
-  </svg>
-);
-
 const DistrictIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
     <circle cx="12" cy="10" r="3" />
-  </svg>
-);
-
-const MetroIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="8" width="18" height="12" rx="2" />
-    <path d="M7 8V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v3" />
-    <line x1="12" y1="12" x2="12" y2="16" />
   </svg>
 );
 
@@ -79,6 +64,7 @@ export function ShopDetails() {
   const [loyalty, setLoyalty] = useState<{ points_balance: number; linked: boolean } | null>(null);
   const [bannerLoaded, setBannerLoaded] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [hoursExpanded, setHoursExpanded] = useState(false);
 
   // Set up back button
   useEffect(() => {
@@ -340,6 +326,13 @@ export function ShopDetails() {
   const hasPickup = seller.delivery_type === 'pickup' || seller.delivery_type === 'both';
   const showMapButton = hasPickup && seller.map_url;
 
+  // Today's working hours (Mon=0 ... Sun=6)
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const todayHoursData = seller.working_hours?.[String(todayIdx)];
+  const todayLabel = todayHoursData && typeof todayHoursData === 'object' && todayHoursData.open && todayHoursData.close
+    ? `${todayHoursData.open} — ${todayHoursData.close}`
+    : todayHoursData === null ? 'Выходной' : '—';
+
   return (
     <div className="shop-details">
       {seller.banner_url && (
@@ -379,7 +372,19 @@ export function ShopDetails() {
         <header className="shop-details__header">
           <img className="shop-details__logo" src="/android-chrome-512x512.png" alt="" />
           <div className="shop-details__header-text">
-            <h1 className="shop-details__name">{seller.shop_name || 'Без названия'}</h1>
+            <div className="shop-details__name-row">
+              <h1 className="shop-details__name">{seller.shop_name || 'Без названия'}</h1>
+              {showFavoriteBtn && (
+                <button
+                  type="button"
+                  className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
+                  onClick={toggleFavorite}
+                  disabled={togglingFavorite}
+                >
+                  {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
+                </button>
+              )}
+            </div>
             {(seller.subscriber_count ?? 0) > 0 && (
               <div className="shop-details__subscriber-count">
                 {seller.subscriber_count} {formatSubscriberLabel(seller.subscriber_count ?? 0)}
@@ -387,126 +392,107 @@ export function ShopDetails() {
             )}
           </div>
         </header>
-
-        <div className="shop-details__actions">
-          {showFavoriteBtn && (
-            <button
-              type="button"
-              className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
-              onClick={toggleFavorite}
-              disabled={togglingFavorite}
-            >
-              {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
-            </button>
-          )}
-          {showMapButton && (
-            <a
-              href={seller.map_url!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shop-details__map-btn"
-              aria-label="Открыть на карте"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-            </a>
-          )}
-        </div>
       </div>
 
       {seller.description && (
         <p className="shop-details__description">{seller.description}</p>
       )}
 
+      {/* Collapsible working hours */}
       {seller.working_hours && Object.keys(seller.working_hours).length > 0 && (
-        <div className="shop-details__working-hours">
-          <div className="shop-details__working-hours-header">
-            <span className="shop-details__working-hours-title">
+        <div className="shop-details__hours-compact">
+          <button
+            type="button"
+            className="shop-details__hours-summary"
+            onClick={() => setHoursExpanded((prev) => !prev)}
+          >
+            <span className="shop-details__hours-summary-left">
               <ClockIcon />
-              Время работы
-            </span>
-            {seller.is_open_now != null && (
-              <span className={`shop-details__working-hours-badge ${seller.is_open_now ? 'shop-details__working-hours-badge--open' : 'shop-details__working-hours-badge--closed'}`}>
-                {seller.is_open_now ? 'Открыто' : 'Закрыто'}
+              {seller.is_open_now != null && (
+                <span className={`shop-details__hours-badge ${seller.is_open_now ? 'shop-details__hours-badge--open' : 'shop-details__hours-badge--closed'}`}>
+                  {seller.is_open_now ? 'Открыто' : 'Закрыто'}
+                </span>
+              )}
+              <span className="shop-details__hours-today">
+                Сегодня {todayLabel}
               </span>
-            )}
-          </div>
-          <div className="shop-details__working-hours-schedule">
-            {WEEKDAY_LABELS.map((label, idx) => {
-              const key = String(idx);
-              const day = seller.working_hours?.[key];
-              const isDayOff = day === null;
-              const hasHours = day && typeof day === 'object' && day.open && day.close;
-              return (
-                <div key={idx} className={`shop-details__working-hours-day${isDayOff ? ' shop-details__working-hours-day--off' : ''}`}>
-                  <span className="shop-details__working-hours-day-label">{label}</span>
-                  <span className="shop-details__working-hours-day-value">
-                    {isDayOff ? 'Выходной' : hasHours ? `${day.open} — ${day.close}` : '—'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+            </span>
+            <svg
+              className={`shop-details__hours-chevron${hoursExpanded ? ' shop-details__hours-chevron--open' : ''}`}
+              width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {hoursExpanded && (
+            <div className="shop-details__hours-full">
+              {WEEKDAY_LABELS.map((label, idx) => {
+                const key = String(idx);
+                const day = seller.working_hours?.[key];
+                const isDayOff = day === null;
+                const hasHours = day && typeof day === 'object' && day.open && day.close;
+                const isToday = idx === todayIdx;
+                return (
+                  <div key={idx} className={`shop-details__hours-day${isDayOff ? ' shop-details__hours-day--off' : ''}${isToday ? ' shop-details__hours-day--today' : ''}`}>
+                    <span className="shop-details__hours-day-label">{label}</span>
+                    <span className="shop-details__hours-day-value">
+                      {isDayOff ? 'Выходной' : hasHours ? `${day.open} — ${day.close}` : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="shop-details__info">
-        {hasPickup && (
-          <>
-            {seller.city_name && (
-              <div className="shop-details__info-item">
-                <span className="shop-details__info-label">
-                  <CityIcon />
-                  Город
-                </span>
-                <span className="shop-details__info-value">{seller.city_name}</span>
-              </div>
-            )}
-            {seller.district_name && (
-              <div className="shop-details__info-item">
-                <span className="shop-details__info-label">
-                  <DistrictIcon />
-                  Район
-                </span>
-                <span className="shop-details__info-value">{seller.district_name}</span>
-              </div>
-            )}
-            {(seller.metro_name || seller.metro_walk_minutes != null) && (
-              <div className="shop-details__info-item">
-                <span className="shop-details__info-label">
-                  <MetroIcon />
-                  Метро
-                </span>
-                <span className="shop-details__info-value">
-                  {seller.metro_name || '—'}
-                  {seller.metro_walk_minutes != null && seller.metro_walk_minutes > 0 && ` (${seller.metro_walk_minutes} мин)`}
-                </span>
-              </div>
-            )}
-            {seller.address_name && (
-              <div className="shop-details__info-item">
-                <span className="shop-details__info-label">
-                  <AddressIcon />
-                  Адрес
-                </span>
-                <span className="shop-details__info-value">{seller.address_name}</span>
-              </div>
-            )}
-          </>
+      {/* Compact info strip */}
+      <div className="shop-details__info-strip">
+        {hasPickup && (seller.city_name || seller.district_name || seller.metro_name) && (
+          <div className="shop-details__info-line">
+            <DistrictIcon />
+            <span className="shop-details__info-line-text">
+              {[
+                seller.city_name,
+                seller.district_name,
+                seller.metro_name
+                  ? `м. ${seller.metro_name}${seller.metro_walk_minutes ? ` (${seller.metro_walk_minutes} мин)` : ''}`
+                  : null,
+              ].filter(Boolean).join(', ')}
+            </span>
+          </div>
         )}
-        <div className="shop-details__info-item">
-          <span className="shop-details__info-label">
-            <DeliveryIcon />
-            Способ получения
-          </span>
-          <span className="shop-details__info-value">
+        {hasPickup && seller.address_name && (
+          <div className="shop-details__info-line">
+            <AddressIcon />
+            <span className="shop-details__info-line-text">{seller.address_name}</span>
+            {showMapButton && (
+              <a
+                href={seller.map_url!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shop-details__map-link-inline"
+                aria-label="Открыть на карте"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                На карте
+              </a>
+            )}
+          </div>
+        )}
+        <div className="shop-details__info-line">
+          <DeliveryIcon />
+          <span className="shop-details__info-line-text">
             {getDeliveryLabel(seller.delivery_type)}
             {seller.delivery_type && (seller.delivery_type === 'delivery' || seller.delivery_type === 'both') && (
               seller.delivery_price === 0
-                ? ' (бесплатно)'
-                : ` (${formatPrice(seller.delivery_price)})`
+                ? ' — бесплатно'
+                : ` — ${formatPrice(seller.delivery_price)}`
             )}
           </span>
         </div>
