@@ -190,6 +190,18 @@ async def notify_seller_preorder_cancelled(
     return await _send_telegram_message(seller_id, text)
 
 
+async def notify_seller_order_cancelled(
+    seller_id: int,
+    order_id: int,
+    items_info: str = "",
+) -> bool:
+    """Notify seller that a regular order was cancelled by the buyer."""
+    text = f"🚫 Заказ *#{order_id}* отменён покупателем."
+    if items_info:
+        text += f"\n\n🛒 {items_info}"
+    return await _send_telegram_message(seller_id, text)
+
+
 async def notify_preorder_reminder_buyer(
     buyer_id: int,
     order_id: int,

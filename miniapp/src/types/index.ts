@@ -133,6 +133,9 @@ export interface BuyerOrder {
   created_at: string | null;
   is_preorder?: boolean;
   preorder_delivery_date?: string | null;
+  shop_name?: string;
+  seller_username?: string | null;
+  first_product_photo?: string | null;
 }
 
 export interface PublicSellerDetail {

@@ -323,9 +323,10 @@ class OrderService:
     
     async def cancel_order(self, order_id: int, buyer_id: int) -> Dict[str, Any]:
         """
-        Cancel a preorder by the buyer.
-        Allowed for orders in 'pending' or 'accepted' status with is_preorder=True.
+        Cancel an order by the buyer.
+        Allowed for any order in 'pending', 'accepted', or 'assembling' status.
         Refunds loyalty points if they were used.
+        Restores product quantities for accepted/assembling orders (inventory already deducted).
         Returns dict with order info for notification purposes.
         """
         order = await self.session.get(Order, order_id)
@@ -333,16 +334,34 @@ class OrderService:
             raise OrderNotFoundError(order_id)
         if order.buyer_id != buyer_id:
             raise OrderAccessDeniedError(order_id)
-        if order.status not in ("pending", "accepted"):
-            raise InvalidOrderStatusError(order_id, order.status, "pending or accepted")
-        if not getattr(order, "is_preorder", False):
-            raise OrderServiceError("Отмена доступна только для предзаказов", 400)
+        if order.status not in ("pending", "accepted", "assembling"):
+            raise InvalidOrderStatusError(order_id, order.status, "pending, accepted or assembling")
 
         old_status = order.status
+        is_preorder = getattr(order, "is_preorder", False)
+
         # Update seller counters
         seller = await self._get_seller_for_update(order.seller_id)
-        if old_status == "accepted" and seller and seller.active_orders > 0:
+        if old_status in ("accepted", "assembling") and seller and seller.active_orders > 0:
             seller.active_orders -= 1
+        if old_status == "pending" and not is_preorder and seller and seller.pending_requests > 0:
+            seller.pending_requests -= 1
+
+        # Restore product quantities for accepted/assembling orders (stock was deducted at accept)
+        if old_status in ("accepted", "assembling"):
+            items_matches = re.findall(r'(\d+):(.+?)\s*[x\u00d7]\s*(\d+)', order.items_info or "")
+            for product_id_str, _, quantity_str in items_matches:
+                product_id = int(product_id_str)
+                quantity = int(quantity_str)
+                product_result = await self.session.execute(
+                    select(Product).where(
+                        Product.id == product_id,
+                        Product.seller_id == order.seller_id
+                    ).with_for_update()
+                )
+                product = product_result.scalar_one_or_none()
+                if product and product.quantity is not None:
+                    product.quantity += quantity
 
         # Refund loyalty points if used
         points_refunded = 0.0
@@ -367,6 +386,7 @@ class OrderService:
             "total_price": float(order.total_price) if order.total_price is not None else 0.0,
             "new_status": "cancelled",
             "old_status": old_status,
+            "is_preorder": is_preorder,
             "points_refunded": points_refunded,
         }
 
@@ -649,35 +669,63 @@ class OrderService:
         }
 
     async def get_buyer_orders(self, buyer_id: int) -> List[Dict[str, Any]]:
-        """Get orders for a buyer."""
+        """Get orders for a buyer, enriched with shop_name, seller_username, first product photo."""
         query = (
-            select(Order)
+            select(Order, Seller.shop_name, User.username)
+            .outerjoin(Seller, Order.seller_id == Seller.seller_id)
+            .outerjoin(User, Order.seller_id == User.tg_id)
             .where(Order.buyer_id == buyer_id)
-            .order_by(Order.created_at.asc())
+            .order_by(Order.created_at.desc())
         )
-        
+
         result = await self.session.execute(query)
-        orders = result.scalars().all()
-        
+        rows = result.all()
+
+        # Parse items_info to extract first product_id per order for photo lookup
+        items_pattern = re.compile(r'(\d+):(.+?)\s*[x\u00d7]\s*(\d+)')
+        order_first_pid: Dict[int, int] = {}
+        all_product_ids: set = set()
+
+        for row in rows:
+            o = row[0]
+            matches = items_pattern.findall(o.items_info or "")
+            if matches:
+                first_pid = int(matches[0][0])
+                order_first_pid[o.id] = first_pid
+                for m in matches:
+                    all_product_ids.add(int(m[0]))
+
+        # Batch fetch product photos
+        product_photos: Dict[int, Optional[str]] = {}
+        if all_product_ids:
+            photos_result = await self.session.execute(
+                select(Product.id, Product.photo_id).where(Product.id.in_(all_product_ids))
+            )
+            for pid, photo_id in photos_result.all():
+                product_photos[pid] = photo_id
+
         return [
             {
-                "id": o.id,
-                "buyer_id": o.buyer_id,
-                "seller_id": o.seller_id,
-                "items_info": o.items_info,
-                "total_price": float(o.total_price),
-                "status": o.status,
-                "delivery_type": o.delivery_type,
-                "address": o.address,
-                "created_at": o.created_at.isoformat() if o.created_at else None,
-                "is_preorder": getattr(o, "is_preorder", False),
+                "id": row[0].id,
+                "buyer_id": row[0].buyer_id,
+                "seller_id": row[0].seller_id,
+                "items_info": row[0].items_info,
+                "total_price": float(row[0].total_price),
+                "status": row[0].status,
+                "delivery_type": row[0].delivery_type,
+                "address": row[0].address,
+                "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                "is_preorder": getattr(row[0], "is_preorder", False),
                 "preorder_delivery_date": (
-                    o.preorder_delivery_date.isoformat()
-                    if getattr(o, "preorder_delivery_date", None)
+                    row[0].preorder_delivery_date.isoformat()
+                    if getattr(row[0], "preorder_delivery_date", None)
                     else None
                 ),
+                "shop_name": row.shop_name or "Магазин",
+                "seller_username": row.username,
+                "first_product_photo": product_photos.get(order_first_pid.get(row[0].id)),
             }
-            for o in orders
+            for row in rows
         ]
     
     async def update_order_price(self, order_id: int, new_price: Decimal, verify_seller_id: Optional[int] = None) -> Dict[str, Any]:

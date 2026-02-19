@@ -9,6 +9,7 @@ import {
   Checkout,
   FavoriteProducts,
   Profile,
+  OrdersList,
   OrderDetail,
   ProductDetail,
   GuestCheckout,
@@ -107,6 +108,7 @@ function AppContent() {
       <Route path="/order/guest-confirm" element={<GuestOrderConfirmation />} />
       <Route path="/shop/:sellerId" element={<ShopDetails />} />
       <Route path="/shop/:sellerId/product/:productId" element={<ProductDetail />} />
+      <Route path="/orders" element={<RequireAuth from="orders"><OrdersList /></RequireAuth>} />
       <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
       
       {/* Redirect root to appropriate page */}

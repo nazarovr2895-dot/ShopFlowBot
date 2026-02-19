@@ -647,7 +647,7 @@ async def cancel_order(
     current_user: TelegramInitData = Depends(get_current_user_hybrid),
     session: AsyncSession = Depends(get_session),
 ):
-    """Отменить предзаказ (только для предзаказов в статусе pending/accepted)."""
+    """Отменить заказ (pending/accepted/assembling). Восстанавливает инвентарь и баллы."""
     from backend.app.services.orders import OrderServiceError
     order_service = OrderService(session)
     try:
@@ -655,17 +655,26 @@ async def cancel_order(
         await session.commit()
 
         # Notify seller about cancellation
-        from backend.app.services.telegram_notify import notify_seller_preorder_cancelled
-        preorder_date = None
-        order_obj = await session.get(Order, order_id)
-        if order_obj and getattr(order_obj, "preorder_delivery_date", None):
-            preorder_date = order_obj.preorder_delivery_date.strftime("%d.%m.%Y")
-        await notify_seller_preorder_cancelled(
-            seller_id=result["seller_id"],
-            order_id=order_id,
-            items_info=result.get("items_info", ""),
-            preorder_delivery_date=preorder_date,
-        )
+        is_preorder = result.get("is_preorder", False)
+        if is_preorder:
+            from backend.app.services.telegram_notify import notify_seller_preorder_cancelled
+            preorder_date = None
+            order_obj = await session.get(Order, order_id)
+            if order_obj and getattr(order_obj, "preorder_delivery_date", None):
+                preorder_date = order_obj.preorder_delivery_date.strftime("%d.%m.%Y")
+            await notify_seller_preorder_cancelled(
+                seller_id=result["seller_id"],
+                order_id=order_id,
+                items_info=result.get("items_info", ""),
+                preorder_delivery_date=preorder_date,
+            )
+        else:
+            from backend.app.services.telegram_notify import notify_seller_order_cancelled
+            await notify_seller_order_cancelled(
+                seller_id=result["seller_id"],
+                order_id=order_id,
+                items_info=result.get("items_info", ""),
+            )
 
         return {
             "status": "ok",

@@ -401,3 +401,193 @@ async def test_order_lifecycle(
     done_response = await client.post(f"/orders/{order_id}/done")
     assert done_response.status_code == 200
     assert done_response.json()["new_status"] == "done"
+
+
+# ============================================
+# ENRICHED BUYER ORDERS
+# ============================================
+
+@pytest.mark.asyncio
+async def test_get_buyer_orders_enriched(
+    client: AsyncClient,
+    test_session,
+    test_user: User,
+    test_seller: Seller,
+    test_product: Product,
+):
+    """Test that buyer orders include shop_name, seller_username, first_product_photo."""
+    # Set product photo
+    test_product.photo_id = "/static/uploads/products/test.webp"
+    await test_session.commit()
+
+    # Create order with items_info referencing the product
+    order = Order(
+        buyer_id=test_user.tg_id,
+        seller_id=test_seller.seller_id,
+        items_info=f"{test_product.id}:Test Product x 2",
+        total_price=200.00,
+        status="pending",
+        delivery_type="pickup",
+    )
+    test_session.add(order)
+    await test_session.commit()
+
+    response = await client.get(f"/orders/buyer/{test_user.tg_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) >= 1
+
+    # Find the order we just created
+    enriched = next((o for o in data if o["id"] == order.id), None)
+    assert enriched is not None
+    assert enriched["shop_name"] == "Test Shop"
+    assert enriched["seller_username"] == "testseller"
+    assert enriched["first_product_photo"] == "/static/uploads/products/test.webp"
+
+
+@pytest.mark.asyncio
+async def test_get_buyer_orders_no_photo(
+    client: AsyncClient,
+    test_session,
+    test_user: User,
+    test_seller: Seller,
+):
+    """Test enriched orders when product has no photo."""
+    order = Order(
+        buyer_id=test_user.tg_id,
+        seller_id=test_seller.seller_id,
+        items_info="999:Unknown Product x 1",
+        total_price=50.00,
+        status="pending",
+        delivery_type="pickup",
+    )
+    test_session.add(order)
+    await test_session.commit()
+
+    response = await client.get(f"/orders/buyer/{test_user.tg_id}")
+    assert response.status_code == 200
+    data = response.json()
+    enriched = next((o for o in data if o["id"] == order.id), None)
+    assert enriched is not None
+    assert enriched["first_product_photo"] is None
+
+
+# ============================================
+# CANCEL ORDER (REGULAR + ASSEMBLING)
+# ============================================
+
+@pytest.mark.asyncio
+async def test_cancel_regular_order_pending(
+    client: AsyncClient,
+    test_session,
+    test_user: User,
+    test_seller: Seller,
+    test_order: Order,
+):
+    """Test cancelling a regular (non-preorder) order in pending status."""
+    headers = get_auth_header_for_user(test_user.tg_id)
+    response = await client.post(
+        f"/buyers/me/orders/{test_order.id}/cancel",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["new_status"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_cancel_regular_order_accepted(
+    client: AsyncClient,
+    test_session,
+    test_user: User,
+    test_seller: Seller,
+    test_product: Product,
+):
+    """Test cancelling an accepted order restores product quantities."""
+    # Set initial product quantity
+    test_product.quantity = 10
+    await test_session.commit()
+
+    # Create order referencing product
+    order = Order(
+        buyer_id=test_user.tg_id,
+        seller_id=test_seller.seller_id,
+        items_info=f"{test_product.id}:Test Product x 3",
+        total_price=300.00,
+        status="accepted",
+        delivery_type="pickup",
+    )
+    test_session.add(order)
+    test_seller.active_orders += 1
+    await test_session.commit()
+    await test_session.refresh(order)
+
+    headers = get_auth_header_for_user(test_user.tg_id)
+    response = await client.post(
+        f"/buyers/me/orders/{order.id}/cancel",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["new_status"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_cancel_order_assembling(
+    client: AsyncClient,
+    test_session,
+    test_user: User,
+    test_seller: Seller,
+):
+    """Test cancelling an order in assembling status."""
+    order = Order(
+        buyer_id=test_user.tg_id,
+        seller_id=test_seller.seller_id,
+        items_info="1:Roses x 2",
+        total_price=200.00,
+        status="assembling",
+        delivery_type="delivery",
+        address="Test Address",
+    )
+    test_session.add(order)
+    test_seller.active_orders += 1
+    await test_session.commit()
+    await test_session.refresh(order)
+
+    headers = get_auth_header_for_user(test_user.tg_id)
+    response = await client.post(
+        f"/buyers/me/orders/{order.id}/cancel",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["new_status"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_cancel_order_in_transit_fails(
+    client: AsyncClient,
+    test_session,
+    test_user: User,
+    test_seller: Seller,
+):
+    """Test that cancelling an in_transit order fails."""
+    order = Order(
+        buyer_id=test_user.tg_id,
+        seller_id=test_seller.seller_id,
+        items_info="1:Roses x 1",
+        total_price=100.00,
+        status="in_transit",
+        delivery_type="delivery",
+    )
+    test_session.add(order)
+    await test_session.commit()
+    await test_session.refresh(order)
+
+    headers = get_auth_header_for_user(test_user.tg_id)
+    response = await client.post(
+        f"/buyers/me/orders/{order.id}/cancel",
+        headers=headers,
+    )
+    assert response.status_code == 400
