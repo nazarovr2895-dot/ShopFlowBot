@@ -140,7 +140,7 @@
 
 .shop-details__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 0;
   margin-bottom: 0;
@@ -152,6 +152,7 @@
   height: 56px;
   object-fit: contain;
   border-radius: 10px;
+  align-self: center;
 }
 
 .shop-details__header-text {
@@ -274,12 +275,13 @@
   transform: scale(0.98);
 }
 
-/* Header actions: subscribe + chat buttons — row layout under name */
+/* Header actions: subscribe + chat buttons — 3rd column */
 .shop-details__header-actions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
-  margin-top: 2px;
+  flex-shrink: 0;
 }
 
 /* Chat with seller button — outlined pill */

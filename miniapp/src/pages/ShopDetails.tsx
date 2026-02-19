@@ -399,28 +399,28 @@ export function ShopDetails() {
                 {seller.subscriber_count} {formatSubscriberLabel(seller.subscriber_count ?? 0)}
               </div>
             )}
-            <div className="shop-details__header-actions">
-              {showFavoriteBtn && (
-                <button
-                  type="button"
-                  className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
-                  onClick={toggleFavorite}
-                  disabled={togglingFavorite}
-                >
-                  {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
-                </button>
-              )}
-              {(seller.owner_username || seller.owner_tg_id) && (
-                <a
-                  href={seller.owner_username ? `https://t.me/${seller.owner_username}` : `tg://user?id=${seller.owner_tg_id}`}
-                  target={isBrowser() ? '_blank' : undefined}
-                  rel={isBrowser() ? 'noopener noreferrer' : undefined}
-                  className="shop-details__chat-btn"
-                >
-                  Написать
-                </a>
-              )}
-            </div>
+          </div>
+          <div className="shop-details__header-actions">
+            {showFavoriteBtn && (
+              <button
+                type="button"
+                className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
+                onClick={toggleFavorite}
+                disabled={togglingFavorite}
+              >
+                {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
+              </button>
+            )}
+            {(seller.owner_username || seller.owner_tg_id) && (
+              <a
+                href={seller.owner_username ? `https://t.me/${seller.owner_username}` : `tg://user?id=${seller.owner_tg_id}`}
+                target={isBrowser() ? '_blank' : undefined}
+                rel={isBrowser() ? 'noopener noreferrer' : undefined}
+                className="shop-details__chat-btn"
+              >
+                Написать
+              </a>
+            )}
           </div>
         </header>
       </div>
