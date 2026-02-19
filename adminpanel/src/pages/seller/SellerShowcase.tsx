@@ -1,5 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import {
+  Eye, EyeOff, Pencil, Trash2, RefreshCw, ImageIcon, Plus,
+} from 'lucide-react';
+import {
   getMe,
   getProducts,
   getBouquets,
@@ -11,7 +14,7 @@ import {
   recalculateProductPrice,
 } from '../../api/sellerClient';
 import type { SellerMe, SellerProduct, BouquetDetail, CompositionItem } from '../../api/sellerClient';
-import { useToast, useConfirm, TabBar, Modal, Toggle, FormField, EmptyState } from '../../components/ui';
+import { useToast, useConfirm, TabBar, Modal, FormField, EmptyState } from '../../components/ui';
 import { ImageCropModal } from '../../components/ImageCropModal';
 import { CompositionEditor } from '../../components/CompositionEditor';
 import './SellerShowcase.css';
@@ -533,8 +536,8 @@ export function SellerShowcase() {
         title="Редактировать товар"
         size="lg"
         footer={
-          <div className="seller-showcase-form-actions">
-            <button type="button" className="btn btn-secondary" onClick={closeEdit}>Отмена</button>
+          <div className="sc-edit-footer">
+            <button type="button" className="btn btn-ghost" onClick={closeEdit}>Отмена</button>
             <button type="button" className="btn btn-primary" disabled={editSaving} onClick={(e) => { const form = (e.target as HTMLElement).closest('.ui-modal')?.querySelector('form'); form?.requestSubmit(); }}>
               {editSaving ? 'Сохранение...' : 'Сохранить'}
             </button>
@@ -542,74 +545,89 @@ export function SellerShowcase() {
         }
       >
         <form onSubmit={handleSaveEdit}>
-          <FormField label="Название">
-            <input
-              type="text"
-              value={editForm.name}
-              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-              className="form-input"
-              required
-            />
-          </FormField>
-          <FormField label="Описание">
-            <textarea
-              value={editForm.description}
-              onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-              className="form-input"
-            />
-          </FormField>
-          <CompositionEditor items={editComposition} onChange={setEditComposition} />
-          <div className="seller-showcase-form-row-2">
-            <FormField label="Цена (₽)">
+          <div className="sc-edit-section">
+            <div className="sc-edit-section-title">Фотографии</div>
+            <div className="sc-photo-zone">
+              {editKeptPhotoIds.map((id, i) => (
+                <div key={id} className="sc-photo-thumb">
+                  <img src={getProductImageUrl(id) || ''} alt="" />
+                  <button type="button" className="sc-photo-thumb-overlay" onClick={() => removeEditKeptPhoto(i)} aria-label="Удалить фото">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              ))}
+              {editNewPhotoPreviews.map((src, i) => (
+                <div key={`new-${i}`} className="sc-photo-thumb">
+                  <img src={src} alt="" />
+                  <button type="button" className="sc-photo-thumb-overlay" onClick={() => removeEditNewPhoto(i)} aria-label="Удалить фото">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              ))}
+              {editKeptPhotoIds.length + editNewPhotoFiles.length < 3 && (
+                <label className="sc-photo-add-btn">
+                  <Plus size={20} />
+                  <span>Добавить</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleEditNewPhotoChange}
+                    multiple
+                    hidden
+                  />
+                </label>
+              )}
+            </div>
+            <div className="sc-photo-count">
+              {editKeptPhotoIds.length + editNewPhotoFiles.length} / 3
+            </div>
+          </div>
+
+          <div className="sc-edit-section">
+            <div className="sc-edit-section-title">Информация</div>
+            <FormField label="Название">
               <input
-                type="number"
-                value={editForm.price}
-                onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                type="text"
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                 className="form-input"
                 required
               />
             </FormField>
-            <FormField label="Количество">
-              <input
-                type="number"
-                min={0}
-                value={editForm.quantity}
-                onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
+            <FormField label="Описание">
+              <textarea
+                value={editForm.description}
+                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                 className="form-input"
+                rows={3}
               />
             </FormField>
+            <CompositionEditor items={editComposition} onChange={setEditComposition} />
           </div>
-          <FormField label="Фото (до 3 шт.)">
-            {editKeptPhotoIds.length > 0 && (
-              <div className="seller-showcase-photos-preview">
-                {editKeptPhotoIds.map((id, i) => (
-                  <div key={id} className="seller-showcase-photo-preview-wrap">
-                    <img src={getProductImageUrl(id) || ''} alt="" />
-                    <button type="button" className="seller-showcase-photo-remove" onClick={() => removeEditKeptPhoto(i)} aria-label="Удалить">×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {editNewPhotoPreviews.length > 0 && (
-              <div className="seller-showcase-photos-preview">
-                {editNewPhotoPreviews.map((src, i) => (
-                  <div key={`new-${i}`} className="seller-showcase-photo-preview-wrap">
-                    <img src={src} alt="" />
-                    <button type="button" className="seller-showcase-photo-remove" onClick={() => removeEditNewPhoto(i)} aria-label="Удалить">×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {editKeptPhotoIds.length + editNewPhotoFiles.length < 3 && (
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={handleEditNewPhotoChange}
-                className="form-input"
-                multiple
-              />
-            )}
-          </FormField>
+
+          <div className="sc-edit-section">
+            <div className="sc-edit-section-title">Цена и наличие</div>
+            <div className="sc-field-row">
+              <FormField label="Цена (₽)">
+                <input
+                  type="number"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                  className="form-input"
+                  required
+                />
+              </FormField>
+              <FormField label="Количество">
+                <input
+                  type="number"
+                  min={0}
+                  value={editForm.quantity}
+                  onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
+                  className="form-input"
+                />
+              </FormField>
+            </div>
+          </div>
         </form>
       </Modal>
 
@@ -619,100 +637,111 @@ export function SellerShowcase() {
           message="Нажмите «Добавить товар» чтобы начать"
         />
       ) : (
-        <div className="seller-showcase-grid">
+        <div className="sc-product-list">
           {products.map((p) => {
             const firstPhotoId = (p.photo_ids && p.photo_ids[0]) || p.photo_id;
             const imageUrl = getProductImageUrl(firstPhotoId ?? null);
             const isActive = p.is_active !== false;
+            const hasShortage = p.stock_shortage && p.stock_shortage.length > 0;
+            const shortageTooltip = hasShortage
+              ? p.stock_shortage!.map((s) => `${s.flower}: −${s.deficit}`).join('\n')
+              : '';
+            const costLabel = p.bouquet_id && p.cost_price != null
+              ? `Себест. ${Number(p.cost_price).toFixed(0)} ₽ + ${Number(p.markup_percent ?? 0).toFixed(0)}%`
+              : '';
 
             return (
               <div
                 key={p.id}
-                className={`seller-showcase-card ${!isActive ? 'seller-showcase-card--hidden' : ''}`}
+                className={`sc-product-row${!isActive ? ' sc-product-row--hidden' : ''}`}
               >
-                <div className="seller-showcase-card-image-wrap">
+                <div className="sc-product-thumb">
                   {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={p.name}
-                      className="seller-showcase-card-image"
-                    />
+                    <img src={imageUrl} alt={p.name} loading="lazy" />
                   ) : (
-                    <div className="seller-showcase-card-image-placeholder">📷</div>
-                  )}
-                  {!isActive && (
-                    <span className="seller-showcase-card-badge">Скрыт</span>
-                  )}
-                </div>
-                <div className="seller-showcase-card-info">
-                  <span className="seller-showcase-card-name">{p.name}</span>
-                  {p.description && (
-                    <span className="seller-showcase-card-desc">{p.description}</span>
-                  )}
-                  <span className="seller-showcase-card-price">{Number(p.price).toFixed(0)} ₽</span>
-                  {p.bouquet_id && p.cost_price != null && (
-                    <span className="seller-showcase-card-cost">
-                      Себест.: {Number(p.cost_price).toFixed(0)} ₽
-                      {p.markup_percent != null && ` | Наценка: ${Number(p.markup_percent).toFixed(0)}%`}
-                    </span>
-                  )}
-                  <span className={`seller-showcase-card-qty${p.stock_shortage?.length ? ' seller-showcase-card-qty--shortage' : ''}`}>
-                    В наличии: {p.quantity} шт.
-                  </span>
-                  {p.stock_shortage && p.stock_shortage.length > 0 && (
-                    <div className="seller-showcase-card-shortage">
-                      Не хватает цветов:
-                      {p.stock_shortage.map((s, i) => (
-                        <div key={i}>
-                          {s.flower} — нужно {s.need}, есть {s.have} (−{s.deficit})
-                        </div>
-                      ))}
+                    <div className="sc-product-thumb-placeholder">
+                      <ImageIcon size={20} />
                     </div>
                   )}
-                  <div className="seller-showcase-card-switch">
-                    <Toggle
-                      checked={isActive}
-                      disabled={togglingId === p.id}
-                      onChange={() => handleToggleShowInApp(p)}
-                      label="Показывать в mini app"
+                </div>
+
+                <div className="sc-product-info">
+                  <div className="sc-product-info-top">
+                    <span className="sc-product-name">{p.name}</span>
+                    <span className="sc-product-price">{Number(p.price).toFixed(0)} ₽</span>
+                  </div>
+                  {(costLabel || p.description) && (
+                    <span className="sc-product-subtitle">{costLabel || p.description}</span>
+                  )}
+                </div>
+
+                <div className="sc-product-meta">
+                  <span className={`sc-product-stock${p.quantity <= 2 ? ' sc-product-stock--low' : ''}`}>
+                    {p.quantity} шт.
+                  </span>
+                  {hasShortage && (
+                    <span
+                      className="sc-product-shortage-dot"
+                      data-tooltip={shortageTooltip}
+                      aria-label="Не хватает цветов"
                     />
-                  </div>
-                  <div className="seller-showcase-card-actions">
-                    {p.bouquet_id && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary"
-                        disabled={recalculating === p.id}
-                        onClick={async () => {
-                          setRecalculating(p.id);
-                          try {
-                            await recalculateProductPrice(p.id);
-                            load();
-                          } catch (e) {
-                            toast.error(e instanceof Error ? e.message : 'Ошибка пересчёта');
-                          } finally {
-                            setRecalculating(null);
-                          }
-                        }}
-                      >
-                        {recalculating === p.id ? 'Пересчёт...' : 'Пересчитать'}
-                      </button>
-                    )}
+                  )}
+                </div>
+
+                <div className="sc-product-actions">
+                  <button
+                    type="button"
+                    className={`sc-action-btn${!isActive ? ' sc-action-btn--vis-off' : ''}`}
+                    onClick={() => handleToggleShowInApp(p)}
+                    disabled={togglingId === p.id}
+                    data-tooltip={isActive ? 'Скрыть' : 'Показать'}
+                    aria-label={isActive ? 'Скрыть из mini app' : 'Показать в mini app'}
+                  >
+                    {isActive ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+
+                  {p.bouquet_id && (
                     <button
                       type="button"
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => openEdit(p)}
+                      className="sc-action-btn"
+                      disabled={recalculating === p.id}
+                      onClick={async () => {
+                        setRecalculating(p.id);
+                        try {
+                          await recalculateProductPrice(p.id);
+                          load();
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : 'Ошибка пересчёта');
+                        } finally {
+                          setRecalculating(null);
+                        }
+                      }}
+                      data-tooltip="Пересчитать"
+                      aria-label="Пересчитать цену"
                     >
-                      Редактировать
+                      <RefreshCw size={16} className={recalculating === p.id ? 'animate-spin' : ''} />
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-secondary seller-showcase-btn-delete"
-                      onClick={() => handleDeleteProduct(p.id)}
-                    >
-                      Удалить
-                    </button>
-                  </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="sc-action-btn"
+                    onClick={() => openEdit(p)}
+                    data-tooltip="Редактировать"
+                    aria-label="Редактировать"
+                  >
+                    <Pencil size={16} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="sc-action-btn sc-action-btn--danger"
+                    onClick={() => handleDeleteProduct(p.id)}
+                    data-tooltip="Удалить"
+                    aria-label="Удалить"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
             );

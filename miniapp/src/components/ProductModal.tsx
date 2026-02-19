@@ -28,8 +28,10 @@ interface ProductModalProps {
 /* ------------------------------------------------------------------ */
 interface DragState {
   active: boolean;
+  startX: number;
   startY: number;
   currentY: number;
+  direction: 'none' | 'horizontal' | 'vertical';
 }
 
 const SWIPE_THRESHOLD = 120;
@@ -55,8 +57,9 @@ export function ProductModal({
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<DragState>({ active: false, startY: 0, currentY: 0 });
+  const drag = useRef<DragState>({ active: false, startX: 0, startY: 0, currentY: 0, direction: 'none' });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   const images =
     product.photo_ids && product.photo_ids.length > 0
@@ -64,6 +67,23 @@ export function ProductModal({
       : product.photo_id
         ? [product.photo_id]
         : [];
+
+  /* ---------- carousel helpers ---------- */
+  const scrollToIndex = useCallback((index: number) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const child = el.children[index] as HTMLElement;
+    if (child) {
+      el.scrollTo({ left: child.offsetLeft, behavior: 'smooth' });
+    }
+  }, []);
+
+  const handleCarouselScroll = useCallback(() => {
+    const el = carouselRef.current;
+    if (!el || images.length <= 1) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    setCurrentImageIndex(Math.max(0, Math.min(idx, images.length - 1)));
+  }, [images.length]);
 
   /* ---------- close helpers ---------- */
   // When closing animation ends on the overlay → actually unmount
@@ -108,39 +128,71 @@ export function ProductModal({
   /* ---------- image nav ---------- */
   const goPrev = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((i) => (i - 1 + images.length) % images.length);
+    const newIdx = (currentImageIndex - 1 + images.length) % images.length;
+    setCurrentImageIndex(newIdx);
+    scrollToIndex(newIdx);
   };
   const goNext = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((i) => (i + 1) % images.length);
+    const newIdx = (currentImageIndex + 1) % images.length;
+    setCurrentImageIndex(newIdx);
+    scrollToIndex(newIdx);
   };
 
   /* ---------- swipe-to-dismiss (DOM-only, no React state) ---------- */
   const onTouchStart = (e: React.TouchEvent) => {
     // Don't start drag if content is scrolled
     if (scrollRef.current && scrollRef.current.scrollTop > 5) return;
-    drag.current = { active: true, startY: e.touches[0].clientY, currentY: e.touches[0].clientY };
-    const el = modalRef.current;
-    if (el) {
-      el.classList.add('product-modal--dragging');
-      el.classList.remove('product-modal--snapping');
-    }
+    drag.current = {
+      active: true,
+      startX: e.touches[0].clientX,
+      startY: e.touches[0].clientY,
+      currentY: e.touches[0].clientY,
+      direction: 'none',
+    };
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     if (!drag.current.active) return;
+    const x = e.touches[0].clientX;
     const y = e.touches[0].clientY;
-    drag.current.currentY = y;
-    const diff = y - drag.current.startY;
-    if (diff > 0 && modalRef.current) {
-      modalRef.current.style.transform = `translateY(${diff}px)`;
+    const diffX = Math.abs(x - drag.current.startX);
+    const diffY = y - drag.current.startY;
+
+    // Determine direction on first significant move
+    if (drag.current.direction === 'none' && (diffX > 8 || Math.abs(diffY) > 8)) {
+      drag.current.direction = diffX > Math.abs(diffY) ? 'horizontal' : 'vertical';
+      if (drag.current.direction === 'vertical') {
+        // Start dragging visually only for vertical
+        const el = modalRef.current;
+        if (el) {
+          el.classList.add('product-modal--dragging');
+          el.classList.remove('product-modal--snapping');
+        }
+      }
+    }
+
+    // Horizontal → let carousel handle it natively, don't drag modal
+    if (drag.current.direction === 'horizontal') return;
+
+    // Vertical → swipe-to-dismiss
+    if (drag.current.direction === 'vertical') {
+      drag.current.currentY = y;
+      if (diffY > 0 && modalRef.current) {
+        modalRef.current.style.transform = `translateY(${diffY}px)`;
+      }
     }
   };
 
   const onTouchEnd = () => {
     if (!drag.current.active) return;
+    const direction = drag.current.direction;
     const diff = drag.current.currentY - drag.current.startY;
     drag.current.active = false;
+    drag.current.direction = 'none';
+
+    // Horizontal swipe — nothing to clean up, carousel handled it
+    if (direction === 'horizontal' || direction === 'none') return;
 
     const el = modalRef.current;
     if (!el) return;
@@ -187,17 +239,37 @@ export function ProductModal({
         <div className="product-modal__scroll" ref={scrollRef}>
           {/* Gallery */}
           <div className="product-modal__gallery">
-            <div
-              className="product-modal__image-wrap"
-              onClick={() => images.length > 0 && setImageViewerOpen(true)}
-              style={{ cursor: images.length > 0 ? 'pointer' : undefined }}
-            >
-              <ProductImage
-                src={images[currentImageIndex] || null}
-                alt={product.name}
-                className="product-modal__image"
-                placeholderClassName="product-modal__image-placeholder"
-              />
+            <div className="product-modal__image-wrap">
+              {/* Carousel — all images side-by-side, scroll-snap */}
+              <div
+                ref={carouselRef}
+                className="product-modal__carousel"
+                onScroll={handleCarouselScroll}
+              >
+                {images.length > 0 ? images.map((img, i) => (
+                  <div
+                    key={i}
+                    className="product-modal__carousel-slide"
+                    onClick={() => setImageViewerOpen(true)}
+                  >
+                    <ProductImage
+                      src={img}
+                      alt={`${product.name} ${i + 1}`}
+                      className="product-modal__image"
+                      placeholderClassName="product-modal__image-placeholder"
+                    />
+                  </div>
+                )) : (
+                  <div className="product-modal__carousel-slide">
+                    <ProductImage
+                      src={null}
+                      alt={product.name}
+                      className="product-modal__image"
+                      placeholderClassName="product-modal__image-placeholder"
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Close — small text button overlaid on image */}
               <button
@@ -235,7 +307,7 @@ export function ProductModal({
                       key={i}
                       type="button"
                       className={`product-modal__dot${i === currentImageIndex ? ' product-modal__dot--active' : ''}`}
-                      onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i); }}
+                      onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i); scrollToIndex(i); }}
                       aria-label={`Фото ${i + 1}`}
                     />
                   ))}
@@ -251,7 +323,7 @@ export function ProductModal({
                     key={i}
                     type="button"
                     className={`product-modal__thumb${i === currentImageIndex ? ' product-modal__thumb--active' : ''}`}
-                    onClick={() => setCurrentImageIndex(i)}
+                    onClick={() => { setCurrentImageIndex(i); scrollToIndex(i); }}
                   >
                     <ProductImage
                       src={img}

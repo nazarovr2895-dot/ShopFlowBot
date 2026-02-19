@@ -102,6 +102,30 @@
   overflow: hidden;
 }
 
+/* ---- Carousel (horizontal scroll-snap) ---- */
+.product-modal__carousel {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  width: 100%;
+  height: 100%;
+}
+
+.product-modal__carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.product-modal__carousel-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  scroll-snap-align: center;
+  cursor: pointer;
+}
+
 .product-modal__image {
   width: 100%;
   height: 100%;

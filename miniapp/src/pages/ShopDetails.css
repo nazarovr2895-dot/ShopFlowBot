@@ -244,8 +244,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  min-width: auto;
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
@@ -256,6 +254,7 @@
   cursor: pointer;
   transition: opacity 0.15s ease;
   white-space: nowrap;
+  text-align: center;
 }
 
 .shop-details__subscribe-btn:hover:not(:disabled) {
@@ -275,12 +274,14 @@
   transform: scale(0.98);
 }
 
-/* Header actions: subscribe + chat buttons */
+/* Header actions: subscribe + chat buttons — column layout */
 .shop-details__header-actions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
   flex-shrink: 0;
+  min-width: 130px;
 }
 
 /* Chat with seller button — outlined pill */
@@ -288,7 +289,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
@@ -301,6 +301,7 @@
   white-space: nowrap;
   text-decoration: none;
   font-family: inherit;
+  text-align: center;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -742,6 +743,10 @@
   .shop-details__subscribe-btn {
     padding: 8px 18px;
     font-size: 13px;
+  }
+
+  .shop-details__header-actions {
+    min-width: 150px;
   }
 }
 
