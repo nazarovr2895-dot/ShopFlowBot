@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { PublicSellerDetail, Product } from '../types';
-import { api, hasTelegramAuth } from '../api/client';
+import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import { addToGuestCart } from '../utils/guestCart';
@@ -138,7 +138,7 @@ export function ShopDetails() {
 
   // Load favorite products when seller is loaded
   useEffect(() => {
-    if (!seller || !hasTelegramAuth()) {
+    if (!seller || !api.isAuthenticated()) {
       setFavoriteProductIds(new Set());
       return;
     }
@@ -156,7 +156,7 @@ export function ShopDetails() {
 
   // Load loyalty (programme participation and points) when seller is loaded and user is authenticated
   useEffect(() => {
-    if (!seller || !hasTelegramAuth()) {
+    if (!seller || !api.isAuthenticated()) {
       setLoyalty(null);
       return;
     }
@@ -610,7 +610,7 @@ export function ShopDetails() {
                       className="shop-details__product-card-image"
                       placeholderClassName="shop-details__product-card-image-placeholder"
                     />
-                    {hasTelegramAuth() && (
+                    {api.isAuthenticated() && (
                       <div className="shop-details__product-card-heart">
                         <HeartIcon
                           isFavorite={favoriteProductIds.has(product.id)}

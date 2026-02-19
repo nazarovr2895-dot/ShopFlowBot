@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { FavoriteProduct } from '../types';
-import { api, hasTelegramAuth } from '../api/client';
+import { api } from '../api/client';
 import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
@@ -113,7 +113,7 @@ export function FavoriteProducts() {
                   className="favorite-product-card__image"
                   placeholderClassName="favorite-product-card__image-placeholder"
                 />
-                {hasTelegramAuth() && (
+                {api.isAuthenticated() && (
                   <div className="favorite-product-card__heart">
                     <HeartIcon
                       isFavorite={true}

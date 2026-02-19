@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { PublicSellerDetail, Product } from '../types';
-import { api, hasTelegramAuth } from '../api/client';
+import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import { addToGuestCart } from '../utils/guestCart';
@@ -56,7 +56,7 @@ export function ProductDetail() {
 
   // Load favorite state when product is loaded
   useEffect(() => {
-    if (!product || !hasTelegramAuth()) {
+    if (!product || !api.isAuthenticated()) {
       setIsFavorite(false);
       return;
     }
@@ -227,7 +227,7 @@ export function ProductDetail() {
             ))}
           </div>
         )}
-        {hasTelegramAuth() && (
+        {api.isAuthenticated() && (
           <div className="product-detail__heart">
             <HeartIcon
               isFavorite={isFavorite}

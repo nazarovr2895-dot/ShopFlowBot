@@ -3,7 +3,7 @@ import type { Product } from '../types';
 import { ProductImage } from './ProductImage';
 import { HeartIcon } from './HeartIcon';
 import { ImageViewer } from './ImageViewer';
-import { hasTelegramAuth } from '../api/client';
+import { api } from '../api/client';
 import './ProductModal.css';
 
 interface ProductModalProps {
@@ -111,7 +111,7 @@ export function ProductModal({
               />
 
               {/* Лайк */}
-              {hasTelegramAuth() && (
+              {api.isAuthenticated() && (
                 <div className="product-modal__favorite">
                   <HeartIcon
                     isFavorite={isFavorite}
