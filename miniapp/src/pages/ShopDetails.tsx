@@ -454,13 +454,20 @@ export function ShopDetails() {
           <div className="shop-details__info-line">
             <DistrictIcon />
             <span className="shop-details__info-line-text">
-              {[
-                seller.city_name,
-                seller.district_name,
-                seller.metro_name
-                  ? `м. ${seller.metro_name}${seller.metro_walk_minutes ? ` (${seller.metro_walk_minutes} мин)` : ''}`
-                  : null,
-              ].filter(Boolean).join(', ')}
+              {[seller.city_name, seller.district_name].filter(Boolean).join(', ')}
+              {seller.metro_name && (
+                <>
+                  {(seller.city_name || seller.district_name) && ', '}
+                  {seller.metro_line_color && (
+                    <span
+                      className="shop-details__metro-dot"
+                      style={{ background: seller.metro_line_color }}
+                    />
+                  )}
+                  м. {seller.metro_name}
+                  {seller.metro_walk_minutes ? ` (${seller.metro_walk_minutes} мин)` : ''}
+                </>
+              )}
             </span>
           </div>
         )}
@@ -498,6 +505,22 @@ export function ShopDetails() {
         </div>
       </div>
 
+      {/* Loyalty chip — compact inline */}
+      {loyalty !== null && (
+        <div className="shop-details__loyalty">
+          {loyalty.linked ? (
+            <span className="shop-details__loyalty-chip shop-details__loyalty-chip--linked">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              {loyalty.points_balance} баллов
+            </span>
+          ) : (
+            <span className="shop-details__loyalty-chip shop-details__loyalty-chip--unlinked">
+              Укажите телефон в профиле для накопления баллов
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Навигационная панель: Актуальные / Предзаказ */}
       {(() => {
         if (import.meta.env.MODE === 'development') {
@@ -529,20 +552,6 @@ export function ShopDetails() {
               <span className="shop-details__nav-bar-tab-text">Предзаказ</span>
             </button>
           </LiquidGlassCard>
-        </div>
-      )}
-
-      {loyalty !== null && (
-        <div className="shop-details__loyalty">
-          {loyalty.linked ? (
-            <p className="shop-details__loyalty-text shop-details__loyalty-text_linked">
-              Вы участвуете в программе накопления баллов. Баланс: {loyalty.points_balance} баллов
-            </p>
-          ) : (
-            <p className="shop-details__loyalty-text">
-              Ваш номер не участвует в программе накопления баллов. Укажите номер телефона в разделе «Мои данные» в профиле, чтобы участвовать в программе.
-            </p>
-          )}
         </div>
       )}
 

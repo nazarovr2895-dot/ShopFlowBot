@@ -275,39 +275,49 @@
   transform: scale(0.98);
 }
 
+/* Loyalty — compact chip */
 .shop-details__loyalty {
-  padding: 16px 20px;
-  margin-bottom: 24px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.05) 0%, rgba(124, 58, 237, 0.02) 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(124, 58, 237, 0.15);
+  margin-bottom: 10px;
 }
 
-.shop-details__loyalty-text {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--app-text-secondary);
-}
-
-.shop-details__loyalty-text_linked {
-  color: var(--app-text);
+.shop-details__loyalty-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
   font-weight: 600;
-  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  line-height: 1.4;
 }
 
-@media (min-width: 700px) {
-  .shop-details__loyalty {
-    padding: 20px 24px;
-    margin-bottom: 32px;
-  }
+.shop-details__loyalty-chip--linked {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(168, 85, 247, 0.08) 100%);
+  color: #7c3aed;
+}
 
-  .shop-details__loyalty-text {
-    font-size: 15px;
-  }
+.shop-details__loyalty-chip--linked svg {
+  color: #a855f7;
+  flex-shrink: 0;
+}
+
+.shop-details__loyalty-chip--unlinked {
+  background: var(--app-surface, #f5f5f5);
+  color: var(--app-text-secondary);
+  font-weight: 500;
+}
+
+[data-theme="dark"] .shop-details__loyalty-chip--linked {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.08) 100%);
+  color: #c084fc;
+}
+
+[data-theme="dark"] .shop-details__loyalty-chip--linked svg {
+  color: #c084fc;
+}
+
+[data-theme="dark"] .shop-details__loyalty-chip--unlinked {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .shop-details__description {
@@ -509,6 +519,16 @@
 .shop-details__info-line-text {
   flex: 1;
   min-width: 0;
+}
+
+.shop-details__metro-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .shop-details__map-link-inline {
@@ -838,11 +858,6 @@
 [data-theme="dark"] .shop-details__description {
   background: rgba(255, 255, 255, 0.03);
   border-left-color: var(--app-accent, #a855f7);
-}
-
-[data-theme="dark"] .shop-details__loyalty {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(168, 85, 247, 0.03) 100%);
-  border-color: rgba(168, 85, 247, 0.2);
 }
 
 [data-theme="dark"] .shop-details__product-tabs {
