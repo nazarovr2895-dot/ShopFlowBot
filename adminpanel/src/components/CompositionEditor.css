@@ -1,12 +1,12 @@
 .composition-editor {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .composition-editor__row {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 
 .composition-editor__name {

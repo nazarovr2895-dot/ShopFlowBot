@@ -1,0 +1,252 @@
+/* ============================================
+   ProductEditModal — pem- prefix
+   ============================================ */
+
+/* 2-column layout (form + preview) */
+.pem-layout {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: var(--space-6);
+  min-height: 0;
+}
+
+@media (max-width: 767px) {
+  .pem-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Sections ──────────────────────────────── */
+.pem-section {
+  margin-bottom: var(--space-6);
+}
+
+.pem-section:last-child {
+  margin-bottom: 0;
+}
+
+.pem-section-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ── Photo Zone ────────────────────────────── */
+.pem-photo-zone {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-4);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  min-height: 140px;
+  align-items: flex-start;
+}
+
+.pem-photo-zone--dragover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ── Photo Item ────────────────────────────── */
+.pem-photo-item {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.pem-photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Main photo badge */
+.pem-photo-main-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: white;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+
+/* Photo action buttons — always visible */
+.pem-photo-actions {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pem-photo-actions-move {
+  display: flex;
+  gap: 2px;
+}
+
+.pem-photo-action-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  padding: 0;
+}
+
+.pem-photo-action-btn:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.pem-photo-action-btn--danger:hover {
+  background: var(--danger);
+}
+
+/* Add photo button */
+.pem-photo-add {
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius);
+  border: 2px dashed var(--border);
+  background: transparent;
+  color: var(--text-tertiary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+  font-size: var(--text-xs);
+}
+
+.pem-photo-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Photo counter + hint */
+.pem-photo-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
+}
+
+/* ── Field Row (price + quantity) ──────────── */
+.pem-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 480px) {
+  .pem-field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Toggle Row ────────────────────────────── */
+.pem-toggle-row {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+}
+
+/* ── Footer ────────────────────────────────── */
+.pem-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.pem-footer-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.pem-footer-right {
+  display: flex;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+/* Upload progress bar */
+.pem-progress {
+  height: 4px;
+  background: var(--bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pem-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width var(--transition);
+}
+
+/* ── Preview Column ────────────────────────── */
+.pem-preview-col {
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+
+@media (max-width: 767px) {
+  .pem-preview-col {
+    display: none;
+  }
+  .pem-preview-col--visible {
+    display: block;
+  }
+}
+
+/* Mobile preview toggle */
+.pem-preview-toggle {
+  display: none;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .pem-preview-toggle {
+    display: inline-flex;
+  }
+}

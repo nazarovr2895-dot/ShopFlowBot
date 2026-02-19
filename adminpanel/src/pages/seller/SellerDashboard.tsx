@@ -4,14 +4,29 @@ import { AlertTriangle, Package, Users, Store, ClipboardCheck, ShoppingBag, Sett
 import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount, getUpcomingEvents } from '../../api/sellerClient';
 import type { SellerMe, SellerStats, DashboardAlerts, UpcomingEvent } from '../../api/sellerClient';
 import { PageHeader, StatCard, StatusBadge, Card, ActionCard } from '../../components/ui';
+import { MiniSparkline } from '../../components/MiniSparkline';
 import '../Dashboard.css';
 
 const PENDING_POLL_INTERVAL_MS = 45 * 1000;
 const NOTIFICATION_TITLE = 'flurai';
 
+const CURRENCY = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
+function fmtCurrency(v: number) { return `${CURRENCY.format(v)} ₽`; }
+
+function TrendBadge({ current, previous }: { current: number; previous: number | undefined }) {
+  if (previous == null || previous === 0) return null;
+  const diff = ((current - previous) / previous) * 100;
+  const abs = Math.abs(Math.round(diff));
+  if (abs === 0) return null;
+  const variant = diff > 0 ? 'up' : 'down';
+  const arrow = diff > 0 ? '↑' : '↓';
+  return <span className={`trend-badge trend-badge--${variant}`}>{arrow} {abs}%</span>;
+}
+
 export function SellerDashboard() {
   const [me, setMe] = useState<SellerMe | null>(null);
   const [stats, setStats] = useState<SellerStats | null>(null);
+  const [weekStats, setWeekStats] = useState<SellerStats | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
@@ -23,9 +38,10 @@ export function SellerDashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [meData, statsData, pendingOrders, activeOrders, alertsData, subCount, eventsData] = await Promise.all([
+        const [meData, statsData, weekStatsData, pendingOrders, activeOrders, alertsData, subCount, eventsData] = await Promise.all([
           getMe(),
           getStats(),
+          getStats({ period: '7d' }),
           getOrders({ status: 'pending' }),
           getOrders({ status: 'accepted,assembling,in_transit' }),
           getDashboardAlerts(),
@@ -34,6 +50,7 @@ export function SellerDashboard() {
         ]);
         setMe(meData);
         setStats(statsData);
+        setWeekStats(weekStatsData);
         const pending = pendingOrders?.length ?? 0;
         setPendingCount(pending);
         lastPendingCountRef.current = pending;
@@ -44,6 +61,7 @@ export function SellerDashboard() {
       } catch {
         setMe(null);
         setStats(null);
+        setWeekStats(null);
         setAlerts(null);
       } finally {
         setLoading(false);
@@ -92,12 +110,43 @@ export function SellerDashboard() {
 
   const hasAlerts = (alerts?.low_stock_bouquets?.length ?? 0) + (alerts?.expiring_items?.length ?? 0) > 0;
 
+  const commissionRate = stats?.commission_rate ?? 18;
+  const weekRevenue = weekStats?.total_revenue ?? 0;
+  const weekNetRevenue = weekStats?.net_revenue ?? 0;
+  const sparklineData = weekStats?.daily_sales?.map((d) => ({ date: d.date, revenue: d.revenue })) ?? [];
+
   return (
     <div className="dashboard">
       <PageHeader
         title="Дашборд"
         subtitle={me?.shop_name || 'Мой магазин'}
       />
+
+      {/* ── Hero Row ──────────────────────────── */}
+      <div className="dashboard-hero-row">
+        <div className="dashboard-hero-card dashboard-hero-card--accent">
+          <div className="dashboard-hero-content">
+            <span className="dashboard-hero-label">Выручка за 7 дней</span>
+            <span className="dashboard-hero-value">{fmtCurrency(weekRevenue)}</span>
+            <TrendBadge current={weekRevenue} previous={weekStats?.previous_period_revenue} />
+          </div>
+          {sparklineData.length >= 2 && (
+            <MiniSparkline data={sparklineData} width={160} height={48} />
+          )}
+        </div>
+        <div className="dashboard-hero-card">
+          <div className="dashboard-hero-content">
+            <span className="dashboard-hero-label">К получению (−{commissionRate}%)</span>
+            <span className="dashboard-hero-value">{fmtCurrency(weekNetRevenue)}</span>
+          </div>
+          <div className="dashboard-hero-secondary">
+            <span className="dashboard-hero-orders">
+              {weekStats?.total_completed_orders ?? 0} {pluralOrders(weekStats?.total_completed_orders ?? 0)}
+            </span>
+            <TrendBadge current={weekStats?.total_completed_orders ?? 0} previous={weekStats?.previous_period_orders} />
+          </div>
+        </div>
+      </div>
 
       {/* ── Alerts ──────────────────────────────── */}
       {hasAlerts && (
@@ -160,9 +209,8 @@ export function SellerDashboard() {
       <div className="dashboard-stats-grid">
         <StatCard label="Запросы на покупку" value={pendingCount} link={{ to: '/orders?tab=pending', label: 'Перейти' }} />
         <StatCard label="Активные заказы" value={activeCount} link={{ to: '/orders?tab=active', label: 'Перейти' }} />
-        <StatCard label="Выполнено заказов" value={stats?.total_completed_orders ?? 0} />
-        <StatCard label="Выручка (всё время)" value={`${(stats?.total_revenue ?? 0).toLocaleString('ru')} ₽`} />
-        <StatCard label="К получению (−18%)" value={`${(stats?.net_revenue ?? 0).toLocaleString('ru')} ₽`} accent />
+        <StatCard label="Выполнено (всё время)" value={stats?.total_completed_orders ?? 0} />
+        <StatCard label="Выручка (всё время)" value={fmtCurrency(stats?.total_revenue ?? 0)} />
         {me && (
           <StatCard
             label="В работе / лимит"
@@ -180,4 +228,13 @@ export function SellerDashboard() {
       </div>
     </div>
   );
+}
+
+function pluralOrders(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs > 10 && abs < 20) return 'заказов';
+  if (last > 1 && last < 5) return 'заказа';
+  if (last === 1) return 'заказ';
+  return 'заказов';
 }

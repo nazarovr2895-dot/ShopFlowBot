@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 export interface SalesChartPoint {
   date: string;
   revenue: number;
@@ -26,6 +28,8 @@ function parseISODate(dateString: string): Date {
 }
 
 export function SalesChart({ data }: { data: SalesChartPoint[] }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+
   if (!data.length) {
     return <div className="seller-chart-empty">Нет данных за выбранный период</div>;
   }
@@ -87,6 +91,17 @@ export function SalesChart({ data }: { data: SalesChartPoint[] }) {
     });
   }
 
+  // Tooltip positioning
+  const hoveredPoint = hovered !== null ? data[hovered] : null;
+  const hoveredX = hovered !== null ? scaleX(hovered) : 0;
+  const hoveredY = hoveredPoint ? scaleY(hoveredPoint.revenue) : 0;
+  const tooltipW = 130;
+  const tooltipH = 52;
+  let tooltipX = hoveredX - tooltipW / 2;
+  if (tooltipX < paddingLeft) tooltipX = paddingLeft;
+  if (tooltipX + tooltipW > width - paddingRight) tooltipX = width - paddingRight - tooltipW;
+  const tooltipY = hoveredY - tooltipH - 12 > 0 ? hoveredY - tooltipH - 12 : hoveredY + 16;
+
   return (
     <div className="seller-chart-wrap">
       <svg className="seller-chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
@@ -132,18 +147,49 @@ export function SalesChart({ data }: { data: SalesChartPoint[] }) {
         {data.map((point, index) => {
           const x = scaleX(index);
           const y = scaleY(point.revenue);
+          const isHovered = hovered === index;
           return (
             <circle
               key={`${point.date}-${index}`}
               cx={x}
               cy={y}
-              r={3.5}
-              fill="var(--bg)"
+              r={isHovered ? 5 : 3.5}
+              fill={isHovered ? 'var(--accent, #7b8eff)' : 'var(--bg)'}
               stroke="var(--chart-line, #7b8eff)"
               strokeWidth={2}
             />
           );
         })}
+        {/* Hit areas for hover */}
+        {data.map((_point, index) => {
+          const x = scaleX(index);
+          const segW = data.length > 1 ? chartWidth / (data.length - 1) : chartWidth;
+          return (
+            <rect
+              key={`hit-${index}`}
+              x={x - segW / 2}
+              y={paddingTop}
+              width={segW}
+              height={chartHeight}
+              fill="transparent"
+              onMouseEnter={() => setHovered(index)}
+              onMouseLeave={() => setHovered(null)}
+            />
+          );
+        })}
+        {/* Hover guide line */}
+        {hovered !== null && (
+          <line
+            x1={hoveredX}
+            y1={paddingTop}
+            x2={hoveredX}
+            y2={chartBottom}
+            stroke="var(--text-muted, #999)"
+            strokeDasharray="3 3"
+            opacity={0.5}
+            pointerEvents="none"
+          />
+        )}
         <line
           x1={paddingLeft}
           y1={chartBottom}
@@ -162,6 +208,30 @@ export function SalesChart({ data }: { data: SalesChartPoint[] }) {
             {tick.label}
           </text>
         ))}
+        {/* Tooltip */}
+        {hovered !== null && hoveredPoint && (
+          <foreignObject
+            x={tooltipX}
+            y={tooltipY}
+            width={tooltipW}
+            height={tooltipH}
+            pointerEvents="none"
+          >
+            <div className="chart-tooltip">
+              <div className="chart-tooltip-date">
+                {DATE_FORMATTER.format(parseISODate(hoveredPoint.date))}
+              </div>
+              <div className="chart-tooltip-value">
+                {CURRENCY_FORMATTER.format(hoveredPoint.revenue)} ₽
+              </div>
+              {hoveredPoint.orders != null && (
+                <div className="chart-tooltip-orders">
+                  {hoveredPoint.orders} {hoveredPoint.orders === 1 ? 'заказ' : hoveredPoint.orders < 5 ? 'заказа' : 'заказов'}
+                </div>
+              )}
+            </div>
+          </foreignObject>
+        )}
       </svg>
     </div>
   );

@@ -61,7 +61,13 @@ export function ShopDetails() {
   const [togglingFavorite, setTogglingFavorite] = useState(false);
   const [favoriteProductIds, setFavoriteProductIds] = useState<Set<number>>(new Set());
   const [togglingProductFavorite, setTogglingProductFavorite] = useState<number | null>(null);
-  const [loyalty, setLoyalty] = useState<{ points_balance: number; linked: boolean } | null>(null);
+  const [loyalty, setLoyalty] = useState<{
+    points_balance: number;
+    linked: boolean;
+    points_percent: number;
+    max_points_discount_percent: number;
+    points_to_ruble_rate: number;
+  } | null>(null);
   const [bannerLoaded, setBannerLoaded] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [hoursExpanded, setHoursExpanded] = useState(false);
@@ -151,10 +157,19 @@ export function ShopDetails() {
     api
       .getMyLoyaltyAtSeller(seller.seller_id)
       .then((data) => {
-        if (!cancelled) setLoyalty({ points_balance: data.points_balance, linked: data.linked });
+        if (!cancelled) setLoyalty({
+          points_balance: data.points_balance,
+          linked: data.linked,
+          points_percent: data.points_percent,
+          max_points_discount_percent: data.max_points_discount_percent,
+          points_to_ruble_rate: data.points_to_ruble_rate,
+        });
       })
       .catch(() => {
-        if (!cancelled) setLoyalty({ points_balance: 0, linked: false });
+        if (!cancelled) setLoyalty({
+          points_balance: 0, linked: false, points_percent: 0,
+          max_points_discount_percent: 100, points_to_ruble_rate: 1,
+        });
       });
     return () => {
       cancelled = true;
@@ -228,7 +243,7 @@ export function ShopDetails() {
     }
   };
 
-  const addToCart = async (productId: number, preorderDeliveryDate?: string | null) => {
+  const addToCart = async (productId: number, preorderDeliveryDate?: string | null, quantity: number = 1) => {
     setAddingId(productId);
     try {
       hapticFeedback('light');
@@ -243,7 +258,7 @@ export function ShopDetails() {
             seller_id: Number(sellerId),
             name: product.name,
             price: product.price,
-            quantity: 1,
+            quantity,
             photo_id: product.photo_id ?? null,
             seller_name: seller?.shop_name || undefined,
           });
@@ -252,7 +267,7 @@ export function ShopDetails() {
         return;
       }
 
-      await api.addCartItem(productId, 1, preorderDeliveryDate);
+      await api.addCartItem(productId, quantity, preorderDeliveryDate);
       showAlert(preorderDeliveryDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Ошибка';
@@ -373,41 +388,39 @@ export function ShopDetails() {
         <header className="shop-details__header">
           <img className="shop-details__logo" src="/android-chrome-512x512.png" alt="" />
           <div className="shop-details__header-text">
-            <div className="shop-details__name-row">
-              <h1
-                className={`shop-details__name${(seller.owner_fio || seller.inn || seller.ogrn) ? ' shop-details__name--clickable' : ''}`}
-                onClick={() => { if (seller.owner_fio || seller.inn || seller.ogrn) setLegalModalOpen(true); }}
-              >
-                {seller.shop_name || 'Без названия'}
-              </h1>
-              <div className="shop-details__header-actions">
-                {showFavoriteBtn && (
-                  <button
-                    type="button"
-                    className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
-                    onClick={toggleFavorite}
-                    disabled={togglingFavorite}
-                  >
-                    {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
-                  </button>
-                )}
-                {(seller.owner_username || seller.owner_tg_id) && (
-                  <a
-                    href={seller.owner_username ? `https://t.me/${seller.owner_username}` : `tg://user?id=${seller.owner_tg_id}`}
-                    target={isBrowser() ? '_blank' : undefined}
-                    rel={isBrowser() ? 'noopener noreferrer' : undefined}
-                    className="shop-details__chat-btn"
-                  >
-                    Написать
-                  </a>
-                )}
-              </div>
-            </div>
+            <h1
+              className={`shop-details__name${(seller.owner_fio || seller.inn || seller.ogrn) ? ' shop-details__name--clickable' : ''}`}
+              onClick={() => { if (seller.owner_fio || seller.inn || seller.ogrn) setLegalModalOpen(true); }}
+            >
+              {seller.shop_name || 'Без названия'}
+            </h1>
             {(seller.subscriber_count ?? 0) > 0 && (
               <div className="shop-details__subscriber-count">
                 {seller.subscriber_count} {formatSubscriberLabel(seller.subscriber_count ?? 0)}
               </div>
             )}
+            <div className="shop-details__header-actions">
+              {showFavoriteBtn && (
+                <button
+                  type="button"
+                  className={`shop-details__subscribe-btn${isInFavorites ? ' shop-details__subscribe-btn--active' : ''}`}
+                  onClick={toggleFavorite}
+                  disabled={togglingFavorite}
+                >
+                  {togglingFavorite ? '…' : isInFavorites ? 'Вы подписаны ✓' : 'Подписаться'}
+                </button>
+              )}
+              {(seller.owner_username || seller.owner_tg_id) && (
+                <a
+                  href={seller.owner_username ? `https://t.me/${seller.owner_username}` : `tg://user?id=${seller.owner_tg_id}`}
+                  target={isBrowser() ? '_blank' : undefined}
+                  rel={isBrowser() ? 'noopener noreferrer' : undefined}
+                  className="shop-details__chat-btn"
+                >
+                  Написать
+                </a>
+              )}
+            </div>
           </div>
         </header>
       </div>
@@ -732,11 +745,11 @@ export function ShopDetails() {
           }}
           isFavorite={favoriteProductIds.has(selectedProduct.id)}
           onToggleFavorite={(e) => toggleProductFavorite(selectedProduct.id, e)}
-          onAddToCart={() => {
+          onAddToCart={(qty: number) => {
             if (selectedProduct.is_preorder && (seller?.preorder_available_dates?.length ?? 0) > 0) {
               setPreorderDateForProductId(selectedProduct.id);
             } else {
-              addToCart(selectedProduct.id);
+              addToCart(selectedProduct.id, null, qty);
             }
           }}
           isAdding={addingId === selectedProduct.id}
@@ -749,6 +762,13 @@ export function ShopDetails() {
           }}
           showDatePicker={preorderDateForProductId === selectedProduct.id}
           onCancelDatePicker={() => setPreorderDateForProductId(null)}
+          deliveryPrice={seller.delivery_price}
+          deliveryType={seller.delivery_type}
+          loyaltyPointsPercent={loyalty?.points_percent ?? 0}
+          pointsBalance={loyalty?.points_balance ?? 0}
+          pointsToRubleRate={loyalty?.points_to_ruble_rate ?? 1}
+          maxPointsDiscountPercent={loyalty?.max_points_discount_percent ?? 100}
+          loyaltyLinked={loyalty?.linked ?? false}
         />
       )}
     </div>

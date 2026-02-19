@@ -1,0 +1,254 @@
+/* ── Loyalty Settings Tab ─────────────────────────────── */
+.loyalty-settings-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: var(--page-max-width);
+}
+
+.loyalty-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-10);
+  color: var(--text-secondary);
+}
+
+/* ── Help card ───────────────────────────────────────── */
+.loyalty-help-card {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), transparent);
+}
+
+.loyalty-help-card h3 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.loyalty-help-card p {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Section title ───────────────────────────────────── */
+.loyalty-section-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0 0 var(--space-4);
+}
+
+/* ── Fields ──────────────────────────────────────────── */
+.loyalty-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.loyalty-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.loyalty-fields-grid input[type="text"] {
+  width: 100%;
+  max-width: 160px;
+}
+
+/* ── Tier preview ────────────────────────────────────── */
+.tier-preview {
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-4);
+}
+
+.tier-preview-bar {
+  position: relative;
+  height: 4px;
+  margin: var(--space-8) var(--space-4) calc(var(--space-8) + var(--space-4));
+}
+
+.tier-preview-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.tier-preview-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.tier-preview-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.tier-preview-label {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.tier-preview-label strong {
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+/* ── Tiers config ────────────────────────────────────── */
+.loyalty-tiers-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-3);
+  line-height: 1.4;
+}
+
+.loyalty-tiers-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.loyalty-tier-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.loyalty-tier-row input {
+  padding: var(--space-2);
+  font-size: var(--text-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.loyalty-tier-row input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.loyalty-tier-row input[placeholder="Название"] {
+  flex: 2;
+}
+
+.loyalty-tier-row input:not([placeholder="Название"]) {
+  flex: 1;
+}
+
+.loyalty-tier-remove {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.loyalty-tier-remove:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.loyalty-tier-add {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+  margin-top: var(--space-3);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.loyalty-tier-add:hover {
+  border-color: var(--accent);
+}
+
+/* ── Save button ─────────────────────────────────────── */
+.loyalty-save-btn {
+  align-self: flex-start;
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.loyalty-save-btn:hover {
+  background: var(--accent-hover);
+}
+
+.loyalty-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Add customer form ───────────────────────────────── */
+.loyalty-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-end;
+}
+
+.loyalty-add-form input {
+  padding: var(--space-2) var(--space-3);
+  min-width: 120px;
+}
+
+.loyalty-add-btn {
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.loyalty-add-btn:hover {
+  background: var(--accent-hover);
+}
+
+.loyalty-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  .loyalty-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .loyalty-tier-row {
+    flex-wrap: wrap;
+  }
+}

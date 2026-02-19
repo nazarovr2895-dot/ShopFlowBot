@@ -745,7 +745,12 @@ class OrderService:
         totals_row = (await self.session.execute(totals_stmt)).one()
         total_orders = totals_row.total_orders or 0
         total_revenue = float(totals_row.total_revenue or 0)
-        commission = round(total_revenue * 0.18, 2)  # 18% platform commission
+        # Read commission rate from GlobalSettings (default 18%)
+        from backend.app.models.settings import GlobalSettings as _GS
+        _gs_result = await self.session.execute(select(_GS).order_by(_GS.id))
+        _gs = _gs_result.scalar_one_or_none()
+        commission_rate = (_gs.commission_percent if _gs else 18) / 100
+        commission = round(total_revenue * commission_rate, 2)
 
         # Orders by status (any status)
         status_stmt = (
@@ -770,13 +775,15 @@ class OrderService:
             .order_by(func.date(date_field))
         )
         daily_rows = (await self.session.execute(daily_stmt)).all()
-        daily_map: Dict[date, Dict[str, float]] = {
-            row.day: {
+        daily_map: Dict[date, Dict[str, float]] = {}
+        for row in daily_rows:
+            day_val = row.day
+            if isinstance(day_val, str):
+                day_val = date.fromisoformat(day_val)
+            daily_map[day_val] = {
                 "orders": row.orders_count or 0,
                 "revenue": float(row.revenue_sum or 0),
             }
-            for row in daily_rows
-        }
 
         # Fill missing days within the selected range
         daily_series: List[Dict[str, Any]] = []
@@ -937,6 +944,7 @@ class OrderService:
         return {
             "total_completed_orders": total_orders,
             "total_revenue": round(total_revenue, 2),
+            "commission_rate": round(commission_rate * 100),
             "commission_18": commission,
             "net_revenue": round(total_revenue - commission, 2),
             "average_check": average_check,
@@ -1113,13 +1121,15 @@ class OrderService:
             .order_by(func.date(date_field))
         )
         daily_rows = (await self.session.execute(daily_stmt)).all()
-        daily_map: Dict[date, Dict[str, float]] = {
-            row.day: {
+        daily_map: Dict[date, Dict[str, float]] = {}
+        for row in daily_rows:
+            day_val = row.day
+            if isinstance(day_val, str):
+                day_val = date.fromisoformat(day_val)
+            daily_map[day_val] = {
                 "orders": row.orders_count or 0,
                 "revenue": float(row.revenue_sum or 0),
             }
-            for row in daily_rows
-        }
 
         daily_series: List[Dict[str, Any]] = []
         if daily_map:
@@ -1227,10 +1237,11 @@ class OrderService:
                 "total_preorders": 0,
                 "completed_preorders": 0,
                 "cancelled_preorders": 0,
-                "preorder_revenue": 0.0,
+                "total_revenue": 0.0,
                 "avg_lead_days": 0,
                 "completion_rate": 0.0,
                 "cancellation_rate": 0.0,
+                "top_products": [],
             }
 
         total = len(preorders)
@@ -1251,7 +1262,7 @@ class OrderService:
             "total_preorders": total,
             "completed_preorders": len(completed),
             "cancelled_preorders": len(cancelled),
-            "preorder_revenue": round(revenue, 2),
+            "total_revenue": round(revenue, 2),
             "avg_lead_days": avg_lead,
             "completion_rate": round(len(completed) / total * 100, 1) if total else 0,
             "cancellation_rate": round(len(cancelled) / total * 100, 1) if total else 0,

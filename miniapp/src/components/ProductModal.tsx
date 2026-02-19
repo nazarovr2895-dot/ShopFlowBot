@@ -13,7 +13,7 @@ interface ProductModalProps {
   onClose: () => void;
   isFavorite: boolean;
   onToggleFavorite: (e: React.MouseEvent) => void;
-  onAddToCart: () => void;
+  onAddToCart: (quantity: number) => void;
   isAdding: boolean;
   inStock: boolean;
   isPreorder: boolean;
@@ -21,6 +21,13 @@ interface ProductModalProps {
   onSelectPreorderDate?: (date: string) => void;
   showDatePicker?: boolean;
   onCancelDatePicker?: () => void;
+  deliveryPrice?: number;
+  deliveryType?: 'delivery' | 'pickup' | 'both' | null;
+  loyaltyPointsPercent?: number;
+  pointsBalance?: number;
+  pointsToRubleRate?: number;
+  maxPointsDiscountPercent?: number;
+  loyaltyLinked?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -50,10 +57,18 @@ export function ProductModal({
   onSelectPreorderDate,
   showDatePicker,
   onCancelDatePicker,
+  deliveryPrice = 0,
+  deliveryType,
+  loyaltyPointsPercent = 0,
+  pointsBalance = 0,
+  pointsToRubleRate = 1,
+  maxPointsDiscountPercent = 100,
+  loyaltyLinked = false,
 }: ProductModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [quantity, setQuantity] = useState(1);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -103,6 +118,7 @@ export function ProductModal({
     // Reset state for fresh open
     setCurrentImageIndex(0);
     setClosing(false);
+    setQuantity(1);
 
     const html = document.documentElement;
     html.classList.add('scroll-locked');
@@ -119,6 +135,32 @@ export function ProductModal({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  /* ---------- quantity helpers ---------- */
+  const handleDecrement = () => { if (quantity > 1) setQuantity(q => q - 1); };
+  const handleIncrement = () => {
+    if (!isPreorder && product.quantity != null && quantity >= product.quantity) return;
+    setQuantity(q => q + 1);
+  };
+
+  /* ---------- computed values ---------- */
+  const totalPrice = product.price * quantity;
+  const formatTotal = (n: number) => n.toLocaleString('ru-RU');
+
+  const pointsEarned = loyaltyPointsPercent > 0 && loyaltyLinked
+    ? Math.floor(totalPrice * loyaltyPointsPercent / 100)
+    : 0;
+
+  const rate = pointsToRubleRate;
+  const maxDiscountRub = totalPrice * (maxPointsDiscountPercent / 100);
+  const maxPointsByDiscount = rate > 0 ? Math.floor(maxDiscountRub / rate) : 0;
+  const redeemablePoints = Math.min(pointsBalance, maxPointsByDiscount);
+  const redeemableRub = redeemablePoints * rate;
+
+  const hasDelivery = deliveryType === 'delivery' || deliveryType === 'both';
+  const deliveryCostLabel = hasDelivery
+    ? (deliveryPrice === 0 ? 'бесплатно' : `${deliveryPrice.toLocaleString('ru-RU')} ₽`)
+    : null;
 
   /* ---------- backdrop click ---------- */
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -352,8 +394,44 @@ export function ProductModal({
               <ProductComposition items={product.composition} />
             )}
 
+            {/* Info detail rows: loyalty + delivery */}
+            {(pointsEarned > 0 || redeemablePoints > 0 || deliveryCostLabel) && (
+              <div className="product-modal__details">
+                {pointsEarned > 0 && (
+                  <div className="product-modal__detail-row">
+                    <span className="product-modal__detail-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    </span>
+                    <span className="product-modal__detail-text">
+                      Баллы за покупку: <strong>+{pointsEarned}</strong>
+                    </span>
+                  </div>
+                )}
+                {redeemablePoints > 0 && (
+                  <div className="product-modal__detail-row">
+                    <span className="product-modal__detail-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                    </span>
+                    <span className="product-modal__detail-text">
+                      Можно списать: до <strong>{redeemablePoints}</strong> баллов (−{formatTotal(redeemableRub)} ₽)
+                    </span>
+                  </div>
+                )}
+                {deliveryCostLabel && (
+                  <div className="product-modal__detail-row">
+                    <span className="product-modal__detail-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    </span>
+                    <span className="product-modal__detail-text">
+                      Доставка: {deliveryCostLabel}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Preorder date picker */}
-            {showDatePicker && isPreorder && availableDates.length > 0 ? (
+            {showDatePicker && isPreorder && availableDates.length > 0 && (
               <div className="product-modal__dates">
                 <h3 className="product-modal__dates-title">Выберите дату доставки</h3>
                 <div className="product-modal__dates-list">
@@ -382,24 +460,50 @@ export function ProductModal({
                   Отмена
                 </button>
               </div>
-            ) : (
-              <button
-                type="button"
-                className="product-modal__cart-btn"
-                onClick={onAddToCart}
-                disabled={(!inStock && !isPreorder) || isAdding}
-              >
-                {isAdding
-                  ? '...'
-                  : isPreorder
-                    ? 'Заказать на дату'
-                    : inStock
-                      ? 'В корзину'
-                      : 'Нет в наличии'}
-              </button>
             )}
           </div>
         </div>
+
+        {/* Fixed bottom bar — quantity selector + cart button */}
+        {!showDatePicker && (
+          <div className="product-modal__bottom-bar">
+            <div className="product-modal__qty-selector">
+              <button
+                type="button"
+                className="product-modal__qty-btn"
+                onClick={handleDecrement}
+                disabled={quantity <= 1}
+                aria-label="Уменьшить"
+              >
+                −
+              </button>
+              <span className="product-modal__qty-value">{quantity}</span>
+              <button
+                type="button"
+                className="product-modal__qty-btn"
+                onClick={handleIncrement}
+                disabled={!isPreorder && product.quantity != null && quantity >= product.quantity}
+                aria-label="Увеличить"
+              >
+                +
+              </button>
+            </div>
+            <button
+              type="button"
+              className="product-modal__cart-btn"
+              onClick={() => onAddToCart(quantity)}
+              disabled={(!inStock && !isPreorder) || isAdding}
+            >
+              {isAdding
+                ? '...'
+                : isPreorder
+                  ? 'Заказать на дату'
+                  : inStock
+                    ? `В корзину · ${formatTotal(totalPrice)} ₽`
+                    : 'Нет в наличии'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Full-screen image viewer */}

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import {
-  Eye, EyeOff, Pencil, Trash2, RefreshCw, ImageIcon, Plus,
+  Eye, EyeOff, Pencil, Trash2, RefreshCw, ImageIcon,
 } from 'lucide-react';
 import {
   getMe,
@@ -14,9 +14,10 @@ import {
   recalculateProductPrice,
 } from '../../api/sellerClient';
 import type { SellerMe, SellerProduct, BouquetDetail, CompositionItem } from '../../api/sellerClient';
-import { useToast, useConfirm, TabBar, Modal, FormField, EmptyState } from '../../components/ui';
+import { useToast, useConfirm, TabBar, FormField, EmptyState } from '../../components/ui';
 import { ImageCropModal } from '../../components/ImageCropModal';
 import { CompositionEditor } from '../../components/CompositionEditor';
+import { ProductEditModal } from '../../components/ProductEditModal';
 import './SellerShowcase.css';
 
 type AddProductMode = 'choice' | 'manual' | 'bouquet';
@@ -45,17 +46,10 @@ export function SellerShowcase() {
   const [selectedBouquetCost, setSelectedBouquetCost] = useState(0);
   const [recalculating, setRecalculating] = useState<number | null>(null);
 
-  const [editingProductId, setEditingProductId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; description: string; price: string; quantity: string }>({ name: '', description: '', price: '', quantity: '0' });
-  const [editComposition, setEditComposition] = useState<CompositionItem[]>([]);
-  const [editKeptPhotoIds, setEditKeptPhotoIds] = useState<string[]>([]);
-  const [editNewPhotoFiles, setEditNewPhotoFiles] = useState<File[]>([]);
-  const [editNewPhotoPreviews, setEditNewPhotoPreviews] = useState<string[]>([]);
-  const [editSaving, setEditSaving] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<SellerProduct | null>(null);
 
-  // Crop modal state
+  // Crop modal state (for add product form)
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [cropTarget, setCropTarget] = useState<'add' | 'edit'>('add');
   const pendingCropFiles = useRef<File[]>([]);
 
   const load = async () => {
@@ -156,7 +150,6 @@ export function SellerShowcase() {
     if (remaining <= 0) return;
     const toProcess = files.slice(0, remaining);
     pendingCropFiles.current = toProcess.slice(1);
-    setCropTarget('add');
     setCropImageSrc(URL.createObjectURL(toProcess[0]));
   };
 
@@ -204,72 +197,14 @@ export function SellerShowcase() {
     }
   };
 
-  const openEdit = (p: SellerProduct) => {
-    setEditingProductId(p.id);
-    setEditForm({
-      name: p.name,
-      description: p.description || '',
-      price: String(p.price),
-      quantity: String(p.quantity),
-    });
-    const ids = (p.photo_ids && p.photo_ids.length) ? p.photo_ids : (p.photo_id ? [p.photo_id] : []);
-    setEditKeptPhotoIds(ids);
-    setEditNewPhotoFiles([]);
-    setEditNewPhotoPreviews([]);
-    setEditComposition(p.composition ?? []);
-  };
-
-  const closeEdit = () => {
-    setEditingProductId(null);
-    setEditForm({ name: '', description: '', price: '', quantity: '0' });
-    setEditKeptPhotoIds([]);
-    setEditNewPhotoFiles([]);
-    editNewPhotoPreviews.forEach((url) => URL.revokeObjectURL(url));
-    setEditNewPhotoPreviews([]);
-    setEditComposition([]);
-  };
-
-  const removeEditKeptPhoto = (index: number) => {
-    setEditKeptPhotoIds((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleEditNewPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
-    if (files.length === 0) return;
-    e.target.value = '';
-    const remaining = 3 - editKeptPhotoIds.length - editNewPhotoFiles.length;
-    if (remaining <= 0) return;
-    const toProcess = files.slice(0, remaining);
-    pendingCropFiles.current = toProcess.slice(1);
-    setCropTarget('edit');
-    setCropImageSrc(URL.createObjectURL(toProcess[0]));
-  };
-
-  const removeEditNewPhoto = (index: number) => {
-    setEditNewPhotoFiles((prev) => prev.filter((_, i) => i !== index));
-    setEditNewPhotoPreviews((prev) => {
-      URL.revokeObjectURL(prev[index]);
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
   const handleCropComplete = (blob: Blob) => {
     const file = new File([blob], `cropped-${Date.now()}.jpg`, { type: 'image/jpeg' });
-    if (cropTarget === 'add') {
-      const next = [...productPhotoFiles, file].slice(0, 3);
-      setProductPhotoFiles(next);
-      setProductPhotoPreviews((prev) => {
-        prev.forEach((url) => URL.revokeObjectURL(url));
-        return next.map((f) => URL.createObjectURL(f));
-      });
-    } else {
-      const next = [...editNewPhotoFiles, file].slice(0, Math.max(0, 3 - editKeptPhotoIds.length));
-      setEditNewPhotoFiles(next);
-      setEditNewPhotoPreviews((prev) => {
-        prev.forEach((url) => URL.revokeObjectURL(url));
-        return next.map((f) => URL.createObjectURL(f));
-      });
-    }
+    const next = [...productPhotoFiles, file].slice(0, 3);
+    setProductPhotoFiles(next);
+    setProductPhotoPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return next.map((f) => URL.createObjectURL(f));
+    });
     if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
     setCropImageSrc(null);
 
@@ -284,41 +219,6 @@ export function SellerShowcase() {
     if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
     setCropImageSrc(null);
     pendingCropFiles.current = [];
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingProductId == null) return;
-    const price = parseFloat(editForm.price);
-    const quantity = parseInt(editForm.quantity, 10);
-    if (isNaN(price) || price < 0 || isNaN(quantity) || quantity < 0) {
-      toast.warning('Проверьте цену и количество');
-      return;
-    }
-    setEditSaving(true);
-    try {
-      const newIds: string[] = [];
-      for (const file of editNewPhotoFiles) {
-        const res = await uploadProductPhoto(file);
-        if (res.photo_id) newIds.push(res.photo_id);
-      }
-      const photo_ids = [...editKeptPhotoIds, ...newIds].slice(0, 3);
-      const validComposition = editComposition.filter((c) => c.name.trim());
-      await updateProduct(editingProductId, {
-        name: editForm.name,
-        description: editForm.description,
-        price,
-        quantity,
-        photo_ids,
-        composition: validComposition,
-      });
-      closeEdit();
-      load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setEditSaving(false);
-    }
   };
 
   if (loading) {
@@ -530,106 +430,11 @@ export function SellerShowcase() {
         </form>
       )}
 
-      <Modal
-        isOpen={editingProductId != null}
-        onClose={closeEdit}
-        title="Редактировать товар"
-        size="lg"
-        footer={
-          <div className="sc-edit-footer">
-            <button type="button" className="btn btn-ghost" onClick={closeEdit}>Отмена</button>
-            <button type="button" className="btn btn-primary" disabled={editSaving} onClick={(e) => { const form = (e.target as HTMLElement).closest('.ui-modal')?.querySelector('form'); form?.requestSubmit(); }}>
-              {editSaving ? 'Сохранение...' : 'Сохранить'}
-            </button>
-          </div>
-        }
-      >
-        <form onSubmit={handleSaveEdit}>
-          <div className="sc-edit-section">
-            <div className="sc-edit-section-title">Фотографии</div>
-            <div className="sc-photo-zone">
-              {editKeptPhotoIds.map((id, i) => (
-                <div key={id} className="sc-photo-thumb">
-                  <img src={getProductImageUrl(id) || ''} alt="" />
-                  <button type="button" className="sc-photo-thumb-overlay" onClick={() => removeEditKeptPhoto(i)} aria-label="Удалить фото">
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              ))}
-              {editNewPhotoPreviews.map((src, i) => (
-                <div key={`new-${i}`} className="sc-photo-thumb">
-                  <img src={src} alt="" />
-                  <button type="button" className="sc-photo-thumb-overlay" onClick={() => removeEditNewPhoto(i)} aria-label="Удалить фото">
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              ))}
-              {editKeptPhotoIds.length + editNewPhotoFiles.length < 3 && (
-                <label className="sc-photo-add-btn">
-                  <Plus size={20} />
-                  <span>Добавить</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={handleEditNewPhotoChange}
-                    multiple
-                    hidden
-                  />
-                </label>
-              )}
-            </div>
-            <div className="sc-photo-count">
-              {editKeptPhotoIds.length + editNewPhotoFiles.length} / 3
-            </div>
-          </div>
-
-          <div className="sc-edit-section">
-            <div className="sc-edit-section-title">Информация</div>
-            <FormField label="Название">
-              <input
-                type="text"
-                value={editForm.name}
-                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                className="form-input"
-                required
-              />
-            </FormField>
-            <FormField label="Описание">
-              <textarea
-                value={editForm.description}
-                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                className="form-input"
-                rows={3}
-              />
-            </FormField>
-            <CompositionEditor items={editComposition} onChange={setEditComposition} />
-          </div>
-
-          <div className="sc-edit-section">
-            <div className="sc-edit-section-title">Цена и наличие</div>
-            <div className="sc-field-row">
-              <FormField label="Цена (₽)">
-                <input
-                  type="number"
-                  value={editForm.price}
-                  onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
-                  className="form-input"
-                  required
-                />
-              </FormField>
-              <FormField label="Количество">
-                <input
-                  type="number"
-                  min={0}
-                  value={editForm.quantity}
-                  onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
-                  className="form-input"
-                />
-              </FormField>
-            </div>
-          </div>
-        </form>
-      </Modal>
+      <ProductEditModal
+        product={editingProduct}
+        onClose={() => setEditingProduct(null)}
+        onSaved={() => { setEditingProduct(null); load(); }}
+      />
 
       {products.length === 0 ? (
         <EmptyState
@@ -726,7 +531,7 @@ export function SellerShowcase() {
                   <button
                     type="button"
                     className="sc-action-btn"
-                    onClick={() => openEdit(p)}
+                    onClick={() => setEditingProduct(p)}
                     data-tooltip="Редактировать"
                     aria-label="Редактировать"
                   >

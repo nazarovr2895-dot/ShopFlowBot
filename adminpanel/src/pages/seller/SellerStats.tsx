@@ -106,7 +106,10 @@ export function SellerStats() {
       const [data, custData, preorderAnalytics] = await Promise.all([
         getStats(params),
         getCustomerStats(params),
-        getPreorderAnalytics(params).catch(() => null),
+        getPreorderAnalytics(params).catch((err) => {
+          console.warn('Preorder analytics load failed:', err);
+          return null;
+        }),
       ]);
       setStats(data);
       setCustomerData(custData);
@@ -281,7 +284,7 @@ export function SellerStats() {
                 </div>
               )}
               <div className="summary-item">
-                <span className="summary-label">Комиссия платформы (18%)</span>
+                <span className="summary-label">Комиссия платформы ({stats?.commission_rate ?? 18}%)</span>
                 <span className="summary-value">{formatCurrency(stats?.commission_18 ?? 0, true)}</span>
               </div>
               <div className="summary-item accent">
@@ -365,7 +368,7 @@ export function SellerStats() {
                 </div>
               </>
             ) : (
-              <EmptyState title="Нет данных по предзаказам" />
+              <EmptyState title="Нет данных по предзаказам" message="Предзаказы за выбранный период отсутствуют или произошла ошибка загрузки" />
             )}
           </div>
         )}

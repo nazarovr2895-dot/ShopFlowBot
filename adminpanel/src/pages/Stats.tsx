@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getAllStats, getStatsOverview, getLimitsAnalytics, type StatsOverviewDailyPoint, type LimitsAnalytics } from '../api/adminClient';
-import type { SellerStats } from '../types';
+import { getStatsOverview, getLimitsAnalytics, type StatsOverviewDailyPoint, type LimitsAnalytics } from '../api/adminClient';
 import { SalesChart } from '../components/SalesChart';
 import './Stats.css';
 
@@ -39,7 +38,6 @@ function getLoadPctClass(pct: number): string {
 }
 
 export function Stats() {
-  const [sellerStats, setSellerStats] = useState<SellerStats[]>([]);
   const [dailySales, setDailySales] = useState<StatsOverviewDailyPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [limitsData, setLimitsData] = useState<LimitsAnalytics | null>(null);
@@ -51,16 +49,13 @@ export function Stats() {
     setLoading(true);
     setDailySales([]);
     try {
-      const [list, overview, limits] = await Promise.all([
-        getAllStats(params),
+      const [overview, limits] = await Promise.all([
         getStatsOverview(params),
         getLimitsAnalytics(),
       ]);
-      setSellerStats(list || []);
       setDailySales(overview?.daily_sales ?? []);
       setLimitsData(limits || null);
     } catch {
-      setSellerStats([]);
       setDailySales([]);
     } finally {
       setLoading(false);
@@ -73,9 +68,10 @@ export function Stats() {
     loadStats({ date_from, date_to });
   }, [rangePreset, loadStats]);
 
-  const totalOrders = sellerStats.reduce((s, x) => s + (x.orders_count || 0), 0);
-  const totalSales = sellerStats.reduce((s, x) => s + (x.total_sales || 0), 0);
-  const totalProfit = sellerStats.reduce((s, x) => s + (x.platform_profit || 0), 0);
+  const totalOrders = dailySales.reduce((s, x) => s + (x.orders || 0), 0);
+  const totalSales = dailySales.reduce((s, x) => s + (x.revenue || 0), 0);
+  const totalProfit = Math.round(totalSales * 0.18);
+  const avgCheck = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0;
 
   const handlePreset = (preset: RangePreset) => {
     setRangePreset(preset);
@@ -97,7 +93,7 @@ export function Stats() {
 
   const chartData = dailySales.map((p) => ({ date: p.date, revenue: p.revenue, orders: p.orders }));
 
-  if (loading && sellerStats.length === 0) {
+  if (loading && dailySales.length === 0) {
     return (
       <div className="stats-loading">
         <div className="loader" />
@@ -174,6 +170,10 @@ export function Stats() {
           <div className="summary-item accent">
             <span className="summary-label">Доход платформы (18%)</span>
             <span className="summary-value">{totalProfit.toLocaleString('ru')} ₽</span>
+          </div>
+          <div className="summary-item">
+            <span className="summary-label">Средний чек</span>
+            <span className="summary-value">{avgCheck.toLocaleString('ru')} ₽</span>
           </div>
         </div>
         <div className="stats-chart-block">

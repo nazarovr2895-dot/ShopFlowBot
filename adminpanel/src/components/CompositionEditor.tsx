@@ -6,9 +6,10 @@ const UNITS = ['шт.', 'м', 'г', 'кг', 'упак.', 'мл', 'л'];
 interface CompositionEditorProps {
   items: CompositionItem[];
   onChange: (items: CompositionItem[]) => void;
+  className?: string;
 }
 
-export function CompositionEditor({ items, onChange }: CompositionEditorProps) {
+export function CompositionEditor({ items, onChange, className }: CompositionEditorProps) {
   const update = (index: number, field: keyof CompositionItem, value: string) => {
     const next = items.map((item, i) => {
       if (i !== index) return item;
@@ -33,7 +34,7 @@ export function CompositionEditor({ items, onChange }: CompositionEditorProps) {
   };
 
   return (
-    <div className="composition-editor">
+    <div className={`composition-editor${className ? ` ${className}` : ''}`}>
       <label className="form-field-label">Состав</label>
       {items.map((item, i) => (
         <div key={i} className="composition-editor__row">

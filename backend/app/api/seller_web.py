@@ -644,14 +644,15 @@ async def export_stats_csv(
     # Total row
     writer.writerow([])
     writer.writerow(['ИТОГО', '', ''])
-    completed_revenue = stats.get('completed_orders_revenue', 0)
-    completed_count = stats.get('completed_orders_count', 0)
-    commission = completed_revenue * 0.05  # 5% commission
-    net_amount = completed_revenue - commission
+    total_revenue = stats.get('total_revenue', 0)
+    total_orders = stats.get('total_completed_orders', 0)
+    commission_pct = stats.get('commission_rate', 18)
+    commission = round(total_revenue * commission_pct / 100, 2)
+    net_amount = round(total_revenue - commission, 2)
 
-    writer.writerow(['Заказов всего', completed_count, ''])
-    writer.writerow(['Выручка всего', '', f"{completed_revenue:.2f}"])
-    writer.writerow(['Комиссия платформы (5%)', '', f"{commission:.2f}"])
+    writer.writerow(['Заказов всего', total_orders, ''])
+    writer.writerow(['Выручка всего', '', f"{total_revenue:.2f}"])
+    writer.writerow([f'Комиссия платформы ({commission_pct}%)', '', f"{commission:.2f}"])
     writer.writerow(['К получению', '', f"{net_amount:.2f}"])
 
     output.seek(0)

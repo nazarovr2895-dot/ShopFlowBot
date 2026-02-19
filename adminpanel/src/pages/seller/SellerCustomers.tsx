@@ -2,11 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import {
-  getLoyaltySettings,
-  updateLoyaltySettings,
   getAllCustomers,
   getCustomerTags,
-  createCustomer,
   getCustomer,
   recordSale,
   getCustomerOrders,
@@ -17,7 +14,7 @@ import {
   updateCustomerEvent,
   deleteCustomerEvent,
 } from '../../api/sellerClient';
-import type { UnifiedCustomerBrief, SellerCustomerDetail, SellerOrder, CustomerEvent, LoyaltyTier } from '../../api/sellerClient';
+import type { UnifiedCustomerBrief, SellerCustomerDetail, SellerOrder, CustomerEvent } from '../../api/sellerClient';
 import {
   useToast,
   useConfirm,
@@ -40,29 +37,6 @@ function formatDate(iso: string | null): string {
   } catch {
     return iso;
   }
-}
-
-/** Строгий формат: "+7 000 000 00 00". При вводе оставляем только цифры, форматируем. */
-function formatPhoneInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length === 0) return '';
-  let num = digits;
-  if (num.startsWith('8')) num = '7' + num.slice(1);
-  else if (!num.startsWith('7')) num = '7' + num;
-  num = num.slice(0, 11);
-  if (num.length <= 1) return '+7';
-  if (num.length <= 4) return `+7 ${num.slice(1)}`;
-  if (num.length <= 7) return `+7 ${num.slice(1, 4)} ${num.slice(4)}`;
-  if (num.length <= 9) return `+7 ${num.slice(1, 4)} ${num.slice(4, 7)} ${num.slice(7)}`;
-  return `+7 ${num.slice(1, 4)} ${num.slice(4, 7)} ${num.slice(7, 9)} ${num.slice(9, 11)}`;
-}
-
-/** Из отображаемого значения в цифры для API (7 + 10 цифр). */
-function phoneToDigits(display: string): string {
-  const digits = display.replace(/\D/g, '');
-  if (digits.startsWith('8')) return '7' + digits.slice(1, 11);
-  if (digits.startsWith('7')) return digits.slice(0, 11);
-  return ('7' + digits).slice(0, 11);
 }
 
 const SEGMENT_BADGE_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'neutral'> = {
@@ -92,12 +66,6 @@ export function SellerCustomers() {
   const [customers, setCustomers] = useState<UnifiedCustomerBrief[]>([]);
   const [detail, setDetail] = useState<SellerCustomerDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pointsPercent, setPointsPercent] = useState<string>('');
-  const [maxPointsDiscount, setMaxPointsDiscount] = useState<string>('100');
-  const [pointsToRubleRate, setPointsToRubleRate] = useState<string>('1');
-  const [pointsSaving, setPointsSaving] = useState(false);
-  const [addForm, setAddForm] = useState({ phone: '', first_name: '', last_name: '', birthday: '' });
-  const [addSubmitting, setAddSubmitting] = useState(false);
   const [saleAmount, setSaleAmount] = useState('');
   const [saleSubmitting, setSaleSubmitting] = useState(false);
   const [deductPointsAmount, setDeductPointsAmount] = useState('');
@@ -115,26 +83,17 @@ export function SellerCustomers() {
   const [eventForm, setEventForm] = useState({ title: '', event_date: '', remind_days_before: '3', notes: '' });
   const [eventSubmitting, setEventSubmitting] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CustomerEvent | null>(null);
-  const [tiersConfig, setTiersConfig] = useState<LoyaltyTier[]>([]);
-  const [pointsExpireDays, setPointsExpireDays] = useState<string>('');
   const [segmentCounts, setSegmentCounts] = useState<Record<string, number>>({});
   const [segmentFilter, setSegmentFilter] = useState('');
 
   const loadList = useCallback(async () => {
     try {
-      const [list, settings, tags] = await Promise.all([
+      const [list, tags] = await Promise.all([
         getAllCustomers(),
-        getLoyaltySettings(),
         getCustomerTags(),
       ]);
       setCustomers(list || []);
-      setPointsPercent(String(settings.points_percent ?? ''));
-      setMaxPointsDiscount(String(settings.max_points_discount_percent ?? 100));
-      setPointsToRubleRate(String(settings.points_to_ruble_rate ?? 1));
-      setTiersConfig(settings.tiers_config || []);
-      setPointsExpireDays(settings.points_expire_days ? String(settings.points_expire_days) : '');
       setAllTags(tags || []);
-      // Build segment counts from unified list
       const counts: Record<string, number> = {};
       (list || []).forEach((c) => {
         if (c.segment) {
@@ -180,69 +139,6 @@ export function SellerCustomers() {
       loadList();
     }
   }, [id, loadList, loadDetail]);
-
-  const handleSaveLoyaltySettings = async () => {
-    const num = parseFloat(pointsPercent.replace(',', '.'));
-    if (isNaN(num) || num < 0 || num > 100) {
-      toast.warning('Процент начисления: число от 0 до 100');
-      return;
-    }
-    const maxDisc = parseInt(maxPointsDiscount, 10);
-    if (isNaN(maxDisc) || maxDisc < 0 || maxDisc > 100) {
-      toast.warning('Макс. % оплаты баллами: число от 0 до 100');
-      return;
-    }
-    const rate = parseFloat(pointsToRubleRate.replace(',', '.'));
-    if (isNaN(rate) || rate <= 0) {
-      toast.warning('Курс баллов: число больше 0');
-      return;
-    }
-    setPointsSaving(true);
-    try {
-      const expDays = pointsExpireDays ? parseInt(pointsExpireDays, 10) : 0;
-      const result = await updateLoyaltySettings({
-        points_percent: num,
-        max_points_discount_percent: maxDisc,
-        points_to_ruble_rate: rate,
-        tiers_config: tiersConfig.length > 0 ? tiersConfig : null,
-        points_expire_days: expDays > 0 ? expDays : null,
-      });
-      setPointsPercent(String(result.points_percent));
-      setMaxPointsDiscount(String(result.max_points_discount_percent));
-      setPointsToRubleRate(String(result.points_to_ruble_rate));
-      setTiersConfig(result.tiers_config || []);
-      setPointsExpireDays(result.points_expire_days ? String(result.points_expire_days) : '');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setPointsSaving(false);
-    }
-  };
-
-  const handleAddCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { phone, first_name, last_name } = addForm;
-    const digits = phoneToDigits(phone);
-    if (digits.length < 11) {
-      toast.warning('Введите номер в формате +7 000 000 00 00');
-      return;
-    }
-    setAddSubmitting(true);
-    try {
-      await createCustomer({ phone: digits, first_name: first_name.trim(), last_name: last_name.trim(), birthday: addForm.birthday || null });
-      setAddForm({ phone: '', first_name: '', last_name: '', birthday: '' });
-      loadList();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Ошибка';
-      if (typeof msg === 'string' && (msg.includes('уже есть') || msg.includes('409'))) {
-        toast.warning('Клиент с таким номером телефона уже есть. Проверьте список или поиск по телефону.');
-      } else {
-        toast.error(msg);
-      }
-    } finally {
-      setAddSubmitting(false);
-    }
-  };
 
   const handleRecordSale = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -683,167 +579,6 @@ export function SellerCustomers() {
   /* ─────── List view ─────── */
   return (
     <div className="customers-page">
-      <PageHeader
-        title="База клиентов"
-        subtitle={`${customers.length} клиентов`}
-        actions={
-          <button type="button" className="customers-export-btn" onClick={handleExportCustomers}>
-            Экспорт CSV
-          </button>
-        }
-      />
-
-      {/* Loyalty settings */}
-      <div className="customers-settings">
-        <h2>Настройки лояльности</h2>
-        <div className="settings-fields">
-          <FormField label="Начисление баллов (% от суммы заказа)">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={pointsPercent}
-              onChange={(e) => setPointsPercent(e.target.value)}
-              placeholder="0"
-            />
-          </FormField>
-          <FormField label="Макс. % заказа, оплачиваемый баллами">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={maxPointsDiscount}
-              onChange={(e) => setMaxPointsDiscount(e.target.value)}
-              placeholder="100"
-            />
-          </FormField>
-          <FormField label="Курс: 1 балл = X рублей">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={pointsToRubleRate}
-              onChange={(e) => setPointsToRubleRate(e.target.value)}
-              placeholder="1"
-            />
-          </FormField>
-          <FormField label="Срок действия баллов (дней, 0 = бессрочно)">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={pointsExpireDays}
-              onChange={(e) => setPointsExpireDays(e.target.value)}
-              placeholder="0 (бессрочно)"
-            />
-          </FormField>
-          <div className="loyalty-tiers-section">
-            <h3>Уровни лояльности</h3>
-            <p className="loyalty-tiers-hint">
-              Настройте уровни для автоматического изменения % начисления баллов в зависимости от суммы покупок клиента.
-            </p>
-            {tiersConfig.map((tier, i) => (
-              <div key={i} className="loyalty-tier-row">
-                <input
-                  type="text"
-                  placeholder="Название"
-                  value={tier.name}
-                  onChange={(e) => {
-                    const next = [...tiersConfig];
-                    next[i] = { ...next[i], name: e.target.value };
-                    setTiersConfig(next);
-                  }}
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="От суммы ₽"
-                  value={tier.min_total}
-                  onChange={(e) => {
-                    const next = [...tiersConfig];
-                    next[i] = { ...next[i], min_total: Number(e.target.value) || 0 };
-                    setTiersConfig(next);
-                  }}
-                />
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="% баллов"
-                  value={tier.points_percent}
-                  onChange={(e) => {
-                    const next = [...tiersConfig];
-                    next[i] = { ...next[i], points_percent: Number(e.target.value) || 0 };
-                    setTiersConfig(next);
-                  }}
-                />
-                <button
-                  type="button"
-                  className="loyalty-tier-remove"
-                  onClick={() => setTiersConfig(tiersConfig.filter((_, j) => j !== i))}
-                >
-                  x
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              className="loyalty-tier-add"
-              onClick={() => setTiersConfig([...tiersConfig, { name: '', min_total: 0, points_percent: 0 }])}
-            >
-              + Добавить уровень
-            </button>
-          </div>
-          <button
-            type="button"
-            className="loyalty-save-btn"
-            onClick={handleSaveLoyaltySettings}
-            disabled={pointsSaving}
-          >
-            {pointsSaving ? 'Сохранение...' : 'Сохранить настройки'}
-          </button>
-        </div>
-      </div>
-
-      {/* Add customer */}
-      <div className="customers-add">
-        <h2>Добавить клиента</h2>
-        <form onSubmit={handleAddCustomer}>
-          <FormField label="Телефон">
-            <input
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel"
-              value={addForm.phone}
-              onChange={(e) => setAddForm((f) => ({ ...f, phone: formatPhoneInput(e.target.value) }))}
-              placeholder="+7 000 000 00 00"
-              maxLength={16}
-            />
-          </FormField>
-          <FormField label="Имя">
-            <input
-              type="text"
-              value={addForm.first_name}
-              onChange={(e) => setAddForm((f) => ({ ...f, first_name: e.target.value }))}
-              placeholder="Имя"
-            />
-          </FormField>
-          <FormField label="Фамилия">
-            <input
-              type="text"
-              value={addForm.last_name}
-              onChange={(e) => setAddForm((f) => ({ ...f, last_name: e.target.value }))}
-              placeholder="Фамилия"
-            />
-          </FormField>
-          <FormField label="День рождения">
-            <input
-              type="date"
-              value={addForm.birthday}
-              onChange={(e) => setAddForm((f) => ({ ...f, birthday: e.target.value }))}
-            />
-          </FormField>
-          <button type="submit" className="customers-add-btn" disabled={addSubmitting}>
-            {addSubmitting ? '...' : 'Добавить'}
-          </button>
-        </form>
-      </div>
-
       {/* Stats */}
       <div className="customers-stats-grid">
         <StatCard label="Всего" value={customers.length} />
@@ -878,6 +613,9 @@ export function SellerCustomers() {
             <option key={s} value={s}>{s} ({segmentCounts[s]})</option>
           ))}
         </select>
+        <button type="button" className="customers-export-btn" onClick={handleExportCustomers}>
+          Экспорт CSV
+        </button>
       </div>
 
       {/* Segment filter buttons */}

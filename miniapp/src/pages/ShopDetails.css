@@ -274,14 +274,12 @@
   transform: scale(0.98);
 }
 
-/* Header actions: subscribe + chat buttons — column layout */
+/* Header actions: subscribe + chat buttons — row layout under name */
 .shop-details__header-actions {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   gap: 6px;
-  flex-shrink: 0;
-  min-width: 130px;
+  margin-top: 2px;
 }
 
 /* Chat with seller button — outlined pill */
@@ -745,9 +743,6 @@
     font-size: 13px;
   }
 
-  .shop-details__header-actions {
-    min-width: 150px;
-  }
 }
 
 .shop-details__products {
