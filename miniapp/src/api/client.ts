@@ -22,7 +22,17 @@ export function setApiBaseUrl(url: string): void {
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // JWT token storage key
-const JWT_TOKEN_KEY = 'flowshop_jwt_token';
+const JWT_TOKEN_KEY = 'flurai_jwt_token';
+
+// Migration: rename old key to new
+(() => {
+  if (typeof window === 'undefined') return;
+  const old = localStorage.getItem('flowshop_jwt_token');
+  if (old) {
+    localStorage.setItem(JWT_TOKEN_KEY, old);
+    localStorage.removeItem('flowshop_jwt_token');
+  }
+})();
 
 /** True if we have Telegram init data (e.g. app opened inside Telegram). */
 export function hasTelegramAuth(): boolean {
@@ -183,25 +193,23 @@ class ApiClient {
   private async fetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.getBaseUrl()}${endpoint}`;
     console.log('[API] Fetching:', url);
-    
+
     // Build headers with authentication
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'ngrok-skip-browser-warning': 'true',  // Bypass ngrok interstitial page
     };
-    
+
     // Priority: JWT token first (for browser), then Telegram initData (for Mini App)
     const jwtToken = this.getJwtToken();
+    const initData = getTelegramInitData();
+
     if (jwtToken) {
       headers['Authorization'] = `Bearer ${jwtToken}`;
-    } else {
-      // Fallback to Telegram initData if no JWT
-      const initData = getTelegramInitData();
-      if (initData) {
-        headers['X-Telegram-Init-Data'] = initData;
-      }
+    } else if (initData) {
+      headers['X-Telegram-Init-Data'] = initData;
     }
-    
+
     try {
       const response = await fetch(url, {
         headers: {
@@ -214,17 +222,35 @@ class ApiClient {
       console.log('[API] Response status:', response.status);
 
       if (!response.ok) {
-        // If 401, clear JWT token (might be expired)
-        if (response.status === 401) {
+        // If 401 and we used JWT, clear it and retry with initData if available
+        if (response.status === 401 && jwtToken) {
           this.clearJwtToken();
+
+          // Retry with Telegram initData if available
+          if (initData) {
+            console.log('[API] JWT expired, retrying with Telegram initData');
+            const retryHeaders: Record<string, string> = {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+              'X-Telegram-Init-Data': initData,
+            };
+            const retryResponse = await fetch(url, {
+              headers: {
+                ...retryHeaders,
+                ...(options?.headers || {}),
+              },
+              ...options,
+            });
+            if (retryResponse.ok) {
+              return await retryResponse.json();
+            }
+          }
         }
         const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
         throw new Error(error.detail || `HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('[API] Response data:', data);
-      return data;
+      return await response.json();
     } catch (err) {
       console.error('[API] Error:', err);
       throw err;

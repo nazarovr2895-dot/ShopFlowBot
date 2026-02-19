@@ -10,7 +10,17 @@ export interface GuestCartItem {
   seller_name?: string;
 }
 
-const GUEST_CART_KEY = 'flowshop_guest_cart';
+const GUEST_CART_KEY = 'flurai_guest_cart';
+
+// Migration: rename old key
+(() => {
+  if (typeof window === 'undefined') return;
+  const old = localStorage.getItem('flowshop_guest_cart');
+  if (old) {
+    localStorage.setItem(GUEST_CART_KEY, old);
+    localStorage.removeItem('flowshop_guest_cart');
+  }
+})();
 
 export function getGuestCart(): GuestCartItem[] {
   try {

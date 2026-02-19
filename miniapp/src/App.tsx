@@ -55,10 +55,11 @@ function AppContent() {
   // Sync filters from user profile if they have city_id (non-blocking; no prompt on entry)
   useEffect(() => {
     if (!authInitialized) return;
-    
-    // Only sync if user is authenticated
+
+    // Only sync if user is authenticated — check both JWT and initData
+    // Avoid calling /buyers/me when not logged in (prevents 401 spam in browser)
     if (!api.isAuthenticated()) return;
-    
+
     let cancelled = false;
     api.getCurrentUser().then((user) => {
       if (cancelled || !user.city_id) return;
@@ -68,15 +69,16 @@ function AppContent() {
       if (user.district_id != null) updatedFilters.district_id = user.district_id;
       setFilters((prev: SellerFilters) => ({ ...prev, ...updatedFilters }));
       try {
-        const STORAGE_KEY = 'flowshop_location_filters';
+        const STORAGE_KEY = 'flurai_location_filters';
         const existing = localStorage.getItem(STORAGE_KEY);
         const cached = existing ? JSON.parse(existing) : {};
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...cached, ...updatedFilters, timestamp: Date.now() }));
       } catch (e) {
         console.error('Failed to update localStorage:', e);
       }
-    }).catch(() => {
-      // Silently ignore errors (user might not be authenticated)
+    }).catch((err) => {
+      // If auth failed (e.g. expired JWT), just log — user can re-auth on Profile page
+      console.log('[App] Location sync skipped:', err.message);
     });
     return () => { cancelled = true; };
   }, [setFilters, authInitialized]);

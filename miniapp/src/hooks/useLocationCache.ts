@@ -2,7 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import type { SellerFilters } from '../types';
 import { api } from '../api/client';
 
-const STORAGE_KEY = 'flowshop_location_filters';
+const STORAGE_KEY = 'flurai_location_filters';
+
+// Migration: rename old key to new
+(() => {
+  if (typeof window === 'undefined') return;
+  const old = localStorage.getItem('flowshop_location_filters');
+  if (old) {
+    localStorage.setItem(STORAGE_KEY, old);
+    localStorage.removeItem('flowshop_location_filters');
+  }
+})();
 
 interface CachedLocation {
   city_id?: number;
@@ -78,8 +88,15 @@ export function useLocationCache() {
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Check user profile for location on mount and sync with localStorage
+  // Only call API if user is authenticated (prevents 401 errors in browser)
   useEffect(() => {
     const syncUserLocation = async () => {
+      // Skip API call if user is not authenticated
+      if (!api.isAuthenticated()) {
+        setIsInitialized(true);
+        return;
+      }
+
       try {
         const user = await api.getCurrentUser();
 
@@ -112,7 +129,7 @@ export function useLocationCache() {
         }
       } catch (error) {
         // Silently fail - use localStorage data if available
-        console.error('Failed to sync user location:', error);
+        console.log('[useLocationCache] Sync skipped:', (error as Error).message);
       } finally {
         setIsInitialized(true);
       }
