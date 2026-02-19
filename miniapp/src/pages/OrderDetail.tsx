@@ -64,7 +64,7 @@ export function OrderDetail() {
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    setBackButton(true, () => navigate('/orders'));
+    setBackButton(true, () => navigate('/?tab=orders'));
     return () => setBackButton(false);
   }, [setBackButton, navigate]);
 

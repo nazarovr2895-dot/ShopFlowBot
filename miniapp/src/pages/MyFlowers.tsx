@@ -1,21 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import type { VisitedSeller, BuyerOrder, PublicSellerListItem } from '../types';
+import type { VisitedSeller, PublicSellerListItem } from '../types';
 import { api } from '../api/client';
 import { Loader, EmptyState, MyFlowersNavBar, ShopCard } from '../components';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import { isBrowser, isTelegram } from '../utils/environment';
+import { OrdersTabContent } from './OrdersTabContent';
 import './MyFlowers.css';
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: '⏳ Ожидает подтверждения',
-  accepted: '✅ Принят',
-  assembling: '📦 Собирается',
-  in_transit: '🚚 В пути',
-  done: '📬 Доставлен',
-  completed: '✅ Получен',
-  rejected: '❌ Отклонён',
-};
 
 type TabType = 'flowers' | 'orders';
 
@@ -28,10 +19,6 @@ export function MyFlowers() {
   // Flowers state
   const [sellers, setSellers] = useState<VisitedSeller[]>([]);
   const [flowersLoading, setFlowersLoading] = useState(true);
-
-  // Orders state
-  const [orders, setOrders] = useState<BuyerOrder[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(true);
 
   // Load flowers
   useEffect(() => {
@@ -48,25 +35,6 @@ export function MyFlowers() {
     };
     load();
   }, []);
-
-  // Load orders
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await api.getMyOrders();
-        setOrders(data);
-      } catch (e) {
-        console.error(e);
-        setOrders([]);
-      } finally {
-        setOrdersLoading(false);
-      }
-    };
-    load();
-  }, []);
-
-  const formatPrice = (n: number) =>
-    new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
   const renderFlowersTab = () => {
     if (flowersLoading) {
@@ -112,52 +80,6 @@ export function MyFlowers() {
     );
   };
 
-  const renderOrdersTab = () => {
-    if (ordersLoading) {
-      return <Loader centered />;
-    }
-
-    if (orders.length === 0) {
-      return (
-        <EmptyState
-          title="Заказов пока нет"
-          description="Оформите заказ в корзине"
-          icon="📦"
-        />
-      );
-    }
-
-    return (
-      <ul className="orders-list">
-        {orders.map((order) => (
-          <li key={order.id}>
-            <button
-              type="button"
-              className="order-card"
-              onClick={() => navigate(`/order/${order.id}`)}
-            >
-              <div className="order-card__header">
-                <span className="order-card__id">Заказ #{order.id}</span>
-                <span className="order-card__status">
-                  {STATUS_LABELS[order.status] ?? order.status}
-                </span>
-              </div>
-              <p className="order-card__items">{order.items_info}</p>
-              <div className="order-card__footer">
-                {formatPrice(order.total_price)}
-                {order.created_at && (
-                  <span className="order-card__date">
-                    {new Date(order.created_at).toLocaleDateString('ru-RU')}
-                  </span>
-                )}
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
-    );
-  };
-
   const isTelegramEnv = isTelegram();
   const isDesktop = useDesktopLayout();
 
@@ -169,7 +91,7 @@ export function MyFlowers() {
       {!isDesktop && <MyFlowersNavBar activeTab={activeTab} onTabChange={setActiveTab} />}
 
       <div className="my-flowers-page__content">
-        {activeTab === 'flowers' ? renderFlowersTab() : renderOrdersTab()}
+        {activeTab === 'flowers' ? renderFlowersTab() : <OrdersTabContent />}
       </div>
     </div>
   );

@@ -110,7 +110,7 @@ export function Profile() {
     if (fromParam === REQUIRE_AUTH_FROM_CHECKOUT) {
       navigate('/cart/checkout', { replace: true });
     } else if (fromParam === REQUIRE_AUTH_FROM_ORDERS) {
-      navigate('/orders', { replace: true });
+      navigate('/?tab=orders', { replace: true });
     }
   }, [fromParam, loadUser, navigate]);
 
@@ -296,7 +296,7 @@ export function Profile() {
                 className="profile-nav__item"
                 onClick={() => {
                   hapticFeedback('light');
-                  navigate('/orders');
+                  navigate('/?tab=orders');
                 }}
               >
                 <span className="profile-nav__icon">📦</span>
