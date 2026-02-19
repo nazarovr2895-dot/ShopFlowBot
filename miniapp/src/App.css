@@ -76,6 +76,13 @@ body {
   overscroll-behavior-y: contain;
 }
 
+/* Modal scroll lock — no reflow, no scrollbar shift */
+html.scroll-locked,
+html.scroll-locked body {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;

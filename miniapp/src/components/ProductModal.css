@@ -1,66 +1,70 @@
-/* ========================================
-   ProductModal — Bottom sheet (mobile) + Centered card (desktop)
-   Single-column layout on ALL screen sizes
-   ======================================== */
+/* =======================================================
+   ProductModal v3 — clean, jank-free bottom-sheet / card
+   ======================================================= */
 
-/* Backdrop */
-.product-modal-backdrop {
+/* ---- Keyframes ---- */
+@keyframes pm-overlayIn  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes pm-overlayOut { from { opacity: 1 } to { opacity: 0 } }
+@keyframes pm-sheetIn    { from { transform: translateY(100%) } to { transform: translateY(0) } }
+@keyframes pm-sheetOut   { from { transform: translateY(0) } to { transform: translateY(100%) } }
+@keyframes pm-cardIn     { from { opacity: 0; transform: scale(0.96) translateY(8px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+@keyframes pm-cardOut    { from { opacity: 1; transform: scale(1) translateY(0) } to { opacity: 0; transform: scale(0.96) translateY(8px) } }
+
+/* ---- Overlay (backdrop) ---- */
+.product-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  animation: pm-fadeIn 0.2s ease;
+  animation: pm-overlayIn 0.25s ease both;
 }
 
-@keyframes pm-fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.product-modal-overlay--closing {
+  animation: pm-overlayOut 0.2s ease both;
+  pointer-events: none;
 }
 
-[data-theme="dark"] .product-modal-backdrop {
-  background: rgba(0, 0, 0, 0.7);
+[data-theme="dark"] .product-modal-overlay {
+  background: rgba(0, 0, 0, 0.65);
 }
 
-/* ---- Modal container ---- */
+/* ---- Modal sheet ---- */
 .product-modal {
   position: relative;
   width: 100%;
   max-width: 500px;
-  max-height: 92vh;
+  max-height: 90vh;
   background: var(--app-bg);
-  border-radius: 20px 20px 0 0;
+  border-radius: 16px 16px 0 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: pm-slideUpSheet 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: pm-sheetIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) both;
   will-change: transform;
 }
 
+.product-modal-overlay--closing .product-modal {
+  animation: pm-sheetOut 0.2s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+/* When dragging — kill all CSS animations/transitions */
 .product-modal--dragging {
   animation: none !important;
-  transition: none !important;
+  transition: transform 0s !important;
 }
 
-.product-modal--closing {
-  animation: pm-slideDownSheet 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+/* Snap-back after failed swipe */
+.product-modal--snapping {
+  transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  animation: none !important;
 }
 
-@keyframes pm-slideUpSheet {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-@keyframes pm-slideDownSheet {
-  from { transform: translateY(0); }
-  to { transform: translateY(100%); }
-}
-
-/* Drag handle */
+/* ---- Drag handle ---- */
 .product-modal__handle {
   width: 36px;
   height: 4px;
@@ -71,9 +75,8 @@
 }
 
 /* ---- Scrollable content ---- */
-.product-modal__content {
-  display: flex;
-  flex-direction: column;
+.product-modal__scroll {
+  flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -86,11 +89,10 @@
   flex-shrink: 0;
 }
 
-.product-modal__image-container {
+.product-modal__image-wrap {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
-  max-height: 45vh;
   background: var(--app-surface);
   overflow: hidden;
 }
@@ -99,6 +101,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .product-modal__image-placeholder {
@@ -108,11 +111,10 @@
   align-items: center;
   justify-content: center;
   font-size: 48px;
-  opacity: 0.25;
-  background: var(--app-surface);
+  opacity: 0.2;
 }
 
-/* ---- Close button (on image) ---- */
+/* ---- Close button (overlaid on image) ---- */
 .product-modal__close {
   position: absolute;
   top: 10px;
@@ -120,33 +122,27 @@
   z-index: 10;
   width: 34px;
   height: 34px;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: none;
   border-radius: 50%;
-  color: #ffffff;
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
 }
 
 .product-modal__close:active {
-  background: rgba(0, 0, 0, 0.65);
-  transform: scale(0.93);
+  transform: scale(0.9);
 }
 
 [data-theme="dark"] .product-modal__close {
   background: rgba(255, 255, 255, 0.18);
 }
 
-[data-theme="dark"] .product-modal__close:active {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* ---- Favorite (on image) ---- */
+/* ---- Favorite (overlaid on image) ---- */
 .product-modal__favorite {
   position: absolute;
   top: 10px;
@@ -161,42 +157,31 @@
   transform: translateY(-50%);
   width: 34px;
   height: 34px;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: none;
   border-radius: 50%;
-  color: #ffffff;
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 5;
-  transition: background 0.15s;
 }
 
 .product-modal__nav:active {
-  background: rgba(0, 0, 0, 0.6);
-  transform: translateY(-50%) scale(0.93);
+  transform: translateY(-50%) scale(0.9);
 }
 
-.product-modal__nav--prev {
-  left: 10px;
-}
-
-.product-modal__nav--next {
-  right: 10px;
-}
+.product-modal__nav--prev { left: 10px; }
+.product-modal__nav--next { right: 10px; }
 
 [data-theme="dark"] .product-modal__nav {
   background: rgba(255, 255, 255, 0.18);
 }
 
-[data-theme="dark"] .product-modal__nav:active {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* ---- Dots (on image) ---- */
+/* ---- Dots (overlaid on bottom of image) ---- */
 .product-modal__dots {
   position: absolute;
   bottom: 10px;
@@ -213,8 +198,8 @@
   background: rgba(255, 255, 255, 0.45);
   border: none;
   border-radius: 50%;
-  cursor: pointer;
   padding: 0;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -230,10 +215,10 @@
   padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.product-modal__name-price {
+.product-modal__header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -241,7 +226,7 @@
 }
 
 .product-modal__name {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
   color: var(--app-text);
@@ -251,14 +236,14 @@
 }
 
 .product-modal__price {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--app-text);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.product-modal__description-text {
+.product-modal__desc {
   font-size: 14px;
   line-height: 1.5;
   color: var(--app-text-secondary);
@@ -266,18 +251,18 @@
   white-space: pre-wrap;
 }
 
-/* ---- Dates (preorder) ---- */
+/* ---- Preorder dates ---- */
 .product-modal__dates {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.product-modal__section-title {
+.product-modal__dates-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--app-text);
-  margin: 0 0 4px 0;
+  margin: 0;
 }
 
 .product-modal__dates-list {
@@ -296,17 +281,10 @@
   border-radius: 12px;
   cursor: pointer;
   text-align: left;
-  transition: opacity 0.15s;
 }
 
-.product-modal__date-btn:active {
-  opacity: 0.7;
-}
-
-.product-modal__date-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.product-modal__date-btn:active { opacity: 0.7; }
+.product-modal__date-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .product-modal__cancel-btn {
   padding: 11px 14px;
@@ -317,16 +295,13 @@
   border: 1px solid var(--app-border);
   border-radius: 12px;
   cursor: pointer;
-  transition: opacity 0.15s;
 }
 
-.product-modal__cancel-btn:active {
-  opacity: 0.7;
-}
+.product-modal__cancel-btn:active { opacity: 0.7; }
 
 /* ---- Add to cart button ---- */
-.product-modal__add-btn {
-  padding: 14px 24px;
+.product-modal__cart-btn {
+  padding: 14px;
   font-size: 16px;
   font-weight: 600;
   color: #ffffff;
@@ -334,97 +309,55 @@
   border: none;
   border-radius: 14px;
   cursor: pointer;
-  transition: opacity 0.15s;
+  text-align: center;
   -webkit-tap-highlight-color: transparent;
 }
 
-.product-modal__add-btn:active {
-  opacity: 0.75;
-}
+.product-modal__cart-btn:active { opacity: 0.75; }
+.product-modal__cart-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.product-modal__add-btn span {
-  position: relative;
-  z-index: 1;
-}
-
-.product-modal__add-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-[data-theme="dark"] .product-modal__add-btn {
+[data-theme="dark"] .product-modal__cart-btn {
   background: #ffffff;
   color: #000000;
 }
 
-/* ========================================
-   Desktop / Browser (≥ 768px)
-   — centered card, single-column
-   ======================================== */
+/* =======================================================
+   Desktop (>= 768px) — centered card
+   ======================================================= */
 @media (min-width: 768px) {
-  .product-modal-backdrop {
+  .product-modal-overlay {
     align-items: center;
     padding: 24px;
   }
 
   .product-modal {
-    max-width: 520px;
-    max-height: 90vh;
+    max-width: 480px;
+    max-height: 88vh;
     border-radius: 20px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
-    animation: pm-scaleIn 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    animation: pm-cardIn 0.25s ease both;
   }
 
-  .product-modal--closing {
-    animation: pm-scaleOut 0.2s ease forwards;
-  }
-
-  @keyframes pm-scaleIn {
-    from {
-      transform: scale(0.95) translateY(10px);
-      opacity: 0;
-    }
-    to {
-      transform: scale(1) translateY(0);
-      opacity: 1;
-    }
-  }
-
-  @keyframes pm-scaleOut {
-    from {
-      transform: scale(1);
-      opacity: 1;
-    }
-    to {
-      transform: scale(0.95) translateY(10px);
-      opacity: 0;
-    }
+  .product-modal-overlay--closing .product-modal {
+    animation: pm-cardOut 0.2s ease both;
   }
 
   [data-theme="dark"] .product-modal {
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .product-modal__handle {
     display: none;
   }
 
-  /* Single-column layout preserved — no flex-direction: row */
-  .product-modal__content {
-    flex-direction: column;
-  }
-
-  .product-modal__image-container {
+  .product-modal__image-wrap {
     max-height: 420px;
-    aspect-ratio: 1;
-    border-radius: 0;
   }
 
   .product-modal__info {
     padding: 20px;
-    padding-bottom: 20px;
-    gap: 14px;
+    gap: 12px;
   }
 
   .product-modal__name {
@@ -435,20 +368,19 @@
     font-size: 22px;
   }
 
-  .product-modal__description-text {
+  .product-modal__desc {
     font-size: 15px;
-    line-height: 1.55;
   }
 
   .product-modal__close {
-    top: 12px;
-    right: 12px;
     width: 36px;
     height: 36px;
+    top: 12px;
+    right: 12px;
   }
 
   .product-modal__close:hover {
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.55);
   }
 
   [data-theme="dark"] .product-modal__close:hover {
@@ -456,7 +388,7 @@
   }
 
   .product-modal__nav:hover {
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.5);
   }
 
   [data-theme="dark"] .product-modal__nav:hover {
