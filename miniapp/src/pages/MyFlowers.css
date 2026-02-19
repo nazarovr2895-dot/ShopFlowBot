@@ -66,72 +66,9 @@
   }
 }
 
-/* Orders styles */
-.orders-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.order-card {
-  width: 100%;
-  text-align: left;
-  padding: 14px 16px;
-  background: var(--app-bg-elevated);
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.order-card:active {
-  opacity: 0.9;
-}
-
-.order-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.order-card__id {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--app-text);
-}
-
-.order-card__status {
-  font-size: 13px;
-  color: var(--app-text-secondary);
-}
-
-.order-card__items {
-  font-size: 13px;
-  color: var(--app-text);
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.order-card__footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--app-text);
-}
-
-.order-card__date {
-  font-weight: 400;
-  color: var(--app-text-secondary);
-}
-
-/* Desktop layout: clear fixed MyFlowersNavBar (50px) below main-layout padding */
+/* Desktop layout: no MyFlowersNavBar on desktop, TopNav tabs handle switching */
 .my-flowers-page--desktop {
-  padding-top: calc(16px + 50px);
+  padding-top: 16px;
 }
 
 /* Desktop adjustments */
@@ -145,7 +82,6 @@
 
   .my-flowers-page--desktop {
     padding: 24px;
-    padding-top: calc(24px + 50px);
     max-width: 1400px;
     margin: 0 auto;
   }

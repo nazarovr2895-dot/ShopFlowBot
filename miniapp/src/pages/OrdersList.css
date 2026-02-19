@@ -167,6 +167,11 @@
   color: var(--tg-theme-hint-color);
 }
 
+/* ===== Orders tab content inside MyFlowers ===== */
+.orders-tab-content {
+  width: 100%;
+}
+
 /* ===== Desktop adaptation ===== */
 @media (min-width: 768px) {
   .orders-page {
@@ -174,5 +179,57 @@
     margin: 0 auto;
     padding: 24px 32px;
     padding-bottom: 48px;
+  }
+
+  .orders-tab-content {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .orders-page__tabs {
+    padding: 4px;
+  }
+
+  .orders-page__tab {
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+
+  .order-card {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .order-card__photo,
+  .order-card__photo-img,
+  .order-card__photo-placeholder {
+    width: 64px;
+    height: 64px;
+  }
+
+  .order-card__shop {
+    font-size: 15px;
+  }
+
+  .order-card__status-badge {
+    font-size: 13px;
+  }
+
+  .order-card__items {
+    font-size: 14px;
+  }
+
+  .order-card__price {
+    font-size: 15px;
+  }
+
+  .order-card__date {
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .orders-tab-content {
+    max-width: 720px;
   }
 }

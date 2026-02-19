@@ -33,8 +33,13 @@
   }
 }
 
-/* Desktop layout: top nav + search bar (90px + 50px + gap) */
+/* Desktop layout: top nav only (no search bar on most pages) */
 .main-layout--desktop,
 .main-layout--desktop:not([data-telegram="true"]) {
-  padding-top: calc(170px + env(safe-area-inset-top, 0));
+  padding-top: calc(90px + env(safe-area-inset-top, 0));
+}
+
+/* Desktop layout + search bar visible (catalog page): top nav + search bar */
+.main-layout--desktop .main-layout__content--with-search {
+  padding-top: 80px;
 }

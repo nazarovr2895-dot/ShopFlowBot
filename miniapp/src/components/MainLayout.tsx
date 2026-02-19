@@ -51,20 +51,20 @@ export function MainLayout() {
       data-telegram={isTelegramEnv}
     >
       <TopNav />
-      {isDesktop && (
+      {isDesktop && isCatalog && (
         <CatalogNavBar
           searchValue={searchValue}
           onSearchChange={onSearchChange}
           onFilterClick={openFilter}
           activeFiltersCount={activeFiltersCount}
-          showFilterButton={isCatalog}
+          showFilterButton
           desktopLayout
           onSearchSubmit={onSearchSubmit}
-          deliveryTab={isCatalog ? deliveryTab : undefined}
-          onDeliveryTabChange={isCatalog ? handleDeliveryTabChange : undefined}
+          deliveryTab={deliveryTab}
+          onDeliveryTabChange={handleDeliveryTabChange}
         />
       )}
-      <main className="main-layout__content">
+      <main className={`main-layout__content ${isDesktop && isCatalog ? 'main-layout__content--with-search' : ''}`}>
         <Outlet />
       </main>
     </div>
