@@ -800,14 +800,23 @@
   min-height: 2.8em;
 }
 
+.shop-details__product-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
 .shop-details__product-card-price {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-align: center;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 [data-theme="dark"] .shop-details__product-card-price {
@@ -818,9 +827,8 @@
 }
 
 .shop-details__product-card-add {
-  margin-top: auto;
-  padding: 10px 16px;
-  font-size: 13px;
+  padding: 8px 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #ffffff;
   background: #000000;
@@ -828,6 +836,8 @@
   border-radius: 20px;
   cursor: pointer;
   box-shadow: none;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .shop-details__product-card-add span {

@@ -622,48 +622,50 @@ export function ShopDetails() {
                   </div>
                   <div className="shop-details__product-card-info">
                     <span className="shop-details__product-card-name">{product.name}</span>
-                    <span className="shop-details__product-card-price">
-                      {formatPrice(product.price)}
-                    </span>
-                    {showDatePicker && availableDates.length > 0 ? (
-                      <div className="shop-details__preorder-dates" onClick={(e) => e.stopPropagation()}>
-                        <span className="shop-details__preorder-dates-label">Выберите дату:</span>
-                        {availableDates.slice(0, 4).map((d) => (
+                    <div className="shop-details__product-card-bottom">
+                      {showDatePicker && availableDates.length > 0 ? (
+                        <div className="shop-details__preorder-dates" onClick={(e) => e.stopPropagation()}>
+                          <span className="shop-details__preorder-dates-label">Выберите дату:</span>
+                          {availableDates.slice(0, 4).map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              className="shop-details__preorder-date-btn"
+                              onClick={() => confirmPreorderDate(product.id, d)}
+                              disabled={isAdding}
+                            >
+                              {new Date(d).toLocaleDateString('ru-RU')}
+                            </button>
+                          ))}
                           <button
-                            key={d}
                             type="button"
-                            className="shop-details__preorder-date-btn"
-                            onClick={() => confirmPreorderDate(product.id, d)}
-                            disabled={isAdding}
+                            className="shop-details__preorder-date-cancel"
+                            onClick={() => setPreorderDateForProductId(null)}
                           >
-                            {new Date(d).toLocaleDateString('ru-RU')}
+                            Отмена
                           </button>
-                        ))}
+                        </div>
+                      ) : (
                         <button
                           type="button"
-                          className="shop-details__preorder-date-cancel"
-                          onClick={() => setPreorderDateForProductId(null)}
+                          className="shop-details__product-card-add"
+                          disabled={(!inStock && !isPreorder) || isAdding}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isPreorder && availableDates.length > 0) {
+                              setPreorderDateForProductId(product.id);
+                            } else {
+                              addToCart(product.id);
+                            }
+                          }}
                         >
-                          Отмена
+                          <span>{isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}</span>
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="shop-details__product-card-add"
-                        disabled={(!inStock && !isPreorder) || isAdding}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isPreorder && availableDates.length > 0) {
-                            setPreorderDateForProductId(product.id);
-                          } else {
-                            addToCart(product.id);
-                          }
-                        }}
-                      >
-                        <span>{isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}</span>
-                      </button>
-                    )}
+                      )}
+                      <span className="shop-details__product-card-price">
+                        {formatPrice(product.price)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
