@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import WebApp from '@twa-dev/sdk';
 import type { Product } from '../types';
 import { ProductImage } from './ProductImage';
 import { HeartIcon } from './HeartIcon';
 import { ImageViewer } from './ImageViewer';
 import { ProductComposition } from './ProductComposition';
 import { api } from '../api/client';
+import { isTelegram } from '../utils/environment';
 import './ProductModal.css';
 
 interface ProductModalProps {
@@ -111,7 +113,7 @@ export function ProductModal({
     }
   }, [closing, onClose]);
 
-  /* ---------- scroll lock + ESC ---------- */
+  /* ---------- scroll lock + ESC + Telegram swipe guard ---------- */
   useEffect(() => {
     if (!isOpen) return;
 
@@ -123,6 +125,11 @@ export function ProductModal({
     const html = document.documentElement;
     html.classList.add('scroll-locked');
 
+    // Prevent Telegram from closing the Mini App on swipe-down
+    if (isTelegram()) {
+      try { WebApp.disableVerticalSwipes(); } catch { /* ignore */ }
+    }
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setClosing(true);
     };
@@ -131,6 +138,10 @@ export function ProductModal({
     return () => {
       html.classList.remove('scroll-locked');
       document.removeEventListener('keydown', onKey);
+      // Re-enable Telegram swipe-to-close when modal closes
+      if (isTelegram()) {
+        try { WebApp.enableVerticalSwipes(); } catch { /* ignore */ }
+      }
     };
   }, [isOpen]);
 

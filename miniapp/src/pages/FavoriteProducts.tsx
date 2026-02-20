@@ -22,6 +22,19 @@ function toProduct(fp: FavoriteProduct): Product {
   };
 }
 
+interface SellerInfo {
+  delivery_price: number;
+  delivery_type: 'delivery' | 'pickup' | 'both' | null;
+}
+
+interface LoyaltyInfo {
+  points_balance: number;
+  points_percent: number;
+  linked: boolean;
+  max_points_discount_percent: number;
+  points_to_ruble_rate: number;
+}
+
 export function FavoriteProducts() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<FavoriteProduct[]>([]);
@@ -29,6 +42,8 @@ export function FavoriteProducts() {
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<FavoriteProduct | null>(null);
+  const [sellerInfo, setSellerInfo] = useState<SellerInfo | null>(null);
+  const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null);
   const { hapticFeedback, showAlert } = useTelegramWebApp();
 
   useEffect(() => {
@@ -45,6 +60,41 @@ export function FavoriteProducts() {
     };
     load();
   }, []);
+
+  // Load seller details + loyalty when a product is selected
+  useEffect(() => {
+    if (!selectedProduct) {
+      setSellerInfo(null);
+      setLoyalty(null);
+      return;
+    }
+
+    let cancelled = false;
+    const sellerId = selectedProduct.seller_id;
+
+    // Load seller delivery info
+    api.getSellerDetail(sellerId)
+      .then((data) => {
+        if (!cancelled) {
+          setSellerInfo({
+            delivery_price: data.delivery_price,
+            delivery_type: data.delivery_type,
+          });
+        }
+      })
+      .catch(() => { if (!cancelled) setSellerInfo(null); });
+
+    // Load loyalty if authenticated
+    if (api.isAuthenticated()) {
+      api.getMyLoyaltyAtSeller(sellerId)
+        .then((data) => {
+          if (!cancelled) setLoyalty(data);
+        })
+        .catch(() => { if (!cancelled) setLoyalty(null); });
+    }
+
+    return () => { cancelled = true; };
+  }, [selectedProduct?.seller_id, selectedProduct]);
 
   const removeFromFavorites = async (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -169,7 +219,7 @@ export function FavoriteProducts() {
         })}
       </div>
 
-      {/* Product modal — same as in ShopDetails */}
+      {/* Product modal — same as in ShopDetails, with loyalty & delivery */}
       {selectedProduct && (
         <ProductModal
           product={toProduct(selectedProduct)}
@@ -181,6 +231,13 @@ export function FavoriteProducts() {
           isAdding={addingId === selectedProduct.product_id}
           inStock={(selectedProduct.quantity ?? 0) > 0}
           isPreorder={selectedProduct.is_preorder || false}
+          deliveryPrice={sellerInfo?.delivery_price}
+          deliveryType={sellerInfo?.delivery_type}
+          loyaltyPointsPercent={loyalty?.points_percent ?? 0}
+          pointsBalance={loyalty?.points_balance ?? 0}
+          pointsToRubleRate={loyalty?.points_to_ruble_rate ?? 1}
+          maxPointsDiscountPercent={loyalty?.max_points_discount_percent ?? 100}
+          loyaltyLinked={loyalty?.linked ?? false}
         />
       )}
     </div>
