@@ -630,7 +630,20 @@ async def get_seller_stats(fio: str, session: AsyncSession = Depends(get_session
 async def get_limits_analytics(session: AsyncSession = Depends(get_session)):
     """Аналитика загрузки лимитов продавцов: активные, исчерпавшие, средняя загрузка, разбивка по тарифам."""
     service = SellerService(session)
-    return await service.get_limits_analytics()
+    try:
+        return await service.get_limits_analytics()
+    except Exception:
+        logger.exception("get_limits_analytics failed")
+        return {
+            "total_sellers": 0,
+            "active_today": 0,
+            "exhausted": 0,
+            "closed_today": 0,
+            "no_limit": 0,
+            "avg_load_pct": 0.0,
+            "by_plan": {},
+            "top_loaded": [],
+        }
 
 
 # ============================================

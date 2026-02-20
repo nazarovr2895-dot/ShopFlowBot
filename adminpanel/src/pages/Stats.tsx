@@ -51,7 +51,10 @@ export function Stats() {
     try {
       const [overview, limits] = await Promise.all([
         getStatsOverview(params),
-        getLimitsAnalytics(),
+        getLimitsAnalytics().catch((err) => {
+          console.warn('Limits analytics load failed:', err);
+          return null;
+        }),
       ]);
       setDailySales(overview?.daily_sales ?? []);
       setLimitsData(limits || null);
@@ -257,7 +260,7 @@ export function Stats() {
                 </thead>
                 <tbody>
                   {limitsData.top_loaded.map((s) => (
-                    <tr key={s.tg_id}>
+                    <tr key={s.seller_id}>
                       <td>{s.shop_name || s.fio}</td>
                       <td className="text-right">{s.used}</td>
                       <td className="text-right">{s.limit}</td>

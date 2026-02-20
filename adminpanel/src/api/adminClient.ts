@@ -176,7 +176,7 @@ export async function getStatsOverview(params?: StatsDateRange): Promise<StatsOv
 }
 
 export interface LimitsAnalyticsItem {
-  tg_id: number;
+  seller_id: number;
   fio: string;
   shop_name: string;
   used: number;

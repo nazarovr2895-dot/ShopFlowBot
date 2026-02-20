@@ -1067,6 +1067,15 @@ class SellerService:
 
         avg_load = round(total_load_pct / active_today, 1) if active_today > 0 else 0.0
 
+        # Load fio from User table for seller display names
+        seller_ids = [s.seller_id for s in sellers]
+        fio_map: Dict[int, str] = {}
+        if seller_ids:
+            users_result = await self.session.execute(
+                select(User.tg_id, User.fio).where(User.tg_id.in_(seller_ids))
+            )
+            fio_map = {row.tg_id: row.fio or "" for row in users_result.all()}
+
         # Top 10 самых загруженных продавцов
         top_loaded = []
         for s in sellers:
@@ -1075,8 +1084,8 @@ class SellerService:
                 continue
             used = (s.active_orders or 0) + (s.pending_requests or 0)
             top_loaded.append({
-                "tg_id": s.tg_id,
-                "fio": s.fio,
+                "seller_id": s.seller_id,
+                "fio": fio_map.get(s.seller_id, ""),
                 "shop_name": s.shop_name,
                 "used": used,
                 "limit": eff,
