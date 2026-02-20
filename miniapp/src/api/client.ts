@@ -358,7 +358,7 @@ class ApiClient {
     productId: number,
     quantity: number = 1,
     preorderDeliveryDate?: string | null
-  ): Promise<{ product_id: number; quantity: number; seller_id: number }> {
+  ): Promise<{ product_id: number; quantity: number; seller_id: number; reserved_at?: string | null }> {
     const body: { product_id: number; quantity: number; preorder_delivery_date?: string } = {
       product_id: productId,
       quantity,
@@ -379,6 +379,10 @@ class ApiClient {
 
   async removeCartItem(productId: number): Promise<{ status: string }> {
     return this.fetch(`/buyers/me/cart/items/${productId}`, { method: 'DELETE' });
+  }
+
+  async extendReservation(productId: number): Promise<{ reserved_at: string; ttl_seconds: number }> {
+    return this.fetch(`/buyers/me/cart/items/${productId}/extend-reservation`, { method: 'POST' });
   }
 
   async clearCart(): Promise<{ status: string }> {

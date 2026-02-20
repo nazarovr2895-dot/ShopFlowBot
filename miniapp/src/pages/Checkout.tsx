@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { EmptyState, ProductImage, DesktopBackNav } from '../components';
 import { isBrowser } from '../utils/environment';
+import { computeRemaining } from '../hooks/useReservationTimer';
 import './Checkout.css';
 
 function normalizePhone(phone: string): string {
@@ -143,19 +144,54 @@ export function Checkout() {
     }
   };
 
+  // Poll cart every 30s to detect expired reservations
+  useEffect(() => {
+    if (cart.length === 0) return;
+    const interval = setInterval(async () => {
+      try {
+        const freshCart = await api.getCart();
+        const freshArr = Array.isArray(freshCart) ? freshCart : [];
+        const oldCount = cart.reduce((s, g) => s + g.items.length, 0);
+        const newCount = freshArr.reduce((s, g) => s + g.items.length, 0);
+        if (newCount < oldCount) {
+          setCart(freshArr);
+          if (newCount === 0) {
+            showAlert('Все резервирования истекли. Корзина пуста.');
+            navigate('/cart');
+          } else {
+            showAlert('Некоторые товары были убраны из корзины (истекло резервирование).');
+          }
+        }
+      } catch { /* ignore polling errors */ }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [cart, showAlert, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user?.phone) {
       showAlert('Необходимо указать номер телефона');
       return;
     }
-    
+
     if (deliveryType === 'Доставка' && !address.trim()) {
       showAlert('Укажите адрес доставки');
       return;
     }
-    
+
+    // Check for expired reservations before submitting
+    const hasExpiredItems = cart.some((g) =>
+      g.items.some((item) =>
+        item.reserved_at && !item.is_preorder && computeRemaining(item.reserved_at) <= 0
+      )
+    );
+    if (hasExpiredItems) {
+      showAlert('Время резервирования некоторых товаров истекло. Обновляем корзину...');
+      await loadUserAndCart();
+      return;
+    }
+
     setSubmitting(true);
     try {
       hapticFeedback('medium');

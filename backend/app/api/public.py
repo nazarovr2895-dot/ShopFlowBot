@@ -489,7 +489,7 @@ async def get_public_seller_detail(
             "price": float(p.price),
             "photo_id": (p.photo_ids or [p.photo_id] if p.photo_id else [None])[0] if (p.photo_ids or p.photo_id) else None,
             "photo_ids": _photo_ids(p),
-            "quantity": p.quantity,
+            "quantity": max(0, p.quantity - (getattr(p, "reserved_quantity", 0) or 0)),
             "is_preorder": getattr(p, "is_preorder", False),
             "composition": getattr(p, "composition", None),
         }

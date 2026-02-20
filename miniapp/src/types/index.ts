@@ -67,6 +67,7 @@ export interface CartItemEntry {
   is_preorder?: boolean;
   preorder_delivery_date?: string | null;
   photo_id?: string | null;
+  reserved_at?: string | null;
 }
 
 export interface CartSellerGroup {

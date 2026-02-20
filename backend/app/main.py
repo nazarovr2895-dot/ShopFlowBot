@@ -160,6 +160,27 @@ async def _daily_scheduler():
             await asyncio.sleep(60)  # Wait before retrying
 
 
+async def _reservation_sweeper():
+    """Background task: release expired stock reservations every 60 seconds."""
+    import asyncio
+    from backend.app.core.database import async_session
+    from backend.app.services.reservations import ReservationService
+
+    while True:
+        try:
+            await asyncio.sleep(60)
+            async with async_session() as session:
+                svc = ReservationService(session)
+                released = await svc.release_all_expired()
+                if released > 0:
+                    await session.commit()
+                    logger.info("Reservation sweeper: released expired reservations", count=released)
+        except Exception as e:
+            logger.error("Reservation sweeper error", error=str(e))
+            import asyncio as _asyncio
+            await _asyncio.sleep(10)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -171,9 +192,11 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Application starting up", version="1.0.0")
     scheduler_task = asyncio.create_task(_daily_scheduler())
+    sweeper_task = asyncio.create_task(_reservation_sweeper())
     yield
-    # Shutdown: cancel scheduler, close Redis
+    # Shutdown: cancel scheduler and sweeper, close Redis
     scheduler_task.cancel()
+    sweeper_task.cancel()
     logger.info("Application shutting down")
     await CacheService.close()
 

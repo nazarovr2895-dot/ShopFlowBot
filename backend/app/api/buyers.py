@@ -302,6 +302,22 @@ async def remove_cart_item(
     return {"status": "ok"}
 
 
+@router.post("/me/cart/items/{product_id}/extend-reservation")
+async def extend_reservation(
+    product_id: int,
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
+    session: AsyncSession = Depends(get_session),
+):
+    """Продлить резервирование товара в корзине (сбросить таймер 5 минут)."""
+    from backend.app.services.reservations import ReservationService, RESERVATION_TTL_SECONDS
+    svc = ReservationService(session)
+    new_reserved_at = await svc.extend_reservation(current_user.user.id, product_id)
+    if not new_reserved_at:
+        raise HTTPException(status_code=409, detail="Резервирование истекло или товар не найден")
+    await session.commit()
+    return {"reserved_at": new_reserved_at.isoformat(), "ttl_seconds": RESERVATION_TTL_SECONDS}
+
+
 @router.delete("/me/cart")
 async def clear_cart(
     current_user: TelegramInitData = Depends(get_current_user_hybrid),

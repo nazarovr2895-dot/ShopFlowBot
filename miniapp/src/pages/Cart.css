@@ -118,6 +118,60 @@
   align-self: flex-start;
 }
 
+/* ── Reservation timer badge ────────────────── */
+.cart-item__reservation {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--app-accent);
+  background: var(--app-surface);
+  padding: 3px 6px 3px 8px;
+  border-radius: 999px;
+  align-self: flex-start;
+}
+
+.cart-item__reservation--warning {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  animation: reservation-pulse 1s ease-in-out infinite;
+}
+
+.cart-item__reservation-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cart-item__reservation-time {
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+}
+
+.cart-item__reservation-extend {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cart-item__reservation-extend:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+@keyframes reservation-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .cart-item__row {
   display: flex;
   align-items: center;

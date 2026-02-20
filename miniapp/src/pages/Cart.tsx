@@ -1,12 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { CartSellerGroup } from '../types';
+import type { CartSellerGroup, CartItemEntry } from '../types';
 import { api } from '../api/client';
 import { Loader, EmptyState, ProductImage } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import { getGuestCart, guestCartToGroups, updateGuestCartItem, removeGuestCartItem } from '../utils/guestCart';
+import { useReservationTimer, computeRemaining } from '../hooks/useReservationTimer';
 import './Cart.css';
+
+function ReservationBadge({ item, onExpired, onExtend }: {
+  item: CartItemEntry;
+  onExpired: () => void;
+  onExtend: (productId: number) => void;
+}) {
+  const { formattedTime, hasExpired, isWarning } = useReservationTimer(item.reserved_at);
+  const expiredRef = useRef(false);
+
+  useEffect(() => {
+    if (hasExpired && !expiredRef.current) {
+      expiredRef.current = true;
+      onExpired();
+    }
+  }, [hasExpired, onExpired]);
+
+  if (!item.reserved_at || item.is_preorder) return null;
+  if (hasExpired) return null;
+
+  return (
+    <div className={`cart-item__reservation ${isWarning ? 'cart-item__reservation--warning' : ''}`}>
+      <span className="cart-item__reservation-icon">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      </span>
+      <span className="cart-item__reservation-time">{formattedTime}</span>
+      <button
+        type="button"
+        className="cart-item__reservation-extend"
+        onClick={(e) => { e.stopPropagation(); onExtend(item.product_id); }}
+      >
+        Продлить
+      </button>
+    </div>
+  );
+}
 
 export function Cart() {
   const navigate = useNavigate();
@@ -20,11 +59,10 @@ export function Cart() {
 
   const isGuest = isBrowser() && !api.isAuthenticated();
 
-  const loadCart = async () => {
+  const loadCart = useCallback(async () => {
     setLoading(true);
     try {
       if (isGuest) {
-        // Guest: read from localStorage
         const guestItems = getGuestCart();
         setCart(guestCartToGroups(guestItems));
       } else {
@@ -37,11 +75,58 @@ export function Cart() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isGuest]);
 
   useEffect(() => {
     loadCart();
-  }, []);
+  }, [loadCart]);
+
+  // Auto-refresh cart when any reservation expires (check every 5s)
+  useEffect(() => {
+    if (isGuest) return;
+    const interval = setInterval(() => {
+      const hasExpired = cart.some((g) =>
+        g.items.some((item) =>
+          item.reserved_at && !item.is_preorder && computeRemaining(item.reserved_at) <= 0
+        )
+      );
+      if (hasExpired) {
+        loadCart();
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [cart, isGuest, loadCart]);
+
+  const handleReservationExpired = useCallback(() => {
+    showAlert('Время резервирования истекло, товар убран из корзины');
+    // Cart will auto-refresh via the interval above
+  }, [showAlert]);
+
+  const handleExtendReservation = useCallback(async (productId: number) => {
+    try {
+      hapticFeedback('light');
+      const result = await api.extendReservation(productId);
+      // Update local state with new reserved_at
+      setCart((prev) =>
+        prev.map((group) => ({
+          ...group,
+          items: group.items.map((item) =>
+            item.product_id === productId
+              ? { ...item, reserved_at: result.reserved_at }
+              : item
+          ),
+        }))
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Ошибка';
+      if (msg.includes('409') || msg.includes('истекло')) {
+        showAlert('Резервирование истекло. Обновляем корзину...');
+        await loadCart();
+      } else {
+        showAlert(msg);
+      }
+    }
+  }, [hapticFeedback, showAlert, loadCart]);
 
   const updateQuantity = async (productId: number, quantity: number, sellerId?: number) => {
     try {
@@ -129,6 +214,11 @@ export function Cart() {
                       Предзаказ на {new Date(item.preorder_delivery_date).toLocaleDateString('ru-RU')}
                     </span>
                   )}
+                  <ReservationBadge
+                    item={item}
+                    onExpired={handleReservationExpired}
+                    onExtend={handleExtendReservation}
+                  />
                   <div className="cart-item__row">
                     <button
                       type="button"
@@ -208,7 +298,7 @@ export function Cart() {
           Оформить заказ
         </button>
         <p className="cart-page__footer-note">
-          Способ и время доставки можно выбрать при оформлении заказа
+          Товары бронируются на 5 минут
         </p>
       </div>
       </div>{/* .cart-page__body */}

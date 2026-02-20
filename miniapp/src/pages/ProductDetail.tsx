@@ -125,13 +125,22 @@ export function ProductDetail() {
         return;
       }
 
-      await api.addCartItem(product.id, 1, preorderDate);
-      showAlert(preorderDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
+      const result = await api.addCartItem(product.id, 1, preorderDate);
+      if (preorderDate) {
+        showAlert('Предзаказ добавлен в корзину');
+      } else if (result.reserved_at) {
+        showAlert('Товар забронирован на 5 минут');
+      } else {
+        showAlert('Добавлено в корзину');
+      }
       setSelectedPreorderDate(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка';
       const isAuthError = msg.includes('401') || msg.includes('Unauthorized') || msg.includes('Missing') || msg.includes('X-Telegram');
-      if (isAuthError) {
+      const isStockError = msg.includes('409') || msg.includes('Товар закончился') || msg.includes('Недостаточно');
+      if (isStockError) {
+        showAlert('Товар закончился');
+      } else if (isAuthError) {
         if (isBrowser()) {
           showAlert('Войдите в профиле, чтобы добавлять товары в корзину');
           navigate('/profile');

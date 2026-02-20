@@ -15,6 +15,7 @@ class Product(Base):
     photo_ids: Mapped[Optional[List[str]]] = mapped_column(JSON(), nullable=True)  # up to 3 paths
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     quantity: Mapped[int] = mapped_column(Integer, default=0)
+    reserved_quantity: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
     bouquet_id: Mapped[Optional[int]] = mapped_column(ForeignKey('bouquets.id'), nullable=True)
     is_preorder: Mapped[bool] = mapped_column(Boolean, default=False)
     cost_price: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True)

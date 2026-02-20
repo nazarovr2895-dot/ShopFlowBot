@@ -314,19 +314,25 @@ export function ShopDetails() {
         return;
       }
 
-      await api.addCartItem(productId, quantity, preorderDeliveryDate);
+      const result = await api.addCartItem(productId, quantity, preorderDeliveryDate);
       // Update local cart state (no alert — visual change is the feedback)
       if (!preorderDeliveryDate) {
         setCartQuantities((prev) => {
           const next = new Map(prev);
-          next.set(productId, (prev.get(productId) || 0) + quantity);
+          next.set(productId, result.quantity ?? (prev.get(productId) || 0) + quantity);
           return next;
         });
+        if (result.reserved_at) {
+          showAlert('Товар забронирован на 5 минут');
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Ошибка';
       const isAuthError = msg.includes('401') || msg.includes('Unauthorized') || msg.includes('Missing') || msg.includes('X-Telegram');
-      if (isAuthError) {
+      const isStockError = msg.includes('409') || msg.includes('Товар закончился') || msg.includes('Недостаточно');
+      if (isStockError) {
+        showAlert('Товар закончился');
+      } else if (isAuthError) {
         if (isBrowser()) {
           showAlert('Войдите в профиле, чтобы добавлять товары в корзину');
           navigate('/profile');

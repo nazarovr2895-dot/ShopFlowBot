@@ -1,6 +1,6 @@
 # backend/app/services/cart.py
 """Cart and favorites services for Mini App."""
-from datetime import date
+from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, and_, func
 from typing import List, Dict, Any, Optional
@@ -13,6 +13,7 @@ from backend.app.models.seller import Seller
 from backend.app.models.user import User
 from backend.app.services.orders import OrderService, OrderServiceError
 from backend.app.services.sellers import get_preorder_available_dates
+from backend.app.services.reservations import ReservationService
 
 
 class CartServiceError(Exception):
@@ -28,6 +29,10 @@ class CartService:
 
     async def get_cart(self, buyer_id: int) -> List[Dict[str, Any]]:
         """Get cart grouped by seller. Returns list of { seller_id, shop_name, items, total }."""
+        # Lazy cleanup: release expired reservations and remove those cart items
+        reservation_svc = ReservationService(self.session)
+        await reservation_svc.release_expired_for_buyer(buyer_id)
+
         result = await self.session.execute(
             select(CartItem).where(CartItem.buyer_id == buyer_id).order_by(CartItem.seller_id, CartItem.product_id)
         )
@@ -81,6 +86,7 @@ class CartService:
                         "is_preorder": getattr(it, "is_preorder", False),
                         "preorder_delivery_date": it.preorder_delivery_date.isoformat() if getattr(it, "preorder_delivery_date", None) else None,
                         "photo_id": _photo_id_for(it.product_id),
+                        "reserved_at": it.reserved_at.isoformat() if getattr(it, "reserved_at", None) else None,
                     }
                     for it in items
                 ],
@@ -143,10 +149,16 @@ class CartService:
                     if current_count >= max_per_date:
                         raise CartServiceError(f"На эту дату все места заняты (лимит: {max_per_date})", 409)
         else:
-            if product.quantity < 1:
-                raise CartServiceError("Product out of stock", 400)
-            if quantity > product.quantity:
-                quantity = product.quantity
+            # Lazy cleanup expired reservations for this buyer first
+            reservation_svc = ReservationService(self.session)
+            await reservation_svc.release_expired_for_buyer(buyer_id)
+            # Re-fetch product after cleanup (reserved_quantity may have changed)
+            await self.session.refresh(product)
+            available = product.quantity - product.reserved_quantity
+            if available < 1:
+                raise CartServiceError("Товар закончился", 409)
+            if quantity > available:
+                quantity = available
         # For preorder items: match by (buyer, seller, product, date) to allow same product on different dates
         filters = [
             CartItem.buyer_id == buyer_id,
@@ -161,25 +173,59 @@ class CartService:
             select(CartItem).where(and_(*filters))
         )
         item = existing.scalar_one_or_none()
-        if item:
-            new_qty = item.quantity + quantity
-            if not is_preorder and product.quantity < new_qty:
-                new_qty = product.quantity
-            item.quantity = new_qty
+        if is_preorder:
+            # Preorder: no reservation, just upsert
+            if item:
+                item.quantity = item.quantity + quantity
+            else:
+                item = CartItem(
+                    buyer_id=buyer_id,
+                    seller_id=product.seller_id,
+                    product_id=product_id,
+                    quantity=quantity,
+                    name=product.name,
+                    price=product.price,
+                    is_preorder=True,
+                    preorder_delivery_date=preorder_date,
+                )
+                self.session.add(item)
         else:
-            item = CartItem(
-                buyer_id=buyer_id,
-                seller_id=product.seller_id,
-                product_id=product_id,
-                quantity=quantity,
-                name=product.name,
-                price=product.price,
-                is_preorder=is_preorder,
-                preorder_delivery_date=preorder_date,
-            )
-            self.session.add(item)
+            # Regular product: reserve stock
+            reservation_svc = ReservationService(self.session)
+            if item:
+                old_qty = item.quantity
+                new_qty = old_qty + quantity
+                available_for_increase = product.quantity - product.reserved_quantity + old_qty
+                if new_qty > available_for_increase:
+                    new_qty = available_for_increase
+                delta = new_qty - old_qty
+                if delta > 0:
+                    await reservation_svc.reserve_stock(product_id, delta)
+                elif delta < 0:
+                    await reservation_svc.release_stock(product_id, abs(delta))
+                item.quantity = new_qty
+                item.reserved_at = datetime.utcnow()
+            else:
+                reserved_at = await reservation_svc.reserve_stock(product_id, quantity)
+                item = CartItem(
+                    buyer_id=buyer_id,
+                    seller_id=product.seller_id,
+                    product_id=product_id,
+                    quantity=quantity,
+                    name=product.name,
+                    price=product.price,
+                    is_preorder=False,
+                    preorder_delivery_date=None,
+                    reserved_at=reserved_at,
+                )
+                self.session.add(item)
         await self.session.flush()
-        return {"product_id": product_id, "quantity": item.quantity, "seller_id": product.seller_id}
+        return {
+            "product_id": product_id,
+            "quantity": item.quantity,
+            "seller_id": product.seller_id,
+            "reserved_at": item.reserved_at.isoformat() if getattr(item, "reserved_at", None) else None,
+        }
 
     async def update_item(self, buyer_id: int, product_id: int, quantity: int) -> None:
         """Set item quantity. 0 = remove."""
@@ -191,23 +237,56 @@ class CartService:
         item = result.scalar_one_or_none()
         if not item:
             return
+        reservation_svc = ReservationService(self.session)
         if quantity <= 0:
+            # Release reservation before removing
+            await reservation_svc.release_reservation(item)
             await self.session.delete(item)
+            await self.session.flush()
             return
         product = await self.session.get(Product, product_id)
-        if product and product.quantity < quantity:
-            quantity = product.quantity
+        if not product:
+            return
+        old_qty = item.quantity
+        if not item.is_preorder:
+            # Cap to available stock (current reserved by this item + free)
+            available_for_item = product.quantity - product.reserved_quantity + old_qty
+            if quantity > available_for_item:
+                quantity = available_for_item
+            delta = quantity - old_qty
+            if delta > 0:
+                await reservation_svc.reserve_stock(product_id, delta)
+            elif delta < 0:
+                await reservation_svc.release_stock(product_id, abs(delta))
+            item.reserved_at = datetime.utcnow()  # refresh timer on edit
+        else:
+            if product.quantity < quantity:
+                quantity = product.quantity
         item.quantity = quantity
         await self.session.flush()
 
     async def remove_item(self, buyer_id: int, product_id: int) -> None:
-        await self.session.execute(
-            delete(CartItem).where(
+        result = await self.session.execute(
+            select(CartItem).where(
                 and_(CartItem.buyer_id == buyer_id, CartItem.product_id == product_id)
             )
         )
+        item = result.scalar_one_or_none()
+        if not item:
+            return
+        reservation_svc = ReservationService(self.session)
+        await reservation_svc.release_reservation(item)
+        await self.session.delete(item)
+        await self.session.flush()
 
     async def clear_cart(self, buyer_id: int) -> None:
+        result = await self.session.execute(
+            select(CartItem).where(CartItem.buyer_id == buyer_id)
+        )
+        items = result.scalars().all()
+        reservation_svc = ReservationService(self.session)
+        for item in items:
+            await reservation_svc.release_reservation(item)
         await self.session.execute(delete(CartItem).where(CartItem.buyer_id == buyer_id))
 
     async def checkout(
@@ -227,6 +306,10 @@ class CartService:
         Returns list of { order_id, seller_id, total_price }.
         """
         from backend.app.services.loyalty import LoyaltyService
+
+        # Validate all reservations are still active before checkout
+        reservation_svc = ReservationService(self.session)
+        released = await reservation_svc.release_expired_for_buyer(buyer_id)
 
         groups = await self.get_cart(buyer_id)
         if not groups:

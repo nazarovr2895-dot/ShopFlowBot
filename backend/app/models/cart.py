@@ -20,6 +20,7 @@ class CartItem(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_preorder: Mapped[bool] = mapped_column(Boolean, default=False)
     preorder_delivery_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    reserved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('buyer_id', 'seller_id', 'product_id', 'preorder_delivery_date', name='uq_cart_buyer_seller_product_date'),
