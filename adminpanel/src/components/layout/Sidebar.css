@@ -115,7 +115,9 @@
   .sidebar-v2 {
     width: 100%;
     height: auto;
-    position: relative;
+    position: sticky;
+    top: 0;
+    z-index: 100;
     flex-direction: row;
     align-items: center;
     padding: var(--space-2) var(--space-3);
@@ -123,6 +125,7 @@
     border-bottom: 1px solid var(--border);
     overflow-x: auto;
     overflow-y: hidden;
+    background: var(--bg-surface);
   }
 
   .sidebar-v2-brand {
