@@ -1019,7 +1019,7 @@ class OrderService:
         date_field = func.coalesce(Order.completed_at, Order.created_at)
         end_exclusive = date_to + timedelta(days=1) if date_to else None
 
-        base = [Order.seller_id == seller_id, Order.status.in_(self.COMPLETED_ORDER_STATUSES)]
+        base = [Order.seller_id == seller_id, Order.status.in_(self.COMPLETED_ORDER_STATUSES), Order.buyer_id.isnot(None)]
         period_conds = list(base)
         if date_from:
             period_conds.append(date_field >= date_from)
@@ -1120,9 +1120,9 @@ class OrderService:
         top_customers: List[Dict[str, Any]] = []
         if top_rows:
             buyer_ids = [r.buyer_id for r in top_rows]
-            users_stmt = select(User.id, User.fio, User.phone).where(User.id.in_(buyer_ids))
+            users_stmt = select(User.tg_id, User.fio, User.phone).where(User.tg_id.in_(buyer_ids))
             users_rows = (await self.session.execute(users_stmt)).all()
-            users_map = {u.id: {"fio": u.fio, "phone": u.phone} for u in users_rows}
+            users_map = {u.tg_id: {"fio": u.fio, "phone": u.phone} for u in users_rows}
             for r in top_rows:
                 u = users_map.get(r.buyer_id, {})
                 top_customers.append({

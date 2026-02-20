@@ -105,7 +105,10 @@ export function SellerStats() {
     try {
       const [data, custData, preorderAnalytics] = await Promise.all([
         getStats(params),
-        getCustomerStats(params),
+        getCustomerStats(params).catch((err) => {
+          console.warn('Customer stats load failed:', err);
+          return null;
+        }),
         getPreorderAnalytics(params).catch((err) => {
           console.warn('Preorder analytics load failed:', err);
           return null;

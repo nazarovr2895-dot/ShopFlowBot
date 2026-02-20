@@ -442,6 +442,7 @@ async def notify_subscribers_preorder(
 ):
     """Send a push notification to all subscribers that preorders are open."""
     from backend.app.models.cart import BuyerFavoriteSeller
+    from backend.app.models.seller import Seller
     from backend.app.services.telegram_notify import notify_subscriber_preorder_opened
 
     seller = await session.get(Seller, seller_id)
@@ -707,7 +708,19 @@ async def get_customer_stats(
         end_date = end_datetime_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
     service = OrderService(session)
-    return await service.get_customer_stats(seller_id, date_from=start_date, date_to=end_date)
+    try:
+        return await service.get_customer_stats(seller_id, date_from=start_date, date_to=end_date)
+    except Exception:
+        logger.exception("get_customer_stats failed", seller_id=seller_id)
+        return {
+            "total_customers": 0,
+            "new_customers": 0,
+            "returning_customers": 0,
+            "repeat_orders": 0,
+            "retention_rate": 0.0,
+            "avg_ltv": 0.0,
+            "top_customers": [],
+        }
 
 
 # --- PRODUCTS ---

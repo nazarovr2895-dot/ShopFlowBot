@@ -3,8 +3,9 @@ import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -182,6 +183,14 @@ app = FastAPI(title="Flurai Backend", lifespan=lifespan)
 # Use shared limiter (routers use the same instance for @limiter.limit)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Return a proper JSONResponse on unhandled errors so CORS middleware can add headers."""
+    logger.exception("Unhandled exception", path=str(request.url.path))
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 # CORS middleware для Mini App - ДОЛЖЕН БЫТЬ ПЕРВЫМ (выполняется последним при ответе)
 # Use settings for CORS configuration
