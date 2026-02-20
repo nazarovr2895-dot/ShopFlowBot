@@ -40,41 +40,48 @@ function applyTelegramSafeArea() {
   const body = document.body;
   body.classList.add('tg-fullscreen');
 
-  // Telegram provides these CSS variables in newer clients:
-  //   --tg-viewport-stable-height
-  //   --tg-content-safe-area-inset-top (Bot API 8.0+)
-  //   --tg-safe-area-inset-top (Bot API 8.0+)
-  // We read them and set our own --tg-header-offset for the CSS.
-
   const update = () => {
-    const root = document.documentElement;
-
-    // Try Telegram 8.0+ content safe area
-    const tgContentTop = getComputedStyle(root).getPropertyValue('--tg-content-safe-area-inset-top')?.trim();
-    const tgSafeTop = getComputedStyle(root).getPropertyValue('--tg-safe-area-inset-top')?.trim();
-
+    const wa = WebApp as any;
     let offset = 0;
 
-    if (tgContentTop && parseInt(tgContentTop) > 0) {
-      // Bot API 8.0+: use content safe area (below Telegram header)
-      offset = parseInt(tgContentTop);
-    } else if (tgSafeTop && parseInt(tgSafeTop) > 0) {
-      offset = parseInt(tgSafeTop);
+    // 1. Try JS API (Bot API 7.10+ / 8.0+)
+    const safeTop = wa.safeAreaInset?.top ?? 0;
+    const contentTop = wa.contentSafeAreaInset?.top ?? 0;
+    if (safeTop > 0 || contentTop > 0) {
+      offset = safeTop + contentTop;
     }
 
-    // Set the offset CSS variable on body
+    // 2. Fallback: try CSS variables
+    if (offset === 0) {
+      const root = document.documentElement;
+      const style = getComputedStyle(root);
+      const tgContentTop = parseInt(style.getPropertyValue('--tg-content-safe-area-inset-top')) || 0;
+      const tgSafeTop = parseInt(style.getPropertyValue('--tg-safe-area-inset-top')) || 0;
+      if (tgContentTop > 0 || tgSafeTop > 0) {
+        offset = tgContentTop + tgSafeTop;
+      }
+    }
+
+    // 3. Fallback for Android: compare viewportStableHeight to window height
+    if (offset === 0 && wa.viewportStableHeight && wa.viewportStableHeight < window.innerHeight) {
+      const delta = window.innerHeight - wa.viewportStableHeight;
+      if (delta > 10 && delta < 200) {
+        offset = delta;
+      }
+    }
+
     body.style.setProperty('--tg-header-offset', `${offset}px`);
   };
 
-  // Run immediately and on viewport change
   update();
-
-  // Listen for viewport changes (Telegram resizes when keyboard opens, etc.)
   if (typeof WebApp.onEvent === 'function') {
     WebApp.onEvent('viewportChanged', update);
+    try {
+      WebApp.onEvent('fullscreenChanged' as any, update);
+      WebApp.onEvent('safeAreaChanged' as any, update);
+      WebApp.onEvent('contentSafeAreaChanged' as any, update);
+    } catch { /* events not supported */ }
   }
-
-  // Also update after a short delay (Telegram may set CSS vars async)
   setTimeout(update, 300);
   setTimeout(update, 1000);
 }

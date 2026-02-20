@@ -38,23 +38,41 @@ function initTelegramWebAppOnce() {
 }
 
 /**
- * Read Telegram CSS safe-area variables and set --tg-content-safe-area
- * so the layout can account for the Telegram header in fullscreen mode.
+ * Read Telegram safe-area insets from JS API, CSS variables, or use fallback.
+ * Sets --tg-header-offset on body for CSS to use.
  */
 function applyTelegramSafeArea() {
   const body = document.body;
   body.classList.add('tg-fullscreen');
 
   const update = () => {
-    const root = document.documentElement;
-    const tgContentTop = getComputedStyle(root).getPropertyValue('--tg-content-safe-area-inset-top')?.trim();
-    const tgSafeTop = getComputedStyle(root).getPropertyValue('--tg-safe-area-inset-top')?.trim();
-
+    const wa = WebApp as any;
     let offset = 0;
-    if (tgContentTop && parseInt(tgContentTop) > 0) {
-      offset = parseInt(tgContentTop);
-    } else if (tgSafeTop && parseInt(tgSafeTop) > 0) {
-      offset = parseInt(tgSafeTop);
+
+    // 1. Try JS API (Bot API 7.10+ / 8.0+)
+    const safeTop = wa.safeAreaInset?.top ?? 0;
+    const contentTop = wa.contentSafeAreaInset?.top ?? 0;
+    if (safeTop > 0 || contentTop > 0) {
+      offset = safeTop + contentTop;
+    }
+
+    // 2. Fallback: try CSS variables
+    if (offset === 0) {
+      const root = document.documentElement;
+      const style = getComputedStyle(root);
+      const tgContentTop = parseInt(style.getPropertyValue('--tg-content-safe-area-inset-top')) || 0;
+      const tgSafeTop = parseInt(style.getPropertyValue('--tg-safe-area-inset-top')) || 0;
+      if (tgContentTop > 0 || tgSafeTop > 0) {
+        offset = tgContentTop + tgSafeTop;
+      }
+    }
+
+    // 3. Fallback for Android: compare viewportStableHeight to window height
+    if (offset === 0 && wa.viewportStableHeight && wa.viewportStableHeight < window.innerHeight) {
+      const delta = window.innerHeight - wa.viewportStableHeight;
+      if (delta > 10 && delta < 200) {
+        offset = delta;
+      }
     }
 
     body.style.setProperty('--tg-header-offset', `${offset}px`);
@@ -63,6 +81,11 @@ function applyTelegramSafeArea() {
   update();
   if (typeof WebApp.onEvent === 'function') {
     WebApp.onEvent('viewportChanged', update);
+    try {
+      WebApp.onEvent('fullscreenChanged' as any, update);
+      WebApp.onEvent('safeAreaChanged' as any, update);
+      WebApp.onEvent('contentSafeAreaChanged' as any, update);
+    } catch { /* events not supported */ }
   }
   setTimeout(update, 300);
   setTimeout(update, 1000);
