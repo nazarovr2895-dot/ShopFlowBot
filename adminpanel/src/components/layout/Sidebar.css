@@ -128,6 +128,11 @@
     background: var(--bg-surface);
   }
 
+  /* Telegram fullscreen: stick below system bar + TG header */
+  .tg-fullscreen .sidebar-v2 {
+    top: calc(env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
+  }
+
   .sidebar-v2-brand {
     padding: 0;
     margin-bottom: 0;
