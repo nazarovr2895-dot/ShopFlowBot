@@ -1,7 +1,10 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not needed in Docker (env vars set via docker-compose)
 
 ADMIN_BOT_TOKEN = os.getenv("ADMIN_BOT_TOKEN")
 if not ADMIN_BOT_TOKEN:
