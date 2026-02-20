@@ -196,6 +196,50 @@
   line-height: 1.4;
 }
 
+/* ===== Pickup section ===== */
+.order-detail__pickup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.order-detail__pickup-address {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--tg-theme-text-color);
+  background: var(--tg-theme-secondary-bg-color, rgba(0, 0, 0, 0.03));
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+.order-detail__pickup-map-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  color: var(--tg-theme-link-color, var(--tg-theme-button-color));
+  background: var(--tg-theme-secondary-bg-color, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--tg-theme-hint-color, rgba(0, 0, 0, 0.15));
+  border-radius: 10px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.order-detail__pickup-map-btn:active {
+  opacity: 0.7;
+}
+
+.order-detail__pickup-map-btn svg {
+  flex-shrink: 0;
+}
+
 /* ===== Action buttons ===== */
 .order-detail__actions {
   display: flex;
@@ -269,6 +313,15 @@
 
   .order-detail__contact-btn:hover {
     opacity: 0.8;
+  }
+
+  .order-detail__pickup-map-btn {
+    max-width: 400px;
+    transition: opacity 0.15s ease;
+  }
+
+  .order-detail__pickup-map-btn:hover {
+    opacity: 0.85;
   }
 
   .order-detail__actions {

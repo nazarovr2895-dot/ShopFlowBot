@@ -1,38 +1,10 @@
 # Покупатель: каталог и корзина перенесены в Mini App.
-# В боте остаются только редирект в Mini App и обработка "Подтвердить получение" из уведомлений.
+# В боте остаются только обработка "Подтвердить получение" из уведомлений.
 from aiogram import Router, F, types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.api_client.orders import api_update_order_status
-from bot.config import MINI_APP_URL
 
 router = Router()
-
-
-def _mini_app_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🛍 Каталог", web_app=WebAppInfo(url=MINI_APP_URL))],
-            [KeyboardButton(text="📦 Мои заказы", web_app=WebAppInfo(url=f"{MINI_APP_URL.rstrip('/')}/orders"))],
-        ],
-        resize_keyboard=True,
-    )
-
-
-# --- Редирект в Mini App (для старых кнопок или глубоких ссылок) ---
-@router.message(F.text.in_({"🌸 Открыть магазин", "🛒 Корзина"}))
-async def redirect_to_catalog(message: types.Message):
-    await message.answer(
-        "Каталог и корзина — в приложении. Нажмите кнопку ниже.",
-        reply_markup=_mini_app_kb(),
-    )
-
-
-@router.message(F.text == "📦 Мои заказы")
-async def redirect_to_orders(message: types.Message):
-    await message.answer(
-        "Заказы отображаются в приложении. Нажмите кнопку ниже.",
-        reply_markup=_mini_app_kb(),
-    )
 
 
 # --- Подтверждение получения заказа (из уведомления в ТГ) ---

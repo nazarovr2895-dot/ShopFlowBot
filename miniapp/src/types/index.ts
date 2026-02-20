@@ -136,6 +136,8 @@ export interface BuyerOrder {
   shop_name?: string;
   seller_username?: string | null;
   first_product_photo?: string | null;
+  seller_address_name?: string | null;
+  seller_map_url?: string | null;
 }
 
 export interface PublicSellerDetail {

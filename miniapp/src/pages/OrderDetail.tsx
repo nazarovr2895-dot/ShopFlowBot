@@ -51,6 +51,16 @@ function parseItemsDisplay(itemsInfo: string): string {
   return itemsInfo.replace(/\d+:/g, '');
 }
 
+/** Strip phone/name lines from address (they were concatenated during checkout) */
+function formatDeliveryAddress(address: string | null): string {
+  if (!address) return '—';
+  return address
+    .split('\n')
+    .filter(line => !line.startsWith('📞') && !line.startsWith('👤'))
+    .join('\n')
+    .trim() || '—';
+}
+
 const formatPrice = (n: number) =>
   new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
@@ -153,6 +163,20 @@ export function OrderDetail() {
     } else {
       // Fallback: use tg://user?id= protocol for sellers without username
       window.open(`tg://user?id=${order.seller_id}`, '_blank');
+    }
+  };
+
+  const handleOpenMap = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!order?.seller_map_url) return;
+    if (isTelegram()) {
+      e.preventDefault();
+      hapticFeedback('light');
+      try {
+        const WebApp = (window as any).Telegram?.WebApp;
+        WebApp?.openLink(order.seller_map_url);
+      } catch {
+        window.open(order.seller_map_url, '_blank');
+      }
     }
   };
 
@@ -274,9 +298,34 @@ export function OrderDetail() {
 
         <div className="order-detail__row">
           <span className="order-detail__label">{order.delivery_type || 'Доставка'}</span>
-          <span className="order-detail__value order-detail__address">
-            {order.address || '—'}
-          </span>
+          {order.delivery_type === 'Самовывоз' && (order.seller_address_name || order.seller_map_url) ? (
+            <div className="order-detail__pickup">
+              {order.seller_address_name && (
+                <div className="order-detail__pickup-address">
+                  {order.seller_address_name}
+                </div>
+              )}
+              {order.seller_map_url && (
+                <a
+                  href={order.seller_map_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="order-detail__pickup-map-btn"
+                  onClick={handleOpenMap}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  Показать на карте
+                </a>
+              )}
+            </div>
+          ) : (
+            <span className="order-detail__value order-detail__address">
+              {formatDeliveryAddress(order.address)}
+            </span>
+          )}
         </div>
 
         {order.created_at && (

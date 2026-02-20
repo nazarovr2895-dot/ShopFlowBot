@@ -2,7 +2,6 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
-import bot.keyboards.reply as kb
 
 class ResetStateMiddleware(BaseMiddleware):
     async def __call__(
@@ -15,7 +14,7 @@ class ResetStateMiddleware(BaseMiddleware):
         
         # Список текстов всех кнопок главного меню
         main_buttons = [
-            "📥 Заказы", "👑 Вернуться в АДМИН-ПАНЕЛЬ","🛍 Открыть магазин", "🛒 Корзина", "🧾 Мои заказы",
+            "📥 Заказы", "👑 Вернуться в АДМИН-ПАНЕЛЬ",
             "➕ Добавить товар", "📦 Мои товары", "⚙️ Настройка магазина",
             "🔗 Моя ссылка", "👁 Посмотреть магазин", "🔄 Перейти в режим покупателя",
 "🔁 Режим покупателя"
