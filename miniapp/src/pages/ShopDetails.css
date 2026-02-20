@@ -916,25 +916,33 @@
 }
 
 .shop-details__product-card-info {
-  padding: 4px 16px 16px;
+  padding: 4px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
   flex: 1;
   background: transparent;
 }
 
-.shop-details__product-card-name {
-  font-size: 14px;
-  font-weight: 600;
+.shop-details__product-card-price {
+  font-size: 15px;
+  font-weight: 700;
   color: var(--app-text);
+  text-align: left;
+  line-height: 1.3;
+}
+
+.shop-details__product-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-text-secondary, #666);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.4;
-  text-align: center;
-  min-height: 2.8em;
+  line-height: 1.3;
+  text-align: left;
+  min-height: 2.6em;
 }
 
 .shop-details__product-card-bottom {
@@ -942,7 +950,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: auto;
+  margin-top: 6px;
 }
 
 /* Группа иконок слева (лайк + поделиться) */
@@ -1011,6 +1019,56 @@
   background: #ffffff;
   color: #000000;
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Qty counter pill */
+.shop-details__qty-counter {
+  display: flex;
+  align-items: center;
+  background: #000000;
+  border-radius: 20px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.shop-details__qty-counter-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.shop-details__qty-counter-btn:active {
+  opacity: 0.6;
+}
+
+.shop-details__qty-counter-value {
+  min-width: 20px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .shop-details__qty-counter {
+  background: #ffffff;
+}
+
+[data-theme="dark"] .shop-details__qty-counter-btn {
+  color: #000000;
+}
+
+[data-theme="dark"] .shop-details__qty-counter-value {
+  color: #000000;
 }
 
 [data-theme="dark"] .shop-details__product-card-action-heart.heart-icon {

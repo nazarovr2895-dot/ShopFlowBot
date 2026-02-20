@@ -44,7 +44,8 @@ export function FavoriteProducts() {
   const [selectedProduct, setSelectedProduct] = useState<FavoriteProduct | null>(null);
   const [sellerInfo, setSellerInfo] = useState<SellerInfo | null>(null);
   const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null);
-  const { hapticFeedback, showAlert } = useTelegramWebApp();
+  const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map());
+  const { hapticFeedback } = useTelegramWebApp();
 
   useEffect(() => {
     const load = async () => {
@@ -59,6 +60,28 @@ export function FavoriteProducts() {
       }
     };
     load();
+  }, []);
+
+  // Load cart quantities to show inline counters on cards
+  useEffect(() => {
+    if (!api.isAuthenticated()) return;
+    let cancelled = false;
+    const loadCart = async () => {
+      try {
+        const qtyMap = new Map<number, number>();
+        const groups = await api.getCart();
+        for (const group of groups) {
+          for (const item of group.items) {
+            qtyMap.set(item.product_id, item.quantity);
+          }
+        }
+        if (!cancelled) setCartQuantities(qtyMap);
+      } catch {
+        // Ignore cart loading errors
+      }
+    };
+    loadCart();
+    return () => { cancelled = true; };
   }, []);
 
   // Load seller details + loyalty when a product is selected
@@ -105,7 +128,7 @@ export function FavoriteProducts() {
       await api.removeFavoriteProduct(productId);
       setProducts((prev) => prev.filter((p) => p.product_id !== productId));
       setSelectedProduct(null);
-      showAlert('Убрано из избранного');
+      // No alert — visual removal is the feedback
     } catch (err) {
       console.error(err);
     } finally {
@@ -116,15 +139,72 @@ export function FavoriteProducts() {
   const addToCart = async (productId: number, _date: string | null, quantity: number) => {
     setAddingId(productId);
     try {
-      hapticFeedback('medium');
+      hapticFeedback('light');
       await api.addCartItem(productId, quantity);
-      showAlert('Добавлено в корзину');
+      // Update local cart state (no alert — visual change is the feedback)
+      setCartQuantities((prev) => {
+        const next = new Map(prev);
+        next.set(productId, (prev.get(productId) || 0) + quantity);
+        return next;
+      });
       setSelectedProduct(null);
     } catch (err) {
       console.error(err);
-      showAlert('Не удалось добавить в корзину');
     } finally {
       setAddingId(null);
+    }
+  };
+
+  const addToCartFromCard = async (productId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setAddingId(productId);
+    try {
+      hapticFeedback('light');
+      await api.addCartItem(productId, 1);
+      setCartQuantities((prev) => {
+        const next = new Map(prev);
+        next.set(productId, (prev.get(productId) || 0) + 1);
+        return next;
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAddingId(null);
+    }
+  };
+
+  const updateCartQuantity = async (productId: number, newQty: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    hapticFeedback('light');
+    // Optimistic update
+    setCartQuantities((prev) => {
+      const next = new Map(prev);
+      if (newQty <= 0) {
+        next.delete(productId);
+      } else {
+        next.set(productId, newQty);
+      }
+      return next;
+    });
+
+    try {
+      if (newQty <= 0) {
+        await api.removeCartItem(productId);
+      } else {
+        await api.updateCartItem(productId, newQty);
+      }
+    } catch {
+      // Rollback on error — reload cart
+      try {
+        const qtyMap = new Map<number, number>();
+        const groups = await api.getCart();
+        for (const group of groups) {
+          for (const item of group.items) {
+            qtyMap.set(item.product_id, item.quantity);
+          }
+        }
+        setCartQuantities(qtyMap);
+      } catch { /* ignore */ }
     }
   };
 
@@ -175,6 +255,9 @@ export function FavoriteProducts() {
         {products.map((product) => {
           const firstPhotoId = (product.photo_ids && product.photo_ids[0]) || product.photo_id;
           const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
+          const inStock = (product.quantity ?? 0) > 0;
+          const cartQty = cartQuantities.get(product.product_id) || 0;
+          const isAdding = addingId === product.product_id;
           return (
             <div
               key={product.product_id}
@@ -198,7 +281,7 @@ export function FavoriteProducts() {
                 />
               </div>
               <div className="favorite-product-card__info">
-                <span className="favorite-product-card__shop">{product.shop_name}</span>
+                <span className="favorite-product-card__price">{formatPrice(product.price)}</span>
                 <span className="favorite-product-card__name">{product.name}</span>
                 <div className="favorite-product-card__bottom">
                   <div className="favorite-product-card__actions">
@@ -211,7 +294,34 @@ export function FavoriteProducts() {
                       />
                     )}
                   </div>
-                  <span className="favorite-product-card__price">{formatPrice(product.price)}</span>
+                  {cartQty > 0 ? (
+                    <div className="favorite-product-card__qty-counter" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="favorite-product-card__qty-counter-btn"
+                        onClick={(e) => updateCartQuantity(product.product_id, cartQty - 1, e)}
+                      >
+                        −
+                      </button>
+                      <span className="favorite-product-card__qty-counter-value">{cartQty}</span>
+                      <button
+                        type="button"
+                        className="favorite-product-card__qty-counter-btn"
+                        onClick={(e) => updateCartQuantity(product.product_id, cartQty + 1, e)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="favorite-product-card__cart-btn"
+                      disabled={!inStock || isAdding}
+                      onClick={(e) => addToCartFromCard(product.product_id, e)}
+                    >
+                      {isAdding ? '…' : inStock ? 'В корзину' : 'Нет'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -4,7 +4,7 @@ import type { PublicSellerDetail, Product } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser, isTelegram } from '../utils/environment';
-import { addToGuestCart } from '../utils/guestCart';
+import { addToGuestCart, getGuestCart, updateGuestCartItem, removeGuestCartItem } from '../utils/guestCart';
 import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal, LiquidGlassCard } from '../components';
 import './ShopDetails.css';
 
@@ -80,6 +80,7 @@ export function ShopDetails() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [hoursExpanded, setHoursExpanded] = useState(false);
   const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map());
 
   // Set up back button
   useEffect(() => {
@@ -184,6 +185,41 @@ export function ShopDetails() {
     };
   }, [seller?.seller_id]);
 
+  // Load cart quantities to show inline counters on cards
+  useEffect(() => {
+    if (!seller) return;
+    let cancelled = false;
+    const loadCart = async () => {
+      try {
+        const qtyMap = new Map<number, number>();
+        if (isBrowser() && !api.isAuthenticated()) {
+          // Guest cart from localStorage
+          const guestItems = getGuestCart();
+          for (const item of guestItems) {
+            if (item.seller_id === seller.seller_id) {
+              qtyMap.set(item.product_id, item.quantity);
+            }
+          }
+        } else {
+          // Authenticated cart from API
+          const groups = await api.getCart();
+          for (const group of groups) {
+            if (group.seller_id === seller.seller_id) {
+              for (const item of group.items) {
+                qtyMap.set(item.product_id, item.quantity);
+              }
+            }
+          }
+        }
+        if (!cancelled) setCartQuantities(qtyMap);
+      } catch {
+        // Ignore cart loading errors — just show "В корзину" buttons
+      }
+    };
+    loadCart();
+    return () => { cancelled = true; };
+  }, [seller?.seller_id, seller]);
+
   const toggleFavorite = async () => {
     if (!seller || togglingFavorite) return;
     setTogglingFavorite(true);
@@ -232,10 +268,8 @@ export function ShopDetails() {
       hapticFeedback('light');
       if (isFavorite) {
         await api.removeFavoriteProduct(productId);
-        showAlert('Убрано из избранного');
       } else {
         await api.addFavoriteProduct(productId);
-        showAlert('Добавлено в избранное');
       }
     } catch (err) {
       // Rollback on error
@@ -243,8 +277,6 @@ export function ShopDetails() {
       const msg = err instanceof Error ? err.message : 'Ошибка';
       if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('аутентификац')) {
         showAlert('Откройте приложение в Telegram, чтобы добавлять товары в избранное.');
-      } else {
-        showAlert(msg);
       }
     } finally {
       setTogglingProductFavorite(null);
@@ -271,12 +303,26 @@ export function ShopDetails() {
             seller_name: seller?.shop_name || undefined,
           });
         }
-        showAlert(preorderDeliveryDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
+        // Update local cart state (no alert — visual change is the feedback)
+        if (!preorderDeliveryDate) {
+          setCartQuantities((prev) => {
+            const next = new Map(prev);
+            next.set(productId, (prev.get(productId) || 0) + quantity);
+            return next;
+          });
+        }
         return;
       }
 
       await api.addCartItem(productId, quantity, preorderDeliveryDate);
-      showAlert(preorderDeliveryDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
+      // Update local cart state (no alert — visual change is the feedback)
+      if (!preorderDeliveryDate) {
+        setCartQuantities((prev) => {
+          const next = new Map(prev);
+          next.set(productId, (prev.get(productId) || 0) + quantity);
+          return next;
+        });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Ошибка';
       const isAuthError = msg.includes('401') || msg.includes('Unauthorized') || msg.includes('Missing') || msg.includes('X-Telegram');
@@ -287,12 +333,64 @@ export function ShopDetails() {
         } else {
           showAlert('Добавление в корзину доступно только в приложении Telegram. Откройте магазин через бота.');
         }
-      } else {
-        showAlert(msg);
       }
     } finally {
       setAddingId(null);
       setPreorderDateForProductId(null);
+    }
+  };
+
+  const updateCartQuantity = async (productId: number, newQty: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    hapticFeedback('light');
+    // Optimistic update
+    setCartQuantities((prev) => {
+      const next = new Map(prev);
+      if (newQty <= 0) {
+        next.delete(productId);
+      } else {
+        next.set(productId, newQty);
+      }
+      return next;
+    });
+
+    try {
+      if (isBrowser() && !api.isAuthenticated()) {
+        if (newQty <= 0) {
+          removeGuestCartItem(productId, Number(sellerId));
+        } else {
+          updateGuestCartItem(productId, Number(sellerId), newQty);
+        }
+      } else {
+        if (newQty <= 0) {
+          await api.removeCartItem(productId);
+        } else {
+          await api.updateCartItem(productId, newQty);
+        }
+      }
+    } catch {
+      // Rollback on error — reload cart
+      try {
+        const qtyMap = new Map<number, number>();
+        if (isBrowser() && !api.isAuthenticated()) {
+          const guestItems = getGuestCart();
+          for (const item of guestItems) {
+            if (item.seller_id === Number(sellerId)) {
+              qtyMap.set(item.product_id, item.quantity);
+            }
+          }
+        } else {
+          const groups = await api.getCart();
+          for (const group of groups) {
+            if (group.seller_id === Number(sellerId)) {
+              for (const item of group.items) {
+                qtyMap.set(item.product_id, item.quantity);
+              }
+            }
+          }
+        }
+        setCartQuantities(qtyMap);
+      } catch { /* ignore */ }
     }
   };
 
@@ -644,6 +742,7 @@ export function ShopDetails() {
               const firstPhotoId = (product.photo_ids && product.photo_ids[0]) || product.photo_id;
               const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
               const availableDates = seller.preorder_available_dates ?? [];
+              const cartQty = cartQuantities.get(product.id) || 0;
               return (
                 <div
                   key={product.id}
@@ -667,6 +766,7 @@ export function ShopDetails() {
                     />
                   </div>
                   <div className="shop-details__product-card-info">
+                    <span className="shop-details__product-card-price">{formatPrice(product.price)}</span>
                     <span className="shop-details__product-card-name">{product.name}</span>
                     <div className="shop-details__product-card-bottom">
                       {!showDatePicker && (
@@ -711,6 +811,24 @@ export function ShopDetails() {
                             Отмена
                           </button>
                         </div>
+                      ) : cartQty > 0 && !isPreorder ? (
+                        <div className="shop-details__qty-counter" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="shop-details__qty-counter-btn"
+                            onClick={(e) => updateCartQuantity(product.id, cartQty - 1, e)}
+                          >
+                            −
+                          </button>
+                          <span className="shop-details__qty-counter-value">{cartQty}</span>
+                          <button
+                            type="button"
+                            className="shop-details__qty-counter-btn"
+                            onClick={(e) => updateCartQuantity(product.id, cartQty + 1, e)}
+                          >
+                            +
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"
@@ -725,7 +843,7 @@ export function ShopDetails() {
                             }
                           }}
                         >
-                          <span>{isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? formatPrice(product.price) : 'Нет'}</span>
+                          <span>{isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}</span>
                         </button>
                       )}
                     </div>
