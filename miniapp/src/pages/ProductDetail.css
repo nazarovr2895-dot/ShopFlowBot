@@ -1,7 +1,13 @@
 .product-detail-page {
   min-height: 100vh;
   background: var(--tg-theme-bg-color);
+  padding-top: env(safe-area-inset-top, 0);
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+/* Telegram fullscreen: account for TG header offset */
+.tg-fullscreen .product-detail-page {
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
 }
 
 .product-detail__image-wrap {

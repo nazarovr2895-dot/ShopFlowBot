@@ -32,8 +32,14 @@
   min-height: 100vh;
   background: var(--app-bg);
   padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0));
   padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
   animation: fadeIn 0.3s ease;
+}
+
+/* Telegram fullscreen: account for TG header offset */
+.tg-fullscreen .shop-details {
+  padding-top: calc(16px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
 }
 
 .shop-details__banner {
