@@ -158,15 +158,25 @@
   padding: 7px;
 }
 
-/* Desktop layout: logo + flurai left, empty center, nav right; max-width 1500px, centered */
+/* ══════════════════════════════════════════════
+   Desktop layout — YouTube-inspired top bar
+   ══════════════════════════════════════════════ */
+
+/* Desktop: clean bar with logo left, nav right */
+.top-nav--desktop {
+  padding: 8px 24px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0));
+}
+
 .top-nav--desktop .top-nav__container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  max-width: 1500px;
+  gap: 24px;
+  max-width: 1600px;
   margin-left: auto;
   margin-right: auto;
+  padding: 6px 8px;
 }
 
 .top-nav__brand {
@@ -186,14 +196,15 @@
 }
 
 .top-nav--desktop .top-nav__logo {
-  height: 100%;
-  max-height: 50px;
+  height: 36px;
+  max-height: 36px;
 }
 
 .top-nav__brand-name {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
 .top-nav__center {
@@ -209,8 +220,48 @@
   flex-shrink: 0;
 }
 
+/* Desktop nav items — auto-width pills with icon + label */
 .top-nav--desktop .top-nav__right .top-nav__item {
   flex: 0 0 auto;
-  min-width: 120px;
-  width: 120px;
+  min-width: auto;
+  width: auto;
+  flex-direction: row;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  text-shadow: none;
+}
+
+.top-nav--desktop .top-nav__right .top-nav__item:hover::before {
+  opacity: 0.08;
+  border-radius: 10px;
+}
+
+.top-nav--desktop .top-nav__right .top-nav__item--active {
+  font-weight: 600;
+}
+
+.top-nav--desktop .top-nav__right .top-nav__icon {
+  width: 20px;
+  height: 20px;
+}
+
+.top-nav--desktop .top-nav__right .top-nav__label {
+  font-size: 13px;
+}
+
+/* Larger screens: more spacious nav */
+@media (min-width: 1200px) {
+  .top-nav--desktop .top-nav__right .top-nav__item {
+    padding: 8px 20px;
+    gap: 8px;
+    font-size: 14px;
+  }
+
+  .top-nav--desktop .top-nav__right .top-nav__label {
+    font-size: 14px;
+  }
 }

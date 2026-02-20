@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
-import { EmptyState, ProductImage, LoyaltyLoginBanner } from '../components';
+import { EmptyState, ProductImage, LoyaltyLoginBanner, DesktopBackNav } from '../components';
 import { getGuestCart, guestCartToGroups, clearGuestCart } from '../utils/guestCart';
 import './Checkout.css';
 
@@ -108,6 +108,8 @@ export function GuestCheckout() {
   }
 
   return (
+    <>
+    <DesktopBackNav title="Оформление заказа" />
     <div className="checkout-page">
       <h1 className="checkout-page__title">Оформление заказа</h1>
 
@@ -240,5 +242,6 @@ export function GuestCheckout() {
         </button>
       </form>
     </div>
+    </>
   );
 }

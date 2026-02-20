@@ -19,3 +19,5 @@ export { DeliveryNavBar } from './DeliveryNavBar';
 export type { DeliveryTab } from './DeliveryNavBar';
 export { LoyaltyLoginBanner } from './LoyaltyLoginBanner';
 export { ToastProvider, showBrowserToast } from './Toast';
+export { DesktopShell } from './DesktopShell';
+export { DesktopBackNav } from './DesktopBackNav';

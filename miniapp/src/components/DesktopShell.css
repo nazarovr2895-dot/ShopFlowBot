@@ -1,0 +1,6 @@
+/* DesktopShell — persistent navigation wrapper for desktop browser */
+
+.desktop-shell__content {
+  /* Space for fixed TopNav on desktop */
+  padding-top: calc(76px + env(safe-area-inset-top, 0));
+}

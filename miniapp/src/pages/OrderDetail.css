@@ -231,13 +231,55 @@
 /* ===== Desktop adaptation ===== */
 @media (min-width: 768px) {
   .order-detail-page {
-    max-width: 640px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 24px 32px;
     padding-bottom: 48px;
   }
 
+  .order-detail-page__title {
+    font-size: 28px;
+    margin-bottom: 20px;
+  }
+
+  .order-stepper {
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+
+  .order-detail__shop-card {
+    border-radius: 16px;
+    padding: 18px 20px;
+  }
+
+  .order-detail-card {
+    border-radius: 16px;
+    padding: 4px 20px;
+  }
+
+  .order-detail__contact-btn {
+    transition: opacity 0.15s ease;
+  }
+
+  .order-detail__contact-btn:hover {
+    opacity: 0.8;
+  }
+
   .order-detail__actions {
     max-width: 360px;
+  }
+
+  .order-detail__action-btn {
+    transition: opacity 0.15s ease;
+  }
+
+  .order-detail__action-btn:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+}
+
+@media (min-width: 1200px) {
+  .order-detail-page {
+    padding: 32px 48px;
   }
 }

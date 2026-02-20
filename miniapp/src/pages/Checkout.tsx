@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
-import { EmptyState, ProductImage } from '../components';
+import { EmptyState, ProductImage, DesktopBackNav } from '../components';
 import { isBrowser } from '../utils/environment';
 import './Checkout.css';
 
@@ -245,6 +245,8 @@ export function Checkout() {
   }
 
   return (
+    <>
+    <DesktopBackNav title="Оформление заказа" />
     <div className="checkout-page">
       <h1 className="checkout-page__title">Оформление заказа</h1>
 
@@ -530,5 +532,6 @@ export function Checkout() {
         </button>
       </form>
     </div>
+    </>
   );
 }

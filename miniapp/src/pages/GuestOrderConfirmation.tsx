@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { DesktopBackNav } from '../components';
 import './Checkout.css';
 
 interface OrderInfo {
@@ -40,6 +41,8 @@ export function GuestOrderConfirmation() {
   const totalSum = orders.reduce((s, o) => s + o.total_price, 0);
 
   return (
+    <>
+    <DesktopBackNav title="Подтверждение заказа" />
     <div className="checkout-page">
       <div style={{ textAlign: 'center', marginTop: 20, marginBottom: 24 }}>
         <span style={{ fontSize: 48 }}>✅</span>
@@ -79,5 +82,6 @@ export function GuestOrderConfirmation() {
         Продолжить покупки
       </button>
     </div>
+    </>
   );
 }

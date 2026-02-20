@@ -43,3 +43,9 @@
 .main-layout--desktop .main-layout__content--with-search {
   padding-top: 80px;
 }
+
+/* When inside DesktopShell — TopNav is rendered by the shell, not MainLayout */
+/* Remove padding-top since DesktopShell already handles it */
+.main-layout--in-shell {
+  padding-top: 0 !important;
+}

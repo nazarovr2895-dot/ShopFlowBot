@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import { addToGuestCart } from '../utils/guestCart';
-import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
+import { Loader, EmptyState, ProductImage, HeartIcon, DesktopBackNav } from '../components';
 import { ProductComposition } from '../components/ProductComposition';
 import './ProductDetail.css';
 
@@ -184,6 +184,8 @@ export function ProductDetail() {
 
   return (
     <div className="product-detail-page">
+      <DesktopBackNav title={shopName || 'Товар'} />
+      <div className="product-detail__layout">
       <div className="product-detail__image-wrap">
         {hasMultiplePhotos ? (
           <div
@@ -297,6 +299,7 @@ export function ProductDetail() {
           </button>
         )}
       </div>
+      </div>{/* .product-detail__layout */}
     </div>
   );
 }

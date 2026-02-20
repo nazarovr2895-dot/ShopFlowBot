@@ -1,0 +1,51 @@
+/* DesktopBackNav — breadcrumb/back bar for standalone pages on desktop */
+
+.desktop-back-nav {
+  padding: 0 24px;
+  margin-bottom: 8px;
+}
+
+.desktop-back-nav__inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.desktop-back-nav__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--app-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+
+.desktop-back-nav__back:hover {
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+.desktop-back-nav__back:active {
+  opacity: 0.8;
+}
+
+.desktop-back-nav__back svg {
+  flex-shrink: 0;
+}
+
+.desktop-back-nav__title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--app-text-secondary);
+}

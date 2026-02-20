@@ -3,6 +3,7 @@ import { TopNav } from './TopNav';
 import { CatalogNavBar } from './CatalogNavBar';
 import { isTelegram } from '../utils/environment';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
+import { useDesktopShell } from '../contexts/DesktopShellContext';
 import { useLocationCache } from '../hooks/useLocationCache';
 import { useCatalogFilter } from '../contexts/CatalogFilterContext';
 import type { SellerFilters } from '../types';
@@ -12,6 +13,7 @@ import './MainLayout.css';
 export function MainLayout() {
   const isTelegramEnv = isTelegram();
   const isDesktop = useDesktopLayout();
+  const { shellActive } = useDesktopShell();
   const { filters, setFilters } = useLocationCache();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -47,10 +49,11 @@ export function MainLayout() {
 
   return (
     <div
-      className={`main-layout ${isTelegramEnv ? 'main-layout--telegram' : ''} ${isDesktop ? 'main-layout--desktop' : ''}`}
+      className={`main-layout ${isTelegramEnv ? 'main-layout--telegram' : ''} ${isDesktop ? 'main-layout--desktop' : ''} ${shellActive ? 'main-layout--in-shell' : ''}`}
       data-telegram={isTelegramEnv}
     >
-      <TopNav />
+      {/* Skip TopNav when DesktopShell already provides it */}
+      {!shellActive && <TopNav />}
       {isDesktop && isCatalog && (
         <CatalogNavBar
           searchValue={searchValue}

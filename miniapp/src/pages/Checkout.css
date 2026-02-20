@@ -356,21 +356,57 @@
 /* ===== Desktop / Browser adaptation ===== */
 @media (min-width: 768px) {
   .checkout-page {
-    max-width: 640px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 24px 32px;
     padding-bottom: 48px;
+  }
+
+  .checkout-page__title {
+    font-size: 28px;
+    margin-bottom: 24px;
   }
 
   .checkout-delivery-segment__buttons {
     max-width: 400px;
   }
 
+  .checkout-summary {
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  .checkout-form__input {
+    max-width: 480px;
+    transition: border-color 0.15s ease;
+  }
+
+  .checkout-form__input:focus {
+    border-color: var(--app-accent, var(--tg-theme-button-color));
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+  }
+
   .checkout-form__submit {
-    max-width: 320px;
+    max-width: 360px;
+    transition: opacity 0.15s ease;
+  }
+
+  .checkout-form__submit:hover:not(:disabled) {
+    opacity: 0.9;
   }
 
   .checkout-pickup-map__btn {
     max-width: 400px;
+    transition: opacity 0.15s ease;
+  }
+
+  .checkout-pickup-map__btn:hover {
+    opacity: 0.85;
+  }
+}
+
+@media (min-width: 1200px) {
+  .checkout-page {
+    padding: 32px 48px;
   }
 }

@@ -14,7 +14,7 @@ import {
   GuestCheckout,
   GuestOrderConfirmation,
 } from './pages';
-import { MainLayout, RequireAuth, ToastProvider } from './components';
+import { MainLayout, RequireAuth, ToastProvider, DesktopShell } from './components';
 import { CatalogFilterProvider } from './contexts/CatalogFilterContext';
 import { useTheme } from './hooks/useTheme';
 import { api } from './api/client';
@@ -89,29 +89,31 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      {/* Landing page for browser authentication */}
-      <Route path="/landing" element={<Landing />} />
-      
-      {/* Main layout: no auth required in browser; auth offered in Profile */}
-      <Route element={<CatalogFilterProvider><MainLayout /></CatalogFilterProvider>}>
-        <Route index element={<MyFlowers />} />
-        <Route path="catalog" element={<ShopsList />} />
-        <Route path="favorites" element={<FavoriteProducts />} />
-        <Route path="cart" element={<Cart />} />
-        <Route path="profile" element={<Profile />} />
-      </Route>
+    <DesktopShell>
+      <Routes>
+        {/* Landing page for browser authentication */}
+        <Route path="/landing" element={<Landing />} />
 
-      <Route path="/cart/checkout" element={<RequireAuth from="checkout"><Checkout /></RequireAuth>} />
-      <Route path="/cart/guest-checkout" element={<GuestCheckout />} />
-      <Route path="/order/guest-confirm" element={<GuestOrderConfirmation />} />
-      <Route path="/shop/:sellerId" element={<ShopDetails />} />
-      <Route path="/shop/:sellerId/product/:productId" element={<ProductDetail />} />
-      <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
-      
-      {/* Redirect root to appropriate page */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Main layout: no auth required in browser; auth offered in Profile */}
+        <Route element={<CatalogFilterProvider><MainLayout /></CatalogFilterProvider>}>
+          <Route index element={<MyFlowers />} />
+          <Route path="catalog" element={<ShopsList />} />
+          <Route path="favorites" element={<FavoriteProducts />} />
+          <Route path="cart" element={<Cart />} />
+          <Route path="profile" element={<Profile />} />
+        </Route>
+
+        <Route path="/cart/checkout" element={<RequireAuth from="checkout"><Checkout /></RequireAuth>} />
+        <Route path="/cart/guest-checkout" element={<GuestCheckout />} />
+        <Route path="/order/guest-confirm" element={<GuestOrderConfirmation />} />
+        <Route path="/shop/:sellerId" element={<ShopDetails />} />
+        <Route path="/shop/:sellerId/product/:productId" element={<ProductDetail />} />
+        <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
+
+        {/* Redirect root to appropriate page */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </DesktopShell>
   );
 }
 

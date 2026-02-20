@@ -104,6 +104,8 @@ export function Cart() {
   return (
     <div className="cart-page">
       <h1 className="cart-page__title">Корзина</h1>
+      <div className="cart-page__body">
+      <div className="cart-page__items">
       {cart.map((group) => (
         <section key={group.seller_id} className="cart-group">
           <h2 className="cart-group__shop">{group.shop_name}</h2>
@@ -173,6 +175,7 @@ export function Cart() {
           </div>
         </section>
       ))}
+      </div>{/* .cart-page__items */}
       <div className="cart-page__footer">
         <div className="cart-page__footer-header">
           <h2 className="cart-page__footer-title">Ваша корзина</h2>
@@ -208,6 +211,7 @@ export function Cart() {
           Способ и время доставки можно выбрать при оформлении заказа
         </p>
       </div>
+      </div>{/* .cart-page__body */}
     </div>
   );
 }

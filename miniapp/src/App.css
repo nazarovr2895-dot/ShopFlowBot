@@ -100,10 +100,31 @@ html {
   outline-offset: 2px;
 }
 
-/* Hide scrollbar but keep scrolling */
+/* Hide scrollbar on mobile but keep scrolling */
 ::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+/* Show scrollbar on desktop — users expect it in browsers */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--app-border);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--app-text-secondary);
+  }
 }
 
 /* Button reset */

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { BuyerOrder } from '../types';
 import { api } from '../api/client';
-import { Loader, EmptyState } from '../components';
+import { Loader, EmptyState, DesktopBackNav } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isTelegram } from '../utils/environment';
 import './OrderDetail.css';
@@ -173,6 +173,8 @@ export function OrderDetail() {
   const showStepper = !isTerminal && !isCompleted;
 
   return (
+    <>
+    <DesktopBackNav title={`${order.is_preorder ? 'Предзаказ' : 'Заказ'} #${order.id}`} />
     <div className="order-detail-page">
       <h1 className="order-detail-page__title">
         {order.is_preorder ? 'Предзаказ' : 'Заказ'} #{order.id}
@@ -318,5 +320,6 @@ export function OrderDetail() {
         )}
       </div>
     </div>
+    </>
   );
 }

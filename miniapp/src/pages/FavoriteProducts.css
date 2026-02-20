@@ -227,3 +227,41 @@
 [data-theme="dark"] .favorite-product-card__qty-counter-value {
   color: #000000;
 }
+
+/* ══════════════════════════════════════════════
+   Desktop / Browser adaptation
+   ══════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  .favorite-products-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+
+  .favorite-products-page__title {
+    font-size: 28px;
+    margin-bottom: 20px;
+  }
+
+  .favorite-product-card {
+    transition: transform 0.15s ease;
+  }
+
+  .favorite-product-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .favorite-product-card__cart-btn {
+    transition: opacity 0.15s ease;
+  }
+
+  .favorite-product-card__cart-btn:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+}
+
+@media (min-width: 1200px) {
+  .favorite-products-page {
+    padding: 32px 48px;
+  }
+}

@@ -309,7 +309,7 @@
    ══════════════════════════════════════════════ */
 @media (min-width: 768px) {
   .profile-page {
-    max-width: 520px;
+    max-width: 680px;
     margin: 0 auto;
     padding: 24px 32px;
   }
@@ -319,30 +319,52 @@
   }
 
   .profile-data__card {
-    max-width: 480px;
+    max-width: 600px;
   }
 
   .profile-data__input {
-    max-width: 400px;
+    max-width: 480px;
   }
 
   .profile-data__phone-input-block {
-    max-width: 400px;
+    max-width: 480px;
   }
 
   .profile-data__save {
-    max-width: 320px;
+    max-width: 360px;
+    transition: opacity 0.15s ease;
+  }
+
+  .profile-data__save:hover:not(:disabled) {
+    opacity: 0.9;
   }
 
   .profile-nav__item {
-    max-width: 480px;
+    max-width: 600px;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  .profile-nav__item:hover {
+    background: var(--app-surface);
+    transform: translateX(2px);
   }
 
   .profile-header {
-    max-width: 480px;
+    max-width: 600px;
   }
 
   .profile-logout {
-    max-width: 320px;
+    max-width: 360px;
+    transition: background 0.15s ease;
+  }
+
+  .profile-logout:hover {
+    background: rgba(239, 68, 68, 0.08);
+  }
+}
+
+@media (min-width: 1200px) {
+  .profile-page {
+    padding: 32px 48px;
   }
 }

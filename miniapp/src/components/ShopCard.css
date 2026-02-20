@@ -242,3 +242,29 @@
   color: #ff9800;
   background: rgba(255, 152, 0, 0.15);
 }
+
+/* ══════════════════════════════════════════════
+   Desktop hover states
+   ══════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  .shop-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .shop-card:hover {
+    transform: translateY(-3px);
+  }
+
+  :root .shop-card:hover,
+  [data-theme="light"] .shop-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  [data-theme="dark"] .shop-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .shop-card:active {
+    transform: translateY(-1px);
+  }
+}
