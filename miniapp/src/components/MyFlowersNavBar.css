@@ -14,6 +14,12 @@
   padding: 6px 14px;
 }
 
+/* Telegram fullscreen: shift down by TG header offset */
+.tg-fullscreen .my-flowers-nav-bar--telegram,
+.tg-fullscreen .my-flowers-nav-bar[data-telegram="true"] {
+  top: calc(68px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
+}
+
 .my-flowers-nav-bar__container {
   display: flex;
   align-items: center;

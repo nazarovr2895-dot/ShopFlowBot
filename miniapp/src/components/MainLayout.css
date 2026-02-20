@@ -17,14 +17,10 @@
   padding-top: calc(68px + env(safe-area-inset-top, 0));
 }
 
-/* Telegram fullscreen: add TG header offset */
+/* Telegram fullscreen: content starts below fixed TopNav which is at top: safe-area + tg-offset */
 .tg-fullscreen .main-layout--telegram,
 .tg-fullscreen .main-layout[data-telegram="true"] {
   padding-top: calc(68px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
-}
-
-.tg-fullscreen .main-layout {
-  padding-top: calc(80px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
 }
 
 .main-layout__content {
