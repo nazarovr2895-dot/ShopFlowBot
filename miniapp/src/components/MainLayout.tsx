@@ -54,20 +54,22 @@ export function MainLayout() {
     >
       {/* Skip TopNav when DesktopShell already provides it */}
       {!shellActive && <TopNav />}
-      {isDesktop && isCatalog && (
+      {isDesktop && (
         <CatalogNavBar
           searchValue={searchValue}
           onSearchChange={onSearchChange}
-          onFilterClick={openFilter}
-          activeFiltersCount={activeFiltersCount}
-          showFilterButton
-          desktopLayout
           onSearchSubmit={onSearchSubmit}
-          deliveryTab={deliveryTab}
-          onDeliveryTabChange={handleDeliveryTabChange}
+          desktopLayout
+          showFilterButton={isCatalog}
+          {...(isCatalog ? {
+            onFilterClick: openFilter,
+            activeFiltersCount,
+            deliveryTab,
+            onDeliveryTabChange: handleDeliveryTabChange,
+          } : {})}
         />
       )}
-      <main className={`main-layout__content ${isDesktop && isCatalog ? 'main-layout__content--with-search' : ''}`}>
+      <main className={`main-layout__content ${isDesktop ? 'main-layout__content--with-search' : ''}`}>
         <Outlet />
       </main>
     </div>

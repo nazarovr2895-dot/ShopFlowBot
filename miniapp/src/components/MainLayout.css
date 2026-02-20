@@ -45,9 +45,9 @@
   padding-top: calc(90px + env(safe-area-inset-top, 0));
 }
 
-/* Desktop layout + search bar visible (catalog page): top nav + search bar */
+/* Desktop layout + search bar visible: top nav + search bar */
 .main-layout--desktop .main-layout__content--with-search {
-  padding-top: 80px;
+  padding-top: 68px;
 }
 
 /* When inside DesktopShell — TopNav is rendered by the shell, not MainLayout */

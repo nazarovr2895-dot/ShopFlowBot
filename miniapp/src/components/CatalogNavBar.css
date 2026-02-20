@@ -24,16 +24,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   pointer-events: auto;
-  height: 48px;
-  border-radius: 296px;
+  height: 36px;
+  border-radius: 20px;
 }
 
 .catalog-nav-bar--telegram .catalog-nav-bar__container,
 .catalog-nav-bar[data-telegram="true"] .catalog-nav-bar__container {
-  height: 48px;
-  padding: 6px 10px;
+  height: 36px;
+  padding: 4px 8px;
 }
 
 .catalog-nav-bar__search-wrap {
@@ -54,13 +54,13 @@
 
 .catalog-nav-bar__search-input {
   width: 100%;
-  padding: 8px 12px 8px 36px;
+  padding: 6px 10px 6px 34px;
   border: none;
   background: transparent;
   color: var(--app-text);
   font-size: 14px;
   font-family: inherit;
-  border-radius: 296px;
+  border-radius: 16px;
   outline: none;
   min-width: 0;
 }
@@ -79,7 +79,7 @@
   width: 15%;
   min-width: 44px;
   max-width: 60px;
-  height: 36px;
+  height: 28px;
   padding: 0;
   border: none;
   background: transparent;
@@ -89,14 +89,14 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  border-radius: 296px;
+  border-radius: 12px;
   transition: all 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
 .catalog-nav-bar--telegram .catalog-nav-bar__filter-btn,
 .catalog-nav-bar[data-telegram="true"] .catalog-nav-bar__filter-btn {
-  height: 36px;
+  height: 28px;
 }
 
 .catalog-nav-bar__filter-btn:hover {
@@ -220,13 +220,13 @@
 }
 
 .catalog-nav-bar--desktop .catalog-nav-bar__container {
-  height: 50px;
-  padding: 8px 12px;
+  height: 38px;
+  padding: 6px 10px;
   width: 100%;
 }
 
 .catalog-nav-bar--desktop .catalog-nav-bar__filter-btn {
-  height: 36px;
+  height: 28px;
 }
 
 /* Show delivery tabs only on desktop */
@@ -236,9 +236,9 @@
   flex-shrink: 0;
   gap: 2px;
   background: rgba(128, 128, 128, 0.12);
-  border-radius: 296px;
+  border-radius: 14px;
   padding: 3px;
-  height: 34px;
+  height: 26px;
 }
 
 .catalog-nav-bar__delivery-tab {
@@ -246,7 +246,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 14px;
-  height: 28px;
+  height: 22px;
   border: none;
   background: transparent;
   color: inherit;
@@ -255,7 +255,7 @@
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
-  border-radius: 296px;
+  border-radius: 12px;
   transition: all 0.2s ease;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
@@ -304,19 +304,19 @@
   }
 
   .catalog-nav-bar:not(.catalog-nav-bar--desktop) .catalog-nav-bar__container {
-    height: 56px;
-    padding: 10px 14px;
+    height: 42px;
+    padding: 8px 12px;
     max-width: 1400px;
     margin: 0 auto;
   }
 
   .catalog-nav-bar__search-input {
     font-size: 15px;
-    padding: 10px 14px 10px 40px;
+    padding: 8px 12px 8px 38px;
   }
 
   .catalog-nav-bar__filter-btn {
-    height: 40px;
+    height: 32px;
     max-width: 70px;
   }
 
