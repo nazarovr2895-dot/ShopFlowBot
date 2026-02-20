@@ -1,6 +1,11 @@
 .checkout-page {
   padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0));
   padding-bottom: 32px;
+}
+
+.tg-fullscreen .checkout-page {
+  padding-top: calc(16px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
 }
 
 .checkout-page__title {

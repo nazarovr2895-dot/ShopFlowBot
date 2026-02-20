@@ -1,6 +1,11 @@
 .order-detail-page {
   padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0));
   padding-bottom: 80px;
+}
+
+.tg-fullscreen .order-detail-page {
+  padding-top: calc(16px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
 }
 
 .order-detail-page__title {
