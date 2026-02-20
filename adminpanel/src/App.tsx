@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider, ConfirmProvider } from './components/ui';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
+import { useTelegramWebApp } from './hooks/useTelegramWebApp';
+import { isTelegram } from './utils/environment';
 
 /* ── Admin pages ─────────────────────────────────────────── */
 import { Dashboard } from './pages/Dashboard';
@@ -37,9 +39,31 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { role } = useAuth();
+  const { role, telegramAuthLoading, telegramAuthError } = useAuth();
   const isAdmin = role === 'admin';
   const isSeller = role === 'seller';
+
+  // Initialize Telegram WebApp SDK
+  useTelegramWebApp();
+
+  // Show loading while Telegram auth is in progress
+  if (telegramAuthLoading) {
+    return (
+      <div className="tg-auth-loading">
+        <div className="tg-auth-loading__spinner" />
+        <p>Авторизация...</p>
+      </div>
+    );
+  }
+
+  // Show error if Telegram auth failed (user is not admin/seller)
+  if (isTelegram() && telegramAuthError && !role) {
+    return (
+      <div className="tg-auth-loading">
+        <p className="tg-auth-loading__error">{telegramAuthError}</p>
+      </div>
+    );
+  }
 
   return (
     <Routes>

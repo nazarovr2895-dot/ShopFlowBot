@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { isTelegram, getTelegramWebApp } from '../../utils/environment';
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -52,7 +53,11 @@ export function Sidebar() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    if (isTelegram()) {
+      getTelegramWebApp()?.close();
+    } else {
+      navigate('/login');
+    }
   };
 
   return (

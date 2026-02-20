@@ -147,8 +147,11 @@
   }
 
   .sidebar-v2-link {
-    padding: var(--space-2);
+    padding: 10px;
     border-radius: var(--radius);
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
   }
 
   .sidebar-v2-link-text {

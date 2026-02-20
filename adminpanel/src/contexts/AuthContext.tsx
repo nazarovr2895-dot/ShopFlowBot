@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { isTelegram, getTelegramInitData } from '../utils/environment';
+import { telegramAdminAuth } from '../api/adminClient';
 
 const ADMIN_TOKEN_KEY = 'admin_token';
 const SELLER_TOKEN_KEY = 'seller_token';
@@ -11,6 +13,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   role: AuthRole;
   sellerId: number | null;
+  telegramAuthLoading: boolean;
+  telegramAuthError: string | null;
   login: (params: { token: string; role: AuthRole; sellerId?: number }) => void;
   logout: () => void;
 }
@@ -34,6 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(initial.isAuth);
   const [role, setRole] = useState<AuthRole>(initial.role);
   const [sellerId, setSellerId] = useState<number | null>(initial.sellerId);
+  const [telegramAuthLoading, setTelegramAuthLoading] = useState(() => isTelegram() && !initial.isAuth);
+  const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
 
   const login = useCallback((params: { token: string; role: AuthRole; sellerId?: number }) => {
     if (params.role === 'admin') {
@@ -63,7 +69,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSellerId(null);
   }, []);
 
+  // Auto-authenticate via Telegram initData when running inside Telegram
   useEffect(() => {
+    if (!isTelegram()) return;
+
+    // Already authenticated from sessionStorage
+    if (isAuthenticated) {
+      setTelegramAuthLoading(false);
+      return;
+    }
+
+    const initData = getTelegramInitData();
+    if (!initData) {
+      setTelegramAuthLoading(false);
+      return;
+    }
+
+    telegramAdminAuth(initData)
+      .then(({ token, role: authRole, seller_id }) => {
+        login({ token, role: authRole, sellerId: seller_id });
+      })
+      .catch((err) => {
+        console.error('[TG Auth] Failed:', err);
+        setTelegramAuthError(err instanceof Error ? err.message : 'Ошибка авторизации');
+      })
+      .finally(() => {
+        setTelegramAuthLoading(false);
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync from sessionStorage on mount (browser reload)
+  useEffect(() => {
+    if (isTelegram()) return; // Telegram auth is handled above
     const adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
     const sellerToken = sessionStorage.getItem(SELLER_TOKEN_KEY);
     const storedRole = sessionStorage.getItem(AUTH_ROLE_KEY) as AuthRole | '';
@@ -75,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, role, sellerId, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, sellerId, telegramAuthLoading, telegramAuthError, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

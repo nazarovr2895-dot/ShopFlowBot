@@ -104,6 +104,7 @@ services:
       - ADMIN_SECRET=${ADMIN_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_BOT_TOKEN=${ADMIN_BOT_TOKEN:-}
       - DADATA_API_KEY=${DADATA_API_KEY}
       - ENVIRONMENT=production
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -202,6 +203,25 @@ services:
         condition: service_healthy
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  admin_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin_bot
+    restart: always
+    networks:
+      - app_net
+    environment:
+      - ADMIN_BOT_TOKEN=${ADMIN_BOT_TOKEN}
+      - ADMIN_MINI_APP_URL=${ADMIN_MINI_APP_URL:-https://admin.flurai.ru}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=1
+    env_file:
+      - .env
+    depends_on:
       redis:
         condition: service_healthy
 

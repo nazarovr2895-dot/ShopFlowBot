@@ -3,7 +3,16 @@ import type {
   AdminDashboardData, AdminOrdersResponse, AdminCustomersResponse, AdminFinanceResponse,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+// Runtime API URL (set from config.json) takes priority over build-time env var
+let runtimeApiUrl: string | null = null;
+
+export function setAdminApiBaseUrl(url: string): void {
+  runtimeApiUrl = url;
+}
+
+function getApiBase(): string {
+  return runtimeApiUrl ?? (import.meta.env.VITE_API_URL || '');
+}
 
 function getToken(): string | null {
   return sessionStorage.getItem('admin_token');
@@ -13,7 +22,7 @@ async function fetchAdmin<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
+  const url = `${getApiBase()}${endpoint}`;
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -43,7 +52,7 @@ export async function getDistricts(cityId: number): Promise<District[]> {
 export async function searchMetro(query: string): Promise<MetroStation[]> {
   if (!query.trim()) return [];
   const params = new URLSearchParams({ q: query.trim() });
-  const url = `${API_BASE}/public/metro/search?${params}`;
+  const url = `${getApiBase()}/public/metro/search?${params}`;
   const res = await fetch(url);
   return res.ok ? res.json() : [];
 }
@@ -231,7 +240,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = L
 
 // Admin login
 export async function login(login: string, password: string): Promise<{ token: string }> {
-  const url = `${API_BASE}/admin/login`;
+  const url = `${getApiBase()}/admin/login`;
   const res = await fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -246,7 +255,7 @@ export async function login(login: string, password: string): Promise<{ token: s
 
 // Seller login (for web panel)
 export async function sellerLogin(login: string, password: string): Promise<{ token: string; seller_id: number }> {
-  const url = `${API_BASE}/seller-web/login`;
+  const url = `${getApiBase()}/seller-web/login`;
   const res = await fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -342,4 +351,23 @@ export async function getFinanceSummary(params?: AdminFinanceParams): Promise<Ad
   if (params?.group_by) sp.set('group_by', params.group_by);
   const q = sp.toString() ? `?${sp.toString()}` : '';
   return fetchAdmin<AdminFinanceResponse>(`/admin/finance/summary${q}`);
+}
+
+// ── Telegram Mini App Auth ──
+export async function telegramAdminAuth(initData: string): Promise<{
+  token: string;
+  role: 'admin' | 'seller';
+  seller_id?: number;
+}> {
+  const url = `${getApiBase()}/admin/auth/telegram`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ init_data: initData }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
 }

@@ -1,11 +1,20 @@
-const API_BASE = import.meta.env.VITE_API_URL || '';
+// Runtime API URL (set from config.json) takes priority over build-time env var
+let runtimeApiUrl: string | null = null;
+
+export function setSellerApiBaseUrl(url: string): void {
+  runtimeApiUrl = url;
+}
+
+function getApiBase(): string {
+  return runtimeApiUrl ?? (import.meta.env.VITE_API_URL || '');
+}
 
 function getSellerToken(): string | null {
   return sessionStorage.getItem('seller_token');
 }
 
 async function fetchSeller<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
+  const url = `${getApiBase()}${endpoint}`;
   const token = getSellerToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -30,7 +39,7 @@ export function getProductImageUrl(photoId: string | null | undefined): string |
   if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
   const path = raw.startsWith('/') ? raw : `/${raw}`;
   if (!path.startsWith('/static/')) return null;
-  const base = (API_BASE || '').replace(/\/$/, '');
+  const base = (getApiBase() || '').replace(/\/$/, '');
   return base ? `${base}${path}` : path;
 }
 
@@ -300,7 +309,7 @@ export async function exportStatsCSV(params?: { period?: '1d' | '7d' | '30d'; da
   const query = sp.toString();
   const suffix = query ? `?${query}` : '';
 
-  const res = await fetch(`${API_BASE}/seller-web/stats/export${suffix}`, {
+  const res = await fetch(`${getApiBase()}/seller-web/stats/export${suffix}`, {
     headers: {
       'X-Seller-Token': token,
     },
@@ -317,11 +326,10 @@ export async function getProducts(params?: { preorder?: boolean }): Promise<Sell
 }
 
 export async function uploadProductPhoto(file: File): Promise<{ photo_id: string }> {
-  const API_BASE = import.meta.env.VITE_API_URL || '';
   const token = sessionStorage.getItem('seller_token');
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(`${API_BASE}/seller-web/upload-photo`, {
+  const res = await fetch(`${getApiBase()}/seller-web/upload-photo`, {
     method: 'POST',
     headers: token ? { 'X-Seller-Token': token } : {},
     body: form,
@@ -340,7 +348,7 @@ export function getBannerImageUrl(bannerUrl: string | null | undefined): string 
   if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
   const path = raw.startsWith('/') ? raw : `/${raw}`;
   if (!path.startsWith('/static/')) return null;
-  const base = (API_BASE || '').replace(/\/$/, '');
+  const base = (getApiBase() || '').replace(/\/$/, '');
   return base ? `${base}${path}` : path;
 }
 
@@ -348,7 +356,7 @@ export async function uploadBannerPhoto(file: File): Promise<{ banner_url: strin
   const token = sessionStorage.getItem('seller_token');
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(`${API_BASE}/seller-web/upload-banner`, {
+  const res = await fetch(`${getApiBase()}/seller-web/upload-banner`, {
     method: 'POST',
     headers: token ? { 'X-Seller-Token': token } : {},
     body: form,
@@ -613,7 +621,7 @@ export async function exportCustomersCSV(): Promise<Blob> {
   const token = getSellerToken();
   if (!token) throw new Error('Не авторизован');
 
-  const res = await fetch(`${API_BASE}/seller-web/customers/export`, {
+  const res = await fetch(`${getApiBase()}/seller-web/customers/export`, {
     headers: {
       'X-Seller-Token': token,
     },
