@@ -37,9 +37,9 @@
   animation: fadeIn 0.3s ease;
 }
 
-/* Telegram fullscreen: account for TG header offset */
+/* Telegram fullscreen: --tg-header-offset already includes safe-area */
 .tg-fullscreen .shop-details {
-  padding-top: calc(16px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
+  padding-top: calc(16px + var(--tg-header-offset, 0px));
 }
 
 .shop-details__banner {

@@ -4,8 +4,9 @@
   padding-bottom: 80px;
 }
 
+/* Telegram fullscreen: --tg-header-offset already includes safe-area */
 .tg-fullscreen .order-detail-page {
-  padding-top: calc(16px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
+  padding-top: calc(16px + var(--tg-header-offset, 0px));
 }
 
 .order-detail-page__title {

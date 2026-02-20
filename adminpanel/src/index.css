@@ -137,9 +137,9 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-/* When running in Telegram fullscreen, offset top for system status bar + TG header */
+/* Telegram fullscreen: --tg-header-offset already includes safe-area from JS */
 body.tg-fullscreen {
-  padding-top: calc(env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
+  padding-top: var(--tg-header-offset, 0px);
 }
 
 /* ── Telegram auth loading state ─────────────────────────── */

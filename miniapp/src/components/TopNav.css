@@ -159,10 +159,11 @@
   padding-top: calc(10px + env(safe-area-inset-top, 0));
 }
 
-/* Telegram fullscreen: push nav below system bar + TG header (telegram variant) */
+/* Telegram fullscreen: --tg-header-offset already includes safe-area,
+   so do NOT add env(safe-area-inset-top) here to avoid double-counting */
 .tg-fullscreen .top-nav--telegram,
 .tg-fullscreen .top-nav[data-telegram="true"] {
-  top: calc(env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
+  top: var(--tg-header-offset, 0px);
   padding-top: 10px;
 }
 
