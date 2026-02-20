@@ -479,6 +479,8 @@ function AddSellerModal({
         metro_id: metroId || undefined,
         metro_walk_minutes: metroWalkMinutes || undefined,
         map_url: addressLink || undefined,
+        delivery_type: 'both',
+        delivery_price: 0,
       };
       if (initialInnData?.inn) {
         payload.inn = initialInnData.inn;
