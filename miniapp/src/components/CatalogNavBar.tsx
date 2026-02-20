@@ -19,6 +19,8 @@ interface CatalogNavBarProps {
   /** Delivery tab props — shown inside the bar on desktop when on catalog page */
   deliveryTab?: DeliveryTab;
   onDeliveryTabChange?: (tab: DeliveryTab) => void;
+  /** Show delivery tabs inline (mobile) — replaces the separate DeliveryNavBar */
+  showDeliveryTabsInline?: boolean;
 }
 
 export function CatalogNavBar({
@@ -31,6 +33,7 @@ export function CatalogNavBar({
   onSearchSubmit,
   deliveryTab,
   onDeliveryTabChange,
+  showDeliveryTabsInline = false,
 }: CatalogNavBarProps) {
   const systemTheme = useSystemTheme();
   const isTelegramEnv = isTelegram();
@@ -46,81 +49,111 @@ export function CatalogNavBar({
     }
   };
 
-  const showDeliveryTabs = deliveryTab !== undefined && onDeliveryTabChange !== undefined;
+  const showDesktopDeliveryTabs = deliveryTab !== undefined && onDeliveryTabChange !== undefined && !showDeliveryTabsInline;
+  const showInlineTabs = showDeliveryTabsInline && deliveryTab !== undefined && onDeliveryTabChange !== undefined;
 
   return (
     <nav
-      className={`catalog-nav-bar ${isTelegramEnv ? 'catalog-nav-bar--telegram' : ''} ${desktopLayout ? 'catalog-nav-bar--desktop' : ''}`}
+      className={`catalog-nav-bar ${isTelegramEnv ? 'catalog-nav-bar--telegram' : ''} ${desktopLayout ? 'catalog-nav-bar--desktop' : ''} ${showInlineTabs ? 'catalog-nav-bar--with-tabs' : ''}`}
       data-telegram={isTelegramEnv}
       data-theme-opposite={oppositeTheme}
     >
       <LiquidGlassCard className="catalog-nav-bar__container">
-        <div className="catalog-nav-bar__search-wrap">
-          <span className="catalog-nav-bar__search-icon" aria-hidden>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-          </span>
-          <input
-            ref={searchInputRef}
-            type="search"
-            className="catalog-nav-bar__search-input"
-            placeholder="Поиск по названию и хештегам (например: 101 роза)"
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoComplete="off"
-          />
+        <div className="catalog-nav-bar__top-row">
+          <div className="catalog-nav-bar__search-wrap">
+            <span className="catalog-nav-bar__search-icon" aria-hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+            </span>
+            <input
+              ref={searchInputRef}
+              type="search"
+              className="catalog-nav-bar__search-input"
+              placeholder="Поиск"
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              autoComplete="off"
+            />
+          </div>
+
+          {/* Delivery type tabs — desktop only, inside the top row */}
+          {showDesktopDeliveryTabs && (
+            <div className="catalog-nav-bar__delivery-tabs">
+              <button
+                type="button"
+                className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'all' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
+                onClick={() => onDeliveryTabChange('all')}
+              >
+                Все
+              </button>
+              <button
+                type="button"
+                className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'delivery' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
+                onClick={() => onDeliveryTabChange('delivery')}
+              >
+                Доставка
+              </button>
+              <button
+                type="button"
+                className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'pickup' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
+                onClick={() => onDeliveryTabChange('pickup')}
+              >
+                Самовывоз
+              </button>
+            </div>
+          )}
+
+          {showFilterButton && onFilterClick && (
+            <button
+              className={`catalog-nav-bar__filter-btn ${activeFiltersCount > 0 ? 'catalog-nav-bar__filter-btn--active' : ''}`}
+              onClick={onFilterClick}
+              aria-label="Открыть фильтры"
+            >
+              <svg className="catalog-nav-bar__filter-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="20" y2="18" />
+                <circle cx="8" cy="6" r="1.5" fill="currentColor" />
+                <circle cx="15" cy="12" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="18" r="1.5" fill="currentColor" />
+              </svg>
+              {activeFiltersCount > 0 && (
+                <span className="catalog-nav-bar__filter-badge" aria-label={`${activeFiltersCount} активных фильтров`}>
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
-        {/* Delivery type tabs — desktop only, inside the glass bar */}
-        {showDeliveryTabs && (
-          <div className="catalog-nav-bar__delivery-tabs">
+        {/* Inline delivery tabs — mobile, second row inside the glass bar */}
+        {showInlineTabs && (
+          <div className="catalog-nav-bar__inline-tabs">
             <button
               type="button"
-              className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'all' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
-              onClick={() => onDeliveryTabChange('all')}
+              className={`catalog-nav-bar__inline-tab ${deliveryTab === 'all' ? 'catalog-nav-bar__inline-tab--active' : ''}`}
+              onClick={() => onDeliveryTabChange!('all')}
             >
               Все
             </button>
             <button
               type="button"
-              className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'delivery' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
-              onClick={() => onDeliveryTabChange('delivery')}
+              className={`catalog-nav-bar__inline-tab ${deliveryTab === 'delivery' ? 'catalog-nav-bar__inline-tab--active' : ''}`}
+              onClick={() => onDeliveryTabChange!('delivery')}
             >
               Доставка
             </button>
             <button
               type="button"
-              className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'pickup' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
-              onClick={() => onDeliveryTabChange('pickup')}
+              className={`catalog-nav-bar__inline-tab ${deliveryTab === 'pickup' ? 'catalog-nav-bar__inline-tab--active' : ''}`}
+              onClick={() => onDeliveryTabChange!('pickup')}
             >
               Самовывоз
             </button>
           </div>
-        )}
-
-        {showFilterButton && onFilterClick && (
-          <button
-            className={`catalog-nav-bar__filter-btn ${activeFiltersCount > 0 ? 'catalog-nav-bar__filter-btn--active' : ''}`}
-            onClick={onFilterClick}
-            aria-label="Открыть фильтры"
-          >
-            <svg className="catalog-nav-bar__filter-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="4" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="18" x2="20" y2="18" />
-              <circle cx="8" cy="6" r="1.5" fill="currentColor" />
-              <circle cx="15" cy="12" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="18" r="1.5" fill="currentColor" />
-            </svg>
-            {activeFiltersCount > 0 && (
-              <span className="catalog-nav-bar__filter-badge" aria-label={`${activeFiltersCount} активных фильтров`}>
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
         )}
       </LiquidGlassCard>
     </nav>

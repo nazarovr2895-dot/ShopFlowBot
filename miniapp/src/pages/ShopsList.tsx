@@ -6,7 +6,7 @@ import { useLocationCache } from '../hooks/useLocationCache';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import { useCatalogFilter } from '../contexts/CatalogFilterContext';
 import { isTelegram } from '../utils/environment';
-import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal, DeliveryNavBar } from '../components';
+import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal } from '../components';
 import type { DeliveryTab } from '../components';
 import './ShopsList.css';
 
@@ -134,6 +134,9 @@ export function ShopsList() {
           onFilterClick={() => setIsFilterModalOpen(true)}
           activeFiltersCount={activeFiltersCount}
           showFilterButton
+          showDeliveryTabsInline
+          deliveryTab={deliveryTab}
+          onDeliveryTabChange={handleDeliveryTabChange}
         />
       )}
 
@@ -145,10 +148,6 @@ export function ShopsList() {
       />
 
       <div className="shops-list__content">
-          {/* Inline delivery tabs — scrolls with content (Telegram only; desktop uses CatalogNavBar) */}
-          {!isDesktop && (
-            <DeliveryNavBar activeTab={deliveryTab} onTabChange={handleDeliveryTabChange} />
-          )}
           {loading && sellers.length === 0 ? (
             <Loader centered />
           ) : error ? (

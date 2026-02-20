@@ -20,20 +20,30 @@
   top: calc(68px + var(--tg-header-offset, 0px));
 }
 
-.catalog-nav-bar__container {
+.catalog-nav-bar .catalog-nav-bar__container {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 0;
   padding: 6px 10px;
   pointer-events: auto;
-  height: 36px;
-  border-radius: 20px;
+  border-radius: 14px;
 }
 
 .catalog-nav-bar--telegram .catalog-nav-bar__container,
 .catalog-nav-bar[data-telegram="true"] .catalog-nav-bar__container {
-  height: 36px;
   padding: 4px 8px;
+}
+
+.catalog-nav-bar__top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+}
+
+.catalog-nav-bar--telegram .catalog-nav-bar__top-row,
+.catalog-nav-bar[data-telegram="true"] .catalog-nav-bar__top-row {
+  height: 36px;
 }
 
 .catalog-nav-bar__search-wrap {
@@ -47,6 +57,11 @@
 .catalog-nav-bar__search-icon {
   position: absolute;
   left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--app-text-secondary);
   pointer-events: none;
   z-index: 1;
@@ -201,10 +216,67 @@
 }
 
 /* ============================================
+   Inline delivery tabs (mobile, second row)
+   ============================================ */
+.catalog-nav-bar__inline-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 2px 4px;
+}
+
+.catalog-nav-bar__inline-tab {
+  flex: 1;
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.catalog-nav-bar__inline-tab:active {
+  transform: scale(0.97);
+}
+
+.catalog-nav-bar__inline-tab--active {
+  opacity: 1;
+  font-weight: 600;
+  background: rgba(128, 128, 128, 0.15);
+}
+
+/* Inline tab theme styles */
+[data-theme-opposite="dark"] .catalog-nav-bar__inline-tab {
+  color: #ffffff;
+}
+
+[data-theme-opposite="light"] .catalog-nav-bar__inline-tab {
+  color: #000000;
+}
+
+[data-theme-opposite="dark"] .catalog-nav-bar__inline-tab--active {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+[data-theme-opposite="light"] .catalog-nav-bar__inline-tab--active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
    Delivery tabs (inside the bar, desktop only)
    ============================================ */
 .catalog-nav-bar__delivery-tabs {
-  display: none; /* Hidden on mobile — DeliveryNavBar is used instead */
+  display: none; /* Hidden on mobile — inline tabs are used instead */
 }
 
 /* Desktop layout modifier: centered, wider to fit delivery tabs */
@@ -220,9 +292,13 @@
 }
 
 .catalog-nav-bar--desktop .catalog-nav-bar__container {
-  height: 38px;
   padding: 6px 10px;
   width: 100%;
+  border-radius: 20px;
+}
+
+.catalog-nav-bar--desktop .catalog-nav-bar__top-row {
+  height: 38px;
 }
 
 .catalog-nav-bar--desktop .catalog-nav-bar__filter-btn {
@@ -304,10 +380,14 @@
   }
 
   .catalog-nav-bar:not(.catalog-nav-bar--desktop) .catalog-nav-bar__container {
-    height: 42px;
     padding: 8px 12px;
     max-width: 1400px;
     margin: 0 auto;
+    border-radius: 16px;
+  }
+
+  .catalog-nav-bar:not(.catalog-nav-bar--desktop) .catalog-nav-bar__top-row {
+    height: 42px;
   }
 
   .catalog-nav-bar__search-input {
