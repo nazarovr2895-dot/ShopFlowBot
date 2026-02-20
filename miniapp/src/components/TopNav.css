@@ -9,6 +9,11 @@
   pointer-events: none;
 }
 
+/* Telegram fullscreen: account for TG header offset */
+.tg-fullscreen .top-nav {
+  padding-top: calc(12px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
+}
+
 /* Browser only: reduce nav height by ~20% */
 .top-nav:not([data-telegram="true"]) {
   padding: 10px 13px;
@@ -151,6 +156,12 @@
 [data-telegram="true"] {
   padding: 10px 14px;
   padding-top: calc(10px + env(safe-area-inset-top, 0));
+}
+
+/* Telegram fullscreen: account for TG header in telegram variant */
+.tg-fullscreen .top-nav--telegram,
+.tg-fullscreen .top-nav[data-telegram="true"] {
+  padding-top: calc(10px + env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
 }
 
 .top-nav--telegram .top-nav__container,

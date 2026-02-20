@@ -76,6 +76,12 @@ body {
   overscroll-behavior-y: contain;
 }
 
+/* Telegram fullscreen: offset for system status bar + TG header */
+body.tg-fullscreen {
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--tg-header-offset, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Modal scroll lock — no reflow, no scrollbar shift */
 html.scroll-locked,
 html.scroll-locked body {

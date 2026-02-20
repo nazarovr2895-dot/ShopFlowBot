@@ -8,7 +8,7 @@ let telegramWebAppInitialized = false;
 function initTelegramWebAppOnce() {
   if (telegramWebAppInitialized) return;
   telegramWebAppInitialized = true;
-  
+
   // Only initialize if in Telegram
   if (isTelegram()) {
     try {
@@ -16,10 +16,56 @@ function initTelegramWebAppOnce() {
       WebApp.expand();
       WebApp.setHeaderColor('secondary_bg_color');
       WebApp.enableClosingConfirmation();
+      if (typeof WebApp.disableVerticalSwipes === 'function') {
+        WebApp.disableVerticalSwipes();
+      }
+
+      // Request fullscreen if available (Telegram Bot API 8.0+)
+      if (typeof (WebApp as any).requestFullscreen === 'function') {
+        try {
+          (WebApp as any).requestFullscreen();
+        } catch {
+          // Not supported or denied
+        }
+      }
+
+      // Apply safe-area offset for Telegram header in fullscreen
+      applyTelegramSafeArea();
     } catch (e) {
       console.warn('[useTelegramWebApp] Failed to initialize Telegram WebApp:', e);
     }
   }
+}
+
+/**
+ * Read Telegram CSS safe-area variables and set --tg-content-safe-area
+ * so the layout can account for the Telegram header in fullscreen mode.
+ */
+function applyTelegramSafeArea() {
+  const body = document.body;
+  body.classList.add('tg-fullscreen');
+
+  const update = () => {
+    const root = document.documentElement;
+    const tgContentTop = getComputedStyle(root).getPropertyValue('--tg-content-safe-area-inset-top')?.trim();
+    const tgSafeTop = getComputedStyle(root).getPropertyValue('--tg-safe-area-inset-top')?.trim();
+
+    let offset = 0;
+    if (tgContentTop && parseInt(tgContentTop) > 0) {
+      offset = parseInt(tgContentTop);
+    } else if (tgSafeTop && parseInt(tgSafeTop) > 0) {
+      offset = parseInt(tgSafeTop);
+    }
+
+    body.style.setProperty('--tg-header-offset', `${offset}px`);
+  };
+
+  update();
+  if (typeof WebApp.onEvent === 'function') {
+    WebApp.onEvent('viewportChanged', update);
+  }
+  setTimeout(update, 300);
+  setTimeout(update, 1000);
 }
 
 export function useTelegramWebApp() {
