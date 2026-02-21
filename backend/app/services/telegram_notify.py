@@ -1,12 +1,13 @@
 # backend/app/services/telegram_notify.py
 """Send Telegram notifications to buyers and sellers for order events."""
 import os
-import logging
 from typing import Optional, Dict, Any, List
 
 import httpx
 
-logger = logging.getLogger(__name__)
+from backend.app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 TELEGRAM_API = "https://api.telegram.org"
@@ -26,7 +27,10 @@ STATUS_LABELS = {
 
 def _order_notification_keyboard(order_id: int, seller_id: int) -> Dict[str, Any]:
     """
-    Inline keyboard with 3 buttons: Open order in platform, Contact seller, I received order.
+    Inline keyboard with buttons: Open order in platform, I received order.
+    Note: "Contact seller" uses tg://user?id= which is NOT supported in
+    inline keyboard URL buttons (causes 400 Bad Request).
+    The link is placed in the message text instead.
     """
     rows = []
     if MINI_APP_URL:
@@ -34,7 +38,6 @@ def _order_notification_keyboard(order_id: int, seller_id: int) -> Dict[str, Any
             {"text": "📱 Открыть заказ в платформе", "url": f"{MINI_APP_URL}/order/{order_id}"},
         ])
     rows.append([
-        {"text": "💬 Связаться с продавцом", "url": f"tg://user?id={seller_id}"},
         {"text": "✅ Я получил заказ", "callback_data": f"buyer_confirm_{order_id}"},
     ])
     return {"inline_keyboard": rows}
@@ -68,11 +71,24 @@ async def _send_telegram_message(
             r = await client.post(url, json=payload)
             if r.is_success:
                 return True
+            # If Markdown fails, retry without parse_mode
+            if r.status_code == 400 and parse_mode:
+                logger.info(
+                    "Telegram sendMessage 400 with %s, retrying without parse_mode (chat=%s)",
+                    parse_mode, chat_id,
+                )
+                payload.pop("parse_mode", None)
+                r2 = await client.post(url, json=payload)
+                if r2.is_success:
+                    return True
+                logger.warning(
+                    "Telegram sendMessage retry also failed: status=%s body=%s",
+                    r2.status_code, r2.text[:500],
+                )
+                return False
             logger.warning(
-                "Telegram sendMessage failed",
-                chat_id=chat_id,
-                status_code=r.status_code,
-                body=r.text[:500],
+                "Telegram sendMessage failed: chat_id=%s status=%s body=%s",
+                chat_id, r.status_code, r.text[:500],
             )
             return False
     except Exception as e:
@@ -282,11 +298,12 @@ async def notify_buyer_payment_required(
     Notify buyer that the order was accepted and payment is required.
     Sends an inline button with the YuKassa payment link.
     """
-    text = f"✅ *Заказ #{order_id}* принят продавцом!"
+    text = f"✅ Заказ #{order_id} принят продавцом!"
     if items_info:
         text += f"\n\n🛒 {items_info}"
-    text += f"\n💰 К оплате: *{total_price:.0f}* руб."
+    text += f"\n💰 К оплате: {total_price:.0f} руб."
     text += "\n\n💳 Нажмите кнопку ниже, чтобы оплатить заказ."
+    text += f"\n\n💬 Связаться с продавцом: tg://user?id={seller_id}"
 
     rows = [
         [{"text": "💳 Оплатить", "url": confirmation_url}],
@@ -295,9 +312,6 @@ async def notify_buyer_payment_required(
         rows.append([
             {"text": "📱 Открыть заказ", "url": f"{MINI_APP_URL}/order/{order_id}"},
         ])
-    rows.append([
-        {"text": "💬 Связаться с продавцом", "url": f"tg://user?id={seller_id}"},
-    ])
     reply_markup = {"inline_keyboard": rows}
     return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
 
