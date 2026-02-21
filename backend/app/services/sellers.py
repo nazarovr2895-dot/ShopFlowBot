@@ -609,6 +609,12 @@ class SellerService:
                 seller.commission_percent = val
         elif field == "ogrn":
             seller.ogrn = (value or "").strip() or None
+        elif field == "yookassa_account_id":
+            value_stripped = (str(value) if value is not None else "").strip()
+            if not value_stripped or value_stripped.lower() in ("null", "none", ""):
+                seller.yookassa_account_id = None
+            else:
+                seller.yookassa_account_id = value_stripped
 
         await self.session.commit()
         return {"status": "ok"}
