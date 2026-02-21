@@ -39,21 +39,24 @@ def _format_items_for_display(items_info: str) -> str:
     return cleaned.strip()
 
 
-def _order_notification_keyboard(order_id: int, seller_id: int) -> Dict[str, Any]:
+def _order_notification_keyboard(
+    order_id: int,
+    seller_id: int,
+    show_confirm_button: bool = False,
+) -> Dict[str, Any]:
     """
-    Inline keyboard with buttons: Open order in platform, I received order.
-    Note: "Contact seller" uses tg://user?id= which is NOT supported in
-    inline keyboard URL buttons (causes 400 Bad Request).
-    The link is placed in the message text instead.
+    Inline keyboard with buttons: Open order in platform, (optionally) I received order.
+    show_confirm_button=True only when order status is "done" (delivered).
     """
     rows = []
     if MINI_APP_URL:
         rows.append([
             {"text": "📱 Открыть заказ в платформе", "web_app": {"url": f"{MINI_APP_URL}/order/{order_id}"}},
         ])
-    rows.append([
-        {"text": "✅ Я получил заказ", "callback_data": f"buyer_confirm_{order_id}"},
-    ])
+    if show_confirm_button:
+        rows.append([
+            {"text": "✅ Я получил заказ", "callback_data": f"buyer_confirm_{order_id}"},
+        ])
     return {"inline_keyboard": rows}
 
 
@@ -206,7 +209,10 @@ async def notify_buyer_order_status(
         text += f"\n\n🛒 {display_items}"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
-    reply_markup = _order_notification_keyboard(order_id, seller_id)
+    # Show "I received order" button only when order is delivered
+    reply_markup = _order_notification_keyboard(
+        order_id, seller_id, show_confirm_button=(new_status == "done"),
+    )
     return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
 
 

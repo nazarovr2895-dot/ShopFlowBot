@@ -70,17 +70,7 @@ async def create_order(
         )
         await session.commit()
         logger.info("Order created successfully", order_id=order.id, buyer_id=data.buyer_id)
-        from backend.app.services.telegram_notify import (
-            notify_buyer_order_created,
-            notify_seller_new_order,
-        )
-        await notify_buyer_order_created(
-            buyer_id=data.buyer_id,
-            order_id=order.id,
-            seller_id=data.seller_id,
-            items_info=data.items_info,
-            total_price=float(order.total_price) if order.total_price is not None else None,
-        )
+        from backend.app.services.telegram_notify import notify_seller_new_order
         await notify_seller_new_order(
             seller_id=data.seller_id,
             order_id=order.id,

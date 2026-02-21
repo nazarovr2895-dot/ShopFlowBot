@@ -364,11 +364,8 @@ async def checkout_cart(
         )
         await session.commit()
 
-        # Send Telegram notifications for each created order
-        from backend.app.services.telegram_notify import (
-            notify_buyer_order_created,
-            notify_seller_new_order,
-        )
+        # Send Telegram notification to seller for each created order
+        from backend.app.services.telegram_notify import notify_seller_new_order
         for o in orders:
             preorder_date_str = o.get("preorder_delivery_date")
             if preorder_date_str:
@@ -379,15 +376,6 @@ async def checkout_cart(
                     preorder_date_str = d.strftime("%d.%m.%Y")
                 except (ValueError, TypeError):
                     pass
-            await notify_buyer_order_created(
-                buyer_id=current_user.user.id,
-                order_id=o["order_id"],
-                seller_id=o["seller_id"],
-                items_info=o.get("items_info", ""),
-                total_price=o.get("total_price"),
-                is_preorder=o.get("is_preorder", False),
-                preorder_delivery_date=preorder_date_str,
-            )
             await notify_seller_new_order(
                 seller_id=o["seller_id"],
                 order_id=o["order_id"],
