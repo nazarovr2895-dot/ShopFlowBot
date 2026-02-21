@@ -153,6 +153,17 @@ export function OrdersTabContent() {
                     <span className="order-card__price">
                       {formatPrice(order.total_price)}
                     </span>
+                    {/* Payment badge */}
+                    {order.status === 'accepted' && order.payment_id && order.payment_status !== 'succeeded' && (
+                      <span style={{ color: '#6c5ce7', fontWeight: 600, fontSize: '0.75rem' }}>
+                        💳 Оплатить
+                      </span>
+                    )}
+                    {order.payment_status === 'succeeded' && (
+                      <span style={{ color: '#27ae60', fontWeight: 600, fontSize: '0.75rem' }}>
+                        ✅ Оплачено
+                      </span>
+                    )}
                     {order.created_at && (
                       <span className="order-card__date">
                         {new Date(order.created_at).toLocaleDateString('ru-RU')}

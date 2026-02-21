@@ -270,6 +270,38 @@ async def notify_seller_upcoming_events(
     return await _send_telegram_message(seller_id, text)
 
 
+async def notify_buyer_payment_required(
+    buyer_id: int,
+    order_id: int,
+    seller_id: int,
+    total_price: float,
+    confirmation_url: str,
+    items_info: str = "",
+) -> bool:
+    """
+    Notify buyer that the order was accepted and payment is required.
+    Sends an inline button with the YuKassa payment link.
+    """
+    text = f"✅ *Заказ #{order_id}* принят продавцом!"
+    if items_info:
+        text += f"\n\n🛒 {items_info}"
+    text += f"\n💰 К оплате: *{total_price:.0f}* руб."
+    text += "\n\n💳 Нажмите кнопку ниже, чтобы оплатить заказ."
+
+    rows = [
+        [{"text": "💳 Оплатить", "url": confirmation_url}],
+    ]
+    if MINI_APP_URL:
+        rows.append([
+            {"text": "📱 Открыть заказ", "url": f"{MINI_APP_URL}/order/{order_id}"},
+        ])
+    rows.append([
+        {"text": "💬 Связаться с продавцом", "url": f"tg://user?id={seller_id}"},
+    ])
+    reply_markup = {"inline_keyboard": rows}
+    return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
+
+
 async def notify_seller_new_order_guest(
     seller_id: int,
     order_id: int,

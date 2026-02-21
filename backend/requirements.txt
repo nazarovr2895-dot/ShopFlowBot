@@ -29,3 +29,5 @@ aiosqlite==0.20.0
 slowapi==0.1.9
 # Monitoring
 prometheus-client==0.19.0
+# Payment (YuKassa split payments)
+yookassa>=3.10.0

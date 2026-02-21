@@ -14,7 +14,7 @@ from backend.app.core.limiter import limiter
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.api import buyers, sellers, orders, admin, public
+from backend.app.api import buyers, sellers, orders, admin, public, payments
 from backend.app.api import admin_auth, seller_auth, seller_web, auth
 from backend.app.api.admin import require_admin_token
 from backend.app.api.deps import get_session
@@ -246,6 +246,7 @@ app.include_router(public.router, prefix="/public", tags=["public"])  # Публ
 app.include_router(buyers.router, prefix="/buyers", tags=["buyers"])
 app.include_router(sellers.router, prefix="/sellers", tags=["sellers"])
 app.include_router(orders.router, prefix="/orders", tags=["orders"])
+app.include_router(payments.router, prefix="/payments", tags=["payments"])
 # Admin login - без токена (первым, чтобы /admin/login работал)
 app.include_router(admin_auth.router, prefix="/admin", tags=["admin"])
 # Seller web login (no token required)

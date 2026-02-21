@@ -26,6 +26,9 @@ class Order(Base):
     guest_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     guest_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     guest_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Payment fields (YuKassa split payments)
+    payment_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    payment_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     __table_args__ = (
         Index('ix_orders_seller_id', 'seller_id'),
@@ -39,4 +42,6 @@ class Order(Base):
         Index('ix_orders_is_preorder', 'is_preorder'),  # Preorder filter
         Index('ix_orders_seller_preorder', 'seller_id', 'is_preorder'),  # Seller preorders
         Index('ix_orders_preorder_date', 'is_preorder', 'preorder_delivery_date'),  # Preorder dates
+        Index('ix_orders_payment_id', 'payment_id'),  # Payment lookup
+        Index('ix_orders_payment_status', 'payment_status'),  # Payment status filter
     )

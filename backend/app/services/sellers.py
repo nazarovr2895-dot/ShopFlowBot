@@ -175,7 +175,7 @@ class SellerService:
         "fio", "phone", "shop_name", "hashtags", "description",
         "address_name", "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
-        "commission_percent"
+        "commission_percent", "yookassa_account_id"
     }
     
     def __init__(self, session: AsyncSession):

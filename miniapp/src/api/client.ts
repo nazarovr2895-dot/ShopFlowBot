@@ -490,6 +490,53 @@ class ApiClient {
   async cancelOrder(orderId: number): Promise<{ status: string; new_status: string; points_refunded?: number }> {
     return this.fetch(`/buyers/me/orders/${orderId}/cancel`, { method: 'POST' });
   }
+
+  // Payment API (YuKassa)
+
+  /** Create a YuKassa payment for an accepted order. Returns confirmation_url for redirect. */
+  async createPayment(orderId: number, returnUrl?: string): Promise<{
+    payment_id: string;
+    confirmation_url: string | null;
+    status: string;
+  }> {
+    return this.fetch('/payments/create', {
+      method: 'POST',
+      body: JSON.stringify({ order_id: orderId, ...(returnUrl ? { return_url: returnUrl } : {}) }),
+    });
+  }
+
+  /** Get current payment status for an order (fetches fresh data from YuKassa). */
+  async getPaymentStatus(orderId: number): Promise<{
+    order_id: number;
+    payment_id: string | null;
+    payment_status: string | null;
+    paid: boolean;
+    amount?: string | null;
+  }> {
+    return this.fetch(`/payments/${orderId}/status`);
+  }
+
+  /** Create payment for a guest order (no auth required). */
+  async createGuestPayment(orderId: number, returnUrl?: string): Promise<{
+    payment_id: string;
+    confirmation_url: string | null;
+    status: string;
+  }> {
+    const url = `${this.getBaseUrl()}/payments/guest/create`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: JSON.stringify({ order_id: orderId, ...(returnUrl ? { return_url: returnUrl } : {}) }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Payment error' }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);

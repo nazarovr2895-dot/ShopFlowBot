@@ -569,6 +569,8 @@ class OrderService:
                 "points_used": float(o.points_used) if getattr(o, "points_used", None) else 0,
                 "points_discount": float(o.points_discount) if getattr(o, "points_discount", None) else 0,
                 "is_guest": o.buyer_id is None,
+                "payment_id": getattr(o, "payment_id", None),
+                "payment_status": getattr(o, "payment_status", None),
             })
         return out
 
@@ -713,6 +715,8 @@ class OrderService:
                 "first_product_photo": product_photos.get(order_first_pid.get(row[0].id)),
                 "seller_address_name": row.address_name,
                 "seller_map_url": row.map_url,
+                "payment_id": getattr(row[0], "payment_id", None),
+                "payment_status": getattr(row[0], "payment_status", None),
             }
             for row in rows
         ]

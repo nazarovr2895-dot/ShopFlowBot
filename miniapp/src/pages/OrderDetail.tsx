@@ -64,6 +64,20 @@ function formatDeliveryAddress(address: string | null): string {
 const formatPrice = (n: number) =>
   new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: 'Ожидает оплаты',
+  waiting_for_capture: 'Обработка оплаты',
+  succeeded: 'Оплачено',
+  canceled: 'Оплата отменена',
+};
+
+const PAYMENT_STATUS_COLORS: Record<string, string> = {
+  pending: '#f39c12',
+  waiting_for_capture: '#3498db',
+  succeeded: '#27ae60',
+  canceled: '#e74c3c',
+};
+
 export function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -72,6 +86,7 @@ export function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     setBackButton(true, () => navigate('/?tab=orders'));
@@ -163,6 +178,35 @@ export function OrderDetail() {
     } else {
       // Fallback: use tg://user?id= protocol for sellers without username
       window.open(`tg://user?id=${order.seller_id}`, '_blank');
+    }
+  };
+
+  const handlePay = async () => {
+    if (!order) return;
+    setPaying(true);
+    try {
+      hapticFeedback('medium');
+      const returnUrl = window.location.origin + `/order/${order.id}`;
+      const result = await api.createPayment(order.id, returnUrl);
+      if (result.confirmation_url) {
+        // Redirect to YuKassa payment page
+        if (isTelegram()) {
+          try {
+            const WebApp = (window as any).Telegram?.WebApp;
+            WebApp?.openLink(result.confirmation_url);
+          } catch {
+            window.location.href = result.confirmation_url;
+          }
+        } else {
+          window.location.href = result.confirmation_url;
+        }
+      } else {
+        showAlert('Не удалось получить ссылку для оплаты. Попробуйте позже.');
+      }
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : 'Ошибка создания платежа');
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -344,8 +388,39 @@ export function OrderDetail() {
         )}
       </div>
 
+      {/* Payment status */}
+      {order.payment_id && order.payment_status && (
+        <div className="order-detail__row" style={{ marginTop: 8, marginBottom: 4 }}>
+          <span className="order-detail__label">Оплата</span>
+          <span
+            className="order-detail__value"
+            style={{
+              fontWeight: 600,
+              color: PAYMENT_STATUS_COLORS[order.payment_status] || '#95a5a6',
+            }}
+          >
+            {PAYMENT_STATUS_LABELS[order.payment_status] ?? order.payment_status}
+          </span>
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="order-detail__actions">
+        {/* Pay button — show for accepted orders that are not yet paid */}
+        {order.status === 'accepted' &&
+          order.payment_status !== 'succeeded' &&
+          order.payment_status !== 'waiting_for_capture' && (
+            <button
+              type="button"
+              className="order-detail__action-btn order-detail__action-btn--primary"
+              onClick={handlePay}
+              disabled={paying}
+              style={{ background: '#6c5ce7' }}
+            >
+              {paying ? 'Создаём платёж...' : `💳 Оплатить ${formatPrice(order.total_price)}`}
+            </button>
+          )}
+
         {canConfirm && (
           <button
             type="button"

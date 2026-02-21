@@ -139,6 +139,9 @@ export interface BuyerOrder {
   first_product_photo?: string | null;
   seller_address_name?: string | null;
   seller_map_url?: string | null;
+  // Payment (YuKassa)
+  payment_id?: string | null;
+  payment_status?: string | null;
 }
 
 export interface PublicSellerDetail {

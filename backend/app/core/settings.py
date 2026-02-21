@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     
     # DaData API configuration
     DADATA_API_KEY: Optional[str] = Field(default=None, description="DaData API key for INN validation")
+
+    # YuKassa payment configuration (split payments for marketplace)
+    YOOKASSA_SHOP_ID: Optional[str] = Field(default=None, description="YuKassa marketplace shop ID")
+    YOOKASSA_SECRET_KEY: Optional[str] = Field(default=None, description="YuKassa secret key")
+    YOOKASSA_RETURN_URL: Optional[str] = Field(default=None, description="URL to return to after YuKassa payment (miniapp)")
     
     # Database pool configuration
     DB_POOL_SIZE: int = Field(default=50, description="Database connection pool size")
