@@ -1,7 +1,12 @@
 """
-Payment service — YuKassa split payment operations for the marketplace.
+Payment service — YuKassa payment operations for the marketplace.
 
-Uses YuKassa `transfers` API to split payments between platform and seller.
+Supports two modes:
+1. Split payment (transfers) — when seller has yookassa_account_id,
+   payment is split between platform and seller using YuKassa transfers API.
+2. Direct payment — when seller has no yookassa_account_id,
+   full amount goes to platform account (no transfers).
+
 Commission rates are determined by the existing commission system
 (get_effective_commission_rate from commissions.py).
 """
@@ -124,19 +129,12 @@ class PaymentService:
                     error=str(exc),
                 )
 
-        # Load seller and verify onboarding
+        # Load seller
         seller = await self.session.get(Seller, order.seller_id)
         if not seller:
             raise PaymentServiceError(f"Seller {order.seller_id} not found", 404)
-        if not seller.yookassa_account_id:
-            raise SellerNotOnboardedError(order.seller_id)
 
-        # Calculate platform commission using existing commission system
-        commission_rate = await get_effective_commission_rate(self.session, order.seller_id)
         total = Decimal(str(order.total_price))
-        commission_amount = (total * Decimal(str(commission_rate)) / Decimal("100")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
         amount_value = str(total.quantize(Decimal("0.01")))
 
         # Build return URL
@@ -161,7 +159,15 @@ class PaymentService:
                 "order_id": str(order_id),
                 "seller_id": str(order.seller_id),
             },
-            "transfers": [
+        }
+
+        # Split payment mode: if seller has yookassa_account_id, add transfers
+        if seller.yookassa_account_id:
+            commission_rate = await get_effective_commission_rate(self.session, order.seller_id)
+            commission_amount = (total * Decimal(str(commission_rate)) / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            payment_params["transfers"] = [
                 {
                     "account_id": seller.yookassa_account_id,
                     "amount": {
@@ -177,8 +183,7 @@ class PaymentService:
                         "order_id": str(order_id),
                     },
                 }
-            ],
-        }
+            ]
 
         try:
             payment = await asyncio.to_thread(YooPayment.create, payment_params, idempotence_key)
@@ -199,15 +204,18 @@ class PaymentService:
         if payment.confirmation:
             confirmation_url = payment.confirmation.confirmation_url
 
-        logger.info(
-            "Payment created",
-            order_id=order_id,
-            payment_id=payment.id,
-            amount=amount_value,
-            commission=str(commission_amount),
-            commission_rate=commission_rate,
-            status=payment.status,
-        )
+        split_mode = bool(seller.yookassa_account_id)
+        log_extra: Dict[str, Any] = {
+            "order_id": order_id,
+            "payment_id": payment.id,
+            "amount": amount_value,
+            "status": payment.status,
+            "split_mode": split_mode,
+        }
+        if split_mode:
+            commission_rate_val = await get_effective_commission_rate(self.session, order.seller_id)
+            log_extra["commission_rate"] = commission_rate_val
+        logger.info("Payment created", **log_extra)
 
         return {
             "payment_id": payment.id,

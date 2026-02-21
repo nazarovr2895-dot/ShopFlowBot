@@ -109,24 +109,25 @@ async def accept_order(order_id: int, session: AsyncSession = Depends(get_sessio
         result = await service.accept_order(order_id)
         await session.commit()
 
-        # --- Try to create YuKassa payment if seller is onboarded ---
+        # --- Try to create YuKassa payment if configured ---
         confirmation_url = None
         seller_id = result["seller_id"]
         buyer_id = result["buyer_id"]
         total_price = result.get("total_price")
         try:
-            seller = await session.get(Seller, seller_id)
-            if seller and seller.yookassa_account_id:
-                from backend.app.services.payment import PaymentService, PaymentServiceError
-                pay_svc = PaymentService(session)
-                pay_result = await pay_svc.create_payment(order_id=order_id)
-                await session.commit()
-                confirmation_url = pay_result.get("confirmation_url")
-                logger.info(
-                    "Payment created on accept",
-                    order_id=order_id,
-                    payment_id=pay_result.get("payment_id"),
-                )
+            from backend.app.services.payment import PaymentService, PaymentServiceError, PaymentNotConfiguredError
+            pay_svc = PaymentService(session)
+            pay_result = await pay_svc.create_payment(order_id=order_id)
+            await session.commit()
+            confirmation_url = pay_result.get("confirmation_url")
+            logger.info(
+                "Payment created on accept",
+                order_id=order_id,
+                payment_id=pay_result.get("payment_id"),
+            )
+        except PaymentNotConfiguredError:
+            # YuKassa not configured — skip silently
+            pass
         except Exception as pay_err:
             logger.warning(
                 "Payment creation on accept failed (non-critical)",
