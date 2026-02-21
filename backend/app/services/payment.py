@@ -11,16 +11,20 @@ Commission rates are determined by the existing commission system
 (get_effective_commission_rate from commissions.py).
 """
 import asyncio
+import re
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from yookassa import Configuration, Payment as YooPayment, Refund as YooRefund
 
 from backend.app.models.order import Order
+from backend.app.models.product import Product
 from backend.app.models.seller import Seller
+from backend.app.models.user import User
 from backend.app.services.commissions import get_effective_commission_rate
 from backend.app.core.settings import get_settings
 from backend.app.core.logging import get_logger
@@ -84,6 +88,134 @@ class PaymentService:
         if not self._configured:
             raise PaymentNotConfiguredError()
 
+    # -- Receipt helpers ----------------------------------------------------
+
+    def _parse_items_info(self, items_info: str) -> List[Dict[str, Any]]:
+        """
+        Parse ``items_info`` string like ``"123:Розы x 2, 456:Тюльпаны x 3"``
+        into a list of dicts: ``[{product_id, name, quantity}, ...]``.
+        """
+        pattern = r'(\d+):(.+?)\s*[x×]\s*(\d+)'
+        matches = re.findall(pattern, items_info or "")
+        result = []
+        for pid, name, qty in matches:
+            result.append({
+                "product_id": int(pid),
+                "name": name.strip(),
+                "quantity": int(qty),
+            })
+        return result
+
+    async def _build_receipt(
+        self,
+        order: Order,
+        total: Decimal,
+    ) -> Dict[str, Any]:
+        """
+        Build a YuKassa receipt object (54-ФЗ compliance).
+
+        Fetches product prices from DB.  If the sum of item prices doesn't
+        match the order total (e.g. delivery fee, discounts), an adjustment
+        line is added so the receipt total equals the payment amount exactly.
+        """
+        # ---- customer contact (phone required) ----
+        customer: Dict[str, str] = {}
+        if order.buyer_id:
+            user = await self.session.get(User, order.buyer_id)
+            if user and user.phone:
+                customer["phone"] = user.phone
+        if not customer.get("phone") and order.guest_phone:
+            customer["phone"] = order.guest_phone
+        # Fallback — YuKassa requires at least email or phone
+        if not customer:
+            customer["email"] = "buyer@flurai.ru"
+
+        # ---- items ----
+        parsed = self._parse_items_info(order.items_info)
+
+        # Fetch product prices in one query
+        product_ids = [p["product_id"] for p in parsed]
+        price_map: Dict[int, Decimal] = {}
+        if product_ids:
+            stmt = select(Product.id, Product.price).where(Product.id.in_(product_ids))
+            rows = await self.session.execute(stmt)
+            for pid, price in rows:
+                price_map[pid] = Decimal(str(price))
+
+        receipt_items: List[Dict[str, Any]] = []
+        items_subtotal = Decimal("0")
+
+        for item in parsed:
+            pid = item["product_id"]
+            qty = item["quantity"]
+            unit_price = price_map.get(pid)
+            if unit_price is None:
+                # Product may have been deleted — distribute evenly as fallback
+                continue
+            unit_price = unit_price.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            line_total = (unit_price * qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            items_subtotal += line_total
+
+            receipt_items.append({
+                "description": item["name"][:128],  # YuKassa limit 128 chars
+                "quantity": str(qty),
+                "amount": {
+                    "value": str(unit_price),
+                    "currency": "RUB",
+                },
+                "vat_code": 1,  # Без НДС
+                "payment_mode": "full_payment",
+                "payment_subject": "commodity",
+            })
+
+        # If no items were resolved, add a single line for the whole order
+        if not receipt_items:
+            receipt_items.append({
+                "description": f"Заказ #{order.id}",
+                "quantity": "1",
+                "amount": {
+                    "value": str(total.quantize(Decimal("0.01"))),
+                    "currency": "RUB",
+                },
+                "vat_code": 1,
+                "payment_mode": "full_payment",
+                "payment_subject": "commodity",
+            })
+            items_subtotal = total
+
+        # ---- adjustment line (delivery / discount / rounding) ----
+        diff = (total - items_subtotal).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if diff > Decimal("0"):
+            receipt_items.append({
+                "description": "Доставка",
+                "quantity": "1",
+                "amount": {
+                    "value": str(diff),
+                    "currency": "RUB",
+                },
+                "vat_code": 1,
+                "payment_mode": "full_payment",
+                "payment_subject": "service",
+            })
+        elif diff < Decimal("0"):
+            # Discount / points — adjust last product item price down
+            receipt_items.append({
+                "description": "Скидка",
+                "quantity": "1",
+                "amount": {
+                    "value": str(diff),
+                    "currency": "RUB",
+                },
+                "vat_code": 1,
+                "payment_mode": "full_payment",
+                "payment_subject": "commodity",
+            })
+
+        return {
+            "customer": customer,
+            "items": receipt_items,
+        }
+
     # -- Public methods -----------------------------------------------------
 
     async def create_payment(
@@ -144,6 +276,9 @@ class PaymentService:
 
         idempotence_key = str(uuid.uuid4())
 
+        # Build receipt (54-ФЗ)
+        receipt = await self._build_receipt(order, total)
+
         payment_params: Dict[str, Any] = {
             "amount": {
                 "value": amount_value,
@@ -155,6 +290,7 @@ class PaymentService:
             },
             "capture": True,
             "description": f"Заказ #{order_id}",
+            "receipt": receipt,
             "metadata": {
                 "order_id": str(order_id),
                 "seller_id": str(order.seller_id),
