@@ -178,7 +178,7 @@ export function StatsSellers() {
                     Выручка <SortIcon column="revenue" />
                   </th>
                   <th className="ss-th ss-th--clickable ss-th--right" onClick={() => handleSort('commission')}>
-                    Комиссия 18% <SortIcon column="commission" />
+                    Комиссия <SortIcon column="commission" />
                   </th>
                   <th className="ss-th ss-th--clickable ss-th--right" onClick={() => handleSort('share_pct')}>
                     Доля <SortIcon column="share_pct" />

@@ -20,7 +20,6 @@ from backend.app.services.buyers import (
 )
 from backend.app.services.cart import CartService, FavoriteSellersService, FavoriteProductsService, CartServiceError
 from backend.app.services.orders import OrderService, OrderNotFoundError, InvalidOrderStatusError
-from backend.app.services.referrals import accrue_commissions
 from backend.app.services.loyalty import LoyaltyService
 from backend.app.models.order import Order
 from backend.app.models.loyalty import normalize_phone
@@ -648,7 +647,6 @@ async def confirm_order_received(
         result = await order_service.update_status(
             order_id,
             "completed",
-            accrue_commissions_func=accrue_commissions,
         )
         await session.commit()
         return {"status": "ok", "new_status": result["new_status"]}

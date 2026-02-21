@@ -23,8 +23,6 @@ from backend.app.services.orders import (
     OrderNotFoundError,
     InvalidOrderStatusError,
 )
-from backend.app.services.referrals import accrue_commissions
-
 router = APIRouter()
 logger = get_logger(__name__)
 
@@ -225,7 +223,7 @@ async def update_order_status(
     Изменить статус заказа.
     Допустимые статусы: pending, accepted, assembling, in_transit, done, completed, rejected
     - done: продавец отметил как выполненный
-    - completed: покупатель подтвердил получение (начисляются комиссии агентам)
+    - completed: покупатель подтвердил получение
     """
     logger.info("Updating order status", order_id=order_id, new_status=status)
     service = OrderService(session)
@@ -233,14 +231,12 @@ async def update_order_status(
         result = await service.update_status(
             order_id=order_id,
             new_status=status,
-            accrue_commissions_func=accrue_commissions
         )
         await session.commit()
         logger.info(
             "Order status updated",
             order_id=order_id,
             new_status=result["new_status"],
-            commissions_accrued=result["commissions_accrued"],
         )
         from backend.app.services.telegram_notify import (
             notify_buyer_order_status,
@@ -266,7 +262,6 @@ async def update_order_status(
             "seller_id": result["seller_id"],
             "items_info": result["items_info"],
             "total_price": result["total_price"],
-            "commissions_accrued": result["commissions_accrued"]
         }
     except OrderServiceError as e:
         await session.rollback()

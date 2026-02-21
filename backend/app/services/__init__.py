@@ -30,11 +30,6 @@ from backend.app.services.buyers import (
     get_buyer,
     create_buyer,
 )
-from backend.app.services.referrals import (
-    register_referral,
-    calculate_rewards,
-    accrue_commissions,
-)
 from backend.app.services.products import (
     create_product_service,
     get_products_by_seller_service,
@@ -69,10 +64,6 @@ __all__ = [
     "UserNotFoundError",
     "get_buyer",
     "create_buyer",
-    # Referral functions
-    "register_referral",
-    "calculate_rewards",
-    "accrue_commissions",
     # Product functions
     "create_product_service",
     "get_products_by_seller_service",

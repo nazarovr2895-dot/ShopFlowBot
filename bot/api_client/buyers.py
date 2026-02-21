@@ -15,13 +15,11 @@ async def api_get_user(tg_id: int):
         return UserObj(data)
     return None
 
-# 👇 ОБНОВЛЕННАЯ ФУНКЦИЯ: Добавили аргумент referrer_id
-async def api_register_user(tg_id: int, username: str, fio: str = None, referrer_id: int = None):
+async def api_register_user(tg_id: int, username: str, fio: str = None):
     payload = {
-        "tg_id": tg_id, 
-        "username": username, 
+        "tg_id": tg_id,
+        "username": username,
         "fio": fio,
-        "referrer_id": referrer_id # <--- Отправляем ID того, кто пригласил
     }
     data = await make_request("POST", "/buyers/register", data=payload)
     

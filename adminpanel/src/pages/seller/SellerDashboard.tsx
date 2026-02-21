@@ -110,7 +110,7 @@ export function SellerDashboard() {
 
   const hasAlerts = (alerts?.low_stock_bouquets?.length ?? 0) + (alerts?.expiring_items?.length ?? 0) > 0;
 
-  const commissionRate = stats?.commission_rate ?? 18;
+  const commissionRate = stats?.commission_rate ?? 3;
   const weekRevenue = weekStats?.total_revenue ?? 0;
   const weekNetRevenue = weekStats?.net_revenue ?? 0;
   const sparklineData = weekStats?.daily_sales?.map((d) => ({ date: d.date, revenue: d.revenue })) ?? [];

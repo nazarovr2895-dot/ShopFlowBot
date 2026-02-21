@@ -27,6 +27,7 @@ export interface Seller {
   plan_limit_cap?: number
   weekly_schedule?: Record<string, number> | null
   hashtags?: string
+  commission_percent?: number | null
 }
 
 export interface SellerStats {
@@ -227,6 +228,7 @@ export interface FinanceSellerRow {
   orders: number
   revenue: number
   commission: number
+  commission_rate: number
   share_pct: number
 }
 
@@ -235,6 +237,7 @@ export interface AdminFinanceResponse {
   previous_period: FinancePeriodMetrics
   series: FinanceSeriesPoint[]
   by_seller: FinanceSellerRow[]
+  global_commission_rate: number
   date_from: string
   date_to: string
 }

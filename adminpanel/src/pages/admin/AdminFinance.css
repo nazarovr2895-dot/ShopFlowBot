@@ -257,6 +257,169 @@
   text-align: right;
 }
 
+/* Commission Settings Card */
+.af-commission-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.af-commission-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.af-commission-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.af-commission-value {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.af-commission-edit-btn {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.af-commission-edit-btn:hover { background: var(--bg-surface-hover); }
+
+.af-commission-form {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.af-commission-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.af-commission-input {
+  width: 80px;
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.af-commission-unit {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.af-commission-save-btn {
+  padding: var(--space-1) var(--space-3);
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.af-commission-cancel-btn {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.af-commission-error {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+.af-commission-confirm {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(245, 158, 11, 0.05);
+  border-radius: var(--radius);
+}
+
+.af-commission-confirm-icon {
+  color: var(--warning);
+  margin-bottom: var(--space-2);
+}
+
+.af-commission-confirm-step {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.af-commission-confirm-msg {
+  font-size: var(--text-sm);
+  color: var(--text);
+  margin-bottom: var(--space-3);
+  line-height: 1.5;
+}
+
+.af-commission-confirm-retype {
+  margin-bottom: var(--space-3);
+}
+
+.af-commission-confirm-retype label {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.af-commission-confirm-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.af-commission-confirm-btn {
+  padding: var(--space-1) var(--space-4);
+  background: var(--warning);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.af-commission-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.af-cell-commission-rate {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
 @media (max-width: 768px) {
   .af-controls { flex-direction: column; align-items: stretch; }
   .af-group-by { margin-left: 0; }

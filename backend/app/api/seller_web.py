@@ -63,7 +63,6 @@ from backend.app.services.receptions import (
     global_inventory_check,
     global_inventory_apply,
 )
-from backend.app.services.referrals import accrue_commissions
 from backend.app.services.loyalty import (
     LoyaltyService,
     LoyaltyServiceError,
@@ -370,7 +369,7 @@ async def update_order_status(
     service = OrderService(session)
     try:
         result = await service.update_status(
-            order_id, status, verify_seller_id=seller_id, accrue_commissions_func=accrue_commissions
+            order_id, status, verify_seller_id=seller_id,
         )
         await session.commit()
         # Notify buyer in Telegram about status change
@@ -647,13 +646,14 @@ async def export_stats_csv(
     writer.writerow(['ИТОГО', '', ''])
     total_revenue = stats.get('total_revenue', 0)
     total_orders = stats.get('total_completed_orders', 0)
-    commission_pct = stats.get('commission_rate', 18)
+    commission_pct = stats.get('commission_rate', 3)
     commission = round(total_revenue * commission_pct / 100, 2)
     net_amount = round(total_revenue - commission, 2)
 
     writer.writerow(['Заказов всего', total_orders, ''])
     writer.writerow(['Выручка всего', '', f"{total_revenue:.2f}"])
-    writer.writerow([f'Комиссия платформы ({commission_pct}%)', '', f"{commission:.2f}"])
+    writer.writerow([f'Комиссия Flurai ({commission_pct}%)', '', f"{commission:.2f}"])
+    writer.writerow(['Комиссия платёжной системы (~3.5%)', '', 'Удерживается ЮKassa'])
     writer.writerow(['К получению', '', f"{net_amount:.2f}"])
 
     output.seek(0)

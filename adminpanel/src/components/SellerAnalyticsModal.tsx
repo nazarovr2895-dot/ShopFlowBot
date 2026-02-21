@@ -148,7 +148,7 @@ export function SellerAnalyticsModal({
             <div className="sam-kpi-value">{fmtCurrency(revenue)}</div>
           </div>
           <div className="sam-kpi sam-kpi--accent">
-            <div className="sam-kpi-label">Комиссия 18%</div>
+            <div className="sam-kpi-label">Комиссия</div>
             <div className="sam-kpi-value">{fmtCurrency(commission)}</div>
           </div>
           <div className="sam-kpi">

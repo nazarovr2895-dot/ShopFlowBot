@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { PageHeader, useToast } from '../components/ui';
 import {
-  Plus, Store, User, MapPin, Truck, Building2,
+  Plus, Store, User, MapPin, Truck, Building2, Percent,
   Gauge, Calendar, Globe, Shield, Trash2, X, Edit3, Save,
   Copy, ExternalLink, Eye, EyeOff,
 } from 'lucide-react';
@@ -394,6 +394,7 @@ function AddSellerModal({
   const [expiryDateDisplay, setExpiryDateDisplay] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [commissionPercent, setCommissionPercent] = useState('');
   const [credentials, setCredentials] = useState<{ web_login: string; web_password: string } | null>(null);
 
   useEffect(() => {
@@ -491,6 +492,10 @@ function AddSellerModal({
       if (expiryDateDisplay) {
         const [d, m, y] = expiryDateDisplay.split('.');
         if (d && m && y) payload.placement_expired_at = `${y}-${m}-${d}`;
+      }
+      if (commissionPercent) {
+        const cp = parseInt(commissionPercent, 10);
+        if (!isNaN(cp) && cp >= 0 && cp <= 100) payload.commission_percent = cp;
       }
       const res = await createSeller(payload) as { status?: string; web_login?: string; web_password?: string };
       if (res?.status === 'ok' || res?.status === undefined) {
@@ -642,6 +647,19 @@ function AddSellerModal({
             }}
           />
         </div>
+        <div className="form-group">
+          <label className="form-label">Индивидуальная комиссия (%)</label>
+          <input
+            type="number"
+            className="form-input"
+            min={0}
+            max={100}
+            value={commissionPercent}
+            onChange={(e) => setCommissionPercent(e.target.value)}
+            placeholder="Глобальная по умолчанию"
+          />
+          <small className="form-hint">Оставьте пустым для использования глобальной комиссии платформы</small>
+        </div>
         {error && <div className="modal-error">{error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button>
@@ -655,7 +673,7 @@ function AddSellerModal({
   );
 }
 
-type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'limits' | 'placement' | 'web' | 'status' | 'delete';
+type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'limits' | 'commission' | 'placement' | 'web' | 'status' | 'delete';
 
 const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: typeof Store; danger?: boolean }[] }[] = [
   {
@@ -671,6 +689,7 @@ const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: ty
     group: 'Управление',
     items: [
       { id: 'limits', label: 'Лимиты и тариф', icon: Gauge },
+      { id: 'commission', label: 'Комиссия', icon: Percent },
       { id: 'placement', label: 'Размещение', icon: Calendar },
       { id: 'web', label: 'Веб-панель', icon: Globe },
     ],
@@ -1431,6 +1450,77 @@ function SellerDetailsModal({
                 <div className="sdm-inline-row">
                   <input className="sdm-edit-input" type="number" min={0} value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="Не задан" />
                   <button className="sdm-btn sdm-btn--primary" onClick={handleSetLimit} disabled={loading}>Установить</button>
+                </div>
+              </div>
+            </div>
+
+            {/* ═══ Commission ═══ */}
+            <div ref={(el) => { sectionRefs.current['commission'] = el; }} className="sdm-section">
+              <div className="sdm-section-header">
+                <h3 className="sdm-section-title"><Percent size={16} /> Индивидуальная комиссия</h3>
+              </div>
+              <p className="sdm-hint">
+                Если задана индивидуальная комиссия — она используется вместо глобальной.
+                Оставьте пустым для использования глобальной комиссии.
+              </p>
+              <div className="sdm-edit-field">
+                <label className="sdm-edit-label">Комиссия (%)</label>
+                <div className="sdm-inline-row">
+                  <input
+                    className="sdm-edit-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={seller.commission_percent ?? ''}
+                    placeholder="Глобальная по умолчанию"
+                    onChange={(e) => onUpdate({ ...seller, commission_percent: e.target.value ? parseInt(e.target.value, 10) : null })}
+                  />
+                  <button
+                    className="sdm-btn sdm-btn--primary"
+                    disabled={loading}
+                    onClick={async () => {
+                      try {
+                        setLoading(true);
+                        const val = seller.commission_percent != null ? String(seller.commission_percent) : 'null';
+                        await updateSellerField(seller.tg_id, 'commission_percent', val);
+                        toast.success('Комиссия обновлена');
+                        onSuccess();
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : 'Ошибка');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    Сохранить
+                  </button>
+                  {seller.commission_percent != null && (
+                    <button
+                      className="sdm-btn sdm-btn--secondary"
+                      disabled={loading}
+                      onClick={async () => {
+                        try {
+                          setLoading(true);
+                          await updateSellerField(seller.tg_id, 'commission_percent', 'null');
+                          onUpdate({ ...seller, commission_percent: null });
+                          toast.success('Комиссия сброшена на глобальную');
+                          onSuccess();
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : 'Ошибка');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                    >
+                      Сбросить
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="sdm-stat-row" style={{ marginTop: 'var(--space-3)' }}>
+                <div className="sdm-stat-item">
+                  <span className="sdm-stat-label">Текущая комиссия</span>
+                  <span className="sdm-stat-value">{seller.commission_percent != null ? `${seller.commission_percent}% (индивид.)` : 'Глобальная'}</span>
                 </div>
               </div>
             </div>

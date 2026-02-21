@@ -56,6 +56,8 @@ class Seller(Base):
     points_expire_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # Subscription plan: free / pro / premium (determines max limit cap)
     subscription_plan: Mapped[str] = mapped_column(String(20), default='free')
+    # Per-seller commission override (null = use global setting from GlobalSettings)
+    commission_percent: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
     # Weekly limit schedule: JSON {"0": 10, "1": 10, ..., "6": 5} (0=Mon, 6=Sun), null = use default_daily_limit
     weekly_schedule: Mapped[Optional[dict]] = mapped_column(JSON(), nullable=True)
     # Shop banner (YouTube-style), path like /static/uploads/shop_banners/123.webp

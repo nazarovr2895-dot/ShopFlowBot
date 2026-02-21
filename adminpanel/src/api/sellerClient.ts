@@ -148,7 +148,7 @@ export interface SellerStats {
   total_completed_orders: number;
   total_revenue: number;
   commission_rate?: number;
-  commission_18: number;
+  commission_amount: number;
   net_revenue: number;
   average_check?: number;
   previous_period_orders?: number;

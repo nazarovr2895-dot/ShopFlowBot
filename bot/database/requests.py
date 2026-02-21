@@ -7,7 +7,7 @@ async def get_settings():
     async with async_session() as session:
         settings = await session.get(GlobalSettings, 1)
         if not settings:
-            settings = GlobalSettings(id=1, commission_percent=18)
+            settings = GlobalSettings(id=1, commission_percent=3)
             session.add(settings); await session.commit()
         return settings
 

@@ -353,6 +353,18 @@ export async function getFinanceSummary(params?: AdminFinanceParams): Promise<Ad
   return fetchAdmin<AdminFinanceResponse>(`/admin/finance/summary${q}`);
 }
 
+// ── Commission settings ──
+export async function getGlobalCommission(): Promise<{ commission_percent: number }> {
+  return fetchAdmin<{ commission_percent: number }>('/admin/settings/commission');
+}
+
+export async function updateGlobalCommission(commissionPercent: number): Promise<{ status: string; commission_percent: number }> {
+  return fetchAdmin('/admin/settings/commission', {
+    method: 'PUT',
+    body: JSON.stringify({ commission_percent: commissionPercent }),
+  });
+}
+
 // ── Telegram Mini App Auth ──
 export async function telegramAdminAuth(initData: string): Promise<{
   token: string;

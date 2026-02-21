@@ -430,27 +430,23 @@ class OrderService:
         order_id: int,
         new_status: str,
         verify_seller_id: Optional[int] = None,
-        accrue_commissions_func=None
     ) -> Dict[str, Any]:
         """
         Update order status with proper counter management.
         Caller must commit the session after this returns.
-        
+
         Args:
             order_id: Order ID
             new_status: Target status
-            accrue_commissions_func: Optional async function to call when status becomes 'completed'
-            
+
         Returns:
-            Dict with order info and commission details if applicable
+            Dict with order info
         """
         if new_status not in self.VALID_STATUSES:
             raise OrderServiceError(
                 f"Invalid status. Must be one of: {self.VALID_STATUSES}",
                 400
             )
-
-        commissions_accrued = []
 
         order = await self.session.get(Order, order_id)
         if not order:
@@ -472,18 +468,10 @@ class OrderService:
         if new_status == "completed" and order.completed_at is None:
             order.completed_at = datetime.utcnow()
 
-        # Accrue commissions when buyer confirms receipt
+        # Record metrics when buyer confirms receipt
         if new_status == "completed" and old_status != "completed":
-            # Record metrics for completed orders
             if orders_completed_total:
                 orders_completed_total.labels(seller_id=str(order.seller_id)).inc()
-            
-            if accrue_commissions_func:
-                commissions_accrued = await accrue_commissions_func(
-                    session=self.session,
-                    order_total=float(order.total_price or 0),
-                    buyer_id=order.buyer_id
-                )
 
         # Accrue loyalty points when order first reaches done or completed (by buyer phone)
         if new_status in ("done", "completed") and old_status not in ("done", "completed"):
@@ -506,7 +494,6 @@ class OrderService:
             "total_price": float(order.total_price) if order.total_price is not None else 0.0,
             "old_status": old_status,
             "new_status": new_status,
-            "commissions_accrued": commissions_accrued
         }
     
     async def get_seller_orders(
@@ -795,11 +782,10 @@ class OrderService:
         totals_row = (await self.session.execute(totals_stmt)).one()
         total_orders = totals_row.total_orders or 0
         total_revenue = float(totals_row.total_revenue or 0)
-        # Read commission rate from GlobalSettings (default 18%)
-        from backend.app.models.settings import GlobalSettings as _GS
-        _gs_result = await self.session.execute(select(_GS).order_by(_GS.id))
-        _gs = _gs_result.scalar_one_or_none()
-        commission_rate = (_gs.commission_percent if _gs else 18) / 100
+        # Read commission rate: per-seller override > GlobalSettings > default (3%)
+        from backend.app.services.commissions import get_effective_commission_rate
+        _eff_pct = await get_effective_commission_rate(self.session, seller_id)
+        commission_rate = _eff_pct / 100
         commission = round(total_revenue * commission_rate, 2)
 
         # Orders by status (any status)
@@ -995,7 +981,7 @@ class OrderService:
             "total_completed_orders": total_orders,
             "total_revenue": round(total_revenue, 2),
             "commission_rate": round(commission_rate * 100),
-            "commission_18": commission,
+            "commission_amount": commission,
             "net_revenue": round(total_revenue - commission, 2),
             "average_check": average_check,
             "orders_by_status": status_counts,

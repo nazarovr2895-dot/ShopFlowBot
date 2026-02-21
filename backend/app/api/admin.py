@@ -74,6 +74,14 @@ class SellerCreateSchema(BaseModel):
     delivery_type: str
     delivery_price: float = 0.0
     placement_expired_at: Optional[datetime] = None
+    commission_percent: Optional[int] = None
+
+    @field_validator('commission_percent')
+    @classmethod
+    def validate_commission(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('Комиссия должна быть от 0 до 100%')
+        return v
 
     @field_validator('inn')
     @classmethod
@@ -369,6 +377,7 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
             delivery_type=data.delivery_type,
             delivery_price=data.delivery_price,
             placement_expired_at=data.placement_expired_at,
+            commission_percent=data.commission_percent,
         )
         created_tg_id = result.get("tg_id") or data.tg_id
         logger.info("Seller created", tg_id=created_tg_id, shop_name=data.shop_name)
@@ -706,7 +715,11 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
     today_start = dt.combine(date_type.today(), time.min)
     yesterday_start = today_start - timedelta(days=1)
     week_ago = today_start - timedelta(days=7)
-    COMMISSION = Decimal("0.18")
+    # Read commission rate from DB (per-seller not applicable here — aggregate)
+    from backend.app.models.settings import GlobalSettings as _GS
+    _gs_r = await session.execute(select(_GS).order_by(_GS.id))
+    _gs = _gs_r.scalar_one_or_none()
+    COMMISSION = Decimal(str((_gs.commission_percent if _gs else 3) / 100))
 
     # ── today vs yesterday ──
     q_today = select(
@@ -1158,8 +1171,13 @@ async def get_finance_summary(
     from decimal import Decimal
     from backend.app.models.order import Order
     from backend.app.models.seller import Seller
+    from backend.app.models.settings import GlobalSettings as _GS
 
-    COMMISSION = Decimal("0.18")
+    # Read global commission from DB
+    _gs_r = await session.execute(select(_GS).order_by(_GS.id))
+    _gs = _gs_r.scalar_one_or_none()
+    _global_pct = _gs.commission_percent if _gs else 3
+    COMMISSION = Decimal(str(_global_pct / 100))
 
     # Date range
     if date_from:
@@ -1248,35 +1266,87 @@ async def get_finance_summary(
             Seller.seller_id,
             Seller.shop_name,
             Seller.subscription_plan,
+            Seller.commission_percent,
             func.count(Order.id).label("orders"),
             func.coalesce(func.sum(Order.total_price), 0).label("revenue"),
         )
         .join(Order, Order.seller_id == Seller.seller_id)
         .where(where_current)
-        .group_by(Seller.seller_id, Seller.shop_name, Seller.subscription_plan)
+        .group_by(Seller.seller_id, Seller.shop_name, Seller.subscription_plan, Seller.commission_percent)
         .order_by(desc("revenue"))
     )
     seller_rows = (await session.execute(q_sellers)).all()
 
     total_rev = revenue or 1
-    sellers = [
-        {
+    sellers = []
+    for r in seller_rows:
+        # Per-seller commission override > global
+        eff_pct = r.commission_percent if r.commission_percent is not None else _global_pct
+        eff_rate = Decimal(str(eff_pct / 100))
+        sellers.append({
             "seller_id": r.seller_id,
             "shop_name": r.shop_name or f"#{r.seller_id}",
             "plan": r.subscription_plan or "free",
             "orders": r.orders,
             "revenue": round(float(r.revenue)),
-            "commission": round(float(r.revenue) * float(COMMISSION)),
+            "commission": round(float(r.revenue) * float(eff_rate)),
+            "commission_rate": eff_pct,
             "share_pct": round(float(r.revenue) / total_rev * 100, 1),
-        }
-        for r in seller_rows
-    ]
+        })
 
     return {
         "period": period_data,
         "previous_period": previous_period_data,
         "series": series,
         "by_seller": sellers,
+        "global_commission_rate": _global_pct,
         "date_from": d_from.date().isoformat(),
         "date_to": d_to.date().isoformat(),
     }
+
+
+# ── Commission settings ──────────────────────────────────────────────
+
+@router.get("/settings/commission")
+async def get_global_commission(
+    session: AsyncSession = Depends(get_session),
+    _token: None = Depends(require_admin_token),
+):
+    """Текущий глобальный процент комиссии платформы."""
+    from sqlalchemy import select as sa_select
+    from backend.app.models.settings import GlobalSettings
+    result = await session.execute(
+        sa_select(GlobalSettings).order_by(GlobalSettings.id)
+    )
+    gs = result.scalar_one_or_none()
+    return {"commission_percent": gs.commission_percent if gs else 3}
+
+
+class CommissionUpdateRequest(BaseModel):
+    commission_percent: int
+
+    @field_validator("commission_percent")
+    @classmethod
+    def validate_range(cls, v: int) -> int:
+        if v < 0 or v > 100:
+            raise ValueError("commission_percent must be between 0 and 100")
+        return v
+
+
+@router.put("/settings/commission")
+async def update_global_commission(
+    data: CommissionUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+    _token: None = Depends(require_admin_token),
+):
+    """Обновить глобальный процент комиссии платформы."""
+    from backend.app.models.settings import GlobalSettings
+    from sqlalchemy import select as sa_select
+    result = await session.execute(sa_select(GlobalSettings).order_by(GlobalSettings.id))
+    gs = result.scalar_one_or_none()
+    if gs:
+        gs.commission_percent = data.commission_percent
+    else:
+        session.add(GlobalSettings(id=1, commission_percent=data.commission_percent))
+    await session.commit()
+    return {"status": "ok", "commission_percent": data.commission_percent}

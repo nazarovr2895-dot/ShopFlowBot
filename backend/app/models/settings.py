@@ -5,4 +5,4 @@ from backend.app.core.base import Base
 class GlobalSettings(Base):
     __tablename__ = 'settings'
     id: Mapped[int] = mapped_column(primary_key=True)
-    commission_percent: Mapped[int] = mapped_column(Integer, default=18)
+    commission_percent: Mapped[int] = mapped_column(Integer, default=3)

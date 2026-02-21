@@ -174,7 +174,8 @@ class SellerService:
     VALID_UPDATE_FIELDS = {
         "fio", "phone", "shop_name", "hashtags", "description",
         "address_name", "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
-        "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn"
+        "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
+        "commission_percent"
     }
     
     def __init__(self, session: AsyncSession):
@@ -357,8 +358,9 @@ class SellerService:
             "preorder_available_dates": preorder_available_dates,
             "banner_url": getattr(seller, "banner_url", None),
             "working_hours": getattr(seller, "working_hours", None),
+            "commission_percent": getattr(seller, "commission_percent", None),
         }
-    
+
     async def create_seller(
         self,
         tg_id: Optional[int] = None,
@@ -377,6 +379,7 @@ class SellerService:
         delivery_type: str = "pickup",
         delivery_price: float = 0.0,
         placement_expired_at: Optional[datetime] = None,
+        commission_percent: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Create a new seller with associated user record.
@@ -482,6 +485,7 @@ class SellerService:
             pending_requests=0,
             web_login=web_login,
             web_password_hash=password_hash,
+            commission_percent=commission_percent,
         )
         self.session.add(new_seller)
         
@@ -590,6 +594,20 @@ class SellerService:
                     raise SellerServiceError(f"Неверный формат даты: {e}")
         elif field == "banner_url":
             seller.banner_url = (value or "").strip() or None
+        elif field == "commission_percent":
+            value_stripped = (str(value) if value is not None else "").strip()
+            if not value_stripped or value_stripped.lower() in ("null", "none", "-", ""):
+                seller.commission_percent = None  # Reset to global
+            else:
+                try:
+                    val = int(value_stripped)
+                except (ValueError, TypeError):
+                    raise SellerServiceError("Комиссия должна быть целым числом от 0 до 100")
+                if val < 0 or val > 100:
+                    raise SellerServiceError("Комиссия должна быть от 0 до 100%")
+                seller.commission_percent = val
+        elif field == "ogrn":
+            seller.ogrn = (value or "").strip() or None
 
         await self.session.commit()
         return {"status": "ok"}
@@ -911,11 +929,12 @@ class SellerService:
                 "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
                 "is_blocked": seller.is_blocked,
                 "is_deleted": seller.deleted_at is not None,
-                "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None
+                "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
+                "commission_percent": getattr(seller, "commission_percent", None),
             }
             for user, seller in result.all()
         ]
-    
+
     async def search(
         self, 
         fio: str, 
@@ -954,11 +973,12 @@ class SellerService:
                 "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
                 "is_blocked": seller.is_blocked,
                 "is_deleted": seller.deleted_at is not None,
-                "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None
+                "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
+                "commission_percent": getattr(seller, "commission_percent", None),
             }
             for user, seller in result.all()
         ]
-    
+
     async def get_cities(self) -> List[Dict[str, Any]]:
         """Get list of all cities."""
         result = await self.session.execute(select(City))
@@ -978,7 +998,7 @@ class SellerService:
 
     async def get_all_stats(
         self,
-        commission_percent: int = 18,
+        commission_percent: int = 3,
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:
@@ -1106,9 +1126,9 @@ class SellerService:
         }
 
     async def get_seller_stats_by_fio(
-        self, 
-        fio: str, 
-        commission_percent: int = 18
+        self,
+        fio: str,
+        commission_percent: int = 3
     ) -> Optional[Dict[str, Any]]:
         """Get statistics for a specific seller by name (completed orders only)."""
         result = await self.session.execute(

@@ -7,7 +7,7 @@ Tests cover:
 - LoyaltyService (customer CRUD, points accrual/deduction)
 - Password utilities (hashing, verification, validation)
 - Phone normalization
-- Referral commissions calculation
+- Referral commissions (disabled, kept as no-op tests)
 """
 import pytest
 from decimal import Decimal

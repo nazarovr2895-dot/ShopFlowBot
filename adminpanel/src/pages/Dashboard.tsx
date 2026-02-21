@@ -126,7 +126,7 @@ export function Dashboard() {
             <TrendBadge current={today.profit} previous={today.profit_yesterday} />
           </div>
           <div className="dash-kpi-value">{fmtCurrency(today.profit)}</div>
-          <div className="dash-kpi-secondary">18% комиссия</div>
+          <div className="dash-kpi-secondary">Комиссия платформы</div>
         </div>
 
         <div className="dash-kpi-card">

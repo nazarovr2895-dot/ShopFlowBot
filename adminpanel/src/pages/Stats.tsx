@@ -73,7 +73,7 @@ export function Stats() {
 
   const totalOrders = dailySales.reduce((s, x) => s + (x.orders || 0), 0);
   const totalSales = dailySales.reduce((s, x) => s + (x.revenue || 0), 0);
-  const totalProfit = Math.round(totalSales * 0.18);
+  const totalProfit = Math.round(totalSales * 0.03);
   const avgCheck = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0;
 
   const handlePreset = (preset: RangePreset) => {
@@ -171,7 +171,7 @@ export function Stats() {
             <span className="summary-value">{totalSales.toLocaleString('ru')} ₽</span>
           </div>
           <div className="summary-item accent">
-            <span className="summary-label">Доход платформы (18%)</span>
+            <span className="summary-label">Доход платформы (3%)</span>
             <span className="summary-value">{totalProfit.toLocaleString('ru')} ₽</span>
           </div>
           <div className="summary-item">

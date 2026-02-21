@@ -24,14 +24,6 @@ WELCOME_SELLER_LINK = (
     "там можно посмотреть товары и оформить заказ."
 )
 
-WELCOME_REFERRER = (
-    "Добро пожаловать в Flurai!\n"
-    "Вы зарегистрированы по приглашению партнёра.\n"
-    "\n"
-    "Откройте приложение через кнопку меню, чтобы начать покупки."
-)
-
-
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject, state: FSMContext):
     await state.clear()
@@ -42,7 +34,6 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
 
     # 1. Парсинг Deep Link
     args = command.args
-    referrer_id = None
     target_seller_id = None
 
     if args:
@@ -53,7 +44,7 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
                 pass
 
     # 2. Регистрация
-    user = await api_register_user(tg_id, username, fio, referrer_id=referrer_id)
+    user = await api_register_user(tg_id, username, fio)
 
     # 3. Определение роли
     role = user.role if user else "BUYER"
@@ -63,13 +54,6 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
         await state.update_data(current_seller_id=target_seller_id)
         await message.answer(
             WELCOME_SELLER_LINK,
-            reply_markup=ReplyKeyboardRemove(),
-        )
-        return
-
-    if referrer_id:
-        await message.answer(
-            WELCOME_REFERRER,
             reply_markup=ReplyKeyboardRemove(),
         )
         return

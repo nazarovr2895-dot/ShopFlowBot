@@ -16,6 +16,7 @@ from decimal import Decimal
 from backend.app.models.user import User
 from backend.app.models.seller import Seller
 from backend.app.models.order import Order
+from backend.app.models.product import Product
 from backend.tests.conftest import get_auth_header_for_user
 
 
@@ -366,7 +367,7 @@ async def test_get_seller_order_stats(
     data = response.json()
     assert "total_completed_orders" in data
     assert "total_revenue" in data
-    assert "commission_18" in data
+    assert "commission_amount" in data
     assert "net_revenue" in data
     assert data["total_completed_orders"] == 3
     assert data["total_revenue"] == 300.0
