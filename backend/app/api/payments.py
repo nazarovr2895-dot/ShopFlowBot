@@ -92,7 +92,7 @@ async def payment_webhook(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    logger.info("Payment webhook received", event=body.get("event"))
+    logger.info("Payment webhook received", webhook_event=body.get("event"))
 
     service = PaymentService(session)
     try:
