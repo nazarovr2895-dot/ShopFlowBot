@@ -106,6 +106,7 @@ services:
       - BOT_TOKEN=${BOT_TOKEN}
       - ADMIN_BOT_TOKEN=${ADMIN_BOT_TOKEN:-}
       - DADATA_API_KEY=${DADATA_API_KEY}
+      - MINI_APP_URL=${MINI_APP_URL:-https://flowshop-miniapp.vercel.app}
       - ENVIRONMENT=production
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - WORKERS=${WORKERS:-4}

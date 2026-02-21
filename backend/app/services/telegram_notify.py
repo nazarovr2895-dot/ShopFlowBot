@@ -1,6 +1,7 @@
 # backend/app/services/telegram_notify.py
 """Send Telegram notifications to buyers and sellers for order events."""
 import os
+import re
 from typing import Optional, Dict, Any, List
 
 import httpx
@@ -23,6 +24,19 @@ STATUS_LABELS = {
     "rejected": "❌ Заказ отклонён продавцом",
     "cancelled": "🚫 Предзаказ отменён покупателем",
 }
+
+
+def _format_items_for_display(items_info: str) -> str:
+    """
+    Clean items_info for display in Telegram messages.
+    Removes product IDs (e.g. '5:Букет роз x 1' → 'Букет роз × 1').
+    """
+    if not items_info:
+        return ""
+    # Remove 'ID:' prefix and replace 'x' with '×'
+    cleaned = re.sub(r'\d+:', '', items_info)
+    cleaned = re.sub(r'\s*x\s*', ' × ', cleaned)
+    return cleaned.strip()
 
 
 def _order_notification_keyboard(order_id: int, seller_id: int) -> Dict[str, Any]:
@@ -110,11 +124,12 @@ async def notify_buyer_order_created(
     Includes 3 buttons: open order, contact seller, I received order.
     """
     if is_preorder and preorder_delivery_date:
-        text = f"📋 *Предзаказ #{order_id}* на *{preorder_delivery_date}* оформлен. Ожидайте подтверждения продавца."
+        text = f"📋 Предзаказ #{order_id} на {preorder_delivery_date} оформлен. Ожидайте подтверждения продавца."
     else:
-        text = f"📦 *Заказ #{order_id}* оформлен. Ожидайте подтверждения продавца."
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+        text = f"📦 Заказ #{order_id} оформлен. Ожидайте подтверждения продавца."
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
     reply_markup = _order_notification_keyboard(order_id, seller_id)
@@ -133,13 +148,14 @@ async def notify_seller_new_order(
     Notify seller about new order. Принять/отклонить — в админ-панели.
     """
     if is_preorder and preorder_delivery_date:
-        text = f"📋 Новый *предзаказ* *#{order_id}* на *{preorder_delivery_date}*"
+        text = f"📋 Новый предзаказ #{order_id} на {preorder_delivery_date}"
     else:
-        text = f"🆕 Новый заказ *#{order_id}*"
+        text = f"🆕 Новый заказ #{order_id}"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     text += "\n\nПринять или отклонить заказ — в админ-панели."
     return await _send_telegram_message(seller_id, text)
 
@@ -163,9 +179,10 @@ async def notify_buyer_order_price_changed(
     Notify buyer that order price was changed. "Цена заказа #N изменена на X руб."
     Includes 3 buttons: open order, contact seller, I received order.
     """
-    text = f"💰 Цена заказа *#{order_id}* изменена на *{new_price:.0f}* руб."
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+    text = f"💰 Цена заказа #{order_id} изменена на {new_price:.0f} руб."
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     reply_markup = _order_notification_keyboard(order_id, seller_id)
     return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
 
@@ -183,9 +200,10 @@ async def notify_buyer_order_status(
     Under every notification: 3 buttons — open order in platform, contact seller, I received order.
     Returns True if sent successfully.
     """
-    text = f"📦 *Заказ #{order_id}*\n\nСтатус: {STATUS_LABELS.get(new_status, new_status)}"
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+    text = f"📦 Заказ #{order_id}\n\nСтатус: {STATUS_LABELS.get(new_status, new_status)}"
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
     reply_markup = _order_notification_keyboard(order_id, seller_id)
@@ -199,10 +217,11 @@ async def notify_seller_preorder_cancelled(
     preorder_delivery_date: Optional[str] = None,
 ) -> bool:
     """Notify seller that a preorder was cancelled by the buyer."""
-    date_part = f" на *{preorder_delivery_date}*" if preorder_delivery_date else ""
-    text = f"🚫 Предзаказ *#{order_id}*{date_part} отменён покупателем."
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+    date_part = f" на {preorder_delivery_date}" if preorder_delivery_date else ""
+    text = f"🚫 Предзаказ #{order_id}{date_part} отменён покупателем."
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     return await _send_telegram_message(seller_id, text)
 
 
@@ -212,9 +231,10 @@ async def notify_seller_order_cancelled(
     items_info: str = "",
 ) -> bool:
     """Notify seller that a regular order was cancelled by the buyer."""
-    text = f"🚫 Заказ *#{order_id}* отменён покупателем."
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+    text = f"🚫 Заказ #{order_id} отменён покупателем."
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     return await _send_telegram_message(seller_id, text)
 
 
@@ -226,9 +246,10 @@ async def notify_preorder_reminder_buyer(
     items_info: str = "",
 ) -> bool:
     """Remind buyer about upcoming preorder delivery (1 day before)."""
-    text = f"📋 Напоминание: ваш предзаказ *#{order_id}* на *{preorder_delivery_date}* будет выполнен завтра."
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+    text = f"📋 Напоминание: ваш предзаказ #{order_id} на {preorder_delivery_date} будет выполнен завтра."
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     reply_markup = _order_notification_keyboard(order_id, seller_id)
     return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
 
@@ -241,7 +262,7 @@ async def notify_preorder_summary_seller(
     items_summary: str = "",
 ) -> bool:
     """Send seller a summary of preorders for an upcoming date."""
-    text = f"📋 *Предзаказы на {delivery_date}*\n\n"
+    text = f"📋 Предзаказы на {delivery_date}\n\n"
     text += f"📦 Заказов: {orders_count}\n"
     text += f"💰 Общая сумма: {total_amount:.0f} руб."
     if items_summary:
@@ -256,7 +277,7 @@ async def notify_subscriber_preorder_opened(
     message: str = "",
 ) -> bool:
     """Notify a subscriber that a seller opened preorders (e.g., for a holiday)."""
-    text = f"🌸 *{shop_name}* открыл предзаказы!"
+    text = f"🌸 {shop_name} открыл предзаказы!"
     if message:
         text += f"\n\n{message}"
     text += f"\n\n📱 Оформить предзаказ → tg://user?id={seller_id}"
@@ -282,7 +303,7 @@ async def notify_seller_upcoming_events(
         name = ev.get("customer_name", "—")
         title = ev.get("title", "")
         lines.append(f"  {name} — {title} ({when})")
-    text = "📅 *Предстоящие события клиентов:*\n\n" + "\n".join(lines)
+    text = "📅 Предстоящие события клиентов:\n\n" + "\n".join(lines)
     return await _send_telegram_message(seller_id, text)
 
 
@@ -299,8 +320,9 @@ async def notify_buyer_payment_required(
     Sends an inline button with the YuKassa payment link.
     """
     text = f"✅ Заказ #{order_id} принят продавцом!"
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     text += f"\n💰 К оплате: {total_price:.0f} руб."
     text += "\n\n💳 Нажмите кнопку ниже, чтобы оплатить заказ."
     text += f"\n\n💬 Связаться с продавцом: tg://user?id={seller_id}"
@@ -325,11 +347,12 @@ async def notify_seller_new_order_guest(
     guest_phone: str = "",
 ) -> bool:
     """Notify seller about new guest order (web checkout, no Telegram account)."""
-    text = f"🆕 Новый заказ *#{order_id}* (гость)"
+    text = f"🆕 Новый заказ #{order_id} (гость)"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
-    if items_info:
-        text += f"\n\n🛒 {items_info}"
+    display_items = _format_items_for_display(items_info)
+    if display_items:
+        text += f"\n\n🛒 {display_items}"
     text += f"\n\n👤 Покупатель: {guest_name}"
     text += f"\n📞 Телефон: {guest_phone}"
     text += "\n\nПринять или отклонить заказ — в админ-панели."
@@ -342,7 +365,7 @@ async def notify_buyer_payment_succeeded(
     seller_id: int,
 ) -> bool:
     """Notify buyer that their payment was successful."""
-    text = f"✅ *Заказ #{order_id}* оплачен!\n\nПродавец начнёт сборку в ближайшее время."
+    text = f"✅ Заказ #{order_id} оплачен!\n\nПродавец начнёт сборку в ближайшее время."
     reply_markup = _order_notification_keyboard(order_id, seller_id)
     return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
 
@@ -353,7 +376,7 @@ async def notify_seller_payment_received(
     total_price: float = 0,
 ) -> bool:
     """Notify seller that payment was received for an order."""
-    text = f"💰 Оплата получена! Заказ *#{order_id}* оплачен"
+    text = f"💰 Оплата получена! Заказ #{order_id} оплачен"
     if total_price:
         text += f" ({total_price:.0f} руб.)"
     text += ".\n\nМожно начинать сборку."
