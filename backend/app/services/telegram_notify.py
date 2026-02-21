@@ -49,7 +49,7 @@ def _order_notification_keyboard(order_id: int, seller_id: int) -> Dict[str, Any
     rows = []
     if MINI_APP_URL:
         rows.append([
-            {"text": "📱 Открыть заказ в платформе", "url": f"{MINI_APP_URL}/order/{order_id}"},
+            {"text": "📱 Открыть заказ в платформе", "web_app": {"url": f"{MINI_APP_URL}/order/{order_id}"}},
         ])
     rows.append([
         {"text": "✅ Я получил заказ", "callback_data": f"buyer_confirm_{order_id}"},
@@ -332,7 +332,7 @@ async def notify_buyer_payment_required(
     ]
     if MINI_APP_URL:
         rows.append([
-            {"text": "📱 Открыть заказ", "url": f"{MINI_APP_URL}/order/{order_id}"},
+            {"text": "📱 Открыть заказ", "web_app": {"url": f"{MINI_APP_URL}/order/{order_id}"}},
         ])
     reply_markup = {"inline_keyboard": rows}
     return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)

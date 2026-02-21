@@ -425,7 +425,7 @@ class PaymentService:
             "Webhook processed",
             order_id=order_id,
             payment_id=payment_id,
-            event=event_type,
+            webhook_event=event_type,
             old_payment_status=old_status,
             new_payment_status=payment_status,
         )
