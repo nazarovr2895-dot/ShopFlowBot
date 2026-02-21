@@ -3,7 +3,7 @@ import { PageHeader, useToast } from '../components/ui';
 import {
   Plus, Store, User, MapPin, Truck, Building2, Percent,
   Gauge, Calendar, Globe, Shield, Trash2, X, Edit3, Save,
-  Copy, ExternalLink, Eye, EyeOff,
+  Copy, ExternalLink, Eye, EyeOff, CreditCard,
 } from 'lucide-react';
 import {
   searchSellers,
@@ -673,7 +673,7 @@ function AddSellerModal({
   );
 }
 
-type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'limits' | 'commission' | 'placement' | 'web' | 'status' | 'delete';
+type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'limits' | 'commission' | 'payment' | 'placement' | 'web' | 'status' | 'delete';
 
 const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: typeof Store; danger?: boolean }[] }[] = [
   {
@@ -690,6 +690,7 @@ const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: ty
     items: [
       { id: 'limits', label: 'Лимиты и тариф', icon: Gauge },
       { id: 'commission', label: 'Комиссия', icon: Percent },
+      { id: 'payment', label: 'ЮКасса', icon: CreditCard },
       { id: 'placement', label: 'Размещение', icon: Calendar },
       { id: 'web', label: 'Веб-панель', icon: Globe },
     ],
@@ -1521,6 +1522,78 @@ function SellerDetailsModal({
                 <div className="sdm-stat-item">
                   <span className="sdm-stat-label">Текущая комиссия</span>
                   <span className="sdm-stat-value">{seller.commission_percent != null ? `${seller.commission_percent}% (индивид.)` : 'Глобальная'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ═══ Payment (YuKassa) ═══ */}
+            <div ref={(el) => { sectionRefs.current['payment'] = el; }} className="sdm-section">
+              <div className="sdm-section-header">
+                <h3 className="sdm-section-title"><CreditCard size={16} /> ЮКасса</h3>
+              </div>
+              <p className="sdm-hint">
+                ID аккаунта продавца в системе ЮКасса. Если задан — при принятии заказа автоматически создаётся платёж с разделением денег (комиссия платформы + перевод продавцу).
+              </p>
+              <div className="sdm-edit-field">
+                <label className="sdm-edit-label">YooKassa Account ID</label>
+                <div className="sdm-inline-row">
+                  <input
+                    className="sdm-edit-input"
+                    type="text"
+                    value={seller.yookassa_account_id ?? ''}
+                    placeholder="Не подключён"
+                    onChange={(e) => onUpdate({ ...seller, yookassa_account_id: e.target.value || null })}
+                  />
+                  <button
+                    className="sdm-btn sdm-btn--primary"
+                    disabled={loading}
+                    onClick={async () => {
+                      try {
+                        setLoading(true);
+                        const val = seller.yookassa_account_id || '';
+                        await updateSellerField(seller.tg_id, 'yookassa_account_id', val || 'null');
+                        toast.success('YooKassa Account ID обновлён');
+                        onSuccess();
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : 'Ошибка');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    Сохранить
+                  </button>
+                  {seller.yookassa_account_id && (
+                    <button
+                      className="sdm-btn sdm-btn--secondary"
+                      disabled={loading}
+                      onClick={async () => {
+                        try {
+                          setLoading(true);
+                          await updateSellerField(seller.tg_id, 'yookassa_account_id', 'null');
+                          onUpdate({ ...seller, yookassa_account_id: null });
+                          toast.success('YooKassa Account ID удалён');
+                          onSuccess();
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : 'Ошибка');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                    >
+                      Отключить
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="sdm-stat-row" style={{ marginTop: 'var(--space-3)' }}>
+                <div className="sdm-stat-item">
+                  <span className="sdm-stat-label">Статус оплаты</span>
+                  <span className="sdm-stat-value">
+                    {seller.yookassa_account_id
+                      ? '✅ Подключён'
+                      : '❌ Не подключён'}
+                  </span>
                 </div>
               </div>
             </div>

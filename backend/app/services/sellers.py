@@ -359,6 +359,7 @@ class SellerService:
             "banner_url": getattr(seller, "banner_url", None),
             "working_hours": getattr(seller, "working_hours", None),
             "commission_percent": getattr(seller, "commission_percent", None),
+            "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
         }
 
     async def create_seller(
@@ -931,6 +932,7 @@ class SellerService:
                 "is_deleted": seller.deleted_at is not None,
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
                 "commission_percent": getattr(seller, "commission_percent", None),
+                "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
             }
             for user, seller in result.all()
         ]
@@ -975,6 +977,7 @@ class SellerService:
                 "is_deleted": seller.deleted_at is not None,
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
                 "commission_percent": getattr(seller, "commission_percent", None),
+                "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
             }
             for user, seller in result.all()
         ]

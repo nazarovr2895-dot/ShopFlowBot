@@ -82,6 +82,7 @@ export interface SellerMe {
   preorder_discount_percent?: number;
   preorder_discount_min_days?: number;
   banner_url?: string | null;
+  yookassa_account_id?: string | null;
 }
 
 export interface SellerOrder {
@@ -217,6 +218,7 @@ export async function updateMe(payload: {
   address_name?: string;
   map_url?: string;
   banner_url?: string | null;
+  yookassa_account_id?: string | null;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',

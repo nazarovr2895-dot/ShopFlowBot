@@ -28,6 +28,7 @@ export interface Seller {
   weekly_schedule?: Record<string, number> | null
   hashtags?: string
   commission_percent?: number | null
+  yookassa_account_id?: string | null
 }
 
 export interface SellerStats {

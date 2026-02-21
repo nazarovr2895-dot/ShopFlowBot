@@ -119,6 +119,7 @@ class UpdateMeBody(BaseModel):
     address_name: Optional[str] = None
     map_url: Optional[str] = None
     banner_url: Optional[str] = None  # set to empty string or null to remove banner
+    yookassa_account_id: Optional[str] = None  # YuKassa marketplace account ID
 
 
 @router.get("/me")
@@ -178,6 +179,8 @@ async def update_me(
         await service.update_field(seller_id, "map_url", body.map_url)
     if body.banner_url is not None:
         await service.update_field(seller_id, "banner_url", body.banner_url or "")
+    if body.yookassa_account_id is not None:
+        await service.update_field(seller_id, "yookassa_account_id", body.yookassa_account_id or "")
     result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
     seller = result.scalar_one_or_none()
     if seller:
