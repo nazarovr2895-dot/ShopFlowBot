@@ -23,7 +23,7 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Отменён',
 };
 
-type MainTab = 'pending' | 'active' | 'history' | 'preorder';
+type MainTab = 'pending' | 'awaiting_payment' | 'active' | 'history' | 'preorder';
 type PreorderSubTab = 'requests' | 'waiting' | 'dashboard';
 
 function formatItemsInfo(itemsInfo: string): string {
@@ -71,6 +71,7 @@ export function SellerOrders() {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'pending';
   const [activeTab, setActiveTab] = useState<MainTab>(() => {
+    if (initialTab === 'awaiting_payment') return 'awaiting_payment';
     if (initialTab === 'active') return 'active';
     if (initialTab === 'history') return 'history';
     if (initialTab === 'preorder') return 'preorder';
@@ -109,6 +110,8 @@ export function SellerOrders() {
       } else if (activeTab === 'pending') {
         status = 'pending';
         preorder = false; // Exclude preorders from regular pending
+      } else if (activeTab === 'awaiting_payment') {
+        status = 'accepted';
       } else if (activeTab === 'active') {
         status = 'accepted,assembling,in_transit';
       } else {
@@ -116,8 +119,23 @@ export function SellerOrders() {
         if (dateFrom) date_from = dateFrom;
         if (dateTo) date_to = dateTo;
       }
-      const data = await getOrders({ status, date_from, date_to, preorder });
-      setOrders(data || []);
+      let data = await getOrders({ status, date_from, date_to, preorder });
+      data = data || [];
+
+      // Client-side filtering for payment-related tabs
+      if (activeTab === 'awaiting_payment') {
+        // Show only accepted orders that have a payment pending (not yet paid)
+        data = data.filter(o => o.payment_id && o.payment_status !== 'succeeded');
+      } else if (activeTab === 'active') {
+        // Exclude accepted orders that are awaiting payment
+        data = data.filter(o =>
+          o.status !== 'accepted' ||
+          !o.payment_id ||
+          o.payment_status === 'succeeded'
+        );
+      }
+
+      setOrders(data);
     } catch {
       setOrders([]);
     } finally {
@@ -213,6 +231,12 @@ export function SellerOrders() {
           <StatusBadge variant={getStatusVariant(order.status)}>
             {STATUS_LABELS[order.status] || order.status}
           </StatusBadge>
+          {order.payment_status === 'succeeded' && (
+            <StatusBadge variant="success">✅ Оплачено</StatusBadge>
+          )}
+          {order.payment_id && order.payment_status !== 'succeeded' && activeTab === 'awaiting_payment' && (
+            <StatusBadge variant="warning">💳 Ожидает оплаты</StatusBadge>
+          )}
         </div>
       </div>
       {(order.buyer_fio || order.buyer_phone) && (
@@ -347,9 +371,10 @@ export function SellerOrders() {
       {/* Main tabs */}
       <TabBar
         tabs={[
-          { key: 'pending', label: 'Запросы на покупку' },
-          { key: 'active', label: 'Активные заказы' },
-          { key: 'history', label: 'История заказов' },
+          { key: 'pending', label: 'Запросы' },
+          { key: 'awaiting_payment', label: '💳 Ожидает оплаты' },
+          { key: 'active', label: 'Активные' },
+          { key: 'history', label: 'История' },
           { key: 'preorder', label: 'Предзаказы' },
         ]}
         activeTab={activeTab}
@@ -427,6 +452,11 @@ export function SellerOrders() {
         </div>
       )}
 
+      {/* Hint for awaiting payment */}
+      {activeTab === 'awaiting_payment' && orders.length > 0 && (
+        <p className="orders-hint">Заказы приняты и ожидают оплаты покупателем. После оплаты заказ переместится в «Активные».</p>
+      )}
+
       {/* Hint for pending requests */}
       {activeTab === 'pending' && orders.length > 0 && (
         <p className="orders-hint">Укажите итоговую цену для покупателя (при необходимости нажмите «Изменить цену»), затем примите или отклоните заказ.</p>
@@ -470,8 +500,11 @@ export function SellerOrders() {
           <EmptyState
             title={isPreorderRequests ? 'Нет запросов на предзаказ' :
                    isPreorderWaiting ? 'Нет ожидающих предзаказов' :
+                   activeTab === 'awaiting_payment' ? 'Нет заказов, ожидающих оплаты' :
                    'Нет заказов'}
-            message="Заказы появятся здесь, когда покупатели оформят покупку"
+            message={activeTab === 'awaiting_payment'
+              ? 'Здесь будут заказы, которые приняты, но ещё не оплачены покупателем'
+              : 'Заказы появятся здесь, когда покупатели оформят покупку'}
           />
         ) : (
           <div className="orders-list">

@@ -104,6 +104,8 @@ export interface SellerOrder {
   customer_id?: number | null;
   points_used?: number;
   points_discount?: number;
+  payment_id?: string | null;
+  payment_status?: string | null;
 }
 
 export type SellerStatsPeriod = '1d' | '7d' | '30d' | 'custom';

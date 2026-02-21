@@ -455,6 +455,15 @@ class OrderService:
             raise OrderAccessDeniedError(order_id)
 
         old_status = order.status
+
+        # Block status progression if payment is required but not completed
+        if new_status in ("assembling", "in_transit", "done"):
+            if getattr(order, "payment_id", None) and getattr(order, "payment_status", None) != "succeeded":
+                raise OrderServiceError(
+                    "Невозможно изменить статус: заказ ещё не оплачен покупателем",
+                    400,
+                )
+
         order.status = new_status
 
         # Handle counter updates when order finishes

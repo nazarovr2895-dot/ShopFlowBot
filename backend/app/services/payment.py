@@ -363,8 +363,8 @@ class PaymentService:
         """
         Process YuKassa webhook notification.
 
-        Updates ``order.payment_status``.  The caller is responsible for
-        ``session.commit()``.
+        Updates ``order.payment_status`` and sends Telegram notifications.
+        The caller is responsible for ``session.commit()``.
         """
         event_type = event_data.get("event")
         payment_object = event_data.get("object", {})
@@ -398,6 +398,25 @@ class PaymentService:
             )
             return
 
+        # Race condition protection: if order was rejected/cancelled but payment succeeded
+        if payment_status == "succeeded" and order.status in ("rejected", "cancelled"):
+            logger.warning(
+                "Payment succeeded for rejected/cancelled order, initiating refund",
+                order_id=order_id,
+                order_status=order.status,
+            )
+            order.payment_status = payment_status
+            try:
+                await self.refund_payment(order_id)
+                logger.info("Auto-refund initiated", order_id=order_id)
+            except Exception as refund_err:
+                logger.error(
+                    "Auto-refund failed",
+                    order_id=order_id,
+                    error=str(refund_err),
+                )
+            return
+
         old_status = order.payment_status
         order.payment_id = payment_id
         order.payment_status = payment_status
@@ -410,6 +429,35 @@ class PaymentService:
             old_payment_status=old_status,
             new_payment_status=payment_status,
         )
+
+        # Send notifications on successful payment
+        if payment_status == "succeeded" and old_status != "succeeded":
+            try:
+                from backend.app.services.telegram_notify import (
+                    notify_buyer_payment_succeeded,
+                    notify_seller_payment_received,
+                )
+                if order.buyer_id:
+                    await notify_buyer_payment_succeeded(
+                        buyer_id=order.buyer_id,
+                        order_id=order_id,
+                        seller_id=order.seller_id,
+                    )
+                await notify_seller_payment_received(
+                    seller_id=order.seller_id,
+                    order_id=order_id,
+                    total_price=float(order.total_price) if order.total_price else 0,
+                )
+                logger.info(
+                    "Payment success notifications sent",
+                    order_id=order_id,
+                )
+            except Exception as notify_err:
+                logger.warning(
+                    "Payment notification sending failed (non-critical)",
+                    order_id=order_id,
+                    error=str(notify_err),
+                )
 
     async def get_payment_status(self, order_id: int) -> Dict[str, Any]:
         """

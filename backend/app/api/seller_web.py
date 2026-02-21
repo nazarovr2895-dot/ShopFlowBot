@@ -315,15 +315,55 @@ async def accept_order(
             await session.commit()
         except Exception:
             logger.exception("sync_bouquet_product_quantities failed after accept_order")
-        from backend.app.services.telegram_notify import notify_buyer_order_status
-        await notify_buyer_order_status(
-            buyer_id=result["buyer_id"],
-            order_id=order_id,
-            new_status=result["new_status"],
-            seller_id=result["seller_id"],
-            items_info=result.get("items_info"),
-            total_price=result.get("total_price"),
-        )
+
+        # --- Try to create YuKassa payment if configured ---
+        confirmation_url = None
+        buyer_id = result["buyer_id"]
+        seller_id_val = result["seller_id"]
+        total_price = result.get("total_price")
+        try:
+            from backend.app.services.payment import PaymentService, PaymentNotConfiguredError
+            pay_svc = PaymentService(session)
+            pay_result = await pay_svc.create_payment(order_id=order_id)
+            await session.commit()
+            confirmation_url = pay_result.get("confirmation_url")
+            logger.info(
+                "Payment created on accept (seller_web)",
+                order_id=order_id,
+                payment_id=pay_result.get("payment_id"),
+            )
+        except PaymentNotConfiguredError:
+            pass  # YuKassa not configured — skip silently
+        except Exception as pay_err:
+            logger.warning(
+                "Payment creation on accept failed (non-critical)",
+                order_id=order_id,
+                error=str(pay_err),
+            )
+
+        # --- Send buyer notification ---
+        if confirmation_url and buyer_id:
+            from backend.app.services.telegram_notify import notify_buyer_payment_required
+            await notify_buyer_payment_required(
+                buyer_id=buyer_id,
+                order_id=order_id,
+                seller_id=seller_id_val,
+                total_price=float(total_price) if total_price else 0,
+                confirmation_url=confirmation_url,
+                items_info=result.get("items_info", ""),
+            )
+        else:
+            from backend.app.services.telegram_notify import notify_buyer_order_status
+            await notify_buyer_order_status(
+                buyer_id=buyer_id,
+                order_id=order_id,
+                new_status=result["new_status"],
+                seller_id=seller_id_val,
+                items_info=result.get("items_info"),
+                total_price=total_price,
+            )
+
+        result["confirmation_url"] = confirmation_url
         return result
     except OrderServiceError as e:
         await session.rollback()

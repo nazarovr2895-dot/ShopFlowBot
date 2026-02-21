@@ -320,3 +320,27 @@ async def notify_seller_new_order_guest(
     text += f"\n📞 Телефон: {guest_phone}"
     text += "\n\nПринять или отклонить заказ — в админ-панели."
     return await _send_telegram_message(seller_id, text)
+
+
+async def notify_buyer_payment_succeeded(
+    buyer_id: int,
+    order_id: int,
+    seller_id: int,
+) -> bool:
+    """Notify buyer that their payment was successful."""
+    text = f"✅ *Заказ #{order_id}* оплачен!\n\nПродавец начнёт сборку в ближайшее время."
+    reply_markup = _order_notification_keyboard(order_id, seller_id)
+    return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
+
+
+async def notify_seller_payment_received(
+    seller_id: int,
+    order_id: int,
+    total_price: float = 0,
+) -> bool:
+    """Notify seller that payment was received for an order."""
+    text = f"💰 Оплата получена! Заказ *#{order_id}* оплачен"
+    if total_price:
+        text += f" ({total_price:.0f} руб.)"
+    text += ".\n\nМожно начинать сборку."
+    return await _send_telegram_message(seller_id, text)
