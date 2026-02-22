@@ -26,6 +26,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 type MainTab = 'pending' | 'awaiting_payment' | 'active' | 'history' | 'cancelled' | 'preorder';
 type PreorderSubTab = 'requests' | 'waiting' | 'dashboard';
+type DeliveryFilter = 'all' | 'pickup' | 'delivery';
 
 function formatItemsInfo(itemsInfo: string): string {
   return itemsInfo.replace(/\d+:/g, '').replace(/x\s*/g, ' × ');
@@ -87,6 +88,7 @@ export function SellerOrders() {
     return 'pending';
   });
   const [preorderSubTab, setPreorderSubTab] = useState<PreorderSubTab>('requests');
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>('all');
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState('');
@@ -148,13 +150,21 @@ export function SellerOrders() {
         );
       }
 
+      // Client-side filtering by delivery type
+      if (deliveryFilter !== 'all') {
+        data = data.filter(o => {
+          const pickup = isPickup(o.delivery_type);
+          return deliveryFilter === 'pickup' ? pickup : !pickup;
+        });
+      }
+
       setOrders(data);
     } catch {
       setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, preorderSubTab, dateFrom, dateTo]);
+  }, [activeTab, preorderSubTab, dateFrom, dateTo, deliveryFilter]);
 
   useEffect(() => {
     loadOrders();
@@ -412,8 +422,22 @@ export function SellerOrders() {
           { key: 'preorder', label: 'Предзаказы' },
         ]}
         activeTab={activeTab}
-        onChange={(key) => setActiveTab(key as MainTab)}
+        onChange={(key) => { setActiveTab(key as MainTab); setDeliveryFilter('all'); }}
       />
+
+      {/* Delivery type filter (all tabs except preorder) */}
+      {activeTab !== 'preorder' && (
+        <TabBar
+          size="small"
+          tabs={[
+            { key: 'all', label: 'Все' },
+            { key: 'pickup', label: '📦 Самовывоз' },
+            { key: 'delivery', label: '🚚 Доставка' },
+          ]}
+          activeTab={deliveryFilter}
+          onChange={(key) => setDeliveryFilter(key as DeliveryFilter)}
+        />
+      )}
 
       {/* Preorder sub-tabs */}
       {activeTab === 'preorder' && (
