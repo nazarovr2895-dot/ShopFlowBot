@@ -36,7 +36,7 @@ function formatPrice(amount: number): string {
   return amount.toLocaleString('ru-RU') + ' \u20BD';
 }
 
-export function SubscriptionSettingsTab({ me, reload }: SettingsTabProps) {
+export function SubscriptionSettingsTab({ me }: SettingsTabProps) {
   const toast = useToast();
   const [prices, setPrices] = useState<SubscriptionPricesResponse | null>(null);
   const [subStatus, setSubStatus] = useState<SubscriptionStatusResponse | null>(null);
