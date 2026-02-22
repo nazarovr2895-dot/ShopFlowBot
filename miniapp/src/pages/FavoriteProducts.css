@@ -128,7 +128,7 @@
   min-height: 2.6em;
 }
 
-/* Bottom row: heart left, cart button right */
+/* Bottom row: heart left, shop badge right */
 .favorite-product-card__bottom {
   display: flex;
   align-items: center;
@@ -153,80 +153,23 @@
   color: #ff3b6e;
 }
 
-/* Cart button — "В корзину" */
-.favorite-product-card__cart-btn {
-  padding: 8px 14px;
-  font-size: 12px;
+/* Shop name badge */
+.favorite-product-card__shop-badge {
+  font-size: 11px;
   font-weight: 600;
-  color: #ffffff;
-  background: #000000;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  border-radius: 20px;
-  cursor: pointer;
+  color: var(--app-text-secondary, #666);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 3px 8px;
+  border-radius: 10px;
   white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.favorite-product-card__cart-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: rgba(128, 128, 128, 0.3);
-}
-
-[data-theme="dark"] .favorite-product-card__cart-btn {
-  background: #ffffff;
-  color: #000000;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Qty counter pill */
-.favorite-product-card__qty-counter {
-  display: flex;
-  align-items: center;
-  background: #000000;
-  border-radius: 20px;
   overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
   flex-shrink: 0;
 }
 
-.favorite-product-card__qty-counter-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  background: transparent;
-  border: none;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.favorite-product-card__qty-counter-btn:active {
-  opacity: 0.6;
-}
-
-.favorite-product-card__qty-counter-value {
-  min-width: 20px;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-[data-theme="dark"] .favorite-product-card__qty-counter {
-  background: #ffffff;
-}
-
-[data-theme="dark"] .favorite-product-card__qty-counter-btn {
-  color: #000000;
-}
-
-[data-theme="dark"] .favorite-product-card__qty-counter-value {
-  color: #000000;
+[data-theme="dark"] .favorite-product-card__shop-badge {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ══════════════════════════════════════════════
@@ -250,14 +193,6 @@
 
   .favorite-product-card:hover {
     transform: translateY(-2px);
-  }
-
-  .favorite-product-card__cart-btn {
-    transition: opacity 0.15s ease;
-  }
-
-  .favorite-product-card__cart-btn:hover:not(:disabled) {
-    opacity: 0.85;
   }
 }
 

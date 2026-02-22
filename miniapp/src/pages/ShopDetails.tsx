@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import type { PublicSellerDetail, Product } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
@@ -60,6 +60,7 @@ const ShareIcon = ({ size = 20 }: { size?: number }) => (
 export function ShopDetails() {
   const { sellerId } = useParams<{ sellerId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setBackButton, hapticFeedback, showAlert, webApp } = useTelegramWebApp();
   const [seller, setSeller] = useState<PublicSellerDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,6 +130,27 @@ export function ShopDetails() {
 
     loadSeller();
   }, [sellerId]);
+
+  // Auto-open product modal if ?product=<id> is present (e.g. from Favorites)
+  useEffect(() => {
+    const productParam = searchParams.get('product');
+    if (!productParam || !seller) return;
+
+    const pid = parseInt(productParam, 10);
+    if (isNaN(pid)) return;
+
+    const allProducts = [...seller.products, ...(seller.preorder_products ?? [])];
+    const found = allProducts.find((p) => p.id === pid);
+    if (found) {
+      setSelectedProduct(found);
+      // Clear param so closing the modal doesn't re-open it
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('product');
+        return next;
+      }, { replace: true });
+    }
+  }, [seller, searchParams, setSearchParams]);
 
   // Load favorite state when seller is loaded (try always; 401 → not in favorites)
   useEffect(() => {

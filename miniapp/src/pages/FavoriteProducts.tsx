@@ -1,50 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { FavoriteProduct, Product } from '../types';
+import type { FavoriteProduct } from '../types';
 import { api } from '../api/client';
-import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal } from '../components';
+import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import './FavoriteProducts.css';
-
-/** Convert FavoriteProduct → Product for the modal */
-function toProduct(fp: FavoriteProduct): Product {
-  return {
-    id: fp.product_id,
-    name: fp.name,
-    description: fp.description,
-    price: fp.price,
-    photo_id: fp.photo_id,
-    photo_ids: fp.photo_ids,
-    quantity: fp.quantity,
-    is_preorder: fp.is_preorder,
-    composition: fp.composition,
-  };
-}
-
-interface SellerInfo {
-  delivery_price: number;
-  delivery_type: 'delivery' | 'pickup' | 'both' | null;
-}
-
-interface LoyaltyInfo {
-  points_balance: number;
-  points_percent: number;
-  linked: boolean;
-  max_points_discount_percent: number;
-  points_to_ruble_rate: number;
-}
 
 export function FavoriteProducts() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<FavoriteProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<number | null>(null);
-  const [addingId, setAddingId] = useState<number | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<FavoriteProduct | null>(null);
-  const [sellerInfo, setSellerInfo] = useState<SellerInfo | null>(null);
-  const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null);
-  const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map());
   const { hapticFeedback } = useTelegramWebApp();
 
   useEffect(() => {
@@ -62,63 +29,6 @@ export function FavoriteProducts() {
     load();
   }, []);
 
-  // Load cart quantities to show inline counters on cards
-  useEffect(() => {
-    if (!api.isAuthenticated()) return;
-    let cancelled = false;
-    const loadCart = async () => {
-      try {
-        const qtyMap = new Map<number, number>();
-        const groups = await api.getCart();
-        for (const group of groups) {
-          for (const item of group.items) {
-            qtyMap.set(item.product_id, item.quantity);
-          }
-        }
-        if (!cancelled) setCartQuantities(qtyMap);
-      } catch {
-        // Ignore cart loading errors
-      }
-    };
-    loadCart();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Load seller details + loyalty when a product is selected
-  useEffect(() => {
-    if (!selectedProduct) {
-      setSellerInfo(null);
-      setLoyalty(null);
-      return;
-    }
-
-    let cancelled = false;
-    const sellerId = selectedProduct.seller_id;
-
-    // Load seller delivery info
-    api.getSellerDetail(sellerId)
-      .then((data) => {
-        if (!cancelled) {
-          setSellerInfo({
-            delivery_price: data.delivery_price,
-            delivery_type: data.delivery_type,
-          });
-        }
-      })
-      .catch(() => { if (!cancelled) setSellerInfo(null); });
-
-    // Load loyalty if authenticated
-    if (api.isAuthenticated()) {
-      api.getMyLoyaltyAtSeller(sellerId)
-        .then((data) => {
-          if (!cancelled) setLoyalty(data);
-        })
-        .catch(() => { if (!cancelled) setLoyalty(null); });
-    }
-
-    return () => { cancelled = true; };
-  }, [selectedProduct?.seller_id, selectedProduct]);
-
   const removeFromFavorites = async (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (removingId === productId) return;
@@ -127,8 +37,6 @@ export function FavoriteProducts() {
       hapticFeedback('light');
       await api.removeFavoriteProduct(productId);
       setProducts((prev) => prev.filter((p) => p.product_id !== productId));
-      setSelectedProduct(null);
-      // No alert — visual removal is the feedback
     } catch (err) {
       console.error(err);
     } finally {
@@ -136,76 +44,8 @@ export function FavoriteProducts() {
     }
   };
 
-  const addToCart = async (productId: number, _date: string | null, quantity: number) => {
-    setAddingId(productId);
-    try {
-      hapticFeedback('light');
-      await api.addCartItem(productId, quantity);
-      // Update local cart state (no alert — visual change is the feedback)
-      setCartQuantities((prev) => {
-        const next = new Map(prev);
-        next.set(productId, (prev.get(productId) || 0) + quantity);
-        return next;
-      });
-      setSelectedProduct(null);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setAddingId(null);
-    }
-  };
-
-  const addToCartFromCard = async (productId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setAddingId(productId);
-    try {
-      hapticFeedback('light');
-      await api.addCartItem(productId, 1);
-      setCartQuantities((prev) => {
-        const next = new Map(prev);
-        next.set(productId, (prev.get(productId) || 0) + 1);
-        return next;
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setAddingId(null);
-    }
-  };
-
-  const updateCartQuantity = async (productId: number, newQty: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    hapticFeedback('light');
-    // Optimistic update
-    setCartQuantities((prev) => {
-      const next = new Map(prev);
-      if (newQty <= 0) {
-        next.delete(productId);
-      } else {
-        next.set(productId, newQty);
-      }
-      return next;
-    });
-
-    try {
-      if (newQty <= 0) {
-        await api.removeCartItem(productId);
-      } else {
-        await api.updateCartItem(productId, newQty);
-      }
-    } catch {
-      // Rollback on error — reload cart
-      try {
-        const qtyMap = new Map<number, number>();
-        const groups = await api.getCart();
-        for (const group of groups) {
-          for (const item of group.items) {
-            qtyMap.set(item.product_id, item.quantity);
-          }
-        }
-        setCartQuantities(qtyMap);
-      } catch { /* ignore */ }
-    }
+  const openInShop = (product: FavoriteProduct) => {
+    navigate(`/shop/${product.seller_id}?product=${product.product_id}`);
   };
 
   if (loading) return <Loader centered />;
@@ -255,20 +95,17 @@ export function FavoriteProducts() {
         {products.map((product) => {
           const firstPhotoId = (product.photo_ids && product.photo_ids[0]) || product.photo_id;
           const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
-          const inStock = (product.quantity ?? 0) > 0;
-          const cartQty = cartQuantities.get(product.product_id) || 0;
-          const isAdding = addingId === product.product_id;
           return (
             <div
               key={product.product_id}
               className="favorite-product-card"
-              onClick={() => setSelectedProduct(product)}
+              onClick={() => openInShop(product)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setSelectedProduct(product);
+                  openInShop(product);
                 }
               }}
             >
@@ -294,62 +131,15 @@ export function FavoriteProducts() {
                       />
                     )}
                   </div>
-                  {cartQty > 0 ? (
-                    <div className="favorite-product-card__qty-counter" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className="favorite-product-card__qty-counter-btn"
-                        onClick={(e) => updateCartQuantity(product.product_id, cartQty - 1, e)}
-                      >
-                        −
-                      </button>
-                      <span className="favorite-product-card__qty-counter-value">{cartQty}</span>
-                      <button
-                        type="button"
-                        className="favorite-product-card__qty-counter-btn"
-                        onClick={(e) => updateCartQuantity(product.product_id, cartQty + 1, e)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="favorite-product-card__cart-btn"
-                      disabled={!inStock || isAdding}
-                      onClick={(e) => addToCartFromCard(product.product_id, e)}
-                    >
-                      {isAdding ? '…' : inStock ? 'В корзину' : 'Нет'}
-                    </button>
-                  )}
+                  <span className="favorite-product-card__shop-badge">
+                    {product.shop_name}
+                  </span>
                 </div>
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* Product modal — same as in ShopDetails, with loyalty & delivery */}
-      {selectedProduct && (
-        <ProductModal
-          product={toProduct(selectedProduct)}
-          isOpen={!!selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          isFavorite={true}
-          onToggleFavorite={(e) => removeFromFavorites(selectedProduct.product_id, e)}
-          onAddToCart={(qty: number) => addToCart(selectedProduct.product_id, null, qty)}
-          isAdding={addingId === selectedProduct.product_id}
-          inStock={(selectedProduct.quantity ?? 0) > 0}
-          isPreorder={selectedProduct.is_preorder || false}
-          deliveryPrice={sellerInfo?.delivery_price}
-          deliveryType={sellerInfo?.delivery_type}
-          loyaltyPointsPercent={loyalty?.points_percent ?? 0}
-          pointsBalance={loyalty?.points_balance ?? 0}
-          pointsToRubleRate={loyalty?.points_to_ruble_rate ?? 1}
-          maxPointsDiscountPercent={loyalty?.max_points_discount_percent ?? 100}
-          loyaltyLinked={loyalty?.linked ?? false}
-        />
-      )}
     </div>
   );
 }
