@@ -331,6 +331,18 @@ export function Profile() {
             )}
           </>
         )}
+
+        <footer className="profile-legal-footer">
+          <button type="button" className="profile-legal-footer__link" onClick={() => navigate('/terms')}>
+            Пользовательское соглашение
+          </button>
+          <button type="button" className="profile-legal-footer__link" onClick={() => navigate('/privacy')}>
+            Политика конфиденциальности
+          </button>
+          <button type="button" className="profile-legal-footer__link" onClick={() => navigate('/seller-terms')}>
+            Оферта для продавцов
+          </button>
+        </footer>
       </div>
     );
   };

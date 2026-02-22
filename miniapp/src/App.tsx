@@ -13,6 +13,9 @@ import {
   ProductDetail,
   GuestCheckout,
   GuestOrderConfirmation,
+  TermsPage,
+  PrivacyPage,
+  SellerTermsPage,
 } from './pages';
 import { MainLayout, RequireAuth, ToastProvider, DesktopShell } from './components';
 import { CatalogFilterProvider } from './contexts/CatalogFilterContext';
@@ -109,6 +112,11 @@ function AppContent() {
         <Route path="/shop/:sellerId" element={<ShopDetails />} />
         <Route path="/shop/:sellerId/product/:productId" element={<ProductDetail />} />
         <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
+
+        {/* Legal pages */}
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/seller-terms" element={<SellerTermsPage />} />
 
         {/* Redirect root to appropriate page */}
         <Route path="*" element={<Navigate to="/" replace />} />
