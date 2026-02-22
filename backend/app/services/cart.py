@@ -384,6 +384,8 @@ class CartService:
                                 points_used = actual_points
                                 points_discount = discount
                                 total = total - discount
+                # Track original price before discounts for loyalty accrual
+                original_total = total + preorder_discount_amount + points_discount
                 try:
                     order = await order_service.create_order(
                         buyer_id=buyer_id,
@@ -396,9 +398,12 @@ class CartService:
                         is_preorder=is_preorder,
                         preorder_delivery_date=preorder_date,
                     )
+                    # Save original price if any discount was applied
+                    if preorder_discount_amount > 0 or points_discount > 0:
+                        order.original_price = float(original_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
                     # Deduct points AFTER order creation succeeds (avoid losing points on failure)
                     if points_used > 0 and customer:
-                        await loyalty_svc.deduct_points(seller_id, customer.id, float(points_used))
+                        await loyalty_svc.deduct_points(seller_id, customer.id, float(points_used), order_id=order.id)
                     # Store points info on order
                     if points_used > 0:
                         order.points_used = float(points_used)

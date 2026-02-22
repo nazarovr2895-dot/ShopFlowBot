@@ -332,6 +332,23 @@ class LoyaltyService:
         customer = await self.session.get(SellerCustomer, customer_id)
         if not customer or customer.seller_id != seller_id:
             raise CustomerNotFoundError(customer_id)
+        # Idempotency: skip if points already accrued for this order
+        if order_id is not None:
+            existing = await self.session.execute(
+                select(SellerLoyaltyTransaction.id).where(
+                    SellerLoyaltyTransaction.order_id == order_id,
+                    SellerLoyaltyTransaction.customer_id == customer_id,
+                    SellerLoyaltyTransaction.points_accrued > 0,
+                ).limit(1)
+            )
+            if existing.scalar_one_or_none() is not None:
+                return {
+                    "customer_id": customer_id,
+                    "amount": amount,
+                    "points_accrued": 0,
+                    "new_balance": float(customer.points_balance or 0),
+                    "skipped": True,
+                }
         # Use tier-specific percent if tiers are configured
         seller = await self.session.get(Seller, seller_id)
         tiers_config = getattr(seller, 'loyalty_tiers_config', None) if seller else None
@@ -388,11 +405,19 @@ class LoyaltyService:
         return await self.accrue_points(seller_id, customer.id, amount, order_id)
 
     async def deduct_points(
-        self, seller_id: int, customer_id: int, points: float
+        self, seller_id: int, customer_id: int, points: float,
+        order_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """Deduct points from customer (manual spend). points must be > 0."""
-        customer = await self.session.get(SellerCustomer, customer_id)
-        if not customer or customer.seller_id != seller_id:
+        """Deduct points from customer. points must be > 0.
+        Uses SELECT FOR UPDATE to prevent race conditions with concurrent requests."""
+        # Lock the customer row to prevent concurrent balance modifications
+        result = await self.session.execute(
+            select(SellerCustomer)
+            .where(SellerCustomer.id == customer_id, SellerCustomer.seller_id == seller_id)
+            .with_for_update()
+        )
+        customer = result.scalar_one_or_none()
+        if not customer:
             raise CustomerNotFoundError(customer_id)
         points_decimal = Decimal(str(points))
         if points_decimal <= 0:
@@ -406,7 +431,7 @@ class LoyaltyService:
         tx = SellerLoyaltyTransaction(
             seller_id=seller_id,
             customer_id=customer_id,
-            order_id=None,
+            order_id=order_id,
             amount=Decimal("0"),
             points_accrued=-points_decimal,
         )

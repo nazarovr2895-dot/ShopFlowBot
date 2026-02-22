@@ -195,7 +195,7 @@
   max-width: 800px;
   min-height: 240px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   overflow: visible;
 }
 
@@ -341,6 +341,52 @@
   color: var(--warning);
 }
 
+/* ── Chart Legend ─────────────────────────────────── */
+.chart-legend {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: var(--text);
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.chart-legend-item:hover {
+  background: var(--bg-surface);
+}
+
+.chart-legend-item--hidden {
+  opacity: 0.45;
+}
+
+.chart-legend-item--hidden .chart-legend-label {
+  text-decoration: line-through;
+}
+
+.chart-legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.chart-legend-label {
+  white-space: nowrap;
+}
+
 /* ── Chart tooltip ─────────────────────────────────── */
 .chart-tooltip {
   background: var(--bg-surface, #1a1a2e);
@@ -366,6 +412,32 @@
 .chart-tooltip-orders {
   color: var(--text-muted);
   font-size: 0.6875rem;
+}
+
+.chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.chart-tooltip-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-tooltip-label {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.chart-tooltip-val {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.75rem;
 }
 
 /* ── StatsSellers styles ── */

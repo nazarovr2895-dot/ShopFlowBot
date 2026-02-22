@@ -424,7 +424,7 @@ class OrderService:
                 if product and product.quantity is not None:
                     product.quantity += quantity
 
-        # Refund loyalty points if used
+        # Refund loyalty points if used (with audit transaction)
         points_refunded = 0.0
         if order.points_used and float(order.points_used) > 0:
             loyalty_svc = LoyaltyService(self.session)
@@ -434,7 +434,18 @@ class OrderService:
                 phone = normalize_phone(buyer.phone)
                 customer = await loyalty_svc.find_customer_by_phone(order.seller_id, phone)
                 if customer:
-                    customer.points_balance = (customer.points_balance or 0) + float(order.points_used)
+                    refund_amount = Decimal(str(order.points_used))
+                    customer.points_balance = (customer.points_balance or Decimal("0")) + refund_amount
+                    # Create audit transaction for the refund
+                    from backend.app.models.loyalty import SellerLoyaltyTransaction
+                    refund_tx = SellerLoyaltyTransaction(
+                        seller_id=order.seller_id,
+                        customer_id=customer.id,
+                        order_id=order.id,
+                        amount=Decimal("0"),
+                        points_accrued=refund_amount,  # positive = points returned
+                    )
+                    self.session.add(refund_tx)
                     points_refunded = float(order.points_used)
 
         order.status = "cancelled"
@@ -554,15 +565,18 @@ class OrderService:
                 orders_completed_total.labels(seller_id=str(order.seller_id)).inc()
 
         # Accrue loyalty points when order first reaches done or completed (by buyer phone)
+        # Use original_price (before points/preorder discount) so customers aren't
+        # penalised for using points — they earn on the full product value.
         if new_status in ("done", "completed") and old_status not in ("done", "completed"):
             buyer = await self.session.get(User, order.buyer_id) if order.buyer_id else None
             buyer_phone = buyer.phone if buyer else None
             if buyer_phone:
+                accrual_amount = float(order.original_price or order.total_price or 0)
                 loyalty_svc = LoyaltyService(self.session)
                 await loyalty_svc.accrue_points_for_buyer_phone(
                     seller_id=order.seller_id,
                     buyer_phone=buyer_phone,
-                    amount=float(order.total_price or 0),
+                    amount=accrual_amount,
                     order_id=order.id,
                 )
 

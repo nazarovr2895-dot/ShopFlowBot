@@ -153,6 +153,7 @@ export function AdminFinance() {
     date: s.period,
     revenue: s.revenue,
     orders: s.orders,
+    profit: Math.round(s.revenue * globalCommission / 100),
   })) || [];
 
   const confirmMessages = [
@@ -328,7 +329,7 @@ export function AdminFinance() {
 
           {/* ── Revenue Chart ── */}
           <div className="af-chart-card">
-            <h3 className="af-chart-title">Динамика выручки</h3>
+            <h3 className="af-chart-title">Динамика выручки и дохода</h3>
             <SalesChart data={chartData} />
           </div>
 
