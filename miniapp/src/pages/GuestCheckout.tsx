@@ -24,6 +24,7 @@ export function GuestCheckout() {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [cart, setCart] = useState<CartSellerGroup[]>([]);
+  const [availability, setAvailability] = useState<{ delivery_remaining: number; pickup_remaining: number } | null>(null);
 
   useEffect(() => {
     const items = getGuestCart();
@@ -31,7 +32,15 @@ export function GuestCheckout() {
       navigate('/cart', { replace: true });
       return;
     }
-    setCart(guestCartToGroups(items));
+    const groups = guestCartToGroups(items);
+    setCart(groups);
+
+    // Fetch availability for the first seller in cart
+    if (groups.length > 0) {
+      api.getSellerAvailability(groups[0].seller_id)
+        .then((a) => setAvailability(a))
+        .catch(() => setAvailability(null));
+    }
   }, [navigate]);
 
   const formatPrice = (n: number) =>
@@ -128,15 +137,17 @@ export function GuestCheckout() {
             type="button"
             className={`checkout-delivery-segment__btn ${deliveryType === 'Самовывоз' ? 'checkout-delivery-segment__btn--active' : ''}`}
             onClick={() => setDeliveryType('Самовывоз')}
+            disabled={availability != null && availability.pickup_remaining <= 0}
           >
-            Самовывоз
+            Самовывоз{availability != null ? ` (${availability.pickup_remaining > 0 ? availability.pickup_remaining : 'занято'})` : ''}
           </button>
           <button
             type="button"
             className={`checkout-delivery-segment__btn ${deliveryType === 'Доставка' ? 'checkout-delivery-segment__btn--active' : ''}`}
             onClick={() => setDeliveryType('Доставка')}
+            disabled={availability != null && availability.delivery_remaining <= 0}
           >
-            Курьером
+            Курьером{availability != null ? ` (${availability.delivery_remaining > 0 ? availability.delivery_remaining : 'занято'})` : ''}
           </button>
         </div>
       </div>

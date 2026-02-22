@@ -14,7 +14,7 @@ from backend.app.core.limiter import limiter
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.api import buyers, sellers, orders, admin, public, payments
+from backend.app.api import buyers, sellers, orders, admin, public, payments, subscriptions
 from backend.app.api import admin_auth, seller_auth, seller_web, auth
 from backend.app.api.admin import require_admin_token
 from backend.app.api.deps import get_session
@@ -154,6 +154,21 @@ async def _daily_scheduler():
                 except Exception as e:
                     await session.rollback()
                     logger.error("Daily scheduler: bouquet sync failed", error=str(e))
+
+                # 6. Expire overdue subscriptions and send expiry warnings
+                try:
+                    from backend.app.services.subscription import SubscriptionService
+                    sub_svc = SubscriptionService(session)
+
+                    expired_count = await sub_svc.expire_subscriptions()
+                    if expired_count > 0:
+                        await session.commit()
+                        logger.info("Daily scheduler: expired subscriptions", count=expired_count)
+
+                    await sub_svc.check_expiring_subscriptions()
+                except Exception as e:
+                    await session.rollback()
+                    logger.error("Daily scheduler: subscription check failed", error=str(e))
         except Exception as e:
             logger.error("Daily scheduler: unexpected error", error=str(e))
             import asyncio
@@ -247,6 +262,7 @@ app.include_router(buyers.router, prefix="/buyers", tags=["buyers"])
 app.include_router(sellers.router, prefix="/sellers", tags=["sellers"])
 app.include_router(orders.router, prefix="/orders", tags=["orders"])
 app.include_router(payments.router, prefix="/payments", tags=["payments"])
+app.include_router(subscriptions.router, prefix="/subscriptions", tags=["subscriptions"])
 # Admin login - без токена (первым, чтобы /admin/login работал)
 app.include_router(admin_auth.router, prefix="/admin", tags=["admin"])
 # Seller web login (no token required)

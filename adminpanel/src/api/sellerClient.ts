@@ -56,9 +56,14 @@ export interface SellerMe {
   orders_used_today: number;
   active_orders: number;
   pending_requests: number;
+  max_delivery_orders: number;
+  max_pickup_orders: number;
+  active_delivery_orders: number;
+  active_pickup_orders: number;
+  pending_delivery_requests: number;
+  pending_pickup_requests: number;
   subscription_plan?: string;
-  plan_limit_cap?: number;
-  weekly_schedule?: Record<string, number> | null;
+  weekly_schedule?: Record<string, number | { delivery: number; pickup: number }> | null;
   working_hours?: Record<string, { open: string; close: string } | null> | null;
   shop_link: string | null;
   delivery_type?: string;
@@ -394,19 +399,33 @@ export async function recalculateProductPrice(productId: number): Promise<{ id: 
   return fetchSeller(`/seller-web/products/${productId}/recalculate`, { method: 'POST' });
 }
 
-export async function updateLimits(maxOrders: number): Promise<{ status: string }> {
-  return fetchSeller(`/seller-web/limits?max_orders=${maxOrders}`, { method: 'PUT' });
+export async function updateLimits(params: {
+  maxDeliveryOrders: number;
+  maxPickupOrders: number;
+}): Promise<{ status: string }> {
+  const sp = new URLSearchParams();
+  sp.set('max_delivery_orders', String(params.maxDeliveryOrders));
+  sp.set('max_pickup_orders', String(params.maxPickupOrders));
+  return fetchSeller(`/seller-web/limits?${sp.toString()}`, { method: 'PUT' });
 }
 
-export async function updateDefaultLimit(defaultDailyLimit: number): Promise<{ status: string }> {
-  return fetchSeller(`/seller-web/default-limit?default_daily_limit=${defaultDailyLimit}`, { method: 'PUT' });
+export async function updateDefaultLimit(params: {
+  maxDeliveryOrders: number;
+  maxPickupOrders: number;
+}): Promise<{ status: string }> {
+  const sp = new URLSearchParams();
+  sp.set('max_delivery_orders', String(params.maxDeliveryOrders));
+  sp.set('max_pickup_orders', String(params.maxPickupOrders));
+  return fetchSeller(`/seller-web/default-limit?${sp.toString()}`, { method: 'PUT' });
 }
 
 export async function closeForToday(): Promise<{ status: string; message?: string }> {
   return fetchSeller('/seller-web/close-for-today', { method: 'POST' });
 }
 
-export async function updateWeeklySchedule(schedule: Record<string, number>): Promise<{ status: string }> {
+export async function updateWeeklySchedule(
+  schedule: Record<string, { delivery: number; pickup: number }>
+): Promise<{ status: string }> {
   return fetchSeller('/seller-web/weekly-schedule', {
     method: 'PUT',
     body: JSON.stringify({ schedule }),
@@ -994,4 +1013,52 @@ export async function getPreorderAnalytics(params?: { period?: '1d' | '7d' | '30
   const query = sp.toString();
   const suffix = query ? `?${query}` : '';
   return fetchSeller<PreorderAnalytics>(`/seller-web/preorder-analytics${suffix}`);
+}
+
+// --- Subscription ---
+
+export interface SubscriptionPricesResponse {
+  base_price: number;
+  prices: Record<number, number>;
+  discounts: Record<number, number>;
+}
+
+export interface SubscriptionInfo {
+  id: number;
+  period_months: number;
+  status: string;
+  started_at: string | null;
+  expires_at: string | null;
+  amount_paid: number;
+  days_remaining?: number;
+  auto_renew?: boolean;
+  created_at?: string;
+  payment_id?: string;
+}
+
+export interface SubscriptionStatusResponse {
+  current: SubscriptionInfo | null;
+  history: SubscriptionInfo[];
+}
+
+export interface CreateSubscriptionResponse {
+  subscription_id: number;
+  payment_id: string;
+  confirmation_url: string | null;
+  status: string;
+}
+
+export async function getSubscriptionPrices(): Promise<SubscriptionPricesResponse> {
+  return fetchSeller<SubscriptionPricesResponse>('/subscriptions/prices');
+}
+
+export async function getSubscriptionStatus(): Promise<SubscriptionStatusResponse> {
+  return fetchSeller<SubscriptionStatusResponse>('/subscriptions/status');
+}
+
+export async function createSubscription(periodMonths: number): Promise<CreateSubscriptionResponse> {
+  return fetchSeller<CreateSubscriptionResponse>('/subscriptions/create', {
+    method: 'POST',
+    body: JSON.stringify({ period_months: periodMonths }),
+  });
 }

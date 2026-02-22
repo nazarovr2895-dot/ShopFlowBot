@@ -31,6 +31,11 @@ export interface PublicSellerListItem {
   metro_line_color?: string;
   available_slots: number;
   availability?: 'available' | 'busy' | 'unavailable';
+  delivery_slots?: number | null;
+  pickup_slots?: number | null;
+  delivery_availability?: 'available' | 'busy' | null;
+  pickup_availability?: 'available' | 'busy' | null;
+  subscription_active?: boolean;
   min_price: number | null;
   max_price: number | null;
   product_count: number;
@@ -159,6 +164,11 @@ export interface PublicSellerDetail {
   metro_line_color?: string;
   available_slots: number;
   availability?: 'available' | 'busy' | 'unavailable';
+  delivery_slots?: number | null;
+  pickup_slots?: number | null;
+  delivery_availability?: 'available' | 'busy' | null;
+  pickup_availability?: 'available' | 'busy' | null;
+  subscription_active?: boolean;
   products: Product[];
   preorder_products?: Product[];
   preorder_available_dates?: string[];

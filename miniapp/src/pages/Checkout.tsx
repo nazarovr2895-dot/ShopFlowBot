@@ -43,6 +43,7 @@ export function Checkout() {
   const [commentInput, setCommentInput] = useState('');
   const [loyaltyBySellerMap, setLoyaltyBySellerMap] = useState<Record<number, SellerLoyaltyInfo>>({});
   const [pointsUsage, setPointsUsage] = useState<Record<number, number>>({});
+  const [availability, setAvailability] = useState<{ delivery_remaining: number; pickup_remaining: number } | null>(null);
 
   useEffect(() => {
     setBackButton(true, () => navigate('/cart'));
@@ -66,6 +67,12 @@ export function Checkout() {
       const cartArr = Array.isArray(cartData) ? cartData : [];
       setCart(cartArr);
 
+      // Fetch availability for the first seller in cart
+      if (cartArr.length > 0) {
+        api.getSellerAvailability(cartArr[0].seller_id)
+          .then((a) => setAvailability(a))
+          .catch(() => setAvailability(null));
+      }
       // Fetch loyalty balances for each seller in cart
       if (cartArr.length > 0) {
         const loyaltyEntries = await Promise.all(
@@ -293,15 +300,17 @@ export function Checkout() {
             type="button"
             className={`checkout-delivery-segment__btn ${deliveryType === 'Самовывоз' ? 'checkout-delivery-segment__btn--active' : ''}`}
             onClick={() => setDeliveryType('Самовывоз')}
+            disabled={availability != null && availability.pickup_remaining <= 0}
           >
-            Самовывоз
+            Самовывоз{availability != null ? ` (${availability.pickup_remaining > 0 ? availability.pickup_remaining : 'занято'})` : ''}
           </button>
           <button
             type="button"
             className={`checkout-delivery-segment__btn ${deliveryType === 'Доставка' ? 'checkout-delivery-segment__btn--active' : ''}`}
             onClick={() => setDeliveryType('Доставка')}
+            disabled={availability != null && availability.delivery_remaining <= 0}
           >
-            Курьером
+            Курьером{availability != null ? ` (${availability.delivery_remaining > 0 ? availability.delivery_remaining : 'занято'})` : ''}
           </button>
         </div>
       </div>

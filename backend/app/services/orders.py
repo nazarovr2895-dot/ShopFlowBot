@@ -16,7 +16,7 @@ from backend.app.models.product import Product
 from backend.app.models.user import User
 from backend.app.models.loyalty import normalize_phone
 from backend.app.models.crm import Bouquet
-from backend.app.services.sellers import SellerService
+from backend.app.services.sellers import SellerService, normalize_delivery_type
 from backend.app.services.bouquets import check_bouquet_stock, deduct_bouquet_from_receptions
 from backend.app.services.loyalty import LoyaltyService
 
@@ -126,11 +126,23 @@ class OrderService:
         # Caller must commit the session after this returns.
         seller = await self._get_seller_for_update(seller_id)
         self._validate_seller(seller, seller_id)
+
+        # Check seller subscription is active
+        from backend.app.services.subscription import SubscriptionService
+        sub_svc = SubscriptionService(self.session)
+        if not await sub_svc.check_subscription(seller_id):
+            raise OrderServiceError("Магазин временно не принимает заказы", 403)
+
         # Preorder orders do not consume daily limit slot
         if not is_preorder:
             seller_service = SellerService(self.session)
-            if not await seller_service.check_limit(seller_id):
+            if not seller_service.check_order_limit_for_seller(seller, delivery_type):
                 raise SellerLimitReachedError(seller_id)
+            dtype = normalize_delivery_type(delivery_type)
+            if dtype == "delivery":
+                seller.pending_delivery_requests = (seller.pending_delivery_requests or 0) + 1
+            else:
+                seller.pending_pickup_requests = (seller.pending_pickup_requests or 0) + 1
             seller.pending_requests += 1
 
         # НЕ уменьшаем количество товаров при создании заказа
@@ -180,9 +192,20 @@ class OrderService:
         seller = await self._get_seller_for_update(seller_id)
         self._validate_seller(seller, seller_id)
 
+        # Check seller subscription is active
+        from backend.app.services.subscription import SubscriptionService
+        sub_svc = SubscriptionService(self.session)
+        if not await sub_svc.check_subscription(seller_id):
+            raise OrderServiceError("Магазин временно не принимает заказы", 403)
+
         seller_service = SellerService(self.session)
-        if not await seller_service.check_limit(seller_id):
+        if not seller_service.check_order_limit_for_seller(seller, delivery_type):
             raise SellerLimitReachedError(seller_id)
+        dtype = normalize_delivery_type(delivery_type)
+        if dtype == "delivery":
+            seller.pending_delivery_requests = (seller.pending_delivery_requests or 0) + 1
+        else:
+            seller.pending_pickup_requests = (seller.pending_pickup_requests or 0) + 1
         seller.pending_requests += 1
 
         order = Order(
@@ -269,10 +292,19 @@ class OrderService:
 
         # Lock and update seller counters (для предзаказа pending_requests не увеличивали при создании)
         seller = await self._get_seller_for_update(order.seller_id)
+        dtype = normalize_delivery_type(order.delivery_type)
         if seller and seller.pending_requests > 0 and not is_preorder:
             seller.pending_requests -= 1
+            if dtype == "delivery":
+                seller.pending_delivery_requests = max(0, (seller.pending_delivery_requests or 0) - 1)
+            else:
+                seller.pending_pickup_requests = max(0, (seller.pending_pickup_requests or 0) - 1)
         if seller:
             seller.active_orders += 1
+            if dtype == "delivery":
+                seller.active_delivery_orders = (seller.active_delivery_orders or 0) + 1
+            else:
+                seller.active_pickup_orders = (seller.active_pickup_orders or 0) + 1
 
         order.status = "accepted"
 
@@ -307,8 +339,13 @@ class OrderService:
         # Для предзаказа pending_requests не увеличивали при создании — не уменьшаем
         is_preorder = getattr(order, "is_preorder", False)
         seller = await self._get_seller_for_update(order.seller_id)
+        dtype = normalize_delivery_type(order.delivery_type)
         if seller and seller.pending_requests > 0 and not is_preorder:
             seller.pending_requests -= 1
+            if dtype == "delivery":
+                seller.pending_delivery_requests = max(0, (seller.pending_delivery_requests or 0) - 1)
+            else:
+                seller.pending_pickup_requests = max(0, (seller.pending_pickup_requests or 0) - 1)
 
         order.status = "rejected"
 
@@ -342,10 +379,19 @@ class OrderService:
 
         # Update seller counters
         seller = await self._get_seller_for_update(order.seller_id)
+        dtype = normalize_delivery_type(order.delivery_type)
         if old_status in ("accepted", "assembling") and seller and seller.active_orders > 0:
             seller.active_orders -= 1
+            if dtype == "delivery":
+                seller.active_delivery_orders = max(0, (seller.active_delivery_orders or 0) - 1)
+            else:
+                seller.active_pickup_orders = max(0, (seller.active_pickup_orders or 0) - 1)
         if old_status == "pending" and not is_preorder and seller and seller.pending_requests > 0:
             seller.pending_requests -= 1
+            if dtype == "delivery":
+                seller.pending_delivery_requests = max(0, (seller.pending_delivery_requests or 0) - 1)
+            else:
+                seller.pending_pickup_requests = max(0, (seller.pending_pickup_requests or 0) - 1)
 
         # Restore product quantities for accepted/assembling orders (stock was deducted at accept)
         if old_status in ("accepted", "assembling"):
@@ -405,8 +451,13 @@ class OrderService:
 
         # Lock and update seller counters
         seller = await self._get_seller_for_update(order.seller_id)
+        dtype = normalize_delivery_type(order.delivery_type)
         if seller and seller.active_orders > 0:
             seller.active_orders -= 1
+            if dtype == "delivery":
+                seller.active_delivery_orders = max(0, (seller.active_delivery_orders or 0) - 1)
+            else:
+                seller.active_pickup_orders = max(0, (seller.active_pickup_orders or 0) - 1)
 
         order.status = "done"
         if order.completed_at is None:
@@ -469,8 +520,13 @@ class OrderService:
         # Handle counter updates when order finishes
         if new_status == "done" and old_status in ["accepted", "assembling", "in_transit"]:
             seller = await self._get_seller_for_update(order.seller_id)
+            dtype = normalize_delivery_type(order.delivery_type)
             if seller and seller.active_orders > 0:
                 seller.active_orders -= 1
+                if dtype == "delivery":
+                    seller.active_delivery_orders = max(0, (seller.active_delivery_orders or 0) - 1)
+                else:
+                    seller.active_pickup_orders = max(0, (seller.active_pickup_orders or 0) - 1)
             if order.completed_at is None:
                 order.completed_at = datetime.utcnow()
 

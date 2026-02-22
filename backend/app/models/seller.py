@@ -26,6 +26,13 @@ class Seller(Base):
     daily_limit_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     active_orders: Mapped[int] = mapped_column(Integer, default=0)
     pending_requests: Mapped[int] = mapped_column(Integer, default=0)
+    # Split limits by delivery type
+    max_delivery_orders: Mapped[int] = mapped_column(Integer, default=10)
+    max_pickup_orders: Mapped[int] = mapped_column(Integer, default=20)
+    active_delivery_orders: Mapped[int] = mapped_column(Integer, default=0)
+    active_pickup_orders: Mapped[int] = mapped_column(Integer, default=0)
+    pending_delivery_requests: Mapped[int] = mapped_column(Integer, default=0)
+    pending_pickup_requests: Mapped[int] = mapped_column(Integer, default=0)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     placement_expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     deleted_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)  # Soft delete timestamp

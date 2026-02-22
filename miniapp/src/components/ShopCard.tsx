@@ -126,11 +126,22 @@ export function ShopCard({ seller }: ShopCardProps) {
 
       <div className="shop-card__footer">
         <div className="shop-card__price">{priceRange}</div>
-        {(seller.availability ?? (seller.available_slots > 0 ? 'available' : 'busy')) === 'busy' ? (
-          <span className="shop-card__availability shop-card__availability--busy">Занят</span>
-        ) : (
-          <span className="shop-card__availability shop-card__availability--available">Принимает заказы</span>
-        )}
+        <div className="shop-card__availability-row">
+          {seller.delivery_slots != null && seller.delivery_slots > 0 ? (
+            <span className="shop-card__availability shop-card__availability--available">Дост: {seller.delivery_slots}</span>
+          ) : seller.delivery_slots != null ? (
+            <span className="shop-card__availability shop-card__availability--busy">Дост: занято</span>
+          ) : (seller.availability ?? (seller.available_slots > 0 ? 'available' : 'busy')) === 'busy' ? (
+            <span className="shop-card__availability shop-card__availability--busy">Занят</span>
+          ) : (
+            <span className="shop-card__availability shop-card__availability--available">Принимает</span>
+          )}
+          {seller.pickup_slots != null && seller.pickup_slots > 0 ? (
+            <span className="shop-card__availability shop-card__availability--available">Самов: {seller.pickup_slots}</span>
+          ) : seller.pickup_slots != null ? (
+            <span className="shop-card__availability shop-card__availability--busy">Самов: занято</span>
+          ) : null}
+        </div>
       </div>
     </div>
   );

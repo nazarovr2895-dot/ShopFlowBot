@@ -303,6 +303,17 @@ class ApiClient {
     return this.fetch<PublicSellerDetail>(`/public/sellers/${sellerId}`);
   }
 
+  async getSellerAvailability(sellerId: number): Promise<{
+    delivery_remaining: number;
+    pickup_remaining: number;
+    delivery_limit: number;
+    pickup_limit: number;
+    delivery_used: number;
+    pickup_used: number;
+  }> {
+    return this.fetch(`/public/sellers/${sellerId}/availability`);
+  }
+
   // User API
   async getCurrentUser(): Promise<{
     tg_id: number;

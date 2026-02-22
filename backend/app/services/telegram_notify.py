@@ -387,3 +387,44 @@ async def notify_seller_payment_received(
         text += f" ({total_price:.0f} руб.)"
     text += ".\n\nМожно начинать сборку."
     return await _send_telegram_message(seller_id, text)
+
+
+# --- Subscription notifications ---
+
+
+async def notify_seller_subscription_activated(
+    seller_id: int,
+    period_months: int,
+    expires_at,
+) -> bool:
+    """Notify seller that subscription was activated."""
+    expires_str = expires_at.strftime("%d.%m.%Y") if expires_at else "—"
+    text = (
+        f"✅ Подписка Flurai активирована на {period_months} мес.!\n"
+        f"Действует до {expires_str}."
+    )
+    return await _send_telegram_message(seller_id, text)
+
+
+async def notify_seller_subscription_expiring(
+    seller_id: int,
+    days_label: str,
+    expires_at,
+) -> bool:
+    """Notify seller that subscription expires soon."""
+    expires_str = expires_at.strftime("%d.%m.%Y") if expires_at else "—"
+    text = (
+        f"⚠️ Подписка Flurai истекает через {days_label} ({expires_str}).\n\n"
+        "Продлите подписку, чтобы продолжить принимать заказы."
+    )
+    return await _send_telegram_message(seller_id, text)
+
+
+async def notify_seller_subscription_expired(seller_id: int) -> bool:
+    """Notify seller that subscription has expired."""
+    text = (
+        "🔴 Ваша подписка Flurai истекла.\n\n"
+        "Магазин не может принимать заказы. "
+        "Продлите подписку в панели управления."
+    )
+    return await _send_telegram_message(seller_id, text)

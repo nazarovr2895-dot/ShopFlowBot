@@ -142,6 +142,7 @@ async def test_get_products_empty(
         shop_name="Empty Shop",
         city_id=test_city.id,
         district_id=test_district.id,
+        subscription_plan="active",
     )
     test_session.add(seller)
     await test_session.commit()
@@ -295,9 +296,68 @@ async def test_seller_with_multiple_products(
         )
         test_session.add(product)
     await test_session.commit()
-    
+
     response = await client.get(f"/sellers/{test_seller.seller_id}/products")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 5
+
+
+# --- Split Delivery Limits Tests ---
+
+@pytest.mark.asyncio
+async def test_get_seller_info_includes_split_limits(
+    client: AsyncClient,
+    test_seller: Seller,
+):
+    """Test that seller info includes per-type limit fields."""
+    response = await client.get(f"/sellers/{test_seller.seller_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "max_delivery_orders" in data
+    assert "max_pickup_orders" in data
+    assert data["max_delivery_orders"] == 10
+    assert data["max_pickup_orders"] == 20
+
+
+@pytest.mark.asyncio
+async def test_update_seller_split_limits(
+    client: AsyncClient,
+    test_seller: Seller,
+):
+    """Test updating seller per-type order limits."""
+    response = await client.put(
+        f"/sellers/{test_seller.seller_id}/limits",
+        params={"max_delivery_orders": 5, "max_pickup_orders": 15}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["max_delivery_orders"] == 5
+    assert data["max_pickup_orders"] == 15
+
+
+@pytest.mark.asyncio
+async def test_seller_split_limit_counters(
+    client: AsyncClient,
+    test_session,
+    test_seller: Seller,
+):
+    """Test that per-type counters are present and correct."""
+    # Set some counter values
+    test_seller.active_delivery_orders = 3
+    test_seller.active_pickup_orders = 5
+    test_seller.pending_delivery_requests = 1
+    test_seller.pending_pickup_requests = 2
+    await test_session.commit()
+
+    response = await client.get(f"/sellers/{test_seller.seller_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["active_delivery_orders"] == 3
+    assert data["active_pickup_orders"] == 5
+    assert data["pending_delivery_requests"] == 1
+    assert data["pending_pickup_requests"] == 2

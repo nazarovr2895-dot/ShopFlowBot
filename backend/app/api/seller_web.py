@@ -1785,13 +1785,20 @@ async def change_credentials(
 # --- LIMITS ---
 @router.put("/limits")
 async def update_limits(
-    max_orders: int = Query(...),
+    max_orders: Optional[int] = Query(None),
+    max_delivery_orders: Optional[int] = Query(None, ge=0),
+    max_pickup_orders: Optional[int] = Query(None, ge=0),
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
     service = SellerService(session)
     try:
-        return await service.update_limits(seller_id, max_orders)
+        return await service.update_limits(
+            seller_id,
+            max_orders=max_orders,
+            max_delivery_orders=max_delivery_orders,
+            max_pickup_orders=max_pickup_orders,
+        )
     except SellerServiceError as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -1799,14 +1806,21 @@ async def update_limits(
 
 @router.put("/default-limit")
 async def update_default_limit(
-    default_daily_limit: int = Query(..., ge=0),
+    default_daily_limit: Optional[int] = Query(None, ge=0),
+    max_delivery_orders: Optional[int] = Query(None, ge=0),
+    max_pickup_orders: Optional[int] = Query(None, ge=0),
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    """Установить стандартный дневной лимит (авто-применяется каждый день). 0 = отключить."""
+    """Установить базовые лимиты по типу доставки. 0 = отключить."""
     service = SellerService(session)
     try:
-        return await service.update_default_limit(seller_id, default_daily_limit)
+        return await service.update_default_limit(
+            seller_id,
+            default_daily_limit=default_daily_limit,
+            max_delivery_orders=max_delivery_orders,
+            max_pickup_orders=max_pickup_orders,
+        )
     except SellerServiceError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -1825,7 +1839,7 @@ async def close_for_today(
 
 
 class WeeklyScheduleBody(BaseModel):
-    schedule: dict  # {"0": 10, "1": 10, ..., "6": 5}
+    schedule: dict  # {"0": {"delivery": 10, "pickup": 20}, ...} or legacy {"0": 10, ...}
 
 
 @router.put("/weekly-schedule")

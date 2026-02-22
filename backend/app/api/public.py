@@ -20,7 +20,7 @@ from backend.app.models.product import Product
 from backend.app.models.user import User
 from backend.app.models.cart import BuyerFavoriteSeller
 from backend.app.services.cache import CacheService
-from backend.app.services.sellers import _today_6am_date, _is_open_now
+from backend.app.services.sellers import _today_6am_date, _is_open_now, SellerService
 from backend.app.services.bouquets import get_active_bouquet_ids
 from backend.app.core.logging import get_logger
 from sqlalchemy import or_
@@ -65,6 +65,11 @@ class PublicSellerListItem(BaseModel):
     metro_line_color: Optional[str] = None
     available_slots: int  # effective_limit - active_orders - pending_requests
     availability: str = "available"  # "available" | "busy" | "unavailable"
+    delivery_slots: Optional[int] = None
+    pickup_slots: Optional[int] = None
+    delivery_availability: Optional[str] = None  # "available" | "busy"
+    pickup_availability: Optional[str] = None
+    subscription_active: bool = True
     min_price: Optional[float]
     max_price: Optional[float]
     product_count: int
@@ -89,6 +94,11 @@ class PublicSellerDetail(BaseModel):
     metro_line_color: Optional[str] = None
     available_slots: int
     availability: str = "available"  # "available" | "busy" | "unavailable"
+    delivery_slots: Optional[int] = None
+    pickup_slots: Optional[int] = None
+    delivery_availability: Optional[str] = None
+    pickup_availability: Optional[str] = None
+    subscription_active: bool = True
     products: List[dict]
     preorder_products: List[dict] = []
     preorder_available_dates: List[str] = []
@@ -170,12 +180,13 @@ async def get_public_sellers(
             else_=func.coalesce(Seller.default_daily_limit, 0),
         )
 
-        # Базовые условия: не заблокирован, не удалён, размещение не истекло, есть лимит (ручной или стандартный)
+        # Базовые условия: не заблокирован, не удалён, размещение не истекло, есть лимит, подписка активна
         base_conditions = [
             Seller.is_blocked == False,
             Seller.deleted_at.is_(None),
             (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
             effective_limit_expr > 0,
+            Seller.subscription_plan == "active",
         ]
 
         # Подзапрос для статистики товаров (только с количеством > 0)
@@ -241,6 +252,10 @@ async def get_public_sellers(
         # available_slots: effective_limit - active - pending (без completed_today)
         available_slots_expr = effective_limit_expr - Seller.active_orders - Seller.pending_requests
 
+        # Per-type slot expressions
+        delivery_slots_expr = func.coalesce(Seller.max_delivery_orders, 10) - func.coalesce(Seller.active_delivery_orders, 0) - func.coalesce(Seller.pending_delivery_requests, 0)
+        pickup_slots_expr = func.coalesce(Seller.max_pickup_orders, 20) - func.coalesce(Seller.active_pickup_orders, 0) - func.coalesce(Seller.pending_pickup_requests, 0)
+
         # Основной запрос
         query = (
             select(
@@ -255,6 +270,8 @@ async def get_public_sellers(
                 func.coalesce(product_stats.c.product_count, 0).label("product_count"),
                 func.coalesce(subscriber_count_subq.c.subscriber_count, 0).label("subscriber_count"),
                 available_slots_expr.label("available_slots"),
+                delivery_slots_expr.label("delivery_slots"),
+                pickup_slots_expr.label("pickup_slots"),
             )
             .outerjoin(User, Seller.seller_id == User.tg_id)
             .outerjoin(City, Seller.city_id == City.id)
@@ -314,6 +331,9 @@ async def get_public_sellers(
             else:
                 availability = "busy"
 
+            d_slots = max(0, row.delivery_slots) if hasattr(row, "delivery_slots") else 0
+            p_slots = max(0, row.pickup_slots) if hasattr(row, "pickup_slots") else 0
+
             sellers.append(PublicSellerListItem(
                 seller_id=seller.seller_id,
                 shop_name=seller.shop_name,
@@ -327,6 +347,10 @@ async def get_public_sellers(
                 metro_line_color=row.metro_line_color,
                 available_slots=max(slots, 0),
                 availability=availability,
+                delivery_slots=d_slots,
+                pickup_slots=p_slots,
+                delivery_availability="available" if d_slots > 0 else "busy",
+                pickup_availability="available" if p_slots > 0 else "busy",
                 min_price=float(row.min_price) if row.min_price else None,
                 max_price=float(row.max_price) if row.max_price else None,
                 product_count=row.product_count or 0,
@@ -393,12 +417,29 @@ async def get_public_seller_detail(
     if seller.placement_expired_at and seller.placement_expired_at < now:
         raise HTTPException(status_code=403, detail="Размещение продавца истекло")
 
-    # Эффективный лимит: ручной (если задан на сегодня) или default_daily_limit
-    manual_limit_today = seller.daily_limit_date == today and seller.max_orders > 0
-    default_limit = getattr(seller, "default_daily_limit", None) or 0
-    effective_limit = seller.max_orders if manual_limit_today else default_limit
+    # Subscription check
+    seller_plan = getattr(seller, "subscription_plan", "none") or "none"
+    subscription_active = seller_plan == "active"
+
+    # Эффективный лимит через SellerService
+    seller_service = SellerService(session)
+    limits = seller_service._effective_limits(seller)
+    effective_limit = limits["delivery"] + limits["pickup"]
     available_slots = max(0, effective_limit - seller.active_orders - seller.pending_requests)
-    availability = "available" if available_slots > 0 else ("busy" if effective_limit > 0 else "unavailable")
+
+    d_used = (getattr(seller, "active_delivery_orders", 0) or 0) + (getattr(seller, "pending_delivery_requests", 0) or 0)
+    p_used = (getattr(seller, "active_pickup_orders", 0) or 0) + (getattr(seller, "pending_pickup_requests", 0) or 0)
+    d_slots = max(0, limits["delivery"] - d_used)
+    p_slots = max(0, limits["pickup"] - p_used)
+
+    if not subscription_active:
+        availability = "unavailable"
+    elif available_slots > 0:
+        availability = "available"
+    elif effective_limit > 0:
+        availability = "busy"
+    else:
+        availability = "unavailable"
     
     # Subscriber count
     sub_count_result = await session.execute(
@@ -514,6 +555,11 @@ async def get_public_seller_detail(
         metro_line_color=row.metro_line_color,
         available_slots=available_slots,
         availability=availability,
+        delivery_slots=d_slots,
+        pickup_slots=p_slots,
+        delivery_availability="available" if d_slots > 0 else "busy",
+        pickup_availability="available" if p_slots > 0 else "busy",
+        subscription_active=subscription_active,
         products=products_list,
         preorder_products=preorder_products_list,
         preorder_available_dates=preorder_available_dates,
@@ -531,6 +577,16 @@ async def get_public_seller_detail(
         inn=seller.inn,
         ogrn=seller.ogrn,
     )
+
+
+@router.get("/sellers/{seller_id}/availability")
+async def get_seller_availability(
+    seller_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Доступные слоты по типу доставки для продавца."""
+    service = SellerService(session)
+    return await service.get_available_slots(seller_id)
 
 
 @router.get("/metro/search", response_model=List[MetroResponse])

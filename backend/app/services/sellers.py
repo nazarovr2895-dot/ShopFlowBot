@@ -27,17 +27,8 @@ logger = get_logger(__name__)
 LIMIT_TIMEZONE = ZoneInfo("Europe/Moscow")
 LIMIT_DAY_START_HOUR = 6
 
-# Тарифные планы: максимальный дневной лимит по подписке
-PLAN_LIMIT_CAP = {
-    "free": 10,
-    "pro": 50,
-    "premium": 100,
-}
-PLAN_NAMES = {
-    "free": "Free",
-    "pro": "Pro",
-    "premium": "Premium",
-}
+# Valid subscription plan values (unified)
+VALID_SUBSCRIPTION_PLANS = ("none", "active")
 
 
 def _today_6am_date() -> date:
@@ -92,6 +83,16 @@ def _today_6am_utc() -> datetime:
     local_6am = datetime(d.year, d.month, d.day, LIMIT_DAY_START_HOUR, 0, 0, tzinfo=LIMIT_TIMEZONE)
     utc = local_6am.astimezone(ZoneInfo("UTC"))
     return utc.replace(tzinfo=None)
+
+
+def normalize_delivery_type(value: Optional[str]) -> str:
+    """Normalize delivery type from Russian/English to canonical 'delivery' or 'pickup'."""
+    if not value:
+        return "delivery"
+    v = str(value).strip().lower()
+    if v in ("самовывоз", "pickup"):
+        return "pickup"
+    return "delivery"
 
 
 def get_preorder_available_dates(
@@ -195,36 +196,54 @@ class SellerService:
         )
         return result.scalar() or 0
     
-    def _effective_limit(self, seller: Seller) -> int:
-        """Определить действующий лимит с учётом: ручной > расписание > стандартный. Ограничено тарифным планом."""
+    def _effective_limits(self, seller: Seller) -> Dict[str, int]:
+        """Определить действующие лимиты по типу доставки: {"delivery": N, "pickup": N}."""
         today = _today_6am_date()
-        plan = getattr(seller, "subscription_plan", "free") or "free"
-        cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
 
         # 1. Ручной лимит на сегодня (наивысший приоритет)
-        if seller.daily_limit_date == today and (seller.max_orders or 0) > 0:
-            return min(seller.max_orders, cap)
+        if seller.daily_limit_date == today:
+            if (seller.max_orders or 0) == 0:
+                # Закрыт на сегодня
+                return {"delivery": 0, "pickup": 0}
+            return {
+                "delivery": getattr(seller, "max_delivery_orders", 10) or 10,
+                "pickup": getattr(seller, "max_pickup_orders", 20) or 20,
+            }
 
         # 2. Расписание по дням недели
         schedule = getattr(seller, "weekly_schedule", None)
         if schedule and isinstance(schedule, dict):
-            weekday_key = str(today.weekday())  # 0=Mon, 6=Sun
-            day_limit = schedule.get(weekday_key)
-            if day_limit is not None and int(day_limit) > 0:
-                return min(int(day_limit), cap)
+            weekday_key = str(today.weekday())
+            day_val = schedule.get(weekday_key)
+            if day_val is not None:
+                if isinstance(day_val, dict):
+                    d = int(day_val.get("delivery", 0))
+                    p = int(day_val.get("pickup", 0))
+                    if d > 0 or p > 0:
+                        return {"delivery": d, "pickup": p}
+                elif isinstance(day_val, (int, float)) and int(day_val) > 0:
+                    # Старый формат (одно число) → разделить пропорционально defaults
+                    total = int(day_val)
+                    d_def = getattr(seller, "max_delivery_orders", 10) or 10
+                    p_def = getattr(seller, "max_pickup_orders", 20) or 20
+                    ratio = d_def / (d_def + p_def) if (d_def + p_def) > 0 else 0.5
+                    d = max(1, round(total * ratio))
+                    p = max(1, total - d)
+                    return {"delivery": d, "pickup": p}
 
-        # 3. Стандартный дневной лимит
-        default = getattr(seller, "default_daily_limit", None)
-        if default and default > 0:
-            return min(default, cap)
+        # 3. Базовые лимиты по типу
+        d = getattr(seller, "max_delivery_orders", 10) or 0
+        p = getattr(seller, "max_pickup_orders", 20) or 0
+        return {"delivery": d, "pickup": p}
 
-        return 0
+    def _effective_limit(self, seller: Seller) -> int:
+        """Обратная совместимость: общий лимит = сумма лимитов по типам."""
+        limits = self._effective_limits(seller)
+        return limits["delivery"] + limits["pickup"]
 
     async def check_limit(self, seller_id: int) -> bool:
         """
-        Проверка: может ли продавец принять новый заказ.
-        Лимит — дневной. Учитывается параллельная нагрузка: активные + ожидающие.
-        Если ручной лимит не задан на сегодня, используется default_daily_limit.
+        Проверка: может ли продавец принять новый заказ (общий лимит).
         """
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == seller_id)
@@ -241,10 +260,65 @@ class SellerService:
         total_used = seller.active_orders + seller.pending_requests
         return total_used < effective
 
-    async def can_accept_order(self, seller_id: int) -> Dict[str, Any]:
+    async def check_order_limit(self, seller_id: int, delivery_type: str) -> bool:
+        """Проверка: может ли продавец принять заказ данного типа доставки."""
+        dtype = normalize_delivery_type(delivery_type)
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == seller_id)
+        )
+        seller = result.scalar_one_or_none()
+        if not seller:
+            return False
+
+        limits = self._effective_limits(seller)
+        limit = limits.get(dtype, 0)
+        if limit <= 0:
+            return False
+
+        if dtype == "delivery":
+            used = (seller.active_delivery_orders or 0) + (seller.pending_delivery_requests or 0)
+        else:
+            used = (seller.active_pickup_orders or 0) + (seller.pending_pickup_requests or 0)
+        return used < limit
+
+    def check_order_limit_for_seller(self, seller: Seller, delivery_type: str) -> bool:
+        """Синхронная проверка лимита по типу (для уже загруженного seller с FOR UPDATE lock)."""
+        dtype = normalize_delivery_type(delivery_type)
+        limits = self._effective_limits(seller)
+        limit = limits.get(dtype, 0)
+        if limit <= 0:
+            return False
+        if dtype == "delivery":
+            used = (seller.active_delivery_orders or 0) + (seller.pending_delivery_requests or 0)
+        else:
+            used = (seller.active_pickup_orders or 0) + (seller.pending_pickup_requests or 0)
+        return used < limit
+
+    async def get_available_slots(self, seller_id: int) -> Dict[str, Any]:
+        """Доступные слоты по типу доставки."""
+        result = await self.session.execute(
+            select(Seller).where(Seller.seller_id == seller_id)
+        )
+        seller = result.scalar_one_or_none()
+        if not seller:
+            return {"delivery_remaining": 0, "pickup_remaining": 0, "delivery_limit": 0, "pickup_limit": 0}
+
+        limits = self._effective_limits(seller)
+        d_used = (seller.active_delivery_orders or 0) + (seller.pending_delivery_requests or 0)
+        p_used = (seller.active_pickup_orders or 0) + (seller.pending_pickup_requests or 0)
+        return {
+            "delivery_remaining": max(0, limits["delivery"] - d_used),
+            "pickup_remaining": max(0, limits["pickup"] - p_used),
+            "delivery_limit": limits["delivery"],
+            "pickup_limit": limits["pickup"],
+            "delivery_used": d_used,
+            "pickup_used": p_used,
+        }
+
+    async def can_accept_order(self, seller_id: int, delivery_type: Optional[str] = None) -> Dict[str, Any]:
         """
         Единый источник правды: может ли продавец принять новый заказ.
-        Возвращает dict с полным контекстом: can_accept, reason, effective_limit, available_slots и т.д.
+        Если delivery_type задан — проверяет лимит для конкретного типа.
         """
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == seller_id)
@@ -261,21 +335,50 @@ class SellerService:
             return {"can_accept": False, "reason": "blocked", "effective_limit": 0, "available_slots": 0}
 
         if seller.placement_expired_at:
-            from datetime import datetime
             if seller.placement_expired_at <= datetime.utcnow():
                 return {"can_accept": False, "reason": "expired", "effective_limit": 0, "available_slots": 0}
 
-        effective = self._effective_limit(seller)
-        if effective <= 0:
+        limits = self._effective_limits(seller)
+        total_limit = limits["delivery"] + limits["pickup"]
+
+        if total_limit <= 0:
             return {"can_accept": False, "reason": "limit_not_set", "effective_limit": 0, "available_slots": 0}
 
+        # Per-type availability
+        d_used = (seller.active_delivery_orders or 0) + (seller.pending_delivery_requests or 0)
+        p_used = (seller.active_pickup_orders or 0) + (seller.pending_pickup_requests or 0)
+        d_avail = max(0, limits["delivery"] - d_used)
+        p_avail = max(0, limits["pickup"] - p_used)
+
+        if delivery_type:
+            dtype = normalize_delivery_type(delivery_type)
+            limit = limits[dtype]
+            used = d_used if dtype == "delivery" else p_used
+            available = d_avail if dtype == "delivery" else p_avail
+            can = available > 0
+            return {
+                "can_accept": can,
+                "reason": None if can else "limit_reached",
+                "effective_limit": limit,
+                "available_slots": available,
+                "used": used,
+                "delivery_type": dtype,
+                "delivery_remaining": d_avail,
+                "pickup_remaining": p_avail,
+            }
+
+        # Общая проверка
         total_used = seller.active_orders + seller.pending_requests
-        available = max(0, effective - total_used)
-
-        if available <= 0:
-            return {"can_accept": False, "reason": "limit_reached", "effective_limit": effective, "available_slots": 0, "used": total_used}
-
-        return {"can_accept": True, "reason": None, "effective_limit": effective, "available_slots": available, "used": total_used}
+        available = max(0, total_limit - total_used)
+        return {
+            "can_accept": available > 0,
+            "reason": None if available > 0 else "limit_reached",
+            "effective_limit": total_limit,
+            "available_slots": available,
+            "used": total_used,
+            "delivery_remaining": d_avail,
+            "pickup_remaining": p_avail,
+        }
     
     async def get_seller(self, seller_id: int) -> Optional[Dict[str, Any]]:
         """Get seller data for display. Включает orders_used_today, limit_set_for_today, fio, phone from User."""
@@ -305,8 +408,7 @@ class SellerService:
         effective_limit = self._effective_limit(seller)
         limit_active = effective_limit > 0
         orders_used_today = seller.active_orders + seller.pending_requests
-        plan = getattr(seller, "subscription_plan", "free") or "free"
-        plan_cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
+        plan = getattr(seller, "subscription_plan", "none") or "none"
 
         preorder_custom_dates = getattr(seller, "preorder_custom_dates", None)
         preorder_available_dates = get_preorder_available_dates(
@@ -332,8 +434,13 @@ class SellerService:
             "orders_used_today": orders_used_today,
             "active_orders": seller.active_orders,
             "pending_requests": seller.pending_requests,
+            "max_delivery_orders": getattr(seller, "max_delivery_orders", 10) or 10,
+            "max_pickup_orders": getattr(seller, "max_pickup_orders", 20) or 20,
+            "active_delivery_orders": getattr(seller, "active_delivery_orders", 0) or 0,
+            "active_pickup_orders": getattr(seller, "active_pickup_orders", 0) or 0,
+            "pending_delivery_requests": getattr(seller, "pending_delivery_requests", 0) or 0,
+            "pending_pickup_requests": getattr(seller, "pending_pickup_requests", 0) or 0,
             "subscription_plan": plan,
-            "plan_limit_cap": plan_cap,
             "weekly_schedule": getattr(seller, "weekly_schedule", None),
             "inn": seller.inn,
             "ogrn": getattr(seller, "ogrn", None),
@@ -745,34 +852,57 @@ class SellerService:
         await self.session.commit()
         return {"status": "ok"}
 
-    async def update_limits(self, tg_id: int, max_orders: int) -> Dict[str, Any]:
-        """Обновить дневной лимит продавца. Применяется к текущему дню (до 6:00 следующего). Ограничен тарифным планом."""
-        if max_orders < 1:
-            raise SellerServiceError("Лимит должен быть >= 1")
-
+    async def update_limits(
+        self, tg_id: int,
+        max_orders: Optional[int] = None,
+        max_delivery_orders: Optional[int] = None,
+        max_pickup_orders: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Обновить дневной лимит продавца. Применяется к текущему дню (до 6:00 следующего)."""
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == tg_id)
         )
         seller = result.scalar_one_or_none()
         if not seller:
             raise SellerNotFoundError(tg_id)
-
-        plan = getattr(seller, "subscription_plan", "free") or "free"
-        cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
-        if max_orders > cap:
-            raise SellerServiceError(f"Ваш тариф ({PLAN_NAMES.get(plan, plan)}) позволяет максимум {cap} заказов/день. Обновите подписку.")
 
         today = _today_6am_date()
-        seller.max_orders = max_orders
+
+        if max_delivery_orders is not None:
+            if max_delivery_orders < 0:
+                raise SellerServiceError("Лимит доставки должен быть >= 0")
+            seller.max_delivery_orders = max_delivery_orders
+
+        if max_pickup_orders is not None:
+            if max_pickup_orders < 0:
+                raise SellerServiceError("Лимит самовывоза должен быть >= 0")
+            seller.max_pickup_orders = max_pickup_orders
+
+        # Обратная совместимость: если передан только max_orders
+        if max_orders is not None:
+            if max_orders < 1:
+                raise SellerServiceError("Лимит должен быть >= 1")
+            seller.max_orders = max_orders
+        else:
+            # Суммарный лимит = delivery + pickup
+            seller.max_orders = (seller.max_delivery_orders or 0) + (seller.max_pickup_orders or 0)
+
         seller.daily_limit_date = today
         await self.session.commit()
-        return {"status": "ok", "max_orders": max_orders}
+        return {
+            "status": "ok",
+            "max_orders": seller.max_orders,
+            "max_delivery_orders": seller.max_delivery_orders,
+            "max_pickup_orders": seller.max_pickup_orders,
+        }
 
-    async def update_default_limit(self, tg_id: int, default_daily_limit: int) -> Dict[str, Any]:
-        """Установить стандартный дневной лимит (авто-применяется каждый день). 0 = отключить. Ограничен тарифным планом."""
-        if default_daily_limit < 0:
-            raise SellerServiceError("Стандартный лимит должен быть >= 0")
-
+    async def update_default_limit(
+        self, tg_id: int,
+        default_daily_limit: Optional[int] = None,
+        max_delivery_orders: Optional[int] = None,
+        max_pickup_orders: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Установить базовые лимиты по типу доставки. 0 = отключить."""
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == tg_id)
         )
@@ -780,14 +910,29 @@ class SellerService:
         if not seller:
             raise SellerNotFoundError(tg_id)
 
-        plan = getattr(seller, "subscription_plan", "free") or "free"
-        cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
-        if default_daily_limit > cap:
-            raise SellerServiceError(f"Ваш тариф ({PLAN_NAMES.get(plan, plan)}) позволяет максимум {cap} заказов/день. Обновите подписку.")
+        if max_delivery_orders is not None:
+            if max_delivery_orders < 0:
+                raise SellerServiceError("Лимит доставки должен быть >= 0")
+            seller.max_delivery_orders = max_delivery_orders
 
-        seller.default_daily_limit = default_daily_limit if default_daily_limit > 0 else None
+        if max_pickup_orders is not None:
+            if max_pickup_orders < 0:
+                raise SellerServiceError("Лимит самовывоза должен быть >= 0")
+            seller.max_pickup_orders = max_pickup_orders
+
+        # Обратная совместимость: если передан old-style default_daily_limit
+        if default_daily_limit is not None:
+            if default_daily_limit < 0:
+                raise SellerServiceError("Стандартный лимит должен быть >= 0")
+            seller.default_daily_limit = default_daily_limit if default_daily_limit > 0 else None
+
         await self.session.commit()
-        return {"status": "ok", "default_daily_limit": seller.default_daily_limit}
+        return {
+            "status": "ok",
+            "default_daily_limit": seller.default_daily_limit,
+            "max_delivery_orders": seller.max_delivery_orders,
+            "max_pickup_orders": seller.max_pickup_orders,
+        }
 
     async def close_for_today(self, tg_id: int) -> Dict[str, Any]:
         """Закрыться на сегодня: установить лимит 0 на текущий день. Стандартный лимит не затрагивается."""
@@ -804,8 +949,12 @@ class SellerService:
         await self.session.commit()
         return {"status": "ok", "message": "Магазин закрыт на сегодня. Откроется завтра с 6:00 МСК."}
 
-    async def update_weekly_schedule(self, tg_id: int, schedule: Dict[str, int]) -> Dict[str, Any]:
-        """Обновить расписание лимитов по дням недели. Ключи: '0'-'6' (Пн-Вс), значения: лимит. Ограничен тарифным планом."""
+    async def update_weekly_schedule(self, tg_id: int, schedule: dict) -> Dict[str, Any]:
+        """Обновить расписание лимитов по дням недели.
+        Поддерживает два формата:
+        - Старый: {"0": 10, "1": 15}
+        - Новый: {"0": {"delivery": 10, "pickup": 20}, "1": {"delivery": 15, "pickup": 25}}
+        """
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == tg_id)
         )
@@ -813,29 +962,30 @@ class SellerService:
         if not seller:
             raise SellerNotFoundError(tg_id)
 
-        plan = getattr(seller, "subscription_plan", "free") or "free"
-        cap = PLAN_LIMIT_CAP.get(plan, PLAN_LIMIT_CAP["free"])
-
-        # Validate schedule
-        validated: Dict[str, int] = {}
+        validated: dict = {}
         for key, value in schedule.items():
             if key not in ("0", "1", "2", "3", "4", "5", "6"):
                 raise SellerServiceError(f"Некорректный день недели: {key}. Допустимые: 0-6 (Пн-Вс)")
-            val = int(value)
-            if val < 0:
-                raise SellerServiceError("Лимит не может быть отрицательным")
-            if val > cap:
-                raise SellerServiceError(f"Ваш тариф ({PLAN_NAMES.get(plan, plan)}) позволяет максимум {cap} заказов/день.")
-            validated[key] = val
+            if isinstance(value, dict):
+                d = int(value.get("delivery", 0))
+                p = int(value.get("pickup", 0))
+                if d < 0 or p < 0:
+                    raise SellerServiceError("Лимит не может быть отрицательным")
+                validated[key] = {"delivery": d, "pickup": p}
+            else:
+                val = int(value)
+                if val < 0:
+                    raise SellerServiceError("Лимит не может быть отрицательным")
+                validated[key] = val
 
         seller.weekly_schedule = validated if validated else None
         await self.session.commit()
         return {"status": "ok", "weekly_schedule": seller.weekly_schedule}
 
     async def update_subscription_plan(self, tg_id: int, plan: str) -> Dict[str, Any]:
-        """Изменить тарифный план продавца (admin only)."""
-        if plan not in PLAN_LIMIT_CAP:
-            raise SellerServiceError(f"Неизвестный тариф: {plan}. Допустимые: {', '.join(PLAN_LIMIT_CAP.keys())}")
+        """Изменить подписку продавца (admin only)."""
+        if plan not in VALID_SUBSCRIPTION_PLANS:
+            raise SellerServiceError(f"Неизвестный план: {plan}. Допустимые: {', '.join(VALID_SUBSCRIPTION_PLANS)}")
 
         result = await self.session.execute(
             select(Seller).where(Seller.seller_id == tg_id)
@@ -846,57 +996,97 @@ class SellerService:
 
         seller.subscription_plan = plan
         await self.session.commit()
-        return {"status": "ok", "subscription_plan": plan, "plan_limit_cap": PLAN_LIMIT_CAP[plan]}
+        return {"status": "ok", "subscription_plan": plan}
 
     async def reconcile_all_counters(self) -> int:
-        """Пересчитать active_orders и pending_requests для всех продавцов из реальных статусов заказов."""
-        # Подсчёт реальных pending по продавцам
+        """Пересчитать все счётчики (total + per-type) для всех продавцов из реальных статусов заказов."""
+        delivery_types_delivery = ("доставка", "delivery")
+        delivery_types_pickup = ("самовывоз", "pickup")
+
+        # Total counters
         pending_subq = (
-            select(
-                Order.seller_id,
-                func.count(Order.id).label("cnt"),
-            )
+            select(Order.seller_id, func.count(Order.id).label("cnt"))
             .where(Order.status == "pending")
-            .group_by(Order.seller_id)
-            .subquery()
+            .group_by(Order.seller_id).subquery()
         )
-        # Подсчёт реальных active (accepted, assembling, in_transit)
         active_subq = (
-            select(
-                Order.seller_id,
-                func.count(Order.id).label("cnt"),
-            )
+            select(Order.seller_id, func.count(Order.id).label("cnt"))
             .where(Order.status.in_(("accepted", "assembling", "in_transit")))
-            .group_by(Order.seller_id)
-            .subquery()
+            .group_by(Order.seller_id).subquery()
         )
 
-        # Загрузить всех незаблокированных продавцов
+        # Per-type counters
+        pending_delivery_subq = (
+            select(Order.seller_id, func.count(Order.id).label("cnt"))
+            .where(Order.status == "pending",
+                   func.lower(func.coalesce(Order.delivery_type, "")).in_(delivery_types_delivery))
+            .group_by(Order.seller_id).subquery()
+        )
+        pending_pickup_subq = (
+            select(Order.seller_id, func.count(Order.id).label("cnt"))
+            .where(Order.status == "pending",
+                   func.lower(func.coalesce(Order.delivery_type, "")).in_(delivery_types_pickup))
+            .group_by(Order.seller_id).subquery()
+        )
+        active_delivery_subq = (
+            select(Order.seller_id, func.count(Order.id).label("cnt"))
+            .where(Order.status.in_(("accepted", "assembling", "in_transit")),
+                   func.lower(func.coalesce(Order.delivery_type, "")).in_(delivery_types_delivery))
+            .group_by(Order.seller_id).subquery()
+        )
+        active_pickup_subq = (
+            select(Order.seller_id, func.count(Order.id).label("cnt"))
+            .where(Order.status.in_(("accepted", "assembling", "in_transit")),
+                   func.lower(func.coalesce(Order.delivery_type, "")).in_(delivery_types_pickup))
+            .group_by(Order.seller_id).subquery()
+        )
+
         result = await self.session.execute(
             select(
                 Seller,
                 func.coalesce(pending_subq.c.cnt, 0).label("real_pending"),
                 func.coalesce(active_subq.c.cnt, 0).label("real_active"),
+                func.coalesce(pending_delivery_subq.c.cnt, 0).label("real_pd"),
+                func.coalesce(pending_pickup_subq.c.cnt, 0).label("real_pp"),
+                func.coalesce(active_delivery_subq.c.cnt, 0).label("real_ad"),
+                func.coalesce(active_pickup_subq.c.cnt, 0).label("real_ap"),
             )
             .outerjoin(pending_subq, Seller.seller_id == pending_subq.c.seller_id)
             .outerjoin(active_subq, Seller.seller_id == active_subq.c.seller_id)
+            .outerjoin(pending_delivery_subq, Seller.seller_id == pending_delivery_subq.c.seller_id)
+            .outerjoin(pending_pickup_subq, Seller.seller_id == pending_pickup_subq.c.seller_id)
+            .outerjoin(active_delivery_subq, Seller.seller_id == active_delivery_subq.c.seller_id)
+            .outerjoin(active_pickup_subq, Seller.seller_id == active_pickup_subq.c.seller_id)
             .where(Seller.deleted_at.is_(None))
         )
 
         fixed = 0
         for row in result.all():
             seller = row[0]
-            real_pending = row.real_pending
-            real_active = row.real_active
-            if seller.pending_requests != real_pending or seller.active_orders != real_active:
-                logger.info(
-                    "Reconcile counters drift",
-                    seller_id=seller.seller_id,
-                    old_pending=seller.pending_requests, new_pending=real_pending,
-                    old_active=seller.active_orders, new_active=real_active,
-                )
-                seller.pending_requests = real_pending
-                seller.active_orders = real_active
+            changed = False
+
+            if seller.pending_requests != row.real_pending or seller.active_orders != row.real_active:
+                logger.info("Reconcile total counters drift", seller_id=seller.seller_id,
+                            old_pending=seller.pending_requests, new_pending=row.real_pending,
+                            old_active=seller.active_orders, new_active=row.real_active)
+                seller.pending_requests = row.real_pending
+                seller.active_orders = row.real_active
+                changed = True
+
+            if (getattr(seller, "pending_delivery_requests", 0) or 0) != row.real_pd:
+                seller.pending_delivery_requests = row.real_pd
+                changed = True
+            if (getattr(seller, "pending_pickup_requests", 0) or 0) != row.real_pp:
+                seller.pending_pickup_requests = row.real_pp
+                changed = True
+            if (getattr(seller, "active_delivery_orders", 0) or 0) != row.real_ad:
+                seller.active_delivery_orders = row.real_ad
+                changed = True
+            if (getattr(seller, "active_pickup_orders", 0) or 0) != row.real_ap:
+                seller.active_pickup_orders = row.real_ap
+                changed = True
+
+            if changed:
                 fixed += 1
 
         if fixed:
@@ -1067,7 +1257,7 @@ class SellerService:
         by_plan: Dict[str, Dict[str, int]] = {}
 
         for s in sellers:
-            plan = getattr(s, 'subscription_plan', 'free') or 'free'
+            plan = getattr(s, 'subscription_plan', 'none') or 'none'
             if plan not in by_plan:
                 by_plan[plan] = {"total": 0, "active": 0, "exhausted": 0}
             by_plan[plan]["total"] += 1
@@ -1119,7 +1309,7 @@ class SellerService:
                 "used": used,
                 "limit": eff,
                 "load_pct": round(min(used / eff, 1.0) * 100, 1),
-                "plan": getattr(s, 'subscription_plan', 'free') or 'free',
+                "plan": getattr(s, 'subscription_plan', 'none') or 'none',
             })
         top_loaded.sort(key=lambda x: x["load_pct"], reverse=True)
 

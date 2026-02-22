@@ -15,15 +15,25 @@ const WEEKDAYS = [
   { value: 6, label: 'Воскресенье' },
 ];
 
+function parseScheduleDay(val: unknown): { delivery: string; pickup: string } {
+  if (val && typeof val === 'object' && 'delivery' in val && 'pickup' in val) {
+    const obj = val as { delivery: number; pickup: number };
+    return { delivery: String(obj.delivery), pickup: String(obj.pickup) };
+  }
+  return { delivery: '', pickup: '' };
+}
+
 export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
   const toast = useToast();
   const confirm = useConfirm();
 
   // Limits edit mode
   const [limitsEditing, setLimitsEditing] = useState(false);
-  const [limitValue, setLimitValue] = useState(String(me.max_orders ?? ''));
+  const [deliveryLimit, setDeliveryLimit] = useState(String(me.max_delivery_orders ?? 10));
+  const [pickupLimit, setPickupLimit] = useState(String(me.max_pickup_orders ?? 20));
   const [limitSaving, setLimitSaving] = useState(false);
-  const [defaultLimitValue, setDefaultLimitValue] = useState(me.default_daily_limit ? String(me.default_daily_limit) : '');
+  const [defaultDeliveryLimit, setDefaultDeliveryLimit] = useState(String(me.max_delivery_orders ?? 10));
+  const [defaultPickupLimit, setDefaultPickupLimit] = useState(String(me.max_pickup_orders ?? 20));
   const [defaultLimitSaving, setDefaultLimitSaving] = useState(false);
   const [closingForToday, setClosingForToday] = useState(false);
 
@@ -32,11 +42,11 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
   const [scheduleEnabled, setScheduleEnabled] = useState(
     !!(me.weekly_schedule && Object.keys(me.weekly_schedule).length > 0)
   );
-  const [weeklySchedule, setWeeklySchedule] = useState<Record<string, string>>(() => {
+  const [weeklySchedule, setWeeklySchedule] = useState<Record<string, { delivery: string; pickup: string }>>(() => {
     const ws = me.weekly_schedule;
     if (ws && typeof ws === 'object') {
-      const mapped: Record<string, string> = {};
-      for (const [k, v] of Object.entries(ws)) mapped[k] = String(v);
+      const mapped: Record<string, { delivery: string; pickup: string }> = {};
+      for (const [k, v] of Object.entries(ws)) mapped[k] = parseScheduleDay(v);
       return mapped;
     }
     return {};
@@ -44,8 +54,10 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
   const [scheduleSaving, setScheduleSaving] = useState(false);
 
   const startLimitsEdit = () => {
-    setLimitValue(String(me.max_orders ?? ''));
-    setDefaultLimitValue(me.default_daily_limit ? String(me.default_daily_limit) : '');
+    setDeliveryLimit(String(me.max_delivery_orders ?? 10));
+    setPickupLimit(String(me.max_pickup_orders ?? 20));
+    setDefaultDeliveryLimit(String(me.max_delivery_orders ?? 10));
+    setDefaultPickupLimit(String(me.max_pickup_orders ?? 20));
     setLimitsEditing(true);
   };
 
@@ -56,8 +68,8 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
     const hasSchedule = ws && typeof ws === 'object' && Object.keys(ws).length > 0;
     setScheduleEnabled(!!hasSchedule);
     if (hasSchedule) {
-      const mapped: Record<string, string> = {};
-      for (const [k, v] of Object.entries(ws)) mapped[k] = String(v);
+      const mapped: Record<string, { delivery: string; pickup: string }> = {};
+      for (const [k, v] of Object.entries(ws)) mapped[k] = parseScheduleDay(v);
       setWeeklySchedule(mapped);
     } else {
       setWeeklySchedule({});
@@ -68,17 +80,17 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
   const cancelScheduleEdit = () => setScheduleEditing(false);
 
   const handleSaveDefaultLimit = async () => {
-    const raw = defaultLimitValue.trim();
-    const num = raw === '' ? 0 : parseInt(raw, 10);
-    if (isNaN(num) || num < 0 || num > 100) {
-      toast.warning('Введите число от 0 до 100 (0 или пусто = отключить)');
+    const d = parseInt(defaultDeliveryLimit, 10);
+    const p = parseInt(defaultPickupLimit, 10);
+    if (isNaN(d) || d < 0 || d > 100 || isNaN(p) || p < 0 || p > 100) {
+      toast.warning('Введите числа от 0 до 100');
       return;
     }
     setDefaultLimitSaving(true);
     try {
-      await updateDefaultLimit(num);
+      await updateDefaultLimit({ maxDeliveryOrders: d, maxPickupOrders: p });
       await reload();
-      toast.success('Стандартный лимит сохранён');
+      toast.success('Базовые лимиты сохранены');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -87,14 +99,15 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
   };
 
   const handleSaveLimit = async () => {
-    const num = parseInt(limitValue, 10);
-    if (isNaN(num) || num < 1 || num > 100) {
-      toast.warning('Введите число от 1 до 100');
+    const d = parseInt(deliveryLimit, 10);
+    const p = parseInt(pickupLimit, 10);
+    if (isNaN(d) || d < 0 || d > 100 || isNaN(p) || p < 0 || p > 100) {
+      toast.warning('Введите числа от 0 до 100');
       return;
     }
     setLimitSaving(true);
     try {
-      await updateLimits(num);
+      await updateLimits({ maxDeliveryOrders: d, maxPickupOrders: p });
       await reload();
       toast.success('Лимит на сегодня установлен');
     } catch (e) {
@@ -133,10 +146,13 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
       }
       return;
     }
-    const schedule: Record<string, number> = {};
+    const schedule: Record<string, { delivery: number; pickup: number }> = {};
     for (const [k, v] of Object.entries(weeklySchedule)) {
-      const num = parseInt(v, 10);
-      if (!isNaN(num) && num > 0) schedule[k] = num;
+      const d = parseInt(v.delivery, 10);
+      const p = parseInt(v.pickup, 10);
+      if ((!isNaN(d) && d > 0) || (!isNaN(p) && p > 0)) {
+        schedule[k] = { delivery: isNaN(d) ? 0 : d, pickup: isNaN(p) ? 0 : p };
+      }
     }
     if (Object.keys(schedule).length === 0) {
       toast.warning('Задайте лимит хотя бы для одного дня');
@@ -157,9 +173,8 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
 
   const hasSchedule = me.weekly_schedule && typeof me.weekly_schedule === 'object' && Object.keys(me.weekly_schedule).length > 0;
 
-  const planLabel = me.subscription_plan
-    ? `${me.subscription_plan === 'free' ? 'Free' : me.subscription_plan === 'pro' ? 'Pro' : 'Premium'} (макс. ${me.plan_limit_cap ?? '?'} заказов/день)`
-    : undefined;
+  const dUsed = (me.active_delivery_orders ?? 0) + (me.pending_delivery_requests ?? 0);
+  const pUsed = (me.active_pickup_orders ?? 0) + (me.pending_pickup_requests ?? 0);
 
   return (
     <div className="settings-limits">
@@ -180,17 +195,28 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
 
         {limitsEditing ? (
           <div className="settings-limits-form">
-            <FormField label="Стандартный дневной лимит" hint="Применяется каждый день автоматически. Пусто или 0 = отключить.">
-              <div className="settings-limits-input-row">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={defaultLimitValue}
-                  onChange={(e) => setDefaultLimitValue(e.target.value)}
-                  placeholder="Не задан"
-                  className="form-input settings-limits-input-narrow"
-                />
+            <FormField label="Базовые лимиты" hint="Применяются каждый день автоматически. 0 = отключить тип.">
+              <div className="settings-limits-split-row">
+                <div className="settings-limits-split-col">
+                  <label className="settings-limits-split-label">Доставка</label>
+                  <input
+                    type="number" min={0} max={100}
+                    value={defaultDeliveryLimit}
+                    onChange={(e) => setDefaultDeliveryLimit(e.target.value)}
+                    placeholder="10"
+                    className="form-input settings-limits-input-sm"
+                  />
+                </div>
+                <div className="settings-limits-split-col">
+                  <label className="settings-limits-split-label">Самовывоз</label>
+                  <input
+                    type="number" min={0} max={100}
+                    value={defaultPickupLimit}
+                    onChange={(e) => setDefaultPickupLimit(e.target.value)}
+                    placeholder="20"
+                    className="form-input settings-limits-input-sm"
+                  />
+                </div>
                 <button className="btn btn-primary" onClick={handleSaveDefaultLimit} disabled={defaultLimitSaving}>
                   {defaultLimitSaving ? 'Сохранение...' : 'Сохранить'}
                 </button>
@@ -198,15 +224,25 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
             </FormField>
 
             <FormField label="Лимит на сегодня (переопределение)" hint="Только на сегодня. Сбросится в 6:00 (МСК).">
-              <div className="settings-limits-input-row">
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={limitValue}
-                  onChange={(e) => setLimitValue(e.target.value)}
-                  className="form-input settings-limits-input-sm"
-                />
+              <div className="settings-limits-split-row">
+                <div className="settings-limits-split-col">
+                  <label className="settings-limits-split-label">Доставка</label>
+                  <input
+                    type="number" min={0} max={100}
+                    value={deliveryLimit}
+                    onChange={(e) => setDeliveryLimit(e.target.value)}
+                    className="form-input settings-limits-input-sm"
+                  />
+                </div>
+                <div className="settings-limits-split-col">
+                  <label className="settings-limits-split-label">Самовывоз</label>
+                  <input
+                    type="number" min={0} max={100}
+                    value={pickupLimit}
+                    onChange={(e) => setPickupLimit(e.target.value)}
+                    className="form-input settings-limits-input-sm"
+                  />
+                </div>
                 <button className="btn btn-primary" onClick={handleSaveLimit} disabled={limitSaving}>
                   {limitSaving ? 'Сохранение...' : 'Задать на сегодня'}
                 </button>
@@ -215,12 +251,8 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
 
             {me.limit_set_for_today && (
               <p className="settings-limits-status">
-                В работе сейчас: {me.orders_used_today ?? 0} / {me.max_orders ?? 0}
+                Доставка: {dUsed} / {me.max_delivery_orders ?? 10} &nbsp;|&nbsp; Самовывоз: {pUsed} / {me.max_pickup_orders ?? 20}
               </p>
-            )}
-
-            {planLabel && (
-              <p className="settings-limits-plan">Тариф: <strong>{planLabel}</strong></p>
             )}
 
             <div className="settings-limits-divider">
@@ -236,9 +268,14 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
           </div>
         ) : (
           <div className="settings-limits-view">
-            <DataRow label="Стандартный лимит" value={me.default_daily_limit ? `${me.default_daily_limit} заказов/день` : 'Не задан'} />
-            <DataRow label="Действующий лимит" value={me.limit_set_for_today ? `${me.orders_used_today ?? 0} / ${me.max_orders ?? 0}` : 'Не активен'} />
-            {planLabel && <DataRow label="Тариф" value={planLabel} />}
+            <DataRow label="Лимит доставки" value={`${me.max_delivery_orders ?? 10} заказов/день`} />
+            <DataRow label="Лимит самовывоза" value={`${me.max_pickup_orders ?? 20} заказов/день`} />
+            <DataRow
+              label="Сейчас"
+              value={me.limit_set_for_today
+                ? `Доставка: ${dUsed}/${me.max_delivery_orders ?? 10} | Самовывоз: ${pUsed}/${me.max_pickup_orders ?? 20}`
+                : 'Не активен'}
+            />
           </div>
         )}
       </div>
@@ -258,7 +295,7 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
           )}
         </div>
         <p className="settings-limits-hint">
-          Разный лимит для каждого дня недели. Приоритет: ручная установка &gt; расписание &gt; стандартный лимит.
+          Разный лимит для каждого дня недели. Приоритет: ручная установка &gt; расписание &gt; базовый лимит.
         </p>
 
         {scheduleEditing ? (
@@ -266,20 +303,40 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
             <Toggle checked={scheduleEnabled} onChange={setScheduleEnabled} label="Включить расписание" />
             {scheduleEnabled && (
               <div className="settings-limits-schedule-grid">
-                {WEEKDAYS.map((d) => (
-                  <div key={d.value} className="settings-limits-day-row">
-                    <span className="settings-limits-day-label">{d.label}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={weeklySchedule[String(d.value)] ?? ''}
-                      onChange={(e) => setWeeklySchedule((prev) => ({ ...prev, [String(d.value)]: e.target.value }))}
-                      placeholder="—"
-                      className="form-input settings-limits-input-sm"
-                    />
-                  </div>
-                ))}
+                <div className="settings-limits-day-row settings-limits-day-header">
+                  <span className="settings-limits-day-label"></span>
+                  <span className="settings-limits-col-header">Доставка</span>
+                  <span className="settings-limits-col-header">Самовывоз</span>
+                </div>
+                {WEEKDAYS.map((d) => {
+                  const key = String(d.value);
+                  const val = weeklySchedule[key] ?? { delivery: '', pickup: '' };
+                  return (
+                    <div key={d.value} className="settings-limits-day-row">
+                      <span className="settings-limits-day-label">{d.label}</span>
+                      <input
+                        type="number" min={0} max={100}
+                        value={val.delivery}
+                        onChange={(e) => setWeeklySchedule((prev) => ({
+                          ...prev,
+                          [key]: { ...prev[key] ?? { delivery: '', pickup: '' }, delivery: e.target.value },
+                        }))}
+                        placeholder="—"
+                        className="form-input settings-limits-input-sm"
+                      />
+                      <input
+                        type="number" min={0} max={100}
+                        value={val.pickup}
+                        onChange={(e) => setWeeklySchedule((prev) => ({
+                          ...prev,
+                          [key]: { ...prev[key] ?? { delivery: '', pickup: '' }, pickup: e.target.value },
+                        }))}
+                        placeholder="—"
+                        className="form-input settings-limits-input-sm"
+                      />
+                    </div>
+                  );
+                })}
               </div>
             )}
             <div className="settings-limits-actions">
@@ -294,7 +351,12 @@ export function LimitsSettingsTab({ me, reload }: SettingsTabProps) {
             <DataRow label="Статус" value={hasSchedule ? 'Включено' : 'Отключено'} />
             {hasSchedule && WEEKDAYS.map((d) => {
               const val = me.weekly_schedule?.[String(d.value)];
-              return val ? <DataRow key={d.value} label={d.label} value={`${val} заказов`} /> : null;
+              if (!val) return null;
+              if (typeof val === 'object' && 'delivery' in val && 'pickup' in val) {
+                const obj = val as { delivery: number; pickup: number };
+                return <DataRow key={d.value} label={d.label} value={`Дост: ${obj.delivery} | Самов: ${obj.pickup}`} />;
+              }
+              return <DataRow key={d.value} label={d.label} value={`${val} заказов`} />;
             })}
           </div>
         )}

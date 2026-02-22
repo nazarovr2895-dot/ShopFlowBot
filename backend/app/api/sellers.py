@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-from typing import List
+from typing import List, Optional
 
 from backend.app.api.deps import get_session
 from backend.app.core.logging import get_logger
@@ -143,11 +143,22 @@ async def can_accept_order(tg_id: int, session: AsyncSession = Depends(get_sessi
 
 
 @router.put("/{tg_id}/limits")
-async def update_seller_limits(tg_id: int, max_orders: int, session: AsyncSession = Depends(get_session)):
+async def update_seller_limits(
+    tg_id: int,
+    max_orders: Optional[int] = None,
+    max_delivery_orders: Optional[int] = None,
+    max_pickup_orders: Optional[int] = None,
+    session: AsyncSession = Depends(get_session),
+):
     """Обновить лимит заказов продавца"""
     service = SellerService(session)
 
     try:
-        return await service.update_limits(tg_id, max_orders)
+        return await service.update_limits(
+            tg_id,
+            max_orders=max_orders,
+            max_delivery_orders=max_delivery_orders,
+            max_pickup_orders=max_pickup_orders,
+        )
     except SellerServiceError as e:
         _handle_service_error(e)

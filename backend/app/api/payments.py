@@ -94,13 +94,22 @@ async def payment_webhook(
 
     logger.info("Payment webhook received", webhook_event=body.get("event"))
 
-    service = PaymentService(session)
+    # Route by metadata.type: subscription payments go to SubscriptionService
+    metadata = body.get("object", {}).get("metadata", {})
+    payment_type = metadata.get("type")
+
     try:
-        await service.handle_webhook(body)
+        if payment_type == "subscription":
+            from backend.app.services.subscription import SubscriptionService
+            service = SubscriptionService(session)
+            await service.handle_webhook(body)
+        else:
+            service = PaymentService(session)
+            await service.handle_webhook(body)
         await session.commit()
     except Exception as exc:
         await session.rollback()
-        logger.error("Webhook processing failed", error=str(exc))
+        logger.error("Webhook processing failed", error=str(exc), payment_type=payment_type)
         # Still return 200 — errors are logged, not retried
 
     return {"status": "ok"}

@@ -70,7 +70,10 @@ class Settings(BaseSettings):
     YOOKASSA_SHOP_ID: Optional[str] = Field(default=None, description="YuKassa marketplace shop ID")
     YOOKASSA_SECRET_KEY: Optional[str] = Field(default=None, description="YuKassa secret key")
     YOOKASSA_RETURN_URL: Optional[str] = Field(default=None, description="URL to return to after YuKassa payment (miniapp)")
-    
+
+    # Subscription configuration
+    SUBSCRIPTION_BASE_PRICE: int = Field(default=990, description="Base monthly subscription price in rubles")
+
     # Database pool configuration
     DB_POOL_SIZE: int = Field(default=50, description="Database connection pool size")
     DB_MAX_OVERFLOW: int = Field(default=100, description="Database max overflow connections")

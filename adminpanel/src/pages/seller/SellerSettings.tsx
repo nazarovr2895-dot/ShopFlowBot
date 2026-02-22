@@ -10,6 +10,7 @@ import { WorkingHoursSettingsTab } from './settings/WorkingHoursSettingsTab';
 import { PreordersSettingsTab } from './settings/PreordersSettingsTab';
 import { AccountSettingsTab } from './settings/AccountSettingsTab';
 import { PaymentSettingsTab } from './settings/PaymentSettingsTab';
+import { SubscriptionSettingsTab } from './settings/SubscriptionSettingsTab';
 
 const TABS = [
   { key: 'shop', label: 'Магазин' },
@@ -17,6 +18,7 @@ const TABS = [
   { key: 'limits', label: 'Лимиты' },
   { key: 'hours', label: 'Время работы' },
   { key: 'preorders', label: 'Предзаказы' },
+  { key: 'subscription', label: 'Подписка' },
   { key: 'payment', label: 'ЮКасса' },
   { key: 'account', label: 'Аккаунт' },
 ];
@@ -75,6 +77,7 @@ export function SellerSettings() {
       {tab === 'limits' && <LimitsSettingsTab me={me} reload={reload} />}
       {tab === 'hours' && <WorkingHoursSettingsTab me={me} reload={reload} />}
       {tab === 'preorders' && <PreordersSettingsTab me={me} reload={reload} />}
+      {tab === 'subscription' && <SubscriptionSettingsTab me={me} reload={reload} />}
       {tab === 'payment' && <PaymentSettingsTab me={me} reload={reload} />}
       {tab === 'account' && <AccountSettingsTab me={me} />}
     </div>

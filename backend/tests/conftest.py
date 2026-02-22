@@ -278,7 +278,14 @@ async def test_seller(
         max_orders=10,
         active_orders=0,
         pending_requests=0,
+        max_delivery_orders=10,
+        max_pickup_orders=20,
+        active_delivery_orders=0,
+        active_pickup_orders=0,
+        pending_delivery_requests=0,
+        pending_pickup_requests=0,
         is_blocked=False,
+        subscription_plan="active",
     )
     test_session.add(seller)
     await test_session.commit()
@@ -318,9 +325,10 @@ async def test_order(
         delivery_type="pickup",
     )
     test_session.add(order)
-    
-    # Update seller pending requests
+
+    # Update seller pending requests (total + per-type)
     test_seller.pending_requests += 1
+    test_seller.pending_pickup_requests += 1
     
     await test_session.commit()
     await test_session.refresh(order)

@@ -525,7 +525,14 @@ async def test_multiple_sellers_listing(
             max_orders=10,
             active_orders=i,  # Different availability
             pending_requests=0,
+            max_delivery_orders=10,
+            max_pickup_orders=20,
+            active_delivery_orders=0,
+            active_pickup_orders=0,
+            pending_delivery_requests=0,
+            pending_pickup_requests=0,
             is_blocked=False,
+            subscription_plan="active",
         )
         test_session.add(seller)
         sellers.append(seller)
@@ -542,7 +549,142 @@ async def test_multiple_sellers_listing(
     await test_session.commit()
     
     response = await client.get("/public/sellers")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["total"] >= 5
+
+
+# --- Seller Availability Endpoint Tests ---
+
+@pytest.mark.asyncio
+async def test_get_seller_availability(
+    client: AsyncClient,
+    test_seller: Seller,
+):
+    """Test getting per-type availability for a seller."""
+    response = await client.get(f"/public/sellers/{test_seller.seller_id}/availability")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "delivery_remaining" in data
+    assert "pickup_remaining" in data
+    assert "delivery_limit" in data
+    assert "pickup_limit" in data
+    assert data["delivery_limit"] == 10
+    assert data["pickup_limit"] == 20
+    assert data["delivery_remaining"] == 10
+    assert data["pickup_remaining"] == 20
+
+
+@pytest.mark.asyncio
+async def test_get_seller_availability_partial_usage(
+    client: AsyncClient,
+    test_session,
+    test_seller: Seller,
+):
+    """Test availability with some slots used."""
+    test_seller.active_delivery_orders = 3
+    test_seller.pending_delivery_requests = 2
+    test_seller.active_pickup_orders = 5
+    test_seller.pending_pickup_requests = 1
+    await test_session.commit()
+
+    response = await client.get(f"/public/sellers/{test_seller.seller_id}/availability")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["delivery_remaining"] == 5  # 10 - (3+2)
+    assert data["pickup_remaining"] == 14  # 20 - (5+1)
+    assert data["delivery_used"] == 5
+    assert data["pickup_used"] == 6
+
+
+@pytest.mark.asyncio
+async def test_get_seller_availability_fully_booked(
+    client: AsyncClient,
+    test_session,
+    test_seller: Seller,
+):
+    """Test availability when delivery is fully booked but pickup still has slots."""
+    test_seller.active_delivery_orders = 8
+    test_seller.pending_delivery_requests = 2
+    test_seller.active_pickup_orders = 3
+    await test_session.commit()
+
+    response = await client.get(f"/public/sellers/{test_seller.seller_id}/availability")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["delivery_remaining"] == 0  # 10 - (8+2)
+    assert data["pickup_remaining"] == 17  # 20 - 3
+
+
+@pytest.mark.asyncio
+async def test_get_seller_availability_not_found(
+    client: AsyncClient,
+):
+    """Test availability for non-existent seller returns zeros."""
+    response = await client.get("/public/sellers/999999999/availability")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["delivery_remaining"] == 0
+    assert data["pickup_remaining"] == 0
+
+
+@pytest.mark.asyncio
+async def test_public_seller_list_includes_per_type_slots(
+    client: AsyncClient,
+    test_session,
+    test_seller: Seller,
+):
+    """Test that public seller list includes per-type slot fields."""
+    # Set default_daily_limit so the seller passes the effective_limit_expr > 0 filter
+    test_seller.default_daily_limit = 30
+    test_seller.active_delivery_orders = 2
+    test_seller.active_pickup_orders = 3
+    await test_session.commit()
+
+    # Add product with quantity > 0 (required for public list INNER JOIN on product_stats)
+    product = Product(
+        seller_id=test_seller.seller_id,
+        name="Test Slot Product",
+        price=100.0,
+        is_active=True,
+        quantity=5,
+    )
+    test_session.add(product)
+    await test_session.commit()
+
+    response = await client.get("/public/sellers")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["sellers"]) >= 1
+    seller = next((s for s in data["sellers"] if s["seller_id"] == test_seller.seller_id), None)
+    assert seller is not None
+    assert "delivery_slots" in seller
+    assert "pickup_slots" in seller
+
+
+@pytest.mark.asyncio
+async def test_public_seller_detail_includes_per_type_slots(
+    client: AsyncClient,
+    test_session,
+    test_seller: Seller,
+    test_metro: Metro,
+):
+    """Test that per-type slot fields work correctly via availability endpoint."""
+    test_seller.active_delivery_orders = 4
+    test_seller.pending_delivery_requests = 1
+    await test_session.commit()
+
+    response = await client.get(f"/public/sellers/{test_seller.seller_id}/availability")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "delivery_remaining" in data
+    assert "pickup_remaining" in data
+    assert data["delivery_remaining"] == 5  # 10 - (4+1)
+    assert data["pickup_remaining"] == 20

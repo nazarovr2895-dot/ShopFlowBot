@@ -667,6 +667,22 @@ export function ShopDetails() {
             )}
           </span>
         </div>
+        {(seller.delivery_slots != null || seller.pickup_slots != null) && (
+          <div className="shop-details__info-line">
+            <span className="shop-details__info-line-text" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {seller.delivery_slots != null && (
+                <span style={{ color: seller.delivery_slots > 0 ? 'var(--tg-theme-link-color, #2481cc)' : 'var(--tg-theme-destructive-text-color, #e53935)' }}>
+                  Доставка: {seller.delivery_slots > 0 ? `${seller.delivery_slots} слотов` : 'занято'}
+                </span>
+              )}
+              {seller.pickup_slots != null && (
+                <span style={{ color: seller.pickup_slots > 0 ? 'var(--tg-theme-link-color, #2481cc)' : 'var(--tg-theme-destructive-text-color, #e53935)' }}>
+                  Самовывоз: {seller.pickup_slots > 0 ? `${seller.pickup_slots} слотов` : 'занято'}
+                </span>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Loyalty chip — compact inline */}
@@ -716,6 +732,21 @@ export function ShopDetails() {
               <span className="shop-details__nav-bar-tab-text">Предзаказ</span>
             </button>
           </LiquidGlassCard>
+        </div>
+      )}
+
+      {seller.subscription_active === false && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          margin: '0 1rem 0.75rem',
+          borderRadius: '8px',
+          background: 'rgba(239, 68, 68, 0.06)',
+          border: '1px solid rgba(239, 68, 68, 0.15)',
+          textAlign: 'center',
+          fontSize: '0.85rem',
+          color: '#b91c1c',
+        }}>
+          Магазин временно не принимает заказы
         </div>
       )}
 
@@ -839,9 +870,10 @@ export function ShopDetails() {
                         <button
                           type="button"
                           className="shop-details__product-card-add"
-                          disabled={(!inStock && !isPreorder) || isAdding}
+                          disabled={(!inStock && !isPreorder) || isAdding || seller.subscription_active === false}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (seller.subscription_active === false) return;
                             if (isPreorder && availableDates.length > 0) {
                               setPreorderDateForProductId(product.id);
                             } else {
@@ -849,7 +881,7 @@ export function ShopDetails() {
                             }
                           }}
                         >
-                          <span>{isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}</span>
+                          <span>{seller.subscription_active === false ? 'Недоступно' : isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}</span>
                         </button>
                       )}
                     </div>
