@@ -17,7 +17,7 @@ import {
   PrivacyPage,
   SellerTermsPage,
 } from './pages';
-import { MainLayout, RequireAuth, ToastProvider, DesktopShell } from './components';
+import { MainLayout, RequireAuth, ToastProvider, DesktopShell, PrivacyConsentModal } from './components';
 import { CatalogFilterProvider } from './contexts/CatalogFilterContext';
 import { useTheme } from './hooks/useTheme';
 import { api } from './api/client';
@@ -29,6 +29,7 @@ import './App.css';
 function AppContent() {
   const { setFilters } = useLocationCache();
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
   
   // Initialize theme system (integrates with Telegram colorScheme internally)
   useTheme();
@@ -65,7 +66,14 @@ function AppContent() {
 
     let cancelled = false;
     api.getCurrentUser().then((user) => {
-      if (cancelled || !user.city_id) return;
+      if (cancelled) return;
+
+      // Check privacy consent (152-ФЗ)
+      if (!user.privacy_accepted) {
+        setShowPrivacyConsent(true);
+      }
+
+      if (!user.city_id) return;
       const updatedFilters: { city_id: number; district_id?: number } = {
         city_id: user.city_id,
       };
@@ -93,6 +101,9 @@ function AppContent() {
 
   return (
     <DesktopShell>
+      {showPrivacyConsent && (
+        <PrivacyConsentModal onAccepted={() => setShowPrivacyConsent(false)} />
+      )}
       <Routes>
         {/* Landing page for browser authentication */}
         <Route path="/landing" element={<Landing />} />

@@ -1,0 +1,109 @@
+/* ===== Privacy Consent Modal ===== */
+
+.privacy-consent-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 20px;
+}
+
+.privacy-consent-modal {
+  width: 100%;
+  max-width: 400px;
+  background: var(--app-bg-elevated);
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  border: 1px solid var(--app-border);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+.privacy-consent-modal__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin-bottom: 16px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.privacy-consent-modal__text {
+  margin-bottom: 16px;
+}
+
+.privacy-consent-modal__text p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--app-text);
+  margin-bottom: 8px;
+}
+
+.privacy-consent-modal__text ul {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+
+.privacy-consent-modal__text li {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--app-text);
+  margin-bottom: 2px;
+}
+
+.privacy-consent-modal__link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 20px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--app-accent);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: opacity 0.15s ease;
+}
+
+.privacy-consent-modal__link:active {
+  opacity: 0.7;
+}
+
+.privacy-consent-modal__accept {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: var(--app-accent);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.privacy-consent-modal__accept:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.privacy-consent-modal__accept:active:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* Desktop */
+@media (min-width: 768px) {
+  .privacy-consent-modal__link:hover {
+    opacity: 0.8;
+  }
+
+  .privacy-consent-modal__accept:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+}

@@ -21,6 +21,10 @@ class User(Base):
     city_id: Mapped[int] = mapped_column(ForeignKey('cities.id'), nullable=True)
     district_id: Mapped[int] = mapped_column(ForeignKey('districts.id'), nullable=True)
 
+    # --- СОГЛАСИЕ НА ОБРАБОТКУ ПД (152-ФЗ) ---
+    privacy_accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+    privacy_accepted_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
     __table_args__ = (
         Index('ix_users_referrer_id', 'referrer_id'),
         Index('ix_users_role', 'role'),

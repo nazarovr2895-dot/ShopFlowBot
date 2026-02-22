@@ -23,6 +23,9 @@ class BuyerResponse(BuyerCreate):
     district_id: Optional[int] = None
     # 👇 Телефон (для клубной карты / лояльности)
     phone: Optional[str] = None
+    # 👇 Согласие на обработку ПД (152-ФЗ)
+    privacy_accepted: bool = False
+    privacy_accepted_at: Optional[str] = None
 
 # --- Продавцы ---
 class SellerCreate(BaseModel):

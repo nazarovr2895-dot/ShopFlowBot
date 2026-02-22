@@ -63,7 +63,9 @@ class BuyerService:
             "referrer_id": user.referrer_id,
             "city_id": user.city_id,
             "district_id": user.district_id,
-            "created_at": user.created_at.isoformat() if user.created_at else None
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "privacy_accepted": bool(user.privacy_accepted),
+            "privacy_accepted_at": user.privacy_accepted_at.isoformat() if user.privacy_accepted_at else None,
         }
     
     async def register_buyer(
@@ -139,7 +141,7 @@ class BuyerService:
         if not user:
             raise UserNotFoundError(tg_id)
         
-        allowed_fields = {"fio", "phone", "username", "city_id", "district_id"}
+        allowed_fields = {"fio", "phone", "username", "city_id", "district_id", "privacy_accepted", "privacy_accepted_at"}
         
         for field, value in fields.items():
             if field in allowed_fields and value is not None:

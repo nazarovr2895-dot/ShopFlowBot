@@ -323,6 +323,7 @@ class ApiClient {
     role: string;
     city_id?: number;
     district_id?: number;
+    privacy_accepted?: boolean;
   }> {
     return this.fetch<{
       tg_id: number;
@@ -332,7 +333,12 @@ class ApiClient {
       role: string;
       city_id?: number;
       district_id?: number;
+      privacy_accepted?: boolean;
     }>('/buyers/me');
+  }
+
+  async acceptPrivacy(): Promise<void> {
+    await this.fetch('/buyers/me/accept-privacy', { method: 'POST' });
   }
 
   async updateLocation(cityId?: number, districtId?: number): Promise<void> {

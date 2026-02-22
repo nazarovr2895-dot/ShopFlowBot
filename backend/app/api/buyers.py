@@ -123,6 +123,30 @@ class ProfileUpdate(BaseModel):
     phone: Optional[str] = None
 
 
+@router.post("/me/accept-privacy", response_model=BuyerResponse)
+async def accept_privacy(
+    current_user: TelegramInitData = Depends(get_current_user_hybrid),
+    session: AsyncSession = Depends(get_session),
+):
+    """Принять согласие на обработку персональных данных (152-ФЗ)."""
+    from datetime import datetime
+
+    tg_id = current_user.user.id
+    service = BuyerService(session)
+
+    try:
+        updated_user = await service.update_profile(
+            tg_id=tg_id,
+            privacy_accepted=True,
+            privacy_accepted_at=datetime.now(),
+        )
+        updated_user["id"] = updated_user["tg_id"]
+        return updated_user
+    except BuyerServiceError as e:
+        logger.warning("Privacy accept failed", tg_id=tg_id, error=e.message)
+        _handle_service_error(e)
+
+
 @router.put("/me/location", response_model=BuyerResponse)
 async def update_location(
     data: LocationUpdate,
