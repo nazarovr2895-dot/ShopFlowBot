@@ -2,7 +2,6 @@ export { Landing } from './Landing';
 export { ShopsList } from './ShopsList';
 export { MyFlowers } from './MyFlowers';
 export { ShopDetails } from './ShopDetails';
-export { Cart } from './Cart';
 export { Checkout } from './Checkout';
 export { FavoriteProducts } from './FavoriteProducts';
 export { Profile } from './Profile';

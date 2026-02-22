@@ -37,6 +37,11 @@
   animation: fadeIn 0.3s ease;
 }
 
+/* Extra bottom padding when floating cart bar is visible */
+.shop-details--has-cart {
+  padding-bottom: calc(140px + env(safe-area-inset-bottom, 0));
+}
+
 /* Telegram fullscreen: --tg-header-offset already includes safe-area */
 .tg-fullscreen .shop-details {
   padding-top: calc(16px + var(--tg-header-offset, 0px));

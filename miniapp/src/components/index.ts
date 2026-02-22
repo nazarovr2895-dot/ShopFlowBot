@@ -23,3 +23,6 @@ export { DesktopShell } from './DesktopShell';
 export { DesktopBackNav } from './DesktopBackNav';
 export { LegalPageLayout } from './LegalPageLayout';
 export { PrivacyConsentModal } from './PrivacyConsentModal';
+export { ReservationBadge } from './ReservationBadge';
+export { FloatingCartBar } from './FloatingCartBar';
+export { ShopCartPanel } from './ShopCartPanel';

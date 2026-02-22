@@ -5,7 +5,6 @@ import {
   ShopsList,
   MyFlowers,
   ShopDetails,
-  Cart,
   Checkout,
   FavoriteProducts,
   Profile,
@@ -17,6 +16,7 @@ import {
   PrivacyPage,
   SellerTermsPage,
 } from './pages';
+import { ShopCartProvider } from './contexts/ShopCartContext';
 import { MainLayout, RequireAuth, ToastProvider, DesktopShell, PrivacyConsentModal } from './components';
 import { CatalogFilterProvider } from './contexts/CatalogFilterContext';
 import { useTheme } from './hooks/useTheme';
@@ -113,15 +113,15 @@ function AppContent() {
           <Route index element={<MyFlowers />} />
           <Route path="catalog" element={<ShopsList />} />
           <Route path="favorites" element={<FavoriteProducts />} />
-          <Route path="cart" element={<Cart />} />
+          <Route path="cart" element={<Navigate to="/" replace />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 
         <Route path="/cart/checkout" element={<RequireAuth from="checkout"><Checkout /></RequireAuth>} />
         <Route path="/cart/guest-checkout" element={<GuestCheckout />} />
         <Route path="/order/guest-confirm" element={<GuestOrderConfirmation />} />
-        <Route path="/shop/:sellerId" element={<ShopDetails />} />
-        <Route path="/shop/:sellerId/product/:productId" element={<ProductDetail />} />
+        <Route path="/shop/:sellerId" element={<ShopCartProvider><ShopDetails /></ShopCartProvider>} />
+        <Route path="/shop/:sellerId/product/:productId" element={<ShopCartProvider><ProductDetail /></ShopCartProvider>} />
         <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
 
         {/* Legal pages */}

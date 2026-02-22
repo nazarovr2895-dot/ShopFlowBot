@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
@@ -24,6 +24,8 @@ interface SellerLoyaltyInfo {
 
 export function Checkout() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const filterSellerId = searchParams.get('seller') ? Number(searchParams.get('seller')) : null;
   const { setBackButton, hapticFeedback, showAlert, requestContact, user: telegramUser } = useTelegramWebApp();
   const [user, setUser] = useState<{
     tg_id: number;
@@ -44,9 +46,10 @@ export function Checkout() {
   const [loyaltyBySellerMap, setLoyaltyBySellerMap] = useState<Record<number, SellerLoyaltyInfo>>({});
   const [pointsUsage, setPointsUsage] = useState<Record<number, number>>({});
   useEffect(() => {
-    setBackButton(true, () => navigate('/cart'));
+    const backPath = filterSellerId ? `/shop/${filterSellerId}` : '/';
+    setBackButton(true, () => navigate(backPath));
     return () => setBackButton(false);
-  }, [setBackButton, navigate]);
+  }, [setBackButton, navigate, filterSellerId]);
 
   const loadUserAndCart = useCallback(async () => {
     setLoading(true);
@@ -63,7 +66,10 @@ export function Checkout() {
       ]);
       setUser(userData ?? null);
       const cartArr = Array.isArray(cartData) ? cartData : [];
-      setCart(cartArr);
+      const filteredCart = filterSellerId
+        ? cartArr.filter((g) => g.seller_id === filterSellerId)
+        : cartArr;
+      setCart(filteredCart);
 
       // Initialize delivery type per seller based on their capabilities
       setDeliveryBySeller((prev) => {

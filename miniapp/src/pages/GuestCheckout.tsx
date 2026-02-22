@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { EmptyState, ProductImage, LoyaltyLoginBanner, DesktopBackNav } from '../components';
@@ -16,6 +16,8 @@ function normalizePhone(phone: string): string {
 
 export function GuestCheckout() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const filterSellerId = searchParams.get('seller') ? Number(searchParams.get('seller')) : null;
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
@@ -26,9 +28,12 @@ export function GuestCheckout() {
   const [cart, setCart] = useState<CartSellerGroup[]>([]);
 
   useEffect(() => {
-    const items = getGuestCart();
+    let items = getGuestCart();
+    if (filterSellerId) {
+      items = items.filter((i) => i.seller_id === filterSellerId);
+    }
     if (items.length === 0) {
-      navigate('/cart', { replace: true });
+      navigate(filterSellerId ? `/shop/${filterSellerId}` : '/', { replace: true });
       return;
     }
     const groups = guestCartToGroups(items);

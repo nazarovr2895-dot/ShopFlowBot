@@ -4,8 +4,10 @@ import type { PublicSellerDetail, Product } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser, isTelegram } from '../utils/environment';
-import { addToGuestCart, getGuestCart, updateGuestCartItem, removeGuestCartItem } from '../utils/guestCart';
+import { useShopCart } from '../contexts/ShopCartContext';
 import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal, LiquidGlassCard } from '../components';
+import { FloatingCartBar } from '../components/FloatingCartBar';
+import { ShopCartPanel } from '../components/ShopCartPanel';
 import './ShopDetails.css';
 
 type ProductTab = 'regular' | 'preorder';
@@ -80,18 +82,22 @@ export function ShopDetails() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [hoursExpanded, setHoursExpanded] = useState(false);
   const [legalModalOpen, setLegalModalOpen] = useState(false);
-  const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map());
+  const { cartQuantities, addItem: ctxAddItem, updateQuantity: ctxUpdateQuantity, isPanelOpen, setPanelOpen, itemCount: cartItemCount } = useShopCart();
 
-  // Set up back button
+  // Set up back button — close cart panel first, then navigate back
   useEffect(() => {
     setBackButton(true, () => {
-      navigate(-1);
+      if (isPanelOpen) {
+        setPanelOpen(false);
+      } else {
+        navigate(-1);
+      }
     });
 
     return () => {
       setBackButton(false);
     };
-  }, [setBackButton, navigate]);
+  }, [setBackButton, navigate, isPanelOpen, setPanelOpen]);
 
   // Load seller details and record visit
   useEffect(() => {
@@ -185,40 +191,7 @@ export function ShopDetails() {
     };
   }, [seller?.seller_id]);
 
-  // Load cart quantities to show inline counters on cards
-  useEffect(() => {
-    if (!seller) return;
-    let cancelled = false;
-    const loadCart = async () => {
-      try {
-        const qtyMap = new Map<number, number>();
-        if (isBrowser() && !api.isAuthenticated()) {
-          // Guest cart from localStorage
-          const guestItems = getGuestCart();
-          for (const item of guestItems) {
-            if (item.seller_id === seller.seller_id) {
-              qtyMap.set(item.product_id, item.quantity);
-            }
-          }
-        } else {
-          // Authenticated cart from API
-          const groups = await api.getCart();
-          for (const group of groups) {
-            if (group.seller_id === seller.seller_id) {
-              for (const item of group.items) {
-                qtyMap.set(item.product_id, item.quantity);
-              }
-            }
-          }
-        }
-        if (!cancelled) setCartQuantities(qtyMap);
-      } catch {
-        // Ignore cart loading errors — just show "В корзину" buttons
-      }
-    };
-    loadCart();
-    return () => { cancelled = true; };
-  }, [seller?.seller_id, seller]);
+  // Cart quantities are now managed by ShopCartContext
 
   const toggleFavorite = async () => {
     if (!seller || togglingFavorite) return;
@@ -288,44 +261,20 @@ export function ShopDetails() {
     try {
       hapticFeedback('light');
 
-      // Guest cart: browser + not authenticated → save to localStorage
-      if (isBrowser() && !api.isAuthenticated()) {
-        const allProducts = [...(seller?.products ?? []), ...(seller?.preorder_products ?? [])];
-        const product = allProducts.find((p: Product) => p.id === productId);
-        if (product) {
-          addToGuestCart({
-            product_id: product.id,
-            seller_id: Number(sellerId),
-            name: product.name,
-            price: product.price,
-            quantity,
-            photo_id: product.photo_id ?? null,
-            seller_name: seller?.shop_name || undefined,
-            delivery_type: seller?.delivery_type ?? null,
-          });
-        }
-        // Update local cart state (no alert — visual change is the feedback)
-        if (!preorderDeliveryDate) {
-          setCartQuantities((prev) => {
-            const next = new Map(prev);
-            next.set(productId, (prev.get(productId) || 0) + quantity);
-            return next;
-          });
-        }
-        return;
-      }
+      const allProducts = [...(seller?.products ?? []), ...(seller?.preorder_products ?? [])];
+      const product = allProducts.find((p: Product) => p.id === productId);
+      if (!product) return;
 
-      const result = await api.addCartItem(productId, quantity, preorderDeliveryDate);
-      // Update local cart state (no alert — visual change is the feedback)
-      if (!preorderDeliveryDate) {
-        setCartQuantities((prev) => {
-          const next = new Map(prev);
-          next.set(productId, result.quantity ?? (prev.get(productId) || 0) + quantity);
-          return next;
-        });
-        if (result.reserved_at) {
-          showAlert('Товар забронирован на 5 минут');
-        }
+      const result = await ctxAddItem({
+        product: { id: product.id, name: product.name, price: product.price, photo_id: product.photo_id },
+        quantity,
+        preorderDeliveryDate,
+        sellerName: seller?.shop_name || undefined,
+        sellerDeliveryType: seller?.delivery_type ?? null,
+      });
+
+      if (!preorderDeliveryDate && result.reserved_at) {
+        showAlert('Товар забронирован на 5 минут');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Ошибка';
@@ -350,55 +299,7 @@ export function ShopDetails() {
   const updateCartQuantity = async (productId: number, newQty: number, e: React.MouseEvent) => {
     e.stopPropagation();
     hapticFeedback('light');
-    // Optimistic update
-    setCartQuantities((prev) => {
-      const next = new Map(prev);
-      if (newQty <= 0) {
-        next.delete(productId);
-      } else {
-        next.set(productId, newQty);
-      }
-      return next;
-    });
-
-    try {
-      if (isBrowser() && !api.isAuthenticated()) {
-        if (newQty <= 0) {
-          removeGuestCartItem(productId, Number(sellerId));
-        } else {
-          updateGuestCartItem(productId, Number(sellerId), newQty);
-        }
-      } else {
-        if (newQty <= 0) {
-          await api.removeCartItem(productId);
-        } else {
-          await api.updateCartItem(productId, newQty);
-        }
-      }
-    } catch {
-      // Rollback on error — reload cart
-      try {
-        const qtyMap = new Map<number, number>();
-        if (isBrowser() && !api.isAuthenticated()) {
-          const guestItems = getGuestCart();
-          for (const item of guestItems) {
-            if (item.seller_id === Number(sellerId)) {
-              qtyMap.set(item.product_id, item.quantity);
-            }
-          }
-        } else {
-          const groups = await api.getCart();
-          for (const group of groups) {
-            if (group.seller_id === Number(sellerId)) {
-              for (const item of group.items) {
-                qtyMap.set(item.product_id, item.quantity);
-              }
-            }
-          }
-        }
-        setCartQuantities(qtyMap);
-      } catch { /* ignore */ }
-    }
+    await ctxUpdateQuantity(productId, newQty);
   };
 
   const confirmPreorderDate = (productId: number, dateStr: string) => {
@@ -484,7 +385,7 @@ export function ShopDetails() {
     : todayHoursData === null ? 'Выходной' : '—';
 
   return (
-    <div className="shop-details">
+    <div className={`shop-details${cartItemCount > 0 ? ' shop-details--has-cart' : ''}`}>
       {seller.banner_url && (
         <div className="shop-details__banner">
           {api.getProductImageUrl(seller.banner_url) ? (
@@ -949,6 +850,10 @@ export function ShopDetails() {
           loyaltyLinked={loyalty?.linked ?? false}
         />
       )}
+
+      {/* Per-shop floating cart */}
+      <FloatingCartBar />
+      <ShopCartPanel />
     </div>
   );
 }

@@ -1,0 +1,103 @@
+/* ══════════════════════════════════════════════
+   Floating Cart Bar — appears when items are in cart
+   ══════════════════════════════════════════════ */
+
+.floating-cart-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding: 0 20px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--app-accent);
+  color: var(--app-bg);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Slide-up animation */
+  animation: floating-cart-slide-up 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.floating-cart-bar:active {
+  opacity: 0.92;
+}
+
+.floating-cart-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.floating-cart-bar__icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.floating-cart-bar__info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.floating-cart-bar__count {
+  font-weight: 500;
+}
+
+.floating-cart-bar__dot {
+  opacity: 0.6;
+}
+
+.floating-cart-bar__total {
+  font-weight: 700;
+}
+
+.floating-cart-bar__action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── Desktop variant ─────────────────────────── */
+.floating-cart-bar--desktop {
+  left: auto;
+  bottom: 24px;
+  right: 24px;
+  width: 360px;
+  height: 56px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.floating-cart-bar--desktop:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+}
+
+/* ── Animation ───────────────────────────────── */
+@keyframes floating-cart-slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
