@@ -2,7 +2,7 @@ import aiohttp
 from typing import Optional
 import logging
 import asyncio
-from bot.config import BACKEND_URL
+from bot.config import BACKEND_URL, INTERNAL_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,8 @@ async def make_request(method: str, endpoint: str, data: dict = None, params: di
     url = f"{BACKEND_URL}{endpoint}"
     session = await APIClient.get_session()
     req_headers = dict(headers or {})
+    if INTERNAL_API_KEY:
+        req_headers["X-Internal-Key"] = INTERNAL_API_KEY
 
     try:
         if method == "POST":

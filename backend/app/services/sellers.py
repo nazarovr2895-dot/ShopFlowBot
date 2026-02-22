@@ -95,6 +95,20 @@ def normalize_delivery_type(value: Optional[str]) -> str:
     return "delivery"
 
 
+def normalize_delivery_type_setting(value: Optional[str]) -> Optional[str]:
+    """Normalize seller's delivery_type setting → 'delivery' | 'pickup' | 'both' | None."""
+    if not value:
+        return None
+    v = str(value).strip().lower()
+    if v in ("самовывоз", "pickup"):
+        return "pickup"
+    if v in ("доставка", "delivery"):
+        return "delivery"
+    if v in ("доставка и самовывоз", "both"):
+        return "both"
+    return None
+
+
 def get_preorder_available_dates(
     preorder_enabled: bool,
     preorder_schedule_type: Optional[str],

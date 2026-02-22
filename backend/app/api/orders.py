@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from decimal import Decimal
@@ -12,8 +12,11 @@ from backend.app.core.auth import (
     verify_user_id,
 )
 from backend.app.core.logging import get_logger
+from backend.app.core.settings import get_settings
 from backend.app.models.seller import Seller
+from backend.app.models.product import Product
 from backend.app.models.loyalty import normalize_phone
+from sqlalchemy import select
 from backend.app.services.orders import (
     OrderService,
     OrderServiceError,
@@ -25,6 +28,19 @@ from backend.app.services.orders import (
 )
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+async def require_internal_api_key(
+    x_internal_key: Optional[str] = Header(None, alias="X-Internal-Key"),
+):
+    """Require internal API key for bot-to-backend order management calls."""
+    settings = get_settings()
+    if not settings.INTERNAL_API_KEY:
+        # Not configured — allow all (dev mode); log warning
+        logger.warning("INTERNAL_API_KEY not set — order management endpoints are unprotected")
+        return
+    if not x_internal_key or x_internal_key != settings.INTERNAL_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing internal API key")
 
 
 def _handle_service_error(e: OrderServiceError):
@@ -92,7 +108,11 @@ async def create_order(
 
 # --- 2. ПРИНЯТЬ ЗАКАЗ ---
 @router.post("/{order_id}/accept")
-async def accept_order(order_id: int, session: AsyncSession = Depends(get_session)):
+async def accept_order(
+    order_id: int,
+    session: AsyncSession = Depends(get_session),
+    _auth: None = Depends(require_internal_api_key),
+):
     service = OrderService(session)
     try:
         result = await service.accept_order(order_id)
@@ -162,7 +182,11 @@ async def accept_order(order_id: int, session: AsyncSession = Depends(get_sessio
 
 # --- 3. ОТКЛОНИТЬ ЗАКАЗ ---
 @router.post("/{order_id}/reject")
-async def reject_order(order_id: int, session: AsyncSession = Depends(get_session)):
+async def reject_order(
+    order_id: int,
+    session: AsyncSession = Depends(get_session),
+    _auth: None = Depends(require_internal_api_key),
+):
     service = OrderService(session)
     try:
         result = await service.reject_order(order_id)
@@ -190,7 +214,11 @@ async def reject_order(order_id: int, session: AsyncSession = Depends(get_sessio
 
 # --- 4. ЗАВЕРШИТЬ ЗАКАЗ ---
 @router.post("/{order_id}/done")
-async def done_order(order_id: int, session: AsyncSession = Depends(get_session)):
+async def done_order(
+    order_id: int,
+    session: AsyncSession = Depends(get_session),
+    _auth: None = Depends(require_internal_api_key),
+):
     service = OrderService(session)
     try:
         result = await service.complete_order(order_id)
@@ -247,7 +275,8 @@ async def get_buyer_orders(
 async def update_order_status(
     order_id: int,
     status: str,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    _auth: None = Depends(require_internal_api_key),
 ):
     """
     Изменить статус заказа.
@@ -309,15 +338,17 @@ async def update_order_status(
 async def update_order_price(
     order_id: int,
     new_price: float,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    _auth: None = Depends(require_internal_api_key),
 ):
     """
     Изменить цену заказа. Можно изменить только для заказов со статусом 'accepted'.
     """
+    if new_price <= 0:
+        raise HTTPException(status_code=422, detail="Цена должна быть больше 0")
     logger.info("Updating order price", order_id=order_id, new_price=new_price)
     service = OrderService(session)
     try:
-        from decimal import Decimal
         result = await service.update_order_price(order_id, Decimal(str(new_price)))
         await session.commit()
         logger.info(
@@ -390,23 +421,52 @@ async def guest_checkout(
     order_service = OrderService(session)
     created = []
 
+    # Build per-seller delivery type map
+    delivery_map: dict = {}
+    if data.delivery_by_seller:
+        for dbs in data.delivery_by_seller:
+            delivery_map[dbs.seller_id] = dbs.delivery_type
+
+    # Pre-fetch all products from DB to validate prices (never trust client prices)
+    all_product_ids = [it.product_id for it in data.items]
+    products_result = await session.execute(
+        select(Product).where(Product.id.in_(all_product_ids))
+    )
+    products_map = {p.id: p for p in products_result.scalars().all()}
+
     try:
         for seller_id, items in by_seller.items():
-            total = sum(Decimal(str(it.price)) * it.quantity for it in items)
+            # Resolve delivery type for this seller
+            seller_delivery = delivery_map.get(seller_id, data.delivery_type)
+
+            # Use DB prices, not client-sent prices
+            total = Decimal("0")
+            verified_items = []
+            for it in items:
+                product = products_map.get(it.product_id)
+                if not product:
+                    raise HTTPException(status_code=400, detail=f"Товар {it.product_id} не найден")
+                if not product.is_active:
+                    raise HTTPException(status_code=400, detail=f"Товар «{product.name}» недоступен")
+                if product.seller_id != seller_id:
+                    raise HTTPException(status_code=400, detail=f"Товар {it.product_id} не принадлежит магазину")
+                db_price = Decimal(str(product.price))
+                total += db_price * it.quantity
+                verified_items.append((it, product, db_price))
 
             # Add delivery price from seller settings
             seller = await session.get(Seller, seller_id)
             delivery_price = Decimal("0")
-            if seller and data.delivery_type == "Доставка" and getattr(seller, "delivery_price", None):
+            if seller and seller_delivery == "Доставка" and getattr(seller, "delivery_price", None):
                 delivery_price = Decimal(str(seller.delivery_price))
                 total += delivery_price
 
             items_info = ", ".join(
-                f"{it.product_id}:{it.name} x {it.quantity}" for it in items
+                f"{it.product_id}:{product.name}@{db_price} x {it.quantity}" for it, product, db_price in verified_items
             )
 
             # Build address (same format as authenticated checkout)
-            if data.delivery_type == "Самовывоз" and seller and getattr(seller, "map_url", None):
+            if seller_delivery == "Самовывоз" and seller and getattr(seller, "map_url", None):
                 addr = f"{seller.map_url}\n📞 {normalized_phone}\n👤 {guest_name}"
             else:
                 addr = f"{data.address}\n📞 {normalized_phone}\n👤 {guest_name}"
@@ -415,11 +475,11 @@ async def guest_checkout(
                 seller_id=seller_id,
                 items_info=items_info,
                 total_price=total,
-                delivery_type=data.delivery_type,
+                delivery_type=seller_delivery,
                 address=addr,
                 guest_name=guest_name,
                 guest_phone=normalized_phone,
-                guest_address=data.address if data.delivery_type == "Доставка" else None,
+                guest_address=data.address if seller_delivery == "Доставка" else None,
                 comment=(data.comment or "").strip() or None,
             )
             created.append({

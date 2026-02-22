@@ -249,13 +249,19 @@ class PointsUsagePerSeller(BaseModel):
     points_to_use: float
 
 
+class DeliveryPerSeller(BaseModel):
+    seller_id: int
+    delivery_type: str  # "Доставка" | "Самовывоз"
+
+
 class CheckoutBody(BaseModel):
     fio: Optional[str] = None
     phone: str
-    delivery_type: str  # "Доставка" | "Самовывоз"
-    address: str
+    delivery_type: str = "Самовывоз"  # fallback/default
+    address: str = ""
     comment: Optional[str] = None
     points_usage: Optional[List[PointsUsagePerSeller]] = None
+    delivery_by_seller: Optional[List[DeliveryPerSeller]] = None
 
 
 class VisitedSellerRecord(BaseModel):
@@ -377,6 +383,12 @@ async def checkout_cart(
                 if pu.points_to_use > 0:
                     points_by_seller[pu.seller_id] = pu.points_to_use
 
+        # Build per-seller delivery type map
+        delivery_map: dict = {}
+        if data.delivery_by_seller:
+            for item in data.delivery_by_seller:
+                delivery_map[item.seller_id] = item.delivery_type
+
         orders = await service.checkout(
             current_user.user.id,
             fio=fio,
@@ -385,6 +397,7 @@ async def checkout_cart(
             address=data.address,
             comment=data.comment,
             points_by_seller=points_by_seller or None,
+            delivery_by_seller=delivery_map or None,
         )
         await session.commit()
 

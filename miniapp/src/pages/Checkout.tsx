@@ -33,7 +33,7 @@ export function Checkout() {
   } | null>(null);
   const [cart, setCart] = useState<CartSellerGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deliveryType, setDeliveryType] = useState<'Доставка' | 'Самовывоз'>('Доставка');
+  const [deliveryBySeller, setDeliveryBySeller] = useState<Record<number, 'Доставка' | 'Самовывоз'>>({});
   const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [requestingContact, setRequestingContact] = useState(false);
@@ -64,6 +64,23 @@ export function Checkout() {
       setUser(userData ?? null);
       const cartArr = Array.isArray(cartData) ? cartData : [];
       setCart(cartArr);
+
+      // Initialize delivery type per seller based on their capabilities
+      setDeliveryBySeller((prev) => {
+        const next = { ...prev };
+        for (const g of cartArr) {
+          if (next[g.seller_id]) continue; // keep existing choice
+          if (g.delivery_type === 'pickup') {
+            next[g.seller_id] = 'Самовывоз';
+          } else if (g.delivery_type === 'delivery') {
+            next[g.seller_id] = 'Доставка';
+          } else {
+            // 'both' or null — default to Самовывоз
+            next[g.seller_id] = 'Самовывоз';
+          }
+        }
+        return next;
+      });
 
       // Fetch loyalty balances for each seller in cart
       if (cartArr.length > 0) {
@@ -174,7 +191,8 @@ export function Checkout() {
       return;
     }
 
-    if (deliveryType === 'Доставка' && !address.trim()) {
+    const anyDelivery = Object.values(deliveryBySeller).some((d) => d === 'Доставка');
+    if (anyDelivery && !address.trim()) {
       showAlert('Укажите адрес доставки');
       return;
     }
@@ -201,13 +219,20 @@ export function Checkout() {
         .filter(([, pts]) => pts > 0)
         .map(([sid, pts]) => ({ seller_id: Number(sid), points_to_use: pts }));
 
+      // Build per-seller delivery type list
+      const deliveryArr = cart.map((g) => ({
+        seller_id: g.seller_id,
+        delivery_type: deliveryBySeller[g.seller_id] ?? 'Самовывоз',
+      }));
+
       const { orders } = await api.checkoutCart({
         fio,
         phone: user.phone,
-        delivery_type: deliveryType,
-        address: deliveryType === 'Самовывоз' ? 'Самовывоз' : address.trim(),
+        delivery_type: 'Самовывоз', // fallback (per-seller overrides take precedence)
+        address: anyDelivery ? address.trim() : 'Самовывоз',
         ...(commentInput.trim() ? { comment: commentInput.trim() } : {}),
         ...(pointsArr.length > 0 ? { points_usage: pointsArr } : {}),
+        delivery_by_seller: deliveryArr,
       });
       setSubmitting(false);
       const ordersMsg = orders.length > 1
@@ -224,7 +249,11 @@ export function Checkout() {
   const formatPrice = (n: number) =>
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
   const totalGoods = cart.reduce((sum, g) => sum + g.total, 0);
-  const totalDelivery = cart.reduce((sum, g) => sum + (g.delivery_price ?? 0), 0);
+  // Only sum delivery price for sellers where delivery is chosen
+  const totalDelivery = cart.reduce((sum, g) => {
+    if (deliveryBySeller[g.seller_id] === 'Доставка') return sum + (g.delivery_price ?? 0);
+    return sum;
+  }, 0);
   // Points discount per seller
   const totalPointsDiscount = cart.reduce((sum, g) => {
     const pts = pointsUsage[g.seller_id] ?? 0;
@@ -232,7 +261,8 @@ export function Checkout() {
     if (!pts || !info) return sum;
     return sum + pts * info.points_to_ruble_rate;
   }, 0);
-  const totalToPay = (deliveryType === 'Доставка' ? totalGoods + totalDelivery : totalGoods) - totalPointsDiscount;
+  const totalToPay = totalGoods + totalDelivery - totalPointsDiscount;
+  const hasAnyDelivery = Object.values(deliveryBySeller).some((d) => d === 'Доставка');
   const totalItemCount = cart.reduce((s, g) => s + g.items.length, 0);
 
   /** Max points buyer can use for a seller group (min of balance and allowed % of order). */
@@ -285,83 +315,58 @@ export function Checkout() {
     <div className="checkout-page">
       <h1 className="checkout-page__title">Оформление заказа</h1>
 
-      <div className="checkout-delivery-segment">
-        <span className="checkout-delivery-segment__label">Способ получения</span>
-        <div className="checkout-delivery-segment__buttons">
-          <button
-            type="button"
-            className={`checkout-delivery-segment__btn ${deliveryType === 'Самовывоз' ? 'checkout-delivery-segment__btn--active' : ''}`}
-            onClick={() => setDeliveryType('Самовывоз')}
-          >
-            Самовывоз
-          </button>
-          <button
-            type="button"
-            className={`checkout-delivery-segment__btn ${deliveryType === 'Доставка' ? 'checkout-delivery-segment__btn--active' : ''}`}
-            onClick={() => setDeliveryType('Доставка')}
-          >
-            Курьером
-          </button>
-        </div>
-      </div>
-
-      {deliveryType === 'Самовывоз' && (() => {
-        const groupsWithAddress = cart.filter((g) => (g.address_name && g.address_name.trim()) || (g.map_url && g.map_url.trim()));
-        if (groupsWithAddress.length === 0) return null;
-        return (
-          <div className="checkout-pickup-map">
-            {groupsWithAddress.length === 1 ? (
-              <>
-                {groupsWithAddress[0].address_name && (
-                  <div className="checkout-pickup-address">
-                    {groupsWithAddress[0].address_name}
-                  </div>
-                )}
-                {groupsWithAddress[0].map_url && (
-                  <a
-                    href={groupsWithAddress[0].map_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="checkout-pickup-map__btn"
-                  >
-                    Отобразить местоположение на карте
-                  </a>
-                )}
-              </>
-            ) : (
-              groupsWithAddress.map((group) => (
-                <div key={group.seller_id} style={{ marginBottom: '0.75rem' }}>
-                  <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>{group.shop_name}</div>
-                  {group.address_name && (
-                    <div className="checkout-pickup-address">
-                      {group.address_name}
-                    </div>
-                  )}
-                  {group.map_url && (
-                    <a
-                      href={group.map_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="checkout-pickup-map__btn"
-                    >
-                      Показать на карте
-                    </a>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        );
-      })()}
-
       <div className="checkout-summary">
         <div className="checkout-summary__header">
           <h2 className="checkout-summary__title">Ваш заказ</h2>
           <span className="checkout-summary__count">{itemCountLabel(totalItemCount)}</span>
         </div>
-        {cart.map((group) => (
+        {cart.map((group) => {
+          const sellerDt = deliveryBySeller[group.seller_id] ?? 'Самовывоз';
+          const supportsDelivery = group.delivery_type === 'delivery' || group.delivery_type === 'both' || !group.delivery_type;
+          const supportsPickup = group.delivery_type === 'pickup' || group.delivery_type === 'both' || !group.delivery_type;
+          return (
           <div key={group.seller_id} className="checkout-summary__group">
             <div className="checkout-summary__shop">{group.shop_name}</div>
+
+            {/* Per-seller delivery type selector */}
+            <div className="checkout-delivery-segment" style={{ marginBottom: '0.5rem' }}>
+              <span className="checkout-delivery-segment__label">Способ получения</span>
+              <div className="checkout-delivery-segment__buttons">
+                {supportsPickup && (
+                  <button
+                    type="button"
+                    className={`checkout-delivery-segment__btn ${sellerDt === 'Самовывоз' ? 'checkout-delivery-segment__btn--active' : ''}`}
+                    onClick={() => setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Самовывоз' }))}
+                  >
+                    Самовывоз
+                  </button>
+                )}
+                {supportsDelivery && (
+                  <button
+                    type="button"
+                    className={`checkout-delivery-segment__btn ${sellerDt === 'Доставка' ? 'checkout-delivery-segment__btn--active' : ''}`}
+                    onClick={() => setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Доставка' }))}
+                  >
+                    Курьером
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Pickup address for this seller */}
+            {sellerDt === 'Самовывоз' && ((group.address_name && group.address_name.trim()) || (group.map_url && group.map_url.trim())) && (
+              <div className="checkout-pickup-map" style={{ marginBottom: '0.5rem' }}>
+                {group.address_name && (
+                  <div className="checkout-pickup-address">{group.address_name}</div>
+                )}
+                {group.map_url && (
+                  <a href={group.map_url} target="_blank" rel="noopener noreferrer" className="checkout-pickup-map__btn">
+                    Показать на карте
+                  </a>
+                )}
+              </div>
+            )}
+
             <ul className="checkout-summary__list">
               {group.items.map((item) => (
                 <li key={item.product_id} className="checkout-summary__item">
@@ -386,7 +391,7 @@ export function Checkout() {
             </ul>
             <div className="checkout-summary__group-total">
               Итого: {formatPrice(group.total)}
-              {(group.delivery_price ?? 0) > 0 && deliveryType === 'Доставка' && (
+              {(group.delivery_price ?? 0) > 0 && sellerDt === 'Доставка' && (
                 <span> + доставка {formatPrice(group.delivery_price!)}</span>
               )}
             </div>
@@ -440,7 +445,8 @@ export function Checkout() {
               );
             })()}
           </div>
-        ))}
+          );
+        })}
         <div className="checkout-summary__grand-total">
           К оплате: {formatPrice(totalToPay)}
           {totalPointsDiscount > 0 && (
@@ -535,7 +541,7 @@ export function Checkout() {
           </div>
         )}
         
-        {deliveryType === 'Доставка' && (
+        {hasAnyDelivery && (
           <label className="checkout-form__label">
             Адрес доставки
             <input
@@ -544,7 +550,7 @@ export function Checkout() {
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Улица, дом, квартира"
-              required={deliveryType === 'Доставка'}
+              required={hasAnyDelivery}
             />
           </label>
         )}

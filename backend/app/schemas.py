@@ -43,7 +43,7 @@ class OrderCreate(BaseModel):
     buyer_id: int
     seller_id: int
     items_info: str
-    total_price: Decimal 
+    total_price: Decimal = Field(gt=0)
     delivery_type: str
     address: Optional[str] = None
     is_preorder: bool = False
@@ -67,7 +67,7 @@ class GuestCartItem(BaseModel):
     product_id: int
     seller_id: int
     name: str
-    price: Decimal
+    price: Decimal = Field(gt=0)
     quantity: int = Field(gt=0)
 
     @field_validator("name")
@@ -76,13 +76,19 @@ class GuestCartItem(BaseModel):
         return sanitize_user_input(v, max_length=500)
 
 
+class GuestDeliveryPerSeller(BaseModel):
+    seller_id: int
+    delivery_type: str  # "Доставка" | "Самовывоз"
+
+
 class GuestCheckoutBody(BaseModel):
     guest_name: str
     guest_phone: str
-    delivery_type: str  # "Доставка" | "Самовывоз"
-    address: str
+    delivery_type: str = "Самовывоз"  # fallback/default
+    address: str = ""
     comment: Optional[str] = None
     items: List[GuestCartItem] = Field(min_length=1)
+    delivery_by_seller: Optional[List[GuestDeliveryPerSeller]] = None
 
     @field_validator("guest_name")
     @classmethod

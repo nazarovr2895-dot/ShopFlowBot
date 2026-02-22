@@ -4,7 +4,7 @@ from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, and_, func
 from typing import List, Dict, Any, Optional
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from backend.app.models.cart import CartItem, BuyerFavoriteSeller, BuyerFavoriteProduct
 from backend.app.models.order import Order
@@ -12,7 +12,7 @@ from backend.app.models.product import Product
 from backend.app.models.seller import Seller
 from backend.app.models.user import User
 from backend.app.services.orders import OrderService, OrderServiceError
-from backend.app.services.sellers import get_preorder_available_dates
+from backend.app.services.sellers import get_preorder_available_dates, normalize_delivery_type_setting
 from backend.app.services.reservations import ReservationService
 
 
@@ -68,8 +68,8 @@ class CartService:
         for seller_id, items in by_seller.items():
             seller = sellers.get(seller_id)
             shop_name = (seller.shop_name or "Магазин") if seller else "Магазин"
-            total = sum(float(it.price) * it.quantity for it in items)
-            delivery_price = float(getattr(seller, "delivery_price", 0) or 0) if seller else 0
+            total = sum(Decimal(str(it.price)) * it.quantity for it in items)
+            delivery_price = Decimal(str(getattr(seller, "delivery_price", 0) or 0)) if seller else Decimal("0")
             address_name = getattr(seller, "address_name", None) if seller else None
             address_name = address_name if address_name and str(address_name).strip() else None
             map_url = getattr(seller, "map_url", None) if seller else None
@@ -90,10 +90,11 @@ class CartService:
                     }
                     for it in items
                 ],
-                "total": round(total, 2),
-                "delivery_price": round(delivery_price, 2),
+                "total": float(total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+                "delivery_price": float(delivery_price.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
                 "address_name": address_name,
                 "map_url": map_url,
+                "delivery_type": normalize_delivery_type_setting(seller.delivery_type) if seller else None,
             })
         return out
 
@@ -298,11 +299,13 @@ class CartService:
         address: str,
         comment: Optional[str] = None,
         points_by_seller: Optional[Dict[int, float]] = None,
+        delivery_by_seller: Optional[Dict[int, str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Create one order per (seller, is_preorder) from cart, then clear cart.
         Regular and preorder items for the same seller become separate orders.
         points_by_seller: {seller_id: points_to_use} — optional loyalty points discount.
+        delivery_by_seller: {seller_id: delivery_type} — per-seller delivery type override.
         Returns list of { order_id, seller_id, total_price }.
         """
         from backend.app.services.loyalty import LoyaltyService
@@ -325,8 +328,10 @@ class CartService:
         for group in groups:
             seller_id = group["seller_id"]
             seller = await self.session.get(Seller, seller_id)
+            # Resolve delivery type for this seller
+            seller_delivery = (delivery_by_seller or {}).get(seller_id, delivery_type)
             addr = address
-            if delivery_type == "Самовывоз" and seller and getattr(seller, "map_url", None):
+            if seller_delivery == "Самовывоз" and seller and getattr(seller, "map_url", None):
                 addr = (seller.map_url or "") + f"\n📞 {phone}\n👤 {fio}"
             else:
                 addr = f"{address}\n📞 {phone}\n👤 {fio}"
@@ -337,9 +342,9 @@ class CartService:
                 if not items:
                     continue
                 total = sum(Decimal(str(it["price"])) * it["quantity"] for it in items)
-                if seller and getattr(seller, "delivery_price", None) and delivery_type == "Доставка":
+                if seller and getattr(seller, "delivery_price", None) and seller_delivery == "Доставка":
                     total += Decimal(str(seller.delivery_price or 0))
-                items_info = ", ".join(f"{it['product_id']}:{it['name']} x {it['quantity']}" for it in items)
+                items_info = ", ".join(f"{it['product_id']}:{it['name']}@{it['price']} x {it['quantity']}" for it in items)
                 preorder_date: Optional[date] = None
                 if is_preorder and items:
                     d = items[0].get("preorder_delivery_date")
@@ -379,20 +384,21 @@ class CartService:
                                 points_used = actual_points
                                 points_discount = discount
                                 total = total - discount
-                                # Deduct points
-                                await loyalty_svc.deduct_points(seller_id, customer.id, float(actual_points))
                 try:
                     order = await order_service.create_order(
                         buyer_id=buyer_id,
                         seller_id=seller_id,
                         items_info=items_info,
                         total_price=total,
-                        delivery_type=delivery_type,
+                        delivery_type=seller_delivery,
                         address=addr,
                         comment=(comment or "").strip() or None,
                         is_preorder=is_preorder,
                         preorder_delivery_date=preorder_date,
                     )
+                    # Deduct points AFTER order creation succeeds (avoid losing points on failure)
+                    if points_used > 0 and customer:
+                        await loyalty_svc.deduct_points(seller_id, customer.id, float(points_used))
                     # Store points info on order
                     if points_used > 0:
                         order.points_used = float(points_used)

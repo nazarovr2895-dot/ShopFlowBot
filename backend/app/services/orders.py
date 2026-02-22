@@ -6,17 +6,20 @@ Order service - handles all order-related business logic.
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional, List, Dict, Any
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta, date
 import re
 
+from backend.app.core.logging import get_logger
 from backend.app.models.order import Order
 from backend.app.models.seller import Seller
+
+logger = get_logger(__name__)
 from backend.app.models.product import Product
 from backend.app.models.user import User
 from backend.app.models.loyalty import normalize_phone
 from backend.app.models.crm import Bouquet
-from backend.app.services.sellers import SellerService, normalize_delivery_type
+from backend.app.services.sellers import SellerService, normalize_delivery_type, normalize_delivery_type_setting
 from backend.app.services.bouquets import check_bouquet_stock, deduct_bouquet_from_receptions
 from backend.app.services.loyalty import LoyaltyService
 
@@ -127,6 +130,12 @@ class OrderService:
         seller = await self._get_seller_for_update(seller_id)
         self._validate_seller(seller, seller_id)
 
+        # Validate delivery type is supported by seller
+        seller_setting = normalize_delivery_type_setting(seller.delivery_type)
+        requested = normalize_delivery_type(delivery_type)
+        if seller_setting and seller_setting != "both" and seller_setting != requested:
+            raise OrderServiceError("Магазин не поддерживает выбранный способ доставки", 400)
+
         # Check seller subscription is active
         from backend.app.services.subscription import SubscriptionService
         sub_svc = SubscriptionService(self.session)
@@ -191,6 +200,12 @@ class OrderService:
         """
         seller = await self._get_seller_for_update(seller_id)
         self._validate_seller(seller, seller_id)
+
+        # Validate delivery type is supported by seller
+        seller_setting = normalize_delivery_type_setting(seller.delivery_type)
+        requested = normalize_delivery_type(delivery_type)
+        if seller_setting and seller_setting != "both" and seller_setting != requested:
+            raise OrderServiceError("Магазин не поддерживает выбранный способ доставки", 400)
 
         # Check seller subscription is active
         from backend.app.services.subscription import SubscriptionService
@@ -803,6 +818,16 @@ class OrderService:
         if order.status not in ("pending", "accepted"):
             raise InvalidOrderStatusError(order_id, order.status, "pending or accepted")
 
+        # Invalidate existing payment if price changes (old payment has wrong amount)
+        if order.payment_id and order.payment_status in ("pending", "waiting_for_capture"):
+            logger.info(
+                "Invalidating payment due to price change",
+                order_id=order_id,
+                old_payment_id=order.payment_id,
+            )
+            order.payment_id = None
+            order.payment_status = None
+
         # При первом изменении сохраняем исходную цену
         if order.original_price is None:
             order.original_price = order.total_price
@@ -855,7 +880,7 @@ class OrderService:
         from backend.app.services.commissions import get_effective_commission_rate
         _eff_pct = await get_effective_commission_rate(self.session, seller_id)
         commission_rate = _eff_pct / 100
-        commission = round(total_revenue * commission_rate, 2)
+        commission = float(Decimal(str(total_revenue * commission_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
         # Orders by status (any status)
         status_stmt = (

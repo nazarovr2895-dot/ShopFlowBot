@@ -86,6 +86,8 @@ export interface CartSellerGroup {
   address_name?: string | null;
   /** Link to map for pickup (e.g. Google Maps). */
   map_url?: string | null;
+  /** Seller's supported delivery type. */
+  delivery_type?: 'delivery' | 'pickup' | 'both' | null;
 }
 
 // Visited / Subscribed sellers (rich data, same shape as PublicSellerListItem)

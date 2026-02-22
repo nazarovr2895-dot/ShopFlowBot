@@ -1,4 +1,5 @@
 """Payment API endpoints for YuKassa split payment integration."""
+import ipaddress
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -18,6 +19,30 @@ from backend.app.services.payment import (
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+# YooKassa webhook source IPs (https://yookassa.ru/developers/using-api/webhooks)
+YOOKASSA_IP_NETWORKS = [
+    ipaddress.ip_network("185.71.76.0/27"),
+    ipaddress.ip_network("185.71.77.0/27"),
+    ipaddress.ip_network("77.75.153.0/25"),
+    ipaddress.ip_network("77.75.154.128/25"),
+    ipaddress.ip_network("2a02:5180::/32"),
+]
+YOOKASSA_SINGLE_IPS = {
+    ipaddress.ip_address("77.75.156.11"),
+    ipaddress.ip_address("77.75.156.35"),
+}
+
+
+def _is_yookassa_ip(ip_str: str) -> bool:
+    """Check if the given IP belongs to YooKassa's allowed ranges."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    if addr in YOOKASSA_SINGLE_IPS:
+        return True
+    return any(addr in net for net in YOOKASSA_IP_NETWORKS)
 
 
 # ---------------------------------------------------------------------------
@@ -82,11 +107,21 @@ async def payment_webhook(
     """
     YuKassa webhook endpoint.
 
-    No authentication — security is handled via IP allowlisting in nginx
-    and/or webhook URL verification in the YuKassa merchant dashboard.
+    Security layers:
+    1. IP allowlisting in nginx (primary)
+    2. Application-level IP check (defense in depth)
 
     Always returns HTTP 200 to prevent YuKassa from retrying endlessly.
     """
+    # Application-level IP check (defense in depth on top of nginx)
+    client_ip = request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else ""
+    if client_ip and not _is_yookassa_ip(client_ip):
+        logger.warning("Webhook from non-YooKassa IP", source_ip=client_ip)
+        # Still return 200 to not leak information, but don't process
+        return {"status": "ok"}
+
     try:
         body = await request.json()
     except Exception:

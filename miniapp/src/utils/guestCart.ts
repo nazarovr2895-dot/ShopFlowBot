@@ -8,6 +8,8 @@ export interface GuestCartItem {
   quantity: number;
   photo_id?: string | null;
   seller_name?: string;
+  /** Seller's supported delivery type (stored from shop context). */
+  delivery_type?: 'delivery' | 'pickup' | 'both' | null;
 }
 
 const GUEST_CART_KEY = 'flurai_guest_cart';
@@ -93,5 +95,6 @@ export function guestCartToGroups(items: GuestCartItem[]): CartSellerGroup[] {
     delivery_price: 0,
     address_name: null,
     map_url: null,
+    delivery_type: sellerItems[0].delivery_type ?? null,
   }));
 }

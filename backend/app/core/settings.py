@@ -51,7 +51,8 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: Optional[str] = Field(default=None, description="Admin password (required in production)")
     ADMIN_SECRET: Optional[str] = Field(default=None, description="Admin secret token (required in production)")
     JWT_SECRET: Optional[str] = Field(default=None, description="JWT secret for seller tokens (required in production)")
-    
+    INTERNAL_API_KEY: Optional[str] = Field(default=None, description="API key for internal bot-to-backend calls")
+
     # CORS configuration
     ALLOWED_ORIGINS: str = Field(default="", description="Comma-separated list of allowed CORS origins")
     

@@ -301,6 +301,7 @@ export function ShopDetails() {
             quantity,
             photo_id: product.photo_id ?? null,
             seller_name: seller?.shop_name || undefined,
+            delivery_type: seller?.delivery_type ?? null,
           });
         }
         // Update local cart state (no alert — visual change is the feedback)

@@ -92,19 +92,37 @@ class PaymentService:
 
     def _parse_items_info(self, items_info: str) -> List[Dict[str, Any]]:
         """
-        Parse ``items_info`` string like ``"123:Розы x 2, 456:Тюльпаны x 3"``
-        into a list of dicts: ``[{product_id, name, quantity}, ...]``.
+        Parse ``items_info`` string into a list of dicts.
+
+        Supported formats:
+        - New: ``"123:Розы@150.00 x 2, 456:Тюльпаны@200.00 x 3"``
+        - Legacy: ``"123:Розы x 2, 456:Тюльпаны x 3"``
+        Returns: ``[{product_id, name, quantity, price (optional)}, ...]``.
         """
+        # Try new format with embedded price first
+        pattern_with_price = r'(\d+):(.+?)@(\d+(?:\.\d+)?)\s*[x×]\s*(\d+)'
+        matches = re.findall(pattern_with_price, items_info or "")
+        if matches:
+            return [
+                {
+                    "product_id": int(pid),
+                    "name": name.strip(),
+                    "quantity": int(qty),
+                    "price": Decimal(price),
+                }
+                for pid, name, price, qty in matches
+            ]
+        # Fallback: legacy format without price
         pattern = r'(\d+):(.+?)\s*[x×]\s*(\d+)'
         matches = re.findall(pattern, items_info or "")
-        result = []
-        for pid, name, qty in matches:
-            result.append({
+        return [
+            {
                 "product_id": int(pid),
                 "name": name.strip(),
                 "quantity": int(qty),
-            })
-        return result
+            }
+            for pid, name, qty in matches
+        ]
 
     async def _build_receipt(
         self,
@@ -133,8 +151,8 @@ class PaymentService:
         # ---- items ----
         parsed = self._parse_items_info(order.items_info)
 
-        # Fetch product prices in one query
-        product_ids = [p["product_id"] for p in parsed]
+        # Fetch product prices from DB as fallback (for legacy orders without embedded prices)
+        product_ids = [p["product_id"] for p in parsed if "price" not in p]
         price_map: Dict[int, Decimal] = {}
         if product_ids:
             stmt = select(Product.id, Product.price).where(Product.id.in_(product_ids))
@@ -148,7 +166,8 @@ class PaymentService:
         for item in parsed:
             pid = item["product_id"]
             qty = item["quantity"]
-            unit_price = price_map.get(pid)
+            # Prefer order-time price from items_info; fall back to current DB price
+            unit_price = item.get("price") or price_map.get(pid)
             if unit_price is None:
                 # Product may have been deleted — distribute evenly as fallback
                 continue
@@ -183,9 +202,10 @@ class PaymentService:
             })
             items_subtotal = total
 
-        # ---- adjustment line (delivery / discount / rounding) ----
+        # ---- adjustment (delivery / discount / rounding) ----
         diff = (total - items_subtotal).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if diff > Decimal("0"):
+            # Positive diff = delivery fee or other surcharge
             receipt_items.append({
                 "description": "Доставка",
                 "quantity": "1",
@@ -197,19 +217,33 @@ class PaymentService:
                 "payment_mode": "full_payment",
                 "payment_subject": "service",
             })
-        elif diff < Decimal("0"):
-            # Discount / points — adjust last product item price down
-            receipt_items.append({
-                "description": "Скидка",
-                "quantity": "1",
-                "amount": {
-                    "value": str(diff),
-                    "currency": "RUB",
-                },
-                "vat_code": 1,
-                "payment_mode": "full_payment",
-                "payment_subject": "commodity",
-            })
+        elif diff < Decimal("0") and receipt_items:
+            # Discount (loyalty points, preorder, etc.)
+            # YooKassa rejects negative amounts, so distribute discount across items proportionally
+            discount = abs(diff)
+            distributed = Decimal("0")
+            for i, ri in enumerate(receipt_items):
+                item_value = Decimal(ri["amount"]["value"])
+                item_qty = int(ri["quantity"])
+                item_total = item_value * item_qty
+                if i < len(receipt_items) - 1:
+                    # Proportional share of discount
+                    share = (discount * item_total / items_subtotal).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP
+                    )
+                    distributed += share
+                else:
+                    # Last item gets the remainder to avoid rounding drift
+                    share = discount - distributed
+                # Reduce unit price (share is per-line, divide by qty for unit price)
+                per_unit_reduction = (share / item_qty).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+                new_price = item_value - per_unit_reduction
+                # Ensure price doesn't go below 0.01
+                if new_price < Decimal("0.01"):
+                    new_price = Decimal("0.01")
+                ri["amount"]["value"] = str(new_price)
 
         return {
             "customer": customer,
@@ -383,7 +417,11 @@ class PaymentService:
             logger.warning("Webhook has invalid order_id", order_id=order_id_str)
             return
 
-        order = await self.session.get(Order, order_id)
+        # Lock order row to prevent concurrent webhook processing
+        result = await self.session.execute(
+            select(Order).where(Order.id == order_id).with_for_update()
+        )
+        order = result.scalar_one_or_none()
         if not order:
             logger.warning("Webhook: order not found", order_id=order_id)
             return

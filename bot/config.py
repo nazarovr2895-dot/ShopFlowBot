@@ -15,6 +15,9 @@ if not BOT_TOKEN:
 # Если запускаем в Docker, будет backend, если локально — localhost
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
+# Internal API key for bot-to-backend auth on order management endpoints
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+
 # URL Mini App для кнопки каталога
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://flowshop-miniapp.vercel.app")
 

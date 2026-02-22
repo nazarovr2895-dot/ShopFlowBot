@@ -23,7 +23,7 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Отменён',
 };
 
-type MainTab = 'pending' | 'awaiting_payment' | 'active' | 'history' | 'preorder';
+type MainTab = 'pending' | 'awaiting_payment' | 'active' | 'history' | 'cancelled' | 'preorder';
 type PreorderSubTab = 'requests' | 'waiting' | 'dashboard';
 
 function formatItemsInfo(itemsInfo: string): string {
@@ -74,6 +74,7 @@ export function SellerOrders() {
     if (initialTab === 'awaiting_payment') return 'awaiting_payment';
     if (initialTab === 'active') return 'active';
     if (initialTab === 'history') return 'history';
+    if (initialTab === 'cancelled') return 'cancelled';
     if (initialTab === 'preorder') return 'preorder';
     return 'pending';
   });
@@ -114,6 +115,10 @@ export function SellerOrders() {
         status = 'accepted';
       } else if (activeTab === 'active') {
         status = 'accepted,assembling,in_transit';
+      } else if (activeTab === 'cancelled') {
+        status = 'cancelled';
+        if (dateFrom) date_from = dateFrom;
+        if (dateTo) date_to = dateTo;
       } else {
         status = 'done,completed';
         if (dateFrom) date_from = dateFrom;
@@ -375,6 +380,7 @@ export function SellerOrders() {
           { key: 'awaiting_payment', label: '💳 Ожидает оплаты' },
           { key: 'active', label: 'Активные' },
           { key: 'history', label: 'История' },
+          { key: 'cancelled', label: 'Отменённые' },
           { key: 'preorder', label: 'Предзаказы' },
         ]}
         activeTab={activeTab}
@@ -467,9 +473,12 @@ export function SellerOrders() {
       {isPreorderWaiting && orders.length > 0 && (
         <p className="orders-hint">Принятые предзаказы ожидают дату поставки. Когда дата наступит — нажмите «Собирать» для перевода в активные.</p>
       )}
+      {activeTab === 'cancelled' && orders.length > 0 && (
+        <p className="orders-hint">Заказы, отменённые покупателями до отправки. Товар и баллы лояльности были возвращены автоматически.</p>
+      )}
 
-      {/* History date filter */}
-      {activeTab === 'history' && (
+      {/* History / Cancelled date filter */}
+      {(activeTab === 'history' || activeTab === 'cancelled') && (
         <div className="orders-date-filter card">
           <FormField label="С">
             <input
@@ -501,9 +510,12 @@ export function SellerOrders() {
             title={isPreorderRequests ? 'Нет запросов на предзаказ' :
                    isPreorderWaiting ? 'Нет ожидающих предзаказов' :
                    activeTab === 'awaiting_payment' ? 'Нет заказов, ожидающих оплаты' :
+                   activeTab === 'cancelled' ? 'Нет отменённых заказов' :
                    'Нет заказов'}
             message={activeTab === 'awaiting_payment'
               ? 'Здесь будут заказы, которые приняты, но ещё не оплачены покупателем'
+              : activeTab === 'cancelled'
+              ? 'Здесь будут заказы, которые покупатели отменили до отправки'
               : 'Заказы появятся здесь, когда покупатели оформят покупку'}
           />
         ) : (

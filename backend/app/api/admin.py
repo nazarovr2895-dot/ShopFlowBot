@@ -25,9 +25,10 @@ ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
 
 async def require_admin_token(x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    """Require admin token when ADMIN_SECRET is configured. Otherwise allow all."""
+    """Require admin token. If ADMIN_SECRET is not configured, reject all requests (fail-closed)."""
     if not ADMIN_SECRET:
-        return
+        logger.warning("ADMIN_SECRET not configured — admin endpoints are blocked")
+        raise HTTPException(status_code=503, detail="Admin panel not configured (ADMIN_SECRET missing)")
     if not x_admin_token or x_admin_token != ADMIN_SECRET:
         raise HTTPException(status_code=401, detail="Invalid or missing admin token")
 
@@ -597,6 +598,7 @@ async def get_all_stats(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     session: AsyncSession = Depends(get_session),
+    _admin: None = Depends(require_admin_token),
 ):
     """Общая статистика всех продавцов. Опционально: date_from, date_to (дата YYYY-MM-DD)."""
     from datetime import datetime as dt, time
@@ -615,6 +617,7 @@ async def get_stats_overview(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     session: AsyncSession = Depends(get_session),
+    _admin: None = Depends(require_admin_token),
 ):
     """Дневная статистика по платформе для графика (выполненные заказы). date_from, date_to — YYYY-MM-DD."""
     from datetime import datetime as dt, time
@@ -629,14 +632,14 @@ async def get_stats_overview(
 
 
 @router.get("/stats/seller")
-async def get_seller_stats(fio: str, session: AsyncSession = Depends(get_session)):
+async def get_seller_stats(fio: str, session: AsyncSession = Depends(get_session), _admin: None = Depends(require_admin_token)):
     """Статистика конкретного продавца по ФИО"""
     service = SellerService(session)
     return await service.get_seller_stats_by_fio(fio)
 
 
 @router.get("/stats/limits")
-async def get_limits_analytics(session: AsyncSession = Depends(get_session)):
+async def get_limits_analytics(session: AsyncSession = Depends(get_session), _admin: None = Depends(require_admin_token)):
     """Аналитика загрузки лимитов продавцов: активные, исчерпавшие, средняя загрузка, разбивка по тарифам."""
     service = SellerService(session)
     try:
@@ -722,17 +725,26 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
     COMMISSION = Decimal(str((_gs.commission_percent if _gs else 3) / 100))
 
     # ── today vs yesterday ──
-    q_today = select(
-        func.count(Order.id).label("cnt"),
-        func.coalesce(func.sum(Order.total_price), 0).label("rev"),
-        func.coalesce(func.avg(Order.total_price), 0).label("avg_chk"),
-    ).where(Order.created_at >= today_start)
+    # Only count completed orders as revenue (not pending/rejected/cancelled)
+    completed_statuses = ["done", "completed"]
 
-    q_yesterday = select(
+    # All orders today (for order count — useful to see total activity)
+    q_today_all = select(
         func.count(Order.id).label("cnt"),
+    ).where(Order.created_at >= today_start)
+    q_yest_all = select(
+        func.count(Order.id).label("cnt"),
+    ).where(and_(Order.created_at >= yesterday_start, Order.created_at < today_start))
+
+    # Completed orders only (for revenue, profit, avg check)
+    q_today_completed = select(
         func.coalesce(func.sum(Order.total_price), 0).label("rev"),
         func.coalesce(func.avg(Order.total_price), 0).label("avg_chk"),
-    ).where(and_(Order.created_at >= yesterday_start, Order.created_at < today_start))
+    ).where(and_(Order.created_at >= today_start, Order.status.in_(completed_statuses)))
+    q_yest_completed = select(
+        func.coalesce(func.sum(Order.total_price), 0).label("rev"),
+        func.coalesce(func.avg(Order.total_price), 0).label("avg_chk"),
+    ).where(and_(Order.created_at >= yesterday_start, Order.created_at < today_start, Order.status.in_(completed_statuses)))
 
     q_new_cust_today = select(func.count(User.tg_id)).where(
         and_(User.created_at >= today_start, User.role == "BUYER")
@@ -741,23 +753,25 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
         and_(User.created_at >= yesterday_start, User.created_at < today_start, User.role == "BUYER")
     )
 
-    r_today = (await session.execute(q_today)).one()
-    r_yest = (await session.execute(q_yesterday)).one()
+    r_today_all = (await session.execute(q_today_all)).one()
+    r_yest_all = (await session.execute(q_yest_all)).one()
+    r_today_completed = (await session.execute(q_today_completed)).one()
+    r_yest_completed = (await session.execute(q_yest_completed)).one()
     new_today = (await session.execute(q_new_cust_today)).scalar() or 0
     new_yest = (await session.execute(q_new_cust_yest)).scalar() or 0
 
-    rev_today = float(r_today.rev)
-    rev_yest = float(r_yest.rev)
+    rev_today = float(r_today_completed.rev)
+    rev_yest = float(r_yest_completed.rev)
 
     today_data = {
-        "orders": r_today.cnt,
-        "orders_yesterday": r_yest.cnt,
+        "orders": r_today_all.cnt,
+        "orders_yesterday": r_yest_all.cnt,
         "revenue": round(rev_today),
         "revenue_yesterday": round(rev_yest),
         "profit": round(rev_today * float(COMMISSION)),
         "profit_yesterday": round(rev_yest * float(COMMISSION)),
-        "avg_check": round(float(r_today.avg_chk)),
-        "avg_check_yesterday": round(float(r_yest.avg_chk)),
+        "avg_check": round(float(r_today_completed.avg_chk)),
+        "avg_check_yesterday": round(float(r_yest_completed.avg_chk)),
         "new_customers": new_today,
         "new_customers_yesterday": new_yest,
     }
@@ -835,14 +849,14 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
         for r in stuck_rows
     ]
 
-    # ── weekly revenue ──
+    # ── weekly revenue (completed orders only) ──
     q_weekly = (
         select(
             func.date(Order.created_at).label("d"),
             func.count(Order.id).label("orders"),
             func.coalesce(func.sum(Order.total_price), 0).label("revenue"),
         )
-        .where(Order.created_at >= week_ago)
+        .where(and_(Order.created_at >= week_ago, Order.status.in_(completed_statuses)))
         .group_by(func.date(Order.created_at))
         .order_by(literal_column("d"))
     )
@@ -852,7 +866,7 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
         for r in weekly_rows
     ]
 
-    # ── top sellers today ──
+    # ── top sellers today (completed orders only) ──
     q_top = (
         select(
             Seller.seller_id,
@@ -863,7 +877,7 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
             Seller.active_orders,
         )
         .join(Order, Order.seller_id == Seller.seller_id)
-        .where(and_(Order.created_at >= today_start, Order.status.notin_(["rejected", "cancelled"])))
+        .where(and_(Order.created_at >= today_start, Order.status.in_(completed_statuses)))
         .group_by(Seller.seller_id, Seller.shop_name, Seller.max_orders, Seller.active_orders)
         .order_by(func.count(Order.id).desc())
         .limit(5)
@@ -949,9 +963,14 @@ async def get_admin_orders(
     status_breakdown = {r[0]: r[1] for r in count_rows}
     total = sum(status_breakdown.values())
 
-    # total amount
+    # total amount (all matching filters — informational)
     q_sum = select(func.coalesce(func.sum(Order.total_price), 0)).where(where)
     total_amount = float((await session.execute(q_sum)).scalar() or 0)
+
+    # completed amount (actual revenue — only done/completed orders within filters)
+    completed_filters = list(filters) + [Order.status.in_(["done", "completed"])]
+    q_completed_sum = select(func.coalesce(func.sum(Order.total_price), 0)).where(and_(*completed_filters))
+    completed_amount = float((await session.execute(q_completed_sum)).scalar() or 0)
 
     # paginated orders
     offset = (page - 1) * per_page
@@ -1022,6 +1041,7 @@ async def get_admin_orders(
         "page": page,
         "status_breakdown": status_breakdown,
         "total_amount": round(total_amount),
+        "completed_amount": round(completed_amount),
         "sellers_list": sellers_list,
     }
 
@@ -1054,7 +1074,9 @@ async def get_admin_customers(
     )).scalar() or 0
 
     active_buyers = (await session.execute(
-        select(func.count(func.distinct(Order.buyer_id)))
+        select(func.count(func.distinct(Order.buyer_id))).where(
+            Order.status.in_(["done", "completed"])
+        )
     )).scalar() or 0
 
     new_today = (await session.execute(
@@ -1080,7 +1102,7 @@ async def get_admin_customers(
     city_rows = (await session.execute(q_city)).all()
     city_distribution = [{"city": r[0], "count": r[1]} for r in city_rows]
 
-    # customers with aggregation
+    # customers with aggregation (only completed orders count as real purchases)
     subq = (
         select(
             Order.buyer_id,
@@ -1088,6 +1110,7 @@ async def get_admin_customers(
             func.coalesce(func.sum(Order.total_price), 0).label("total_spent"),
             func.max(Order.created_at).label("last_order_at"),
         )
+        .where(Order.status.in_(["done", "completed"]))
         .group_by(Order.buyer_id)
         .subquery()
     )
