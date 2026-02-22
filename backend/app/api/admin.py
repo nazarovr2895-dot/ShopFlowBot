@@ -780,7 +780,7 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
     pipe_statuses = {
         "pending": ["pending"],
         "in_progress": ["accepted", "assembling"],
-        "in_transit": ["in_transit"],
+        "in_transit": ["in_transit", "ready_for_pickup"],
     }
     pipeline = {}
     for key, statuses in pipe_statuses.items():

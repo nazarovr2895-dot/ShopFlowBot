@@ -1025,7 +1025,7 @@ class SellerService:
         )
         active_subq = (
             select(Order.seller_id, func.count(Order.id).label("cnt"))
-            .where(Order.status.in_(("accepted", "assembling", "in_transit")))
+            .where(Order.status.in_(("accepted", "assembling", "in_transit", "ready_for_pickup")))
             .group_by(Order.seller_id).subquery()
         )
 
@@ -1044,13 +1044,13 @@ class SellerService:
         )
         active_delivery_subq = (
             select(Order.seller_id, func.count(Order.id).label("cnt"))
-            .where(Order.status.in_(("accepted", "assembling", "in_transit")),
+            .where(Order.status.in_(("accepted", "assembling", "in_transit", "ready_for_pickup")),
                    func.lower(func.coalesce(Order.delivery_type, "")).in_(delivery_types_delivery))
             .group_by(Order.seller_id).subquery()
         )
         active_pickup_subq = (
             select(Order.seller_id, func.count(Order.id).label("cnt"))
-            .where(Order.status.in_(("accepted", "assembling", "in_transit")),
+            .where(Order.status.in_(("accepted", "assembling", "in_transit", "ready_for_pickup")),
                    func.lower(func.coalesce(Order.delivery_type, "")).in_(delivery_types_pickup))
             .group_by(Order.seller_id).subquery()
         )

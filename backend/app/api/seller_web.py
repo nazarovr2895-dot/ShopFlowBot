@@ -385,7 +385,7 @@ async def get_orders(
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get orders for current seller. status=pending|accepted|assembling|in_transit|done|completed|rejected.
+    """Get orders for current seller. status=pending|accepted|assembling|in_transit|ready_for_pickup|done|completed|rejected.
     For history (done/completed): use date_from, date_to. preorder=true for preorders only."""
     service = OrderService(session)
     orders = await service.get_seller_orders(seller_id, status, preorder=preorder)

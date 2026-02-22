@@ -76,7 +76,7 @@ class OrderAccessDeniedError(OrderServiceError):
 class OrderService:
     """Service class for order operations."""
     
-    VALID_STATUSES = ["pending", "accepted", "assembling", "in_transit", "done", "completed", "rejected", "cancelled"]
+    VALID_STATUSES = ["pending", "accepted", "assembling", "in_transit", "ready_for_pickup", "done", "completed", "rejected", "cancelled"]
     
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -534,7 +534,7 @@ class OrderService:
         old_status = order.status
 
         # Block status progression if payment is required but not completed
-        if new_status in ("assembling", "in_transit", "done"):
+        if new_status in ("assembling", "in_transit", "ready_for_pickup", "done"):
             if getattr(order, "payment_id", None) and getattr(order, "payment_status", None) != "succeeded":
                 raise OrderServiceError(
                     "Невозможно изменить статус: заказ ещё не оплачен покупателем",
@@ -544,7 +544,7 @@ class OrderService:
         order.status = new_status
 
         # Handle counter updates when order finishes
-        if new_status == "done" and old_status in ["accepted", "assembling", "in_transit"]:
+        if new_status == "done" and old_status in ["accepted", "assembling", "in_transit", "ready_for_pickup"]:
             seller = await self._get_seller_for_update(order.seller_id)
             dtype = normalize_delivery_type(order.delivery_type)
             if seller and seller.active_orders > 0:

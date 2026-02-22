@@ -249,7 +249,8 @@
 .sam-order-status--pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
 .sam-order-status--accepted,
 .sam-order-status--assembling,
-.sam-order-status--in_transit { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+.sam-order-status--in_transit,
+.sam-order-status--ready_for_pickup { background: rgba(59, 130, 246, 0.15); color: var(--info); }
 .sam-order-status--done,
 .sam-order-status--completed { background: rgba(34, 197, 94, 0.12); color: var(--success); }
 .sam-order-status--rejected { background: rgba(239, 68, 68, 0.12); color: var(--danger); }

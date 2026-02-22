@@ -662,7 +662,7 @@ async def confirm_order_received(
         raise HTTPException(status_code=404, detail="Order not found")
     if order.buyer_id != current_user.user.id:
         raise HTTPException(status_code=403, detail="Not your order")
-    if order.status not in ("done", "in_transit", "assembling", "accepted"):
+    if order.status not in ("done", "in_transit", "ready_for_pickup", "assembling", "accepted"):
         raise HTTPException(
             status_code=400,
             detail=f"Cannot confirm: order status is {order.status}",

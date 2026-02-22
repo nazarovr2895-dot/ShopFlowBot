@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
   accepted: 'Принят',
   assembling: 'Собирается',
   in_transit: 'В пути',
+  ready_for_pickup: 'Готов к выдаче',
   done: 'Выполнен',
   completed: 'Завершён',
   rejected: 'Отклонён',
@@ -34,7 +35,7 @@ function getStatusVariant(status: string): 'success' | 'danger' | 'warning' | 'i
   if (['done', 'completed'].includes(status)) return 'success';
   if (['rejected', 'cancelled'].includes(status)) return 'danger';
   if (status === 'pending') return 'warning';
-  if (['accepted', 'assembling', 'in_transit'].includes(status)) return 'info';
+  if (['accepted', 'assembling', 'in_transit', 'ready_for_pickup'].includes(status)) return 'info';
   return 'neutral';
 }
 
@@ -106,7 +107,7 @@ export function SellerOrders() {
           status = 'accepted';
         } else {
           // dashboard — load all preorder statuses for context
-          status = 'pending,accepted,assembling,in_transit,done,completed';
+          status = 'pending,accepted,assembling,in_transit,ready_for_pickup,done,completed';
         }
       } else if (activeTab === 'pending') {
         status = 'pending';
@@ -114,7 +115,7 @@ export function SellerOrders() {
       } else if (activeTab === 'awaiting_payment') {
         status = 'accepted';
       } else if (activeTab === 'active') {
-        status = 'accepted,assembling,in_transit';
+        status = 'accepted,assembling,in_transit,ready_for_pickup';
       } else if (activeTab === 'cancelled') {
         status = 'cancelled';
         if (dateFrom) date_from = dateFrom;
@@ -347,21 +348,41 @@ export function SellerOrders() {
         return null;
       })()}
 
-      {/* Actions for active orders */}
-      {activeTab === 'active' && order.status === 'accepted' && (
+      {/* Actions for active orders — delivery */}
+      {activeTab === 'active' && order.delivery_type === 'delivery' && order.status === 'accepted' && (
         <div className="order-actions">
           <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'assembling')}>📦 Собирается</button>
           <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'in_transit')}>🚚 В пути</button>
           <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
         </div>
       )}
-      {activeTab === 'active' && order.status === 'assembling' && (
+      {activeTab === 'active' && order.delivery_type === 'delivery' && order.status === 'assembling' && (
         <div className="order-actions">
           <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'in_transit')}>🚚 В пути</button>
           <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
         </div>
       )}
-      {activeTab === 'active' && order.status === 'in_transit' && (
+      {activeTab === 'active' && order.delivery_type === 'delivery' && order.status === 'in_transit' && (
+        <div className="order-actions">
+          <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
+        </div>
+      )}
+
+      {/* Actions for active orders — pickup (самовывоз) */}
+      {activeTab === 'active' && order.delivery_type === 'pickup' && order.status === 'accepted' && (
+        <div className="order-actions">
+          <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'assembling')}>📦 Собирается</button>
+          <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'ready_for_pickup')}>✅ Готов к выдаче</button>
+          <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
+        </div>
+      )}
+      {activeTab === 'active' && order.delivery_type === 'pickup' && order.status === 'assembling' && (
+        <div className="order-actions">
+          <button className="btn btn-secondary" onClick={() => handleStatusChange(order.id, 'ready_for_pickup')}>✅ Готов к выдаче</button>
+          <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
+        </div>
+      )}
+      {activeTab === 'active' && order.delivery_type === 'pickup' && order.status === 'ready_for_pickup' && (
         <div className="order-actions">
           <button className="btn btn-primary" onClick={() => handleStatusChange(order.id, 'done')}>✅ Выполнен</button>
         </div>

@@ -12,7 +12,8 @@ const STATUS_LABELS: Record<string, string> = {
   accepted: 'Принят продавцом',
   assembling: 'Собирается',
   in_transit: 'В пути',
-  done: 'Доставлен',
+  ready_for_pickup: 'Готов к выдаче',
+  done: 'Выполнен',
   completed: 'Получен',
   rejected: 'Отклонён',
   cancelled: 'Отменён',
@@ -23,17 +24,18 @@ const STATUS_COLORS: Record<string, string> = {
   accepted: '#27ae60',
   assembling: '#3498db',
   in_transit: '#9b59b6',
+  ready_for_pickup: '#9b59b6',
   done: '#2ecc71',
   completed: '#95a5a6',
   rejected: '#e74c3c',
   cancelled: '#95a5a6',
 };
 
-const CAN_CONFIRM = ['done', 'in_transit', 'assembling', 'accepted'];
+const CAN_CONFIRM = ['done', 'in_transit', 'ready_for_pickup', 'assembling', 'accepted'];
 const CAN_CANCEL = ['pending', 'accepted', 'assembling'];
 
-// Stepper steps in order
-const STEPPER_STEPS = [
+// Stepper steps — different for delivery vs pickup
+const STEPPER_STEPS_DELIVERY = [
   { key: 'pending', label: 'Оформлен' },
   { key: 'accepted', label: 'Принят' },
   { key: 'assembling', label: 'Собирается' },
@@ -41,8 +43,21 @@ const STEPPER_STEPS = [
   { key: 'done', label: 'Доставлен' },
 ];
 
-function getStepIndex(status: string): number {
-  const idx = STEPPER_STEPS.findIndex((s) => s.key === status);
+const STEPPER_STEPS_PICKUP = [
+  { key: 'pending', label: 'Оформлен' },
+  { key: 'accepted', label: 'Принят' },
+  { key: 'assembling', label: 'Собирается' },
+  { key: 'ready_for_pickup', label: 'Готов к выдаче' },
+  { key: 'done', label: 'Забран' },
+];
+
+function getStepperSteps(deliveryType: string) {
+  return deliveryType === 'pickup' ? STEPPER_STEPS_PICKUP : STEPPER_STEPS_DELIVERY;
+}
+
+function getStepIndex(status: string, deliveryType: string): number {
+  const steps = getStepperSteps(deliveryType);
+  const idx = steps.findIndex((s) => s.key === status);
   return idx >= 0 ? idx : -1;
 }
 
@@ -235,7 +250,8 @@ export function OrderDetail() {
 
   const canConfirm = CAN_CONFIRM.includes(order.status);
   const canCancel = CAN_CANCEL.includes(order.status);
-  const stepIndex = getStepIndex(order.status);
+  const stepperSteps = getStepperSteps(order.delivery_type);
+  const stepIndex = getStepIndex(order.status, order.delivery_type);
   const isTerminal = order.status === 'rejected' || order.status === 'cancelled';
   const isCompleted = order.status === 'completed';
   const showStepper = !isTerminal && !isCompleted;
@@ -251,7 +267,7 @@ export function OrderDetail() {
       {/* Status section */}
       {showStepper ? (
         <div className="order-stepper">
-          {STEPPER_STEPS.map((step, i) => {
+          {stepperSteps.map((step, i) => {
             const isDone = i < stepIndex;
             const isCurrent = i === stepIndex;
             return (
@@ -261,7 +277,7 @@ export function OrderDetail() {
                     isDone ? 'order-stepper__dot--done' : ''
                   } ${isCurrent ? 'order-stepper__dot--current' : ''}`}
                 />
-                {i < STEPPER_STEPS.length - 1 && (
+                {i < stepperSteps.length - 1 && (
                   <div
                     className={`order-stepper__line ${
                       isDone ? 'order-stepper__line--done' : ''

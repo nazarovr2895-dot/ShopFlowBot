@@ -280,7 +280,7 @@ async def update_order_status(
 ):
     """
     Изменить статус заказа.
-    Допустимые статусы: pending, accepted, assembling, in_transit, done, completed, rejected
+    Допустимые статусы: pending, accepted, assembling, in_transit, ready_for_pickup, done, completed, rejected
     - done: продавец отметил как выполненный
     - completed: покупатель подтвердил получение
     """

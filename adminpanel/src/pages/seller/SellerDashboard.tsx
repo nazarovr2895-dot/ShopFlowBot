@@ -44,7 +44,7 @@ export function SellerDashboard() {
           getStats(),
           getStats({ period: '7d' }),
           getOrders({ status: 'pending' }),
-          getOrders({ status: 'accepted,assembling,in_transit' }),
+          getOrders({ status: 'accepted,assembling,in_transit,ready_for_pickup' }),
           getDashboardAlerts(),
           getSubscriberCount().catch(() => ({ count: 0 })),
           getUpcomingEvents(14).catch(() => []),

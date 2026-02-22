@@ -9,6 +9,7 @@ const STATUS_LABELS: Record<string, string> = {
   accepted: 'Принят',
   assembling: 'Собирается',
   in_transit: 'В пути',
+  ready_for_pickup: 'Готов к выдаче',
   done: 'Выполнен',
   completed: 'Завершён',
   rejected: 'Отклонён',

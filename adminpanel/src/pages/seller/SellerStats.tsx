@@ -21,6 +21,7 @@ const STATUS_LABELS: Record<string, string> = {
   accepted: 'В работе',
   assembling: 'Собираются',
   in_transit: 'В пути',
+  ready_for_pickup: 'Готовы к выдаче',
   done: 'Выполнены',
   completed: 'Завершены',
   rejected: 'Отклонены',

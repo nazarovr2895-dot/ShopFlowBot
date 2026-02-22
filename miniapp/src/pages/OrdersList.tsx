@@ -8,7 +8,7 @@ import './OrdersList.css';
 
 type OrderTab = 'active' | 'completed';
 
-const ACTIVE_STATUSES = new Set(['pending', 'accepted', 'assembling', 'in_transit', 'done']);
+const ACTIVE_STATUSES = new Set(['pending', 'accepted', 'assembling', 'in_transit', 'ready_for_pickup', 'done']);
 const COMPLETED_STATUSES = new Set(['completed', 'rejected', 'cancelled']);
 
 const STATUS_LABELS: Record<string, string> = {
@@ -16,7 +16,8 @@ const STATUS_LABELS: Record<string, string> = {
   accepted: 'Принят',
   assembling: 'Собирается',
   in_transit: 'В пути',
-  done: 'Доставлен',
+  ready_for_pickup: 'Готов к выдаче',
+  done: 'Выполнен',
   completed: 'Получен',
   rejected: 'Отклонён',
   cancelled: 'Отменён',
@@ -27,6 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
   accepted: '#27ae60',
   assembling: '#3498db',
   in_transit: '#9b59b6',
+  ready_for_pickup: '#9b59b6',
   done: '#2ecc71',
   completed: '#95a5a6',
   rejected: '#e74c3c',
