@@ -206,6 +206,23 @@ export async function getDashboardAlerts(): Promise<DashboardAlerts> {
   return fetchSeller<DashboardAlerts>('/seller-web/dashboard/alerts');
 }
 
+export interface OrderEvent {
+  type: 'cancelled' | 'payment_failed' | 'preorder_due' | 'completed';
+  order_id: number;
+  amount: number;
+  buyer_name?: string;
+  created_at?: string;
+  completed_at?: string;
+  payment_status?: string;
+  minutes_since_accepted?: number;
+  delivery_date?: string;
+  is_today?: boolean;
+}
+
+export async function getDashboardOrderEvents(): Promise<{ events: OrderEvent[] }> {
+  return fetchSeller<{ events: OrderEvent[] }>('/seller-web/dashboard/order-events');
+}
+
 export async function updateMe(payload: {
   hashtags?: string;
   preorder_enabled?: boolean;

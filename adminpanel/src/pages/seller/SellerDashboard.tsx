@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Package, Users, Store, ClipboardCheck, ShoppingBag, Settings as SettingsIcon, BarChart3 } from 'lucide-react';
-import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount, getUpcomingEvents } from '../../api/sellerClient';
-import type { SellerMe, SellerStats, DashboardAlerts, UpcomingEvent } from '../../api/sellerClient';
+import { AlertTriangle, Package, Users, Store, ClipboardCheck, ShoppingBag, Settings as SettingsIcon, BarChart3, XCircle, CreditCard, Calendar, CheckCircle2 } from 'lucide-react';
+import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount, getUpcomingEvents, getDashboardOrderEvents } from '../../api/sellerClient';
+import type { SellerMe, SellerStats, DashboardAlerts, UpcomingEvent, OrderEvent } from '../../api/sellerClient';
 import { PageHeader, StatCard, StatusBadge, Card, ActionCard } from '../../components/ui';
 import { MiniSparkline } from '../../components/MiniSparkline';
 import '../Dashboard.css';
@@ -30,6 +30,7 @@ export function SellerDashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
+  const [orderEvents, setOrderEvents] = useState<OrderEvent[]>([]);
   const [subscriberCount, setSubscriberCount] = useState(0);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ export function SellerDashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [meData, statsData, weekStatsData, pendingOrders, activeOrders, alertsData, subCount, eventsData] = await Promise.all([
+        const [meData, statsData, weekStatsData, pendingOrders, activeOrders, alertsData, subCount, eventsData, orderEventsData] = await Promise.all([
           getMe(),
           getStats(),
           getStats({ period: '7d' }),
@@ -47,6 +48,7 @@ export function SellerDashboard() {
           getDashboardAlerts(),
           getSubscriberCount().catch(() => ({ count: 0 })),
           getUpcomingEvents(14).catch(() => []),
+          getDashboardOrderEvents().catch(() => ({ events: [] })),
         ]);
         setMe(meData);
         setStats(statsData);
@@ -56,6 +58,7 @@ export function SellerDashboard() {
         lastPendingCountRef.current = pending;
         setActiveCount(activeOrders?.length ?? 0);
         setAlerts(alertsData);
+        setOrderEvents(orderEventsData.events || []);
         setSubscriberCount(subCount.count);
         setUpcomingEvents(eventsData);
       } catch {
@@ -174,6 +177,42 @@ export function SellerDashboard() {
               {' '}<Link to="/stock?tab=receptions" className="dashboard-alert-link">→ Приёмка</Link>
             </p>
           ) : null}
+        </Card>
+      )}
+
+      {/* ── Order Events ────────────────────────── */}
+      {orderEvents.length > 0 && (
+        <Card className="dashboard-events-card">
+          <h3 className="dashboard-section-title">События по заказам</h3>
+          <div className="dashboard-order-events-list">
+            {orderEvents.map((ev, i) => (
+              <Link
+                key={`${ev.type}-${ev.order_id}-${i}`}
+                to={`/orders/${ev.order_id}`}
+                className={`sd-event-item sd-event-item--${ev.type === 'cancelled' ? 'danger' : ev.type === 'payment_failed' ? 'warning' : ev.type === 'preorder_due' ? 'info' : 'success'}`}
+              >
+                <span className="sd-event-icon">
+                  {ev.type === 'cancelled' && <XCircle size={16} />}
+                  {ev.type === 'payment_failed' && <CreditCard size={16} />}
+                  {ev.type === 'preorder_due' && <Calendar size={16} />}
+                  {ev.type === 'completed' && <CheckCircle2 size={16} />}
+                </span>
+                <div className="sd-event-body">
+                  <div className="sd-event-text">
+                    {ev.type === 'cancelled' && `Заказ #${ev.order_id} отменён`}
+                    {ev.type === 'payment_failed' && `Заказ #${ev.order_id} — оплата не прошла`}
+                    {ev.type === 'preorder_due' && `Предзаказ #${ev.order_id} — ${ev.is_today ? 'сегодня' : 'завтра'}`}
+                    {ev.type === 'completed' && `Заказ #${ev.order_id} завершён`}
+                  </div>
+                  <div className="sd-event-sub">
+                    {ev.buyer_name || ''}
+                    {ev.type === 'payment_failed' && ev.minutes_since_accepted != null && ` · ${Math.round(ev.minutes_since_accepted / 60)} ч назад`}
+                  </div>
+                </div>
+                <span className="sd-event-amount">{fmtCurrency(ev.amount)}</span>
+              </Link>
+            ))}
+          </div>
         </Card>
       )}
 

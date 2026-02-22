@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getAdminDashboard } from '../api/adminClient';
 import type { AdminDashboardData } from '../types';
 import { SalesChart } from '../components/SalesChart';
@@ -35,6 +35,7 @@ function fmtCurrency(n: number): string {
 }
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -207,7 +208,14 @@ export function Dashboard() {
             ) : (
               <div className="dash-alerts-list">
                 {alerts.stuck_orders.map((a) => (
-                  <div key={a.order_id} className="dash-alert-item dash-alert-item--danger">
+                  <div
+                    key={a.order_id}
+                    className="dash-alert-item dash-alert-item--danger dash-alert-item--clickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/orders?status=pending&seller_id=${a.seller_id}`)}
+                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/orders?status=pending&seller_id=${a.seller_id}`)}
+                  >
                     <Clock size={14} />
                     <div>
                       <div className="dash-alert-text">
@@ -218,7 +226,14 @@ export function Dashboard() {
                   </div>
                 ))}
                 {alerts.exhausted_limits.map((a) => (
-                  <div key={a.tg_id} className="dash-alert-item dash-alert-item--warning">
+                  <div
+                    key={a.tg_id}
+                    className="dash-alert-item dash-alert-item--warning dash-alert-item--clickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/sellers?highlight=${a.tg_id}`)}
+                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/sellers?highlight=${a.tg_id}`)}
+                  >
                     <AlertTriangle size={14} />
                     <div>
                       <div className="dash-alert-text">{a.shop_name} — лимит исчерпан</div>
@@ -227,7 +242,14 @@ export function Dashboard() {
                   </div>
                 ))}
                 {alerts.expiring_placements.map((a) => (
-                  <div key={a.tg_id} className="dash-alert-item dash-alert-item--info">
+                  <div
+                    key={a.tg_id}
+                    className="dash-alert-item dash-alert-item--info dash-alert-item--clickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/sellers?highlight=${a.tg_id}`)}
+                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/sellers?highlight=${a.tg_id}`)}
+                  >
                     <Store size={14} />
                     <div>
                       <div className="dash-alert-text">{a.shop_name}</div>

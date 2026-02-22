@@ -252,6 +252,129 @@ async def get_dashboard_alerts(
     return {"low_stock_bouquets": low_stock_bouquets, "expiring_items": expiring_items}
 
 
+@router.get("/dashboard/order-events")
+async def get_dashboard_order_events(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Order events for seller dashboard: cancelled, payment_failed, preorder_due, completed (last 48h)."""
+    from backend.app.models.order import Order
+    from backend.app.models.user import User
+    from sqlalchemy import and_
+
+    now = datetime.now()
+    cutoff_48h = now - timedelta(hours=48)
+    today_date = date.today()
+    tomorrow_date = today_date + timedelta(days=1)
+
+    events: list[dict] = []
+
+    # 1) Cancelled orders (last 48h)
+    q_cancelled = (
+        select(Order.id, Order.total_price, Order.created_at, Order.buyer_id, Order.guest_name,
+               User.fio)
+        .outerjoin(User, User.tg_id == Order.buyer_id)
+        .where(and_(
+            Order.seller_id == seller_id,
+            Order.status == "cancelled",
+            Order.created_at >= cutoff_48h,
+        ))
+        .order_by(Order.created_at.desc())
+        .limit(10)
+    )
+    for r in (await session.execute(q_cancelled)).all():
+        buyer_name = r[5] or r[4] or ""
+        events.append({
+            "type": "cancelled",
+            "order_id": r[0],
+            "amount": round(float(r[1] or 0)),
+            "buyer_name": buyer_name,
+            "created_at": r[2].isoformat() if r[2] else None,
+        })
+
+    # 2) Payment failed (accepted/assembling orders with failed payment)
+    q_payment = (
+        select(Order.id, Order.total_price, Order.created_at, Order.buyer_id, Order.guest_name,
+               Order.payment_status, User.fio)
+        .outerjoin(User, User.tg_id == Order.buyer_id)
+        .where(and_(
+            Order.seller_id == seller_id,
+            Order.status.in_(["accepted", "assembling"]),
+            Order.payment_status.in_(["canceled", "expired", "failed"]),
+            Order.created_at >= cutoff_48h,
+        ))
+        .order_by(Order.created_at.desc())
+        .limit(10)
+    )
+    for r in (await session.execute(q_payment)).all():
+        buyer_name = r[6] or r[4] or ""
+        mins_since = int((now - r[2]).total_seconds() / 60) if r[2] else 0
+        events.append({
+            "type": "payment_failed",
+            "order_id": r[0],
+            "amount": round(float(r[1] or 0)),
+            "buyer_name": buyer_name,
+            "payment_status": r[5],
+            "minutes_since_accepted": mins_since,
+            "created_at": r[2].isoformat() if r[2] else None,
+        })
+
+    # 3) Preorder due (today/tomorrow)
+    q_preorder = (
+        select(Order.id, Order.total_price, Order.preorder_delivery_date, Order.buyer_id,
+               Order.guest_name, User.fio)
+        .outerjoin(User, User.tg_id == Order.buyer_id)
+        .where(and_(
+            Order.seller_id == seller_id,
+            Order.is_preorder == True,
+            Order.status.in_(["pending", "accepted", "assembling"]),
+            Order.preorder_delivery_date.in_([today_date, tomorrow_date]),
+        ))
+        .order_by(Order.preorder_delivery_date)
+        .limit(10)
+    )
+    for r in (await session.execute(q_preorder)).all():
+        buyer_name = r[5] or r[4] or ""
+        delivery_date = r[2]
+        events.append({
+            "type": "preorder_due",
+            "order_id": r[0],
+            "amount": round(float(r[1] or 0)),
+            "buyer_name": buyer_name,
+            "delivery_date": delivery_date.isoformat() if delivery_date else None,
+            "is_today": delivery_date == today_date if delivery_date else False,
+        })
+
+    # 4) Completed orders (last 48h)
+    q_completed = (
+        select(Order.id, Order.total_price, Order.completed_at, Order.buyer_id, Order.guest_name,
+               User.fio)
+        .outerjoin(User, User.tg_id == Order.buyer_id)
+        .where(and_(
+            Order.seller_id == seller_id,
+            Order.status == "completed",
+            Order.completed_at >= cutoff_48h,
+        ))
+        .order_by(Order.completed_at.desc())
+        .limit(10)
+    )
+    for r in (await session.execute(q_completed)).all():
+        buyer_name = r[5] or r[4] or ""
+        events.append({
+            "type": "completed",
+            "order_id": r[0],
+            "amount": round(float(r[1] or 0)),
+            "buyer_name": buyer_name,
+            "completed_at": r[2].isoformat() if r[2] else None,
+        })
+
+    # Sort: cancelled/payment_failed first, then preorder_due, then completed
+    type_priority = {"cancelled": 0, "payment_failed": 1, "preorder_due": 2, "completed": 3}
+    events.sort(key=lambda e: type_priority.get(e["type"], 99))
+
+    return {"events": events}
+
+
 # --- ORDERS ---
 @router.get("/orders")
 async def get_orders(

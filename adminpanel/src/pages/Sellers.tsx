@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader, useToast } from '../components/ui';
 import {
   Plus, Store, User, MapPin, Truck, Building2, Percent,
@@ -111,6 +112,8 @@ function formatDateInput(value: string): string {
 }
 
 export function Sellers() {
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight');
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -136,6 +139,18 @@ export function Sellers() {
   useEffect(() => {
     loadSellers();
   }, []);
+
+  // Scroll to and highlight seller from URL param
+  useEffect(() => {
+    if (!highlightId || sellers.length === 0) return;
+    const el = document.getElementById(`seller-${highlightId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('seller-row--highlighted');
+      const timer = setTimeout(() => el.classList.remove('seller-row--highlighted'), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightId, sellers]);
 
   const handleSearch = () => loadSellers();
 
@@ -179,7 +194,7 @@ export function Sellers() {
             </thead>
             <tbody>
               {sellers.map((s) => (
-                <tr key={s.tg_id}>
+                <tr key={s.tg_id} id={`seller-${s.tg_id}`}>
                   <td>{s.fio}</td>
                   <td>{s.shop_name}</td>
                   <td><code>{s.tg_id}</code></td>

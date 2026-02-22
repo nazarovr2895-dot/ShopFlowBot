@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getAdminOrders, getAllSellers, type AdminOrdersParams } from '../../api/adminClient';
 import type { AdminOrder, AdminOrdersResponse, Seller } from '../../types';
 import { PageHeader, StatusBadge } from '../../components/ui';
@@ -54,14 +55,15 @@ function toYYYYMMDD(d: Date): string {
 }
 
 export function AdminOrders() {
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<AdminOrdersResponse | null>(null);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
 
-  // Filters
-  const [status, setStatus] = useState('');
-  const [sellerId, setSellerId] = useState('');
+  // Filters (initialize from URL search params if present)
+  const [status, setStatus] = useState(() => searchParams.get('status') || '');
+  const [sellerId, setSellerId] = useState(() => searchParams.get('seller_id') || '');
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30);
     return toYYYYMMDD(d);

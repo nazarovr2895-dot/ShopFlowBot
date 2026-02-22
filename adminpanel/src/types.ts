@@ -99,6 +99,7 @@ export interface AlertExhaustedLimit {
 
 export interface AlertStuckOrder {
   order_id: number
+  seller_id: number
   seller_name: string
   minutes_pending: number
   amount: number

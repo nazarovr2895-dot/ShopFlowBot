@@ -832,7 +832,7 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
     # stuck orders (pending > 30 min)
     thirty_min_ago = dt.now() - timedelta(minutes=30)
     q_stuck = (
-        select(Order.id, Order.total_price, Order.created_at, Seller.shop_name)
+        select(Order.id, Order.total_price, Order.created_at, Seller.shop_name, Order.seller_id)
         .join(Seller, Seller.seller_id == Order.seller_id)
         .where(and_(Order.status == "pending", Order.created_at < thirty_min_ago))
         .order_by(Order.created_at)
@@ -842,6 +842,7 @@ async def get_admin_dashboard(session: AsyncSession = Depends(get_session), _tok
     stuck = [
         {
             "order_id": r[0],
+            "seller_id": r[4],
             "seller_name": r[3] or "",
             "minutes_pending": int((dt.now() - r[2]).total_seconds() / 60),
             "amount": round(float(r[1] or 0)),
@@ -1278,10 +1279,35 @@ async def get_finance_summary(
         .order_by(literal_column("period"))
     )
     series_rows = (await session.execute(q_series)).all()
-    series = [
-        {"period": str(r.period), "orders": r.orders, "revenue": round(float(r.revenue))}
-        for r in series_rows
-    ]
+
+    if group_by == "day":
+        # Pad missing days with zeros (consistent with get_platform_daily_stats)
+        daily_map = {}
+        for r in series_rows:
+            day_val = r.period
+            if isinstance(day_val, str):
+                day_val = dt.fromisoformat(day_val[:10]).date()
+            elif hasattr(day_val, 'date') and callable(day_val.date):
+                day_val = day_val.date()
+            daily_map[day_val] = {"orders": r.orders, "revenue": round(float(r.revenue))}
+
+        series = []
+        current_day = d_from.date()
+        end_day = d_to.date()
+        while current_day <= end_day:
+            point = daily_map.get(current_day, {"orders": 0, "revenue": 0})
+            series.append({
+                "period": current_day.isoformat(),
+                "orders": point["orders"],
+                "revenue": point["revenue"],
+            })
+            current_day += timedelta(days=1)
+    else:
+        # Week/month grouping — no day-level padding needed
+        series = [
+            {"period": str(r.period), "orders": r.orders, "revenue": round(float(r.revenue))}
+            for r in series_rows
+        ]
 
     # By seller
     q_sellers = (

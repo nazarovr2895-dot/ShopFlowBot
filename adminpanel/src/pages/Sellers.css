@@ -1239,3 +1239,14 @@
     flex-direction: column;
   }
 }
+
+/* ── Seller row highlight (from dashboard alert navigation) ── */
+
+.seller-row--highlighted {
+  animation: seller-highlight-pulse 3s ease-out;
+}
+
+@keyframes seller-highlight-pulse {
+  0%, 30% { background: rgba(99, 102, 241, 0.15); }
+  100% { background: transparent; }
+}
