@@ -667,22 +667,6 @@ export function ShopDetails() {
             )}
           </span>
         </div>
-        {(seller.delivery_slots != null || seller.pickup_slots != null) && (
-          <div className="shop-details__info-line">
-            <span className="shop-details__info-line-text" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {seller.delivery_slots != null && (
-                <span style={{ color: seller.delivery_slots > 0 ? 'var(--tg-theme-link-color, #2481cc)' : 'var(--tg-theme-destructive-text-color, #e53935)' }}>
-                  Доставка: {seller.delivery_slots > 0 ? `${seller.delivery_slots} слотов` : 'занято'}
-                </span>
-              )}
-              {seller.pickup_slots != null && (
-                <span style={{ color: seller.pickup_slots > 0 ? 'var(--tg-theme-link-color, #2481cc)' : 'var(--tg-theme-destructive-text-color, #e53935)' }}>
-                  Самовывоз: {seller.pickup_slots > 0 ? `${seller.pickup_slots} слотов` : 'занято'}
-                </span>
-              )}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Loyalty chip — compact inline */}
