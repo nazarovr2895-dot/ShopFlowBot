@@ -51,8 +51,14 @@ const STEPPER_STEPS_PICKUP = [
   { key: 'done', label: 'Забран' },
 ];
 
+function isPickup(type?: string): boolean {
+  if (!type) return false;
+  const v = type.trim().toLowerCase();
+  return v === 'pickup' || v === 'самовывоз';
+}
+
 function getStepperSteps(deliveryType: string) {
-  return deliveryType === 'pickup' ? STEPPER_STEPS_PICKUP : STEPPER_STEPS_DELIVERY;
+  return isPickup(deliveryType) ? STEPPER_STEPS_PICKUP : STEPPER_STEPS_DELIVERY;
 }
 
 function getStepIndex(status: string, deliveryType: string): number {
