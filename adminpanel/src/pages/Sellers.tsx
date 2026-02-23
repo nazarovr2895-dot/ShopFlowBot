@@ -454,11 +454,6 @@ function AddSellerModal({
         setDistrictId(list[0].id);
       }
     }).catch(() => setDistricts([]));
-    // Reset address when city changes
-    setAddressQuery('');
-    setSelectedAddress('');
-    setCoverageResult(null);
-    setAddressSuggestions([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityId]);
 
@@ -473,9 +468,6 @@ function AddSellerModal({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const currentCity = cities.find(c => c.id === cityId);
-  const cityKladrId = currentCity?.kladr_id;
-
   const fetchAddressSuggestions = useCallback(async (q: string) => {
     if (q.length < 3) {
       setAddressSuggestions([]);
@@ -483,13 +475,14 @@ function AddSellerModal({
       return;
     }
     try {
-      const data = await suggestAddress(q, cityKladrId);
+      // No city filter — show addresses from all cities
+      const data = await suggestAddress(q);
       setAddressSuggestions(data);
       setAddressDropdownOpen(data.length > 0);
     } catch {
       setAddressSuggestions([]);
     }
-  }, [cityKladrId]);
+  }, []);
 
   const handleAddressInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
@@ -506,10 +499,20 @@ function AddSellerModal({
     setAddressDropdownOpen(false);
     setAddressSuggestions([]);
 
-    // Check coverage
+    // Auto-detect city from address
+    let resolvedCityId = cityId;
+    if (suggestion.city) {
+      const matchedCity = cities.find(c => c.name.toLowerCase() === suggestion.city!.toLowerCase());
+      if (matchedCity) {
+        resolvedCityId = matchedCity.id;
+        setCityId(matchedCity.id);
+      }
+    }
+
+    // Check coverage using resolved city
     setCheckingCoverage(true);
     try {
-      const result = await checkAddressCoverage(suggestion.value, cityId);
+      const result = await checkAddressCoverage(suggestion.value, resolvedCityId);
       setCoverageResult(result);
       if (result.covered && result.district_id) {
         setDistrictId(result.district_id);
