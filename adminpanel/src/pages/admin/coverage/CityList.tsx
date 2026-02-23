@@ -42,7 +42,7 @@ export function CityList({ cities, loading, selectedCityId, onSelect, onAddCity,
         <div className="cov-cities__header">
           <span className="cov-cities__title">Города</span>
         </div>
-        {[1, 2, 3].map(i => <Skeleton key={i} style={{ height: 56 }} />)}
+        {[1, 2, 3].map(i => <Skeleton key={i} height="56px" />)}
       </div>
     );
   }
