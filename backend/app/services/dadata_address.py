@@ -23,6 +23,23 @@ _DISTRICT_FULL_TO_ABBR: Dict[str, str] = {
 }
 
 
+# Moscow OKATO 3-digit codes → administrative okrug name (as stored in DB)
+_OKATO_PREFIX_TO_DISTRICT: Dict[str, str] = {
+    "45286": "ЦАО",
+    "45280": "САО",
+    "45281": "СВАО",
+    "45283": "ВАО",
+    "45285": "ЮВАО",
+    "45284": "ЮАО",
+    "45293": "ЮЗАО",
+    "45263": "ЗАО",
+    "45277": "СЗАО",
+    "45272": "Зеленоградский",
+    "45298": "Новомосковский",
+    "45297": "Троицкий",
+}
+
+
 def _normalize_district_name(city_district: Optional[str], city_district_type: Optional[str] = None) -> Optional[str]:
     """Convert DaData city_district to DB district name (abbreviation or known name)."""
     if not city_district:
@@ -32,6 +49,14 @@ def _normalize_district_name(city_district: Optional[str], city_district_type: O
         return _DISTRICT_FULL_TO_ABBR[city_district]
     # If it's already an abbreviation (ЦАО, САО, etc.) or a known outer district name
     return city_district
+
+
+def _okato_to_district(okato: str) -> Optional[str]:
+    """Resolve Moscow administrative okrug from OKATO code (first 5 digits)."""
+    if not okato or len(okato) < 5:
+        return None
+    prefix = okato[:5]
+    return _OKATO_PREFIX_TO_DISTRICT.get(prefix)
 
 
 async def _call_dadata(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -121,12 +146,39 @@ async def resolve_district_from_address(address: str) -> Optional[str]:
     d = suggestions[0].get("data", {})
     city_district = d.get("city_district")
     city_district_type = d.get("city_district_type")
+    city_area = d.get("city_area")
+    area = d.get("area")
+    okato = d.get("okato")
+    settlement = d.get("settlement")
+    settlement_type = d.get("settlement_type")
 
     logger.info(
         "DaData district resolve",
         address=address[:80],
         city_district=city_district,
         city_district_type=city_district_type,
+        city_area=city_area,
+        area=area,
+        okato=okato,
+        settlement=settlement,
+        settlement_type=settlement_type,
     )
 
-    return _normalize_district_name(city_district, city_district_type)
+    # Try city_area first (may contain okrug for Moscow)
+    if city_area:
+        normalized = _normalize_district_name(city_area)
+        if normalized:
+            return normalized
+
+    # Then try city_district
+    normalized = _normalize_district_name(city_district, city_district_type)
+    if normalized:
+        return normalized
+
+    # Try OKATO-based resolution as fallback
+    if okato:
+        okato_district = _okato_to_district(okato)
+        if okato_district:
+            return okato_district
+
+    return None
