@@ -41,6 +41,7 @@ export interface SellerStats {
 export interface City {
   id: number
   name: string
+  kladr_id?: string
 }
 
 export interface District {

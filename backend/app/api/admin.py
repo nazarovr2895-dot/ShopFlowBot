@@ -1,5 +1,6 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -75,6 +76,7 @@ class SellerCreateSchema(BaseModel):
     delivery_type: str
     placement_expired_at: Optional[datetime] = None
     commission_percent: Optional[int] = None
+    auto_create_delivery_zone: bool = False
 
     @field_validator('commission_percent')
     @classmethod
@@ -190,6 +192,44 @@ async def get_districts(city_id: int, session: AsyncSession = Depends(get_sessio
     """Получить список округов по городу"""
     service = SellerService(session)
     return await service.get_districts(city_id)
+
+
+@router.get("/address/suggest")
+async def admin_suggest_address(
+    q: str = Query(..., min_length=2),
+    city_kladr_id: Optional[str] = Query(None),
+    _token: None = Depends(require_admin_token),
+):
+    """DaData address autocomplete for admin panel."""
+    from backend.app.services.dadata_address import suggest_address
+    return await suggest_address(q, count=5, city_kladr_id=city_kladr_id)
+
+
+@router.get("/address/check-coverage")
+async def admin_check_address_coverage(
+    address: str = Query(..., min_length=3),
+    city_id: int = Query(...),
+    session: AsyncSession = Depends(get_session),
+    _token: None = Depends(require_admin_token),
+):
+    """Check if address is within coverage (district exists for this city)."""
+    from backend.app.services.dadata_address import resolve_district_from_address
+    from backend.app.models.seller import District
+
+    district_name = await resolve_district_from_address(address)
+    if not district_name:
+        return {"covered": False, "district_id": None, "district_name": None}
+
+    result = await session.execute(
+        select(District).where(
+            District.city_id == city_id,
+            func.lower(District.name) == district_name.lower(),
+        )
+    )
+    district = result.scalar_one_or_none()
+    if district:
+        return {"covered": True, "district_id": district.id, "district_name": district.name}
+    return {"covered": False, "district_id": None, "district_name": district_name}
 
 
 @router.get("/inn/{inn}")
@@ -380,6 +420,34 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
         )
         created_tg_id = result.get("tg_id") or data.tg_id
         logger.info("Seller created", tg_id=created_tg_id, shop_name=data.shop_name)
+
+        # Auto-create delivery zone if requested and district is set
+        if data.auto_create_delivery_zone and data.district_id and result.get("status") == "ok":
+            try:
+                from backend.app.services.delivery_zones import DeliveryZoneService
+                from backend.app.models.seller import District, Seller
+
+                district = await session.get(District, data.district_id)
+                zone_name = district.name if district else "Зона доставки"
+
+                zone_svc = DeliveryZoneService(session)
+                await zone_svc.create_zone(created_tg_id, {
+                    "name": zone_name,
+                    "district_ids": [data.district_id],
+                    "delivery_price": 0,
+                    "is_active": True,
+                    "priority": 0,
+                })
+
+                seller = await session.get(Seller, created_tg_id)
+                if seller:
+                    seller.use_delivery_zones = True
+
+                await session.commit()
+                logger.info("Auto-created delivery zone", tg_id=created_tg_id, district=zone_name)
+            except Exception as e:
+                logger.error("Failed to auto-create delivery zone", exc_info=e)
+
         return result
     except SellerServiceError as e:
         _handle_seller_error(e)

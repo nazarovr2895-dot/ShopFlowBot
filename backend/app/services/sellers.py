@@ -595,6 +595,7 @@ class SellerService:
             description=final_description,
             city_id=city_id,
             district_id=district_id,
+            address_name=address_name,
             map_url=map_url,
             metro_id=metro_id,
             metro_walk_minutes=metro_walk_minutes,
@@ -1191,7 +1192,7 @@ class SellerService:
         """Get list of all cities."""
         result = await self.session.execute(select(City))
         cities = result.scalars().all()
-        return [{"id": c.id, "name": c.name} for c in cities]
+        return [{"id": c.id, "name": c.name, "kladr_id": c.kladr_id} for c in cities]
     
     async def get_districts(self, city_id: int) -> List[Dict[str, Any]]:
         """Get districts for a city."""

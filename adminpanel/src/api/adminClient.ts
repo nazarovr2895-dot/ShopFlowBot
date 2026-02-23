@@ -89,6 +89,32 @@ export async function getOrgData(identifier: string): Promise<InnData> {
   return fetchAdmin<InnData>(`/admin/org/${encodeURIComponent(identifier)}`);
 }
 
+// Address suggest & coverage check
+export interface AddressSuggestion {
+  value: string;
+  city_district: string | null;
+  lat: string | null;
+  lon: string | null;
+  city: string | null;
+}
+
+export interface CoverageCheckResult {
+  covered: boolean;
+  district_id: number | null;
+  district_name: string | null;
+}
+
+export async function suggestAddress(query: string, cityKladrId?: string): Promise<AddressSuggestion[]> {
+  const params = new URLSearchParams({ q: query });
+  if (cityKladrId) params.set('city_kladr_id', cityKladrId);
+  return fetchAdmin<AddressSuggestion[]>(`/admin/address/suggest?${params}`);
+}
+
+export async function checkAddressCoverage(address: string, cityId: number): Promise<CoverageCheckResult> {
+  const params = new URLSearchParams({ address, city_id: String(cityId) });
+  return fetchAdmin<CoverageCheckResult>(`/admin/address/check-coverage?${params}`);
+}
+
 // Sellers
 export async function createSeller(data: Record<string, unknown>): Promise<{ status?: string }> {
   return fetchAdmin('/admin/create_seller', {

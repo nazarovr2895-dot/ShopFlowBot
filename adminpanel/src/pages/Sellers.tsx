@@ -4,7 +4,7 @@ import { PageHeader, useToast } from '../components/ui';
 import {
   Plus, Store, User, MapPin, Truck, Building2, Percent,
   Gauge, Calendar, Globe, Shield, Trash2, X, Edit3, Save,
-  Copy, ExternalLink, Eye, EyeOff, CreditCard,
+  Copy, ExternalLink, Eye, EyeOff, CreditCard, AlertTriangle,
 } from 'lucide-react';
 import {
   searchSellers,
@@ -22,7 +22,11 @@ import {
   getOrgData,
   getCities,
   getDistricts,
+  suggestAddress,
+  checkAddressCoverage,
   type InnData,
+  type AddressSuggestion,
+  type CoverageCheckResult,
 } from '../api/adminClient';
 import type { Seller, MetroStation, City, District } from '../types';
 import { OrgDataDisplay } from '../components/OrgDataDisplay';
@@ -412,6 +416,16 @@ function AddSellerModal({
   const [commissionPercent, setCommissionPercent] = useState('');
   const [credentials, setCredentials] = useState<{ web_login: string; web_password: string } | null>(null);
 
+  // Address autocomplete state
+  const [addressQuery, setAddressQuery] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressDropdownOpen, setAddressDropdownOpen] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState('');
+  const [coverageResult, setCoverageResult] = useState<CoverageCheckResult | null>(null);
+  const [checkingCoverage, setCheckingCoverage] = useState(false);
+  const addressTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const addressWrapperRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (initialInnData) {
       if (initialInnData.name && !shopName) {
@@ -440,8 +454,72 @@ function AddSellerModal({
         setDistrictId(list[0].id);
       }
     }).catch(() => setDistricts([]));
+    // Reset address when city changes
+    setAddressQuery('');
+    setSelectedAddress('');
+    setCoverageResult(null);
+    setAddressSuggestions([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityId]);
+
+  // Close address dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (addressWrapperRef.current && !addressWrapperRef.current.contains(e.target as Node)) {
+        setAddressDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const currentCity = cities.find(c => c.id === cityId);
+  const cityKladrId = currentCity?.kladr_id;
+
+  const fetchAddressSuggestions = useCallback(async (q: string) => {
+    if (q.length < 3) {
+      setAddressSuggestions([]);
+      setAddressDropdownOpen(false);
+      return;
+    }
+    try {
+      const data = await suggestAddress(q, cityKladrId);
+      setAddressSuggestions(data);
+      setAddressDropdownOpen(data.length > 0);
+    } catch {
+      setAddressSuggestions([]);
+    }
+  }, [cityKladrId]);
+
+  const handleAddressInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setAddressQuery(v);
+    setSelectedAddress('');
+    setCoverageResult(null);
+    if (addressTimerRef.current) clearTimeout(addressTimerRef.current);
+    addressTimerRef.current = setTimeout(() => fetchAddressSuggestions(v), 250);
+  };
+
+  const handleAddressSelect = async (suggestion: AddressSuggestion) => {
+    setAddressQuery(suggestion.value);
+    setSelectedAddress(suggestion.value);
+    setAddressDropdownOpen(false);
+    setAddressSuggestions([]);
+
+    // Check coverage
+    setCheckingCoverage(true);
+    try {
+      const result = await checkAddressCoverage(suggestion.value, cityId);
+      setCoverageResult(result);
+      if (result.covered && result.district_id) {
+        setDistrictId(result.district_id);
+      }
+    } catch {
+      setCoverageResult(null);
+    } finally {
+      setCheckingCoverage(false);
+    }
+  };
 
   const handlePhoneChange = (value: string) => {
     const formatted = formatPhoneInput(value);
@@ -495,7 +573,9 @@ function AddSellerModal({
         metro_id: metroId || undefined,
         metro_walk_minutes: metroWalkMinutes || undefined,
         map_url: addressLink || undefined,
+        address_name: selectedAddress || undefined,
         delivery_type: 'both',
+        auto_create_delivery_zone: coverageResult?.covered && coverageResult?.district_id ? true : false,
       };
       if (initialInnData?.inn) {
         payload.inn = initialInnData.inn;
@@ -620,8 +700,49 @@ function AddSellerModal({
             ))}
           </select>
         } />
+        <div className="form-group">
+          <label className="form-label">Адрес (DaData)</label>
+          <div ref={addressWrapperRef} style={{ position: 'relative' }}>
+            <input
+              className="form-input"
+              value={addressQuery}
+              onChange={handleAddressInputChange}
+              onFocus={() => { if (addressSuggestions.length > 0) setAddressDropdownOpen(true); }}
+              placeholder="Начните вводить адрес..."
+              autoComplete="off"
+            />
+            {addressDropdownOpen && addressSuggestions.length > 0 && (
+              <div className="cov-district-ac__dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10 }}>
+                {addressSuggestions.map((s, i) => (
+                  <div
+                    key={i}
+                    className="cov-district-ac__option"
+                    onClick={() => handleAddressSelect(s)}
+                  >
+                    {s.value}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {checkingCoverage && (
+            <small className="form-hint" style={{ color: 'var(--text-secondary)' }}>Проверка покрытия...</small>
+          )}
+          {coverageResult && !checkingCoverage && (
+            coverageResult.covered ? (
+              <small className="form-hint" style={{ color: 'var(--success)', fontWeight: 500 }}>
+                Доступно — {coverageResult.district_name}
+              </small>
+            ) : (
+              <small className="form-hint" style={{ color: 'var(--danger)', fontWeight: 500 }}>
+                <AlertTriangle size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                Адрес не в зоне покрытия{coverageResult.district_name ? ` (район: ${coverageResult.district_name})` : ''}. Добавьте район в области покрытия.
+              </small>
+            )
+          )}
+        </div>
         <FormRow label="Округ" render={
-          <select className="form-input" value={districtId} onChange={(e) => setDistrictId(parseInt(e.target.value, 10))}>
+          <select className="form-input" value={districtId} onChange={(e) => { setDistrictId(parseInt(e.target.value, 10)); setCoverageResult(null); setSelectedAddress(''); setAddressQuery(''); }}>
             {(districts.length > 0 ? districts : DISTRICTS_MSK).map((d) => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
