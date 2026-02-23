@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
+from aiogram.types import BotCommand
 from aiogram.fsm.storage.redis import RedisStorage
 from redis.asyncio import Redis
 
@@ -48,9 +49,16 @@ async def main():
     dp.include_router(paysupport.router)
     dp.include_router(buyer.router)
 
+    # 4. Регистрация команд бота (отображаются в меню Telegram)
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Запустить бота"),
+        BotCommand(command="paysupport", description="Оплата, возвраты, поддержка"),
+    ])
+    logger.info("✅ Команды бота зарегистрированы")
+
     # Удаляем старые апдейты (чтобы бот не отвечал на старые сообщения)
     await bot.delete_webhook(drop_pending_updates=True)
-    
+
     logger.info("✅ Бот запущен!")
     
     # Запуск с graceful shutdown
