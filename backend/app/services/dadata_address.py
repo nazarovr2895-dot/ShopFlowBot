@@ -9,6 +9,7 @@ logger = get_logger(__name__)
 
 DADATA_SUGGEST_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address"
 DADATA_METRO_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/metro"
+DADATA_GEOLOCATE_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address"
 
 # DaData returns full district names (city_area); our DB stores abbreviations.
 # Map lowercase full names → abbreviations for Moscow administrative okrugs.
@@ -346,30 +347,35 @@ async def fetch_metro_stations(city_kladr_id: str) -> List[Dict[str, Any]]:
 
 async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[str]:
     """
-    Resolve district name from coordinates using DaData address reverse geocode.
-    Returns normalized district name as stored in DB (e.g. "ЦАО") or None.
+    Resolve district name from coordinates using DaData geolocate API.
+    Returns normalized district name as stored in DB (e.g. "ЦАО", "Ленинский") or None.
     """
-    payload = {"query": f"{lat} {lon}", "count": 1}
-    suggestions = await _call_dadata(payload)
+    # Use geolocate endpoint — suggest doesn't work with coordinates for non-Moscow cities
+    payload = {"lat": lat, "lon": lon, "count": 1}
+    suggestions = await _call_dadata_url(DADATA_GEOLOCATE_URL, payload)
     if not suggestions:
         return None
 
     d = suggestions[0].get("data", {})
 
-    # Same resolution logic as resolve_district_from_address
+    # Try city_area first (Moscow okrugs)
     city_area = d.get("city_area")
     if city_area:
         normalized = _normalize_district_name(city_area)
         if normalized:
             return normalized
 
+    # Then city_district (works for most cities: "Ленинский", "Октябрьский", etc.)
     city_district = d.get("city_district")
     normalized = _normalize_district_name(city_district, d.get("city_district_type"))
     if normalized:
         return normalized
 
+    # OKATO fallback (Moscow only)
     okato = d.get("okato")
     if okato:
-        return _okato_to_district(okato)
+        okato_district = _okato_to_district(okato)
+        if okato_district:
+            return okato_district
 
     return None
