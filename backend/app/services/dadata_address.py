@@ -8,18 +8,19 @@ logger = get_logger(__name__)
 
 DADATA_SUGGEST_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address"
 
-# DaData returns full district names; our DB stores abbreviations.
-# Map full names → abbreviations for Moscow administrative okrugs.
+# DaData returns full district names (city_area); our DB stores abbreviations.
+# Map lowercase full names → abbreviations for Moscow administrative okrugs.
+# DaData may use mixed case (e.g. "Северо-восточный"), so we compare lowercase.
 _DISTRICT_FULL_TO_ABBR: Dict[str, str] = {
-    "Центральный": "ЦАО",
-    "Северный": "САО",
-    "Северо-Восточный": "СВАО",
-    "Восточный": "ВАО",
-    "Юго-Восточный": "ЮВАО",
-    "Южный": "ЮАО",
-    "Юго-Западный": "ЮЗАО",
-    "Западный": "ЗАО",
-    "Северо-Западный": "СЗАО",
+    "центральный": "ЦАО",
+    "северный": "САО",
+    "северо-восточный": "СВАО",
+    "восточный": "ВАО",
+    "юго-восточный": "ЮВАО",
+    "южный": "ЮАО",
+    "юго-западный": "ЮЗАО",
+    "западный": "ЗАО",
+    "северо-западный": "СЗАО",
 }
 
 
@@ -41,12 +42,13 @@ _OKATO_PREFIX_TO_DISTRICT: Dict[str, str] = {
 
 
 def _normalize_district_name(city_district: Optional[str], city_district_type: Optional[str] = None) -> Optional[str]:
-    """Convert DaData city_district to DB district name (abbreviation or known name)."""
+    """Convert DaData city_area/city_district to DB district name (abbreviation or known name)."""
     if not city_district:
         return None
-    # If DaData returns full name like "Центральный", map to abbreviation
-    if city_district in _DISTRICT_FULL_TO_ABBR:
-        return _DISTRICT_FULL_TO_ABBR[city_district]
+    # Case-insensitive lookup: DaData may return "Северо-восточный" or "Северо-Восточный"
+    lower = city_district.lower()
+    if lower in _DISTRICT_FULL_TO_ABBR:
+        return _DISTRICT_FULL_TO_ABBR[lower]
     # If it's already an abbreviation (ЦАО, САО, etc.) or a known outer district name
     return city_district
 
