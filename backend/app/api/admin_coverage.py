@@ -15,6 +15,7 @@ from backend.app.services.dadata_address import (
     suggest_city as dadata_suggest_city,
     suggest_district as dadata_suggest_district,
     fetch_metro_stations as dadata_fetch_metro,
+    fetch_city_districts as dadata_fetch_districts,
     resolve_district_from_coordinates,
 )
 
@@ -123,10 +124,24 @@ async def create_city(
     session.add(city)
     await session.commit()
     await session.refresh(city)
+
+    # Auto-fetch districts from DaData if city has KLADR code
+    districts_count = 0
+    if city.kladr_id:
+        try:
+            district_names = await dadata_fetch_districts(city.kladr_id)
+            for name in district_names:
+                session.add(District(name=name, city_id=city.id))
+            await session.commit()
+            districts_count = len(district_names)
+            logger.info("Auto-created districts", city=city.name, count=districts_count)
+        except Exception as e:
+            logger.error("Failed to auto-fetch districts", city=city.name, error=str(e))
+
     await cache.invalidate_cities()
 
     return {"id": city.id, "name": city.name, "kladr_id": city.kladr_id,
-            "districts_count": 0, "metro_count": 0, "sellers_count": 0}
+            "districts_count": districts_count, "metro_count": 0, "sellers_count": 0}
 
 
 @router.put("/coverage/cities/{city_id}")

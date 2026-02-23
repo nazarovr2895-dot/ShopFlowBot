@@ -318,6 +318,53 @@ async def suggest_district(query: str, city_kladr_id: str, count: int = 10) -> L
     return result
 
 
+async def fetch_city_districts(city_kladr_id: str) -> List[str]:
+    """
+    Fetch all district names for a city from DaData.
+    Queries addresses with various search terms and collects unique districts.
+    For Moscow (OKATO 45*), returns okrugs only (ЦАО, САО, etc.).
+    For other cities, returns city_district names (Ленинский, Октябрьский, etc.).
+    """
+    seen: set[str] = set()
+    result: List[str] = []
+
+    # Use a few search terms to maximize coverage
+    queries = ["район", "ул", "пр", "а", "к", "м", "с", "п", "н", "л"]
+
+    for q in queries:
+        payload: Dict[str, Any] = {
+            "query": q,
+            "count": 20,
+            "locations": [{"kladr_id": city_kladr_id}],
+        }
+        suggestions = await _call_dadata(payload)
+        for s in suggestions:
+            d = s.get("data", {})
+            okato = d.get("okato")
+            is_moscow = okato and okato.startswith("45")
+
+            if is_moscow:
+                # Moscow: only use city_area (okrugs), skip municipal districts
+                raw = d.get("city_area")
+            else:
+                # Other cities: city_area first, then city_district
+                raw = d.get("city_area") or d.get("city_district")
+
+            if not raw:
+                continue
+            normalized = _normalize_district_name(raw, okato=okato)
+            if not normalized:
+                continue
+            key = normalized.lower()
+            if key not in seen:
+                seen.add(key)
+                result.append(normalized)
+
+        await asyncio.sleep(0.05)
+
+    return sorted(result)
+
+
 async def fetch_metro_stations(city_kladr_id: str) -> List[Dict[str, Any]]:
     """
     Fetch all metro stations for a city from DaData /suggest/metro.
