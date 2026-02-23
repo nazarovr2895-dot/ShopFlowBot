@@ -567,6 +567,65 @@ async def import_metro_from_dadata(
     }
 
 
+@router.post("/coverage/cities/{city_id}/remap-metro")
+async def remap_metro_districts(
+    city_id: int,
+    session: AsyncSession = Depends(get_session),
+    cache: CacheService = Depends(get_cache),
+    _token: None = Depends(require_admin_token),
+):
+    """Re-assign unmapped metro stations to districts using coordinate reverse geocoding."""
+    city = await session.get(City, city_id)
+    if not city:
+        raise HTTPException(404, "Город не найден")
+
+    # Load unmapped stations with coordinates
+    unmapped_q = await session.execute(
+        select(Metro).where(
+            Metro.city_id == city_id,
+            Metro.district_id.is_(None),
+            Metro.geo_lat.isnot(None),
+            Metro.geo_lon.isnot(None),
+        )
+    )
+    unmapped = unmapped_q.scalars().all()
+
+    if not unmapped:
+        return {"remapped": 0, "still_unmapped": 0}
+
+    # Load districts for matching
+    districts_q = await session.execute(
+        select(District).where(District.city_id == city_id)
+    )
+    districts = districts_q.scalars().all()
+    district_by_name = {d.name.lower(): d.id for d in districts}
+
+    if not district_by_name:
+        return {"remapped": 0, "still_unmapped": len(unmapped)}
+
+    coord_cache: dict[str, Optional[str]] = {}
+    remapped = 0
+
+    for station in unmapped:
+        cache_key = f"{round(station.geo_lat, 3)},{round(station.geo_lon, 3)}"
+        if cache_key in coord_cache:
+            district_name = coord_cache[cache_key]
+        else:
+            district_name = await resolve_district_from_coordinates(station.geo_lat, station.geo_lon)
+            coord_cache[cache_key] = district_name
+
+        if district_name:
+            district_id = district_by_name.get(district_name.lower())
+            if district_id:
+                station.district_id = district_id
+                remapped += 1
+
+    await session.commit()
+    await cache.invalidate_metro()
+
+    return {"remapped": remapped, "still_unmapped": len(unmapped) - remapped}
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 def _metro_to_dict(station: Metro) -> dict:

@@ -1,24 +1,27 @@
 import { useState } from 'react';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useToast, useConfirm } from '../../../components/ui';
 import {
   deleteCoverageMetro,
   updateCoverageMetro,
+  remapMetroDistricts,
   type CoverageDistrict,
   type CoverageMetro,
 } from '../../../api/adminClient';
 
 interface MetroSectionProps {
+  cityId: number;
   districts: CoverageDistrict[];
   mappedStations: CoverageMetro[];
   unmappedStations: CoverageMetro[];
   onReload: () => Promise<void>;
 }
 
-export function MetroSection({ districts, mappedStations, unmappedStations, onReload }: MetroSectionProps) {
+export function MetroSection({ cityId, districts, mappedStations, unmappedStations, onReload }: MetroSectionProps) {
   const toast = useToast();
   const confirm = useConfirm();
   const [assigningId, setAssigningId] = useState<number | null>(null);
+  const [remapping, setRemapping] = useState(false);
 
   const totalCount = mappedStations.length + unmappedStations.length;
 
@@ -58,6 +61,23 @@ export function MetroSection({ districts, mappedStations, unmappedStations, onRe
       await onReload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
+    }
+  };
+
+  const handleRemap = async () => {
+    setRemapping(true);
+    try {
+      const result = await remapMetroDistricts(cityId);
+      if (result.remapped > 0) {
+        toast.success(`Переназначено ${result.remapped} станций`);
+      } else {
+        toast.info('Не удалось переназначить станции — проверьте районы');
+      }
+      await onReload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setRemapping(false);
     }
   };
 
@@ -103,6 +123,17 @@ export function MetroSection({ districts, mappedStations, unmappedStations, onRe
           <div className="cov-metro-group__label" style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <AlertTriangle size={14} />
             Без района ({unmappedStations.length})
+            {districts.length > 0 && (
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: 'var(--text-xs)', marginLeft: 'auto' }}
+                onClick={handleRemap}
+                disabled={remapping}
+              >
+                <RefreshCw size={12} />
+                {remapping ? 'Назначение...' : 'Переназначить'}
+              </button>
+            )}
           </div>
           {unmappedStations.map(s => (
             <div key={s.id} className="cov-metro-row">

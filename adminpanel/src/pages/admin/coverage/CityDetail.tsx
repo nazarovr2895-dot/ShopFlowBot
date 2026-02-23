@@ -182,6 +182,7 @@ export function CityDetail({ city, onReload, onClose }: CityDetailProps) {
           />
 
           <MetroSection
+            cityId={city.id}
             districts={districts}
             mappedStations={mappedStations}
             unmappedStations={unmappedStations}

@@ -532,3 +532,9 @@ export async function importMetroFromDadata(cityId: number): Promise<MetroImport
     method: 'POST',
   });
 }
+
+export async function remapMetroDistricts(cityId: number): Promise<{ remapped: number; still_unmapped: number }> {
+  return fetchAdmin<{ remapped: number; still_unmapped: number }>(`/admin/coverage/cities/${cityId}/remap-metro`, {
+    method: 'POST',
+  });
+}
