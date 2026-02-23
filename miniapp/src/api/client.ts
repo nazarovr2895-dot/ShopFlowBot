@@ -415,6 +415,7 @@ class ApiClient {
     points_usage?: Array<{ seller_id: number; points_to_use: number }>;
     delivery_by_seller?: Array<{ seller_id: number; delivery_type: string }>;
     buyer_district_id?: number | null;
+    buyer_district_name?: string | null;
   }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
     return this.fetch('/buyers/me/cart/checkout', {
       method: 'POST',
@@ -438,6 +439,7 @@ class ApiClient {
     }>;
     delivery_by_seller?: Array<{ seller_id: number; delivery_type: string }>;
     buyer_district_id?: number | null;
+    buyer_district_name?: string | null;
   }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
     const url = `${this.getBaseUrl()}/orders/guest-checkout`;
     const response = await fetch(url, {
@@ -580,7 +582,7 @@ class ApiClient {
     return this.fetchPublic(`/public/districts/${cityId}`);
   }
 
-  async checkDelivery(sellerId: number, districtId: number): Promise<{
+  async checkDelivery(sellerId: number, params: { districtId?: number; districtName?: string }): Promise<{
     delivers: boolean;
     zone: any | null;
     delivery_price: number;
@@ -588,7 +590,7 @@ class ApiClient {
   }> {
     return this.fetchPublic(`/public/sellers/${sellerId}/check-delivery`, {
       method: 'POST',
-      body: JSON.stringify({ district_id: districtId }),
+      body: JSON.stringify({ district_id: params.districtId, district_name: params.districtName }),
     });
   }
 

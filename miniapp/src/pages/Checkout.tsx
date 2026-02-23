@@ -46,6 +46,7 @@ export function Checkout() {
   const [loyaltyBySellerMap, setLoyaltyBySellerMap] = useState<Record<number, SellerLoyaltyInfo>>({});
   const [pointsUsage, setPointsUsage] = useState<Record<number, number>>({});
   const [buyerDistrictId, setBuyerDistrictId] = useState<number | null>(null);
+  const [buyerDistrictName, setBuyerDistrictName] = useState<string | null>(null);
   const [deliveryCheckResults, setDeliveryCheckResults] = useState<Record<number, { delivers: boolean; delivery_price: number; message: string }>>({});
   const [districtNameToId, setDistrictNameToId] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -262,6 +263,7 @@ export function Checkout() {
         ...(pointsArr.length > 0 ? { points_usage: pointsArr } : {}),
         delivery_by_seller: deliveryArr,
         buyer_district_id: buyerDistrictId,
+        buyer_district_name: buyerDistrictName,
       });
       setSubmitting(false);
       const ordersMsg = orders.length > 1
@@ -580,6 +582,7 @@ export function Checkout() {
               onDeliveryCheck={setDeliveryCheckResults}
               districtNameToId={districtNameToId}
               onDistrictIdResolved={setBuyerDistrictId}
+              onDistrictResolved={setBuyerDistrictName}
               required={hasAnyDelivery}
             />
             {/* Per-seller delivery status */}

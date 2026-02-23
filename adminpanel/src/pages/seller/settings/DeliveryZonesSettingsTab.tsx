@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  updateMe,
   getDeliveryZones,
   createDeliveryZone,
   updateDeliveryZone,
@@ -9,7 +8,7 @@ import {
 } from '../../../api/sellerClient';
 import type { DeliveryZone, CreateDeliveryZoneData } from '../../../api/sellerClient';
 import { FormField, useToast } from '../../../components/ui';
-import { MapPin, Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2 } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './DeliveryZonesSettingsTab.css';
 
@@ -29,7 +28,7 @@ const EMPTY_FORM: CreateDeliveryZoneData = {
   priority: 0,
 };
 
-export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
+export function DeliveryZonesSettingsTab({ me }: SettingsTabProps) {
   const toast = useToast();
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [districts, setDistricts] = useState<DistrictOption[]>([]);
@@ -38,8 +37,6 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingZoneId, setEditingZoneId] = useState<number | null>(null);
   const [form, setForm] = useState<CreateDeliveryZoneData>({ ...EMPTY_FORM });
-
-  const isEnabled = me.use_delivery_zones ?? false;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -58,19 +55,6 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
   }, [me.city_id]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  const handleToggle = async () => {
-    setSaving(true);
-    try {
-      await updateMe({ use_delivery_zones: !isEnabled });
-      await reload();
-      toast.success(isEnabled ? 'Зоны доставки отключены' : 'Зоны доставки включены');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const openCreateForm = () => {
     setForm({ ...EMPTY_FORM });
@@ -162,7 +146,6 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
 
   return (
     <div className="settings-shop">
-      {/* Toggle card */}
       <div className="shop-card">
         <div className="shop-card__header">
           <div className="shop-card__header-left">
@@ -176,150 +159,130 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
           </div>
         </div>
 
-        <div className="dz-toggle">
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={handleToggle}
-            disabled={saving}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            {isEnabled ? <ToggleRight size={20} color="var(--accent)" /> : <ToggleLeft size={20} />}
-            <span>{isEnabled ? 'Зоны включены' : 'Зоны выключены'}</span>
+        {zones.length === 0 && !showForm && (
+          <div className="dz-empty">
+            Зон доставки пока нет. Без зон будет использоваться единая цена доставки из настроек магазина.
+          </div>
+        )}
+
+        {/* Zone list */}
+        {zones.length > 0 && (
+          <div className="dz-zones-list">
+            {zones.map(zone => (
+              <div key={zone.id} className={`dz-zone-card ${!zone.is_active ? 'dz-zone-card--inactive' : ''}`}>
+                <div className="dz-zone-card__header">
+                  <span className="dz-zone-card__name">
+                    {zone.name}
+                    {!zone.is_active && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> (неактивна)</span>}
+                  </span>
+                  <span className="dz-zone-card__price">
+                    {zone.delivery_price > 0 ? `${zone.delivery_price} ₽` : 'Бесплатно'}
+                  </span>
+                </div>
+                <div className="dz-zone-card__districts">
+                  {(zone.district_ids || []).map(id => (
+                    <span key={id} className="dz-zone-card__district-tag">{districtName(id)}</span>
+                  ))}
+                </div>
+                <div className="dz-zone-card__meta">
+                  {zone.min_order_amount != null && <span>Мин. заказ: {zone.min_order_amount} ₽</span>}
+                  {zone.free_delivery_from != null && <span>Бесплатно от: {zone.free_delivery_from} ₽</span>}
+                </div>
+                <div className="dz-zone-card__actions">
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEditForm(zone)}>
+                    <Pencil size={14} /> Изменить
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(zone.id)} style={{ color: '#ef4444' }}>
+                    <Trash2 size={14} /> Удалить
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add button */}
+        {!showForm && (
+          <button className="btn btn-primary btn-sm" style={{ marginTop: 'var(--space-4)' }} onClick={openCreateForm}>
+            <Plus size={14} /> Добавить зону
           </button>
-          <span className="dz-toggle__label">
-            {isEnabled
-              ? 'Цена доставки зависит от района покупателя'
-              : 'Используется единая цена доставки из настроек магазина'
-            }
-          </span>
-        </div>
+        )}
 
-        {isEnabled && (
-          <>
-            {/* Zone list */}
-            {zones.length > 0 ? (
-              <div className="dz-zones-list">
-                {zones.map(zone => (
-                  <div key={zone.id} className={`dz-zone-card ${!zone.is_active ? 'dz-zone-card--inactive' : ''}`}>
-                    <div className="dz-zone-card__header">
-                      <span className="dz-zone-card__name">
-                        {zone.name}
-                        {!zone.is_active && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> (неактивна)</span>}
-                      </span>
-                      <span className="dz-zone-card__price">
-                        {zone.delivery_price > 0 ? `${zone.delivery_price} ₽` : 'Бесплатно'}
-                      </span>
-                    </div>
-                    <div className="dz-zone-card__districts">
-                      {(zone.district_ids || []).map(id => (
-                        <span key={id} className="dz-zone-card__district-tag">{districtName(id)}</span>
-                      ))}
-                    </div>
-                    <div className="dz-zone-card__meta">
-                      {zone.min_order_amount != null && <span>Мин. заказ: {zone.min_order_amount} ₽</span>}
-                      {zone.free_delivery_from != null && <span>Бесплатно от: {zone.free_delivery_from} ₽</span>}
-                    </div>
-                    <div className="dz-zone-card__actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEditForm(zone)}>
-                        <Pencil size={14} /> Изменить
-                      </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(zone.id)} style={{ color: '#ef4444' }}>
-                        <Trash2 size={14} /> Удалить
-                      </button>
-                    </div>
+        {/* Form */}
+        {showForm && (
+          <div className="dz-form">
+            <div className="dz-form__row">
+              <FormField label="Название зоны">
+                <input
+                  type="text"
+                  className="form-input"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Например: Центр Москвы"
+                />
+              </FormField>
+            </div>
+
+            <div className="dz-form__row-2col">
+              <FormField label="Цена доставки (₽)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="form-input"
+                  value={form.delivery_price}
+                  onChange={e => setForm(f => ({ ...f, delivery_price: parseFloat(e.target.value) || 0 }))}
+                />
+              </FormField>
+              <FormField label="Бесплатно от суммы (₽)">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="form-input"
+                  value={form.free_delivery_from ?? ''}
+                  onChange={e => setForm(f => ({ ...f, free_delivery_from: e.target.value ? parseFloat(e.target.value) : null }))}
+                  placeholder="Не ограничено"
+                />
+              </FormField>
+            </div>
+
+            <div className="dz-form__row">
+              <FormField label="Районы">
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={selectAllDistricts}>Выбрать все</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={clearAllDistricts}>Снять все</button>
+                </div>
+                {districts.length > 0 ? (
+                  <div className="dz-form__districts-grid">
+                    {districts.map(d => (
+                      <label key={d.id} className="dz-form__district-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={form.district_ids.includes(d.id)}
+                          onChange={() => toggleDistrict(d.id)}
+                        />
+                        {d.name}
+                      </label>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="dz-empty">
-                Зон доставки пока нет. Добавьте первую зону.
-              </div>
-            )}
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                    Укажите город в настройках магазина, чтобы увидеть районы
+                  </p>
+                )}
+              </FormField>
+            </div>
 
-            {/* Add button */}
-            {!showForm && (
-              <button className="btn btn-primary btn-sm" style={{ marginTop: 'var(--space-4)' }} onClick={openCreateForm}>
-                <Plus size={14} /> Добавить зону
+            <div className="dz-form__actions">
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? 'Сохранение...' : editingZoneId ? 'Сохранить' : 'Создать'}
               </button>
-            )}
-
-            {/* Form */}
-            {showForm && (
-              <div className="dz-form">
-                <div className="dz-form__row">
-                  <FormField label="Название зоны">
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={form.name}
-                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                      placeholder="Например: Центр Москвы"
-                    />
-                  </FormField>
-                </div>
-
-                <div className="dz-form__row-2col">
-                  <FormField label="Цена доставки (₽)">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="form-input"
-                      value={form.delivery_price}
-                      onChange={e => setForm(f => ({ ...f, delivery_price: parseFloat(e.target.value) || 0 }))}
-                    />
-                  </FormField>
-                  <FormField label="Бесплатно от суммы (₽)">
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      className="form-input"
-                      value={form.free_delivery_from ?? ''}
-                      onChange={e => setForm(f => ({ ...f, free_delivery_from: e.target.value ? parseFloat(e.target.value) : null }))}
-                      placeholder="Не ограничено"
-                    />
-                  </FormField>
-                </div>
-
-                <div className="dz-form__row">
-                  <FormField label="Районы">
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={selectAllDistricts}>Выбрать все</button>
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={clearAllDistricts}>Снять все</button>
-                    </div>
-                    {districts.length > 0 ? (
-                      <div className="dz-form__districts-grid">
-                        {districts.map(d => (
-                          <label key={d.id} className="dz-form__district-checkbox">
-                            <input
-                              type="checkbox"
-                              checked={form.district_ids.includes(d.id)}
-                              onChange={() => toggleDistrict(d.id)}
-                            />
-                            {d.name}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                        Укажите город в настройках магазина, чтобы увидеть районы
-                      </p>
-                    )}
-                  </FormField>
-                </div>
-
-                <div className="dz-form__actions">
-                  <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                    {saving ? 'Сохранение...' : editingZoneId ? 'Сохранить' : 'Создать'}
-                  </button>
-                  <button className="btn btn-ghost" onClick={() => { setShowForm(false); setEditingZoneId(null); }}>
-                    Отмена
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+              <button className="btn btn-ghost" onClick={() => { setShowForm(false); setEditingZoneId(null); }}>
+                Отмена
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

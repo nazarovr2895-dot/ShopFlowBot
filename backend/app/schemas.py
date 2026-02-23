@@ -90,6 +90,7 @@ class GuestCheckoutBody(BaseModel):
     items: List[GuestCartItem] = Field(min_length=1)
     delivery_by_seller: Optional[List[GuestDeliveryPerSeller]] = None
     buyer_district_id: Optional[int] = None  # district for delivery zone matching
+    buyer_district_name: Optional[str] = None  # district name from DaData (e.g. "ЦАО")
 
     @field_validator("guest_name")
     @classmethod

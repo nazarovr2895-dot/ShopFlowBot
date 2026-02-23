@@ -460,17 +460,22 @@ async def guest_checkout(
             delivery_price = Decimal("0")
             zone_match = None
             if seller and seller_delivery == "Доставка":
-                if getattr(seller, "use_delivery_zones", False) and data.buyer_district_id is not None:
-                    from backend.app.services.delivery_zones import DeliveryZoneService
-                    zone_svc = DeliveryZoneService(session)
-                    zone_match = await zone_svc.find_zone_for_address(seller_id, district_id=data.buyer_district_id)
+                from backend.app.services.delivery_zones import DeliveryZoneService
+                zone_svc = DeliveryZoneService(session)
+                zones = await zone_svc.get_active_zones(seller_id)
+                # Resolve district ID from name if needed
+                district_id = data.buyer_district_id
+                if district_id is None and getattr(data, "buyer_district_name", None):
+                    district_id = await zone_svc.resolve_district_id(data.buyer_district_name)
+                if zones and district_id is not None:
+                    zone_match = await zone_svc.find_zone_for_address(seller_id, district_id=district_id)
                     if zone_match is None:
                         raise HTTPException(status_code=400, detail="Магазин не доставляет по вашему адресу")
                     delivery_price = Decimal(str(zone_match["delivery_price"]))
                     if zone_match.get("free_delivery_from") and total >= Decimal(str(zone_match["free_delivery_from"])):
                         delivery_price = Decimal("0")
                     total += delivery_price
-                elif getattr(seller, "delivery_price", None):
+                elif not zones and getattr(seller, "delivery_price", None):
                     delivery_price = Decimal(str(seller.delivery_price))
                     total += delivery_price
 

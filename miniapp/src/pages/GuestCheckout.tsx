@@ -27,6 +27,7 @@ export function GuestCheckout() {
   const [submitting, setSubmitting] = useState(false);
   const [cart, setCart] = useState<CartSellerGroup[]>([]);
   const [buyerDistrictId, setBuyerDistrictId] = useState<number | null>(null);
+  const [buyerDistrictName, setBuyerDistrictName] = useState<string | null>(null);
   const [deliveryCheckResults, setDeliveryCheckResults] = useState<Record<number, { delivers: boolean; delivery_price: number; message: string }>>({});
   const [districtNameToId, setDistrictNameToId] = useState<Record<string, number>>({});
 
@@ -137,6 +138,7 @@ export function GuestCheckout() {
         items: allItems,
         delivery_by_seller: deliveryArr,
         buyer_district_id: buyerDistrictId,
+        buyer_district_name: buyerDistrictName,
       });
 
       clearGuestCart();
@@ -299,6 +301,7 @@ export function GuestCheckout() {
               onDeliveryCheck={setDeliveryCheckResults}
               districtNameToId={districtNameToId}
               onDistrictIdResolved={setBuyerDistrictId}
+              onDistrictResolved={setBuyerDistrictName}
               required
             />
             {/* Per-seller delivery status */}

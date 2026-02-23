@@ -24,7 +24,7 @@ interface AddressAutocompleteProps {
   sellerIds?: number[];
   /** Callback with per-seller delivery check results */
   onDeliveryCheck?: (results: Record<number, DeliveryCheckResult>) => void;
-  /** Districts from backend, keyed by name -> id */
+  /** Districts from backend, keyed by name -> id (used to resolve buyerDistrictId for checkout) */
   districtNameToId?: Record<string, number>;
   onDistrictIdResolved?: (districtId: number | null) => void;
   placeholder?: string;
@@ -85,6 +85,8 @@ export function AddressAutocomplete({
     // Reset district when user types
     onDistrictResolved?.(null);
     onDistrictIdResolved?.(null);
+    // Reset delivery check results when user changes address
+    onDeliveryCheck?.({});
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchSuggestions(val), 300);
@@ -98,20 +100,23 @@ export function AddressAutocomplete({
     const districtName = suggestion.city_district;
     onDistrictResolved?.(districtName);
 
-    // Resolve district ID from name
+    // Resolve district ID from name (for checkout buyer_district_id)
     let districtId: number | null = null;
     if (districtName && districtNameToId) {
       districtId = districtNameToId[districtName] ?? null;
     }
     onDistrictIdResolved?.(districtId);
 
-    // Check delivery for each seller
-    if (districtId && sellerIds && sellerIds.length > 0 && onDeliveryCheck) {
+    // Check delivery for each seller — use district_name directly (backend resolves ID)
+    if (sellerIds && sellerIds.length > 0 && onDeliveryCheck) {
       const results: Record<number, DeliveryCheckResult> = {};
       await Promise.all(
         sellerIds.map(async (sellerId) => {
           try {
-            results[sellerId] = await api.checkDelivery(sellerId, districtId!);
+            results[sellerId] = await api.checkDelivery(sellerId, {
+              districtId: districtId ?? undefined,
+              districtName: districtName ?? undefined,
+            });
           } catch {
             results[sellerId] = { delivers: false, delivery_price: 0, message: 'Ошибка проверки доставки' };
           }

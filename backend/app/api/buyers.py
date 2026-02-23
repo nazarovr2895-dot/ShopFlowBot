@@ -263,6 +263,7 @@ class CheckoutBody(BaseModel):
     points_usage: Optional[List[PointsUsagePerSeller]] = None
     delivery_by_seller: Optional[List[DeliveryPerSeller]] = None
     buyer_district_id: Optional[int] = None  # district for delivery zone matching
+    buyer_district_name: Optional[str] = None  # district name from DaData (e.g. "ЦАО")
 
 
 class VisitedSellerRecord(BaseModel):
@@ -400,6 +401,7 @@ async def checkout_cart(
             points_by_seller=points_by_seller or None,
             delivery_by_seller=delivery_map or None,
             buyer_district_id=data.buyer_district_id,
+            buyer_district_name=data.buyer_district_name,
         )
         await session.commit()
 

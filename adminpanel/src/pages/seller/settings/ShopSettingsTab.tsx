@@ -144,25 +144,20 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
                   ))}
                 </select>
               </FormField>
-              {me.use_delivery_zones ? (
-                <FormField label="Цена доставки">
-                  <div className="form-input form-input--disabled" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center' }}>
-                    Настраивается в зонах доставки
-                  </div>
-                </FormField>
-              ) : (
-                <FormField label="Цена доставки (₽)">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={shopEdit.draft.deliveryPrice}
-                    onChange={(e) => shopEdit.updateField('deliveryPrice', e.target.value)}
-                    placeholder="0"
-                    className="form-input"
-                  />
-                </FormField>
-              )}
+              <FormField label="Цена доставки (₽)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={shopEdit.draft.deliveryPrice}
+                  onChange={(e) => shopEdit.updateField('deliveryPrice', e.target.value)}
+                  placeholder="0"
+                  className="form-input"
+                />
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4, display: 'block' }}>
+                  Используется если зоны доставки не настроены
+                </span>
+              </FormField>
             </div>
 
             {/* Row 4: Address — 2 columns */}
@@ -227,9 +222,7 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
               <div className="shop-view__item">
                 <span className="shop-view__label">Цена доставки</span>
                 <span className="shop-view__value">
-                  {me.use_delivery_zones ? (
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>По зонам доставки</span>
-                  ) : me.delivery_price != null ? (
+                  {me.delivery_price != null ? (
                     <span className="shop-view__price">{me.delivery_price} ₽</span>
                   ) : '—'}
                 </span>

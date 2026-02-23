@@ -6,7 +6,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.models.delivery_zone import DeliveryZone
-from backend.app.models.seller import Seller
+from backend.app.models.seller import Seller, District
 
 
 class DeliveryZoneService:
@@ -69,6 +69,14 @@ class DeliveryZoneService:
         await self.session.flush()
         return True
 
+    async def resolve_district_id(self, district_name: str) -> Optional[int]:
+        """Resolve district name (e.g. 'ЦАО') to district ID."""
+        result = await self.session.execute(
+            select(District.id).where(District.name == district_name)
+        )
+        row = result.scalar_one_or_none()
+        return row
+
     async def find_zone_for_address(
         self,
         seller_id: int,
@@ -93,17 +101,23 @@ class DeliveryZoneService:
         self,
         seller_id: int,
         district_id: Optional[int] = None,
+        district_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Check if seller delivers to the given district.
-        Handles both zone-based and legacy flat-price sellers.
+        Zones are always active — if seller has zones, use them;
+        if not, fall back to flat delivery_price.
+        Accepts district_id or district_name (resolved to ID internally).
         """
         seller = await self.session.get(Seller, seller_id)
         if not seller:
             return {"delivers": False, "zone": None, "delivery_price": 0, "message": "Магазин не найден"}
 
-        # Legacy: flat delivery price, no zones
-        if not getattr(seller, "use_delivery_zones", False):
+        # Check if seller has any active zones
+        zones = await self.get_active_zones(seller_id)
+
+        if not zones:
+            # No zones configured → fallback to flat delivery price (backward compatible)
             return {
                 "delivers": True,
                 "zone": None,
@@ -111,7 +125,10 @@ class DeliveryZoneService:
                 "message": "",
             }
 
-        # Zone-based delivery
+        # Seller has zones — resolve district
+        if district_id is None and district_name:
+            district_id = await self.resolve_district_id(district_name)
+
         if district_id is None:
             return {"delivers": False, "zone": None, "delivery_price": 0, "message": "Укажите адрес для проверки доставки"}
 

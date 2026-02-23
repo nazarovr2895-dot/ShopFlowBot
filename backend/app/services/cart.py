@@ -302,6 +302,7 @@ class CartService:
         points_by_seller: Optional[Dict[int, float]] = None,
         delivery_by_seller: Optional[Dict[int, str]] = None,
         buyer_district_id: Optional[int] = None,
+        buyer_district_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Create one order per (seller, is_preorder) from cart, then clear cart.
@@ -346,11 +347,17 @@ class CartService:
                 total = sum(Decimal(str(it["price"])) * it["quantity"] for it in items)
                 # Delivery fee calculation: zone-based or legacy flat price
                 zone_match = None
+                delivery_fee = Decimal("0")
                 if seller and seller_delivery == "Доставка":
-                    if getattr(seller, "use_delivery_zones", False) and buyer_district_id is not None:
-                        from backend.app.services.delivery_zones import DeliveryZoneService
-                        zone_svc = DeliveryZoneService(self.session)
-                        zone_match = await zone_svc.find_zone_for_address(seller_id, district_id=buyer_district_id)
+                    from backend.app.services.delivery_zones import DeliveryZoneService
+                    zone_svc = DeliveryZoneService(self.session)
+                    zones = await zone_svc.get_active_zones(seller_id)
+                    # Resolve district ID from name if needed
+                    resolved_district_id = buyer_district_id
+                    if resolved_district_id is None and buyer_district_name:
+                        resolved_district_id = await zone_svc.resolve_district_id(buyer_district_name)
+                    if zones and resolved_district_id is not None:
+                        zone_match = await zone_svc.find_zone_for_address(seller_id, district_id=resolved_district_id)
                         if zone_match is None:
                             raise CartServiceError("Магазин не доставляет по вашему адресу", 400)
                         delivery_fee = Decimal(str(zone_match["delivery_price"]))
@@ -358,8 +365,10 @@ class CartService:
                         if zone_match.get("free_delivery_from") and total >= Decimal(str(zone_match["free_delivery_from"])):
                             delivery_fee = Decimal("0")
                         total += delivery_fee
-                    elif getattr(seller, "delivery_price", None):
-                        total += Decimal(str(seller.delivery_price or 0))
+                    elif not zones and getattr(seller, "delivery_price", None):
+                        # No zones configured — fallback to flat delivery price
+                        delivery_fee = Decimal(str(seller.delivery_price or 0))
+                        total += delivery_fee
                 items_info = ", ".join(f"{it['product_id']}:{it['name']}@{it['price']} x {it['quantity']}" for it in items)
                 preorder_date: Optional[date] = None
                 if is_preorder and items:

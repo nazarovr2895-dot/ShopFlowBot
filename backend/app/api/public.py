@@ -717,6 +717,7 @@ async def get_districts(
 
 class CheckDeliveryBody(BaseModel):
     district_id: Optional[int] = None
+    district_name: Optional[str] = None  # e.g. "ЦАО" from DaData city_district
 
 
 @router.get("/address/suggest")
@@ -741,7 +742,7 @@ async def check_delivery_endpoint(
     """Check if seller delivers to the given district. Returns zone + price."""
     from backend.app.services.delivery_zones import DeliveryZoneService
     svc = DeliveryZoneService(session)
-    return await svc.check_delivery(seller_id, district_id=body.district_id)
+    return await svc.check_delivery(seller_id, district_id=body.district_id, district_name=body.district_name)
 
 
 @router.get("/sellers/{seller_id}/delivery-zones")
