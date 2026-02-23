@@ -118,12 +118,12 @@ class DeliveryZoneService:
         zones = await self.get_active_zones(seller_id)
 
         if not zones:
-            # No zones configured → fallback to flat delivery price (backward compatible)
+            # No zones configured → delivery not available
             return {
-                "delivers": True,
+                "delivers": False,
                 "zone": None,
-                "delivery_price": float(seller.delivery_price or 0),
-                "message": "",
+                "delivery_price": 0,
+                "message": "Доставка недоступна — зоны доставки не настроены",
             }
 
         # Seller has zones — resolve district

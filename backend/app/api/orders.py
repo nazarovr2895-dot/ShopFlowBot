@@ -475,9 +475,8 @@ async def guest_checkout(
                     if zone_match.get("free_delivery_from") and total >= Decimal(str(zone_match["free_delivery_from"])):
                         delivery_price = Decimal("0")
                     total += delivery_price
-                elif not zones and getattr(seller, "delivery_price", None):
-                    delivery_price = Decimal(str(seller.delivery_price))
-                    total += delivery_price
+                elif not zones:
+                    raise HTTPException(status_code=400, detail="Доставка недоступна — зоны доставки не настроены")
 
             items_info = ", ".join(
                 f"{it.product_id}:{product.name}@{db_price} x {it.quantity}" for it, product, db_price in verified_items

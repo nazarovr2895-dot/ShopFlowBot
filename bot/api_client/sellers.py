@@ -176,7 +176,7 @@ async def api_create_seller(
     tg_id: int, fio: str, phone: str, shop_name: str,
     description: str = None, city_id: int = None, district_id: int = None,
     map_url: str = None, metro_id: int = None, metro_walk_minutes: int = None,
-    delivery_type: str = None, delivery_price: float = 0.0, placement_expired_at: str = None
+    delivery_type: str = None, placement_expired_at: str = None
 ):
     """Создание продавца с полными данными"""
     payload = {
@@ -189,7 +189,6 @@ async def api_create_seller(
         "district_id": district_id,
         "map_url": map_url,
         "delivery_type": delivery_type,
-        "delivery_price": delivery_price,
         "placement_expired_at": placement_expired_at
     }
     if metro_id is not None:

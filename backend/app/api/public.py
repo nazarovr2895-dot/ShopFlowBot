@@ -225,10 +225,21 @@ async def get_public_sellers(
                 )
 
         if free_delivery is not None:
+            from backend.app.models.delivery_zone import DeliveryZone
+            has_free_zone = (
+                select(DeliveryZone.seller_id)
+                .where(
+                    DeliveryZone.seller_id == Seller.seller_id,
+                    DeliveryZone.is_active == True,
+                    DeliveryZone.delivery_price == 0,
+                )
+                .correlate(Seller)
+                .exists()
+            )
             if free_delivery:
-                base_conditions.append(Seller.delivery_price == 0.0)
+                base_conditions.append(has_free_zone)
             else:
-                base_conditions.append(Seller.delivery_price > 0.0)
+                base_conditions.append(~has_free_zone)
 
         if search:
             q = search.strip()
@@ -340,7 +351,7 @@ async def get_public_sellers(
                 shop_name=seller.shop_name,
                 owner_fio=row.owner_fio,
                 delivery_type=_normalize_delivery_type(seller.delivery_type),
-                delivery_price=float(seller.delivery_price) if seller.delivery_price else 0.0,
+                delivery_price=0.0,  # deprecated: use delivery zones
                 city_name=row.city_name,
                 district_name=row.district_name,
                 metro_name=row.metro_name,
@@ -546,7 +557,7 @@ async def get_public_seller_detail(
         shop_name=seller.shop_name,
         description=seller.description,
         delivery_type=delivery_type_normalized,
-        delivery_price=float(seller.delivery_price) if seller.delivery_price else 0.0,
+        delivery_price=0.0,  # deprecated: use delivery zones
         address_name=getattr(seller, "address_name", None),
         map_url=seller.map_url,
         city_id=seller.city_id,

@@ -23,7 +23,8 @@ export interface PublicSellerListItem {
   shop_name: string | null;
   owner_fio: string | null;
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
-  delivery_price: number;
+  /** @deprecated — use delivery zones. Always 0 from backend. */
+  delivery_price?: number | null;
   city_name: string | null;
   district_name: string | null;
   metro_name: string | null;
@@ -101,7 +102,8 @@ export interface VisitedSeller {
   owner_fio: string | null;
   visited_at?: string | null;
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
-  delivery_price: number;
+  /** @deprecated — use delivery zones */
+  delivery_price?: number | null;
   city_name: string | null;
   district_name: string | null;
   metro_name: string | null;
@@ -160,7 +162,8 @@ export interface PublicSellerDetail {
   shop_name: string | null;
   description: string | null;
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
-  delivery_price: number;
+  /** @deprecated — use delivery zones */
+  delivery_price?: number | null;
   address_name?: string | null;
   map_url: string | null;
   city_id: number | null;

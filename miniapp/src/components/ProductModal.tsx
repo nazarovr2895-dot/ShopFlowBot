@@ -23,7 +23,7 @@ interface ProductModalProps {
   onSelectPreorderDate?: (date: string) => void;
   showDatePicker?: boolean;
   onCancelDatePicker?: () => void;
-  deliveryPrice?: number;
+  deliveryPrice?: number | null;
   deliveryType?: 'delivery' | 'pickup' | 'both' | null;
   loyaltyPointsPercent?: number;
   pointsBalance?: number;
@@ -59,7 +59,7 @@ export function ProductModal({
   onSelectPreorderDate,
   showDatePicker,
   onCancelDatePicker,
-  deliveryPrice = 0,
+  deliveryPrice = null,
   deliveryType,
   loyaltyPointsPercent = 0,
   pointsBalance = 0,
@@ -170,7 +170,7 @@ export function ProductModal({
 
   const hasDelivery = deliveryType === 'delivery' || deliveryType === 'both';
   const deliveryCostLabel = hasDelivery
-    ? (deliveryPrice === 0 ? 'бесплатно' : `${deliveryPrice.toLocaleString('ru-RU')} ₽`)
+    ? (deliveryPrice == null ? 'зависит от зоны' : deliveryPrice === 0 ? 'бесплатно' : `${deliveryPrice.toLocaleString('ru-RU')} ₽`)
     : null;
 
   /* ---------- backdrop click ---------- */

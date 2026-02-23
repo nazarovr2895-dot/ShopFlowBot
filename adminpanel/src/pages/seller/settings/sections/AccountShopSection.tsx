@@ -30,7 +30,7 @@ export function AccountShopSection({ me }: Props) {
       <DataRow label="Описание" value={me.description || '—'} />
       <DataRow label="Округ" value={districtName} />
       <DataRow label="Тип доставки" value={DELIVERY_LABELS[me.delivery_type || ''] || me.delivery_type || '—'} />
-      <DataRow label="Стоимость доставки" value={me.delivery_price != null ? `${me.delivery_price} ₽` : '—'} />
+      <DataRow label="Стоимость доставки" value="Настраивается в зонах доставки" />
       <DataRow
         label="Адрес (карта)"
         value={me.map_url ? (

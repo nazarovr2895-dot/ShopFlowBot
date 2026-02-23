@@ -26,7 +26,6 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
     shopName: me.shop_name || '',
     description: me.description || '',
     deliveryType: me.delivery_type || '',
-    deliveryPrice: String(me.delivery_price ?? ''),
     addressName: me.address_name || '',
     mapUrl: me.map_url || '',
   });
@@ -42,7 +41,6 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
         shop_name: shopEdit.draft.shopName.trim() || undefined,
         description: shopEdit.draft.description.trim() || undefined,
         delivery_type: shopEdit.draft.deliveryType.trim() || undefined,
-        delivery_price: shopEdit.draft.deliveryPrice ? parseFloat(shopEdit.draft.deliveryPrice) : undefined,
         address_name: shopEdit.draft.addressName.trim() || undefined,
         map_url: shopEdit.draft.mapUrl.trim() || undefined,
       });
@@ -144,18 +142,9 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
                   ))}
                 </select>
               </FormField>
-              <FormField label="Цена доставки (₽)">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={shopEdit.draft.deliveryPrice}
-                  onChange={(e) => shopEdit.updateField('deliveryPrice', e.target.value)}
-                  placeholder="0"
-                  className="form-input"
-                />
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4, display: 'block' }}>
-                  Используется если зоны доставки не настроены
+              <FormField label="Цена доставки">
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  Настраивается в зонах доставки
                 </span>
               </FormField>
             </div>
@@ -221,10 +210,8 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
               </div>
               <div className="shop-view__item">
                 <span className="shop-view__label">Цена доставки</span>
-                <span className="shop-view__value">
-                  {me.delivery_price != null ? (
-                    <span className="shop-view__price">{me.delivery_price} ₽</span>
-                  ) : '—'}
+                <span className="shop-view__value" style={{ color: 'var(--text-muted)' }}>
+                  Настраивается в зонах доставки
                 </span>
               </div>
 

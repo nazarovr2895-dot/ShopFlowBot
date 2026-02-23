@@ -77,11 +77,9 @@ class CartService:
             # If seller has delivery zones, delivery_price depends on address → return null
             active_zones = await zone_svc.get_active_zones(seller_id)
             has_delivery_zones = len(active_zones) > 0
-            if has_delivery_zones:
-                delivery_price_out = None
-            else:
-                dp = Decimal(str(getattr(seller, "delivery_price", 0) or 0)) if seller else Decimal("0")
-                delivery_price_out = float(dp.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            # delivery_price depends on address (zones) → always null
+            # Without zones, delivery is not available
+            delivery_price_out = None
 
             address_name = getattr(seller, "address_name", None) if seller else None
             address_name = address_name if address_name and str(address_name).strip() else None
@@ -379,10 +377,9 @@ class CartService:
                         if zone_match.get("free_delivery_from") and total >= Decimal(str(zone_match["free_delivery_from"])):
                             delivery_fee = Decimal("0")
                         total += delivery_fee
-                    elif not zones and getattr(seller, "delivery_price", None):
-                        # No zones configured — fallback to flat delivery price
-                        delivery_fee = Decimal(str(seller.delivery_price or 0))
-                        total += delivery_fee
+                    elif not zones:
+                        # No zones configured — delivery not available
+                        raise CartServiceError("Доставка недоступна — настройте зоны доставки", 400)
                 items_info = ", ".join(f"{it['product_id']}:{it['name']}@{it['price']} x {it['quantity']}" for it in items)
                 preorder_date: Optional[date] = None
                 if is_preorder and items:
@@ -441,8 +438,7 @@ class CartService:
                     if zone_match:
                         order.delivery_zone_id = zone_match["id"]
                         order.delivery_fee = float(Decimal(str(zone_match["delivery_price"])))
-                    elif seller and seller_delivery == "Доставка" and getattr(seller, "delivery_price", None):
-                        order.delivery_fee = float(seller.delivery_price or 0)
+                    # No flat price fallback — delivery_fee comes only from zones
                     # Save original price if any discount was applied
                     if preorder_discount_amount > 0 or points_discount > 0:
                         order.original_price = float(original_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))

@@ -527,7 +527,7 @@ async def get_favorite_sellers(
             "shop_name": seller.shop_name or "Магазин",
             "owner_fio": row.owner_fio,
             "delivery_type": _normalize_delivery_type(seller.delivery_type),
-            "delivery_price": float(seller.delivery_price) if seller.delivery_price else 0.0,
+            "delivery_price": 0.0,  # deprecated: use delivery zones
             "city_name": row.city_name,
             "district_name": row.district_name,
             "metro_name": row.metro_name,

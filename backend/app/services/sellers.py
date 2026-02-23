@@ -188,7 +188,7 @@ class SellerService:
     
     VALID_UPDATE_FIELDS = {
         "fio", "phone", "shop_name", "hashtags", "description",
-        "address_name", "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
+        "address_name", "map_url", "delivery_type", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
         "commission_percent", "yookassa_account_id", "use_delivery_zones"
     }
@@ -500,7 +500,6 @@ class SellerService:
         metro_id: Optional[int] = None,
         metro_walk_minutes: Optional[int] = None,
         delivery_type: str = "pickup",
-        delivery_price: float = 0.0,
         placement_expired_at: Optional[datetime] = None,
         commission_percent: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -600,7 +599,6 @@ class SellerService:
             metro_id=metro_id,
             metro_walk_minutes=metro_walk_minutes,
             delivery_type=delivery_type,
-            delivery_price=delivery_price,
             placement_expired_at=placement_expired_at,
             max_orders=0,
             daily_limit_date=None,
@@ -677,13 +675,7 @@ class SellerService:
             seller.map_url = value
         elif field == "delivery_type":
             seller.delivery_type = value
-        elif field == "delivery_price":
-            if isinstance(value, (int, float)):
-                seller.delivery_price = float(value)
-            elif isinstance(value, str):
-                seller.delivery_price = float(value) if value.replace('.', '', 1).isdigit() else 0.0
-            else:
-                seller.delivery_price = 0.0
+        # delivery_price removed — use delivery zones only
         elif field == "city_id":
             seller.city_id = int(value) if value.isdigit() else None
         elif field == "district_id":

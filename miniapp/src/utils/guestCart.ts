@@ -94,7 +94,7 @@ export function guestCartToGroups(items: GuestCartItem[]): CartSellerGroup[] {
       photo_id: i.photo_id ?? null,
     })),
     total: sellerItems.reduce((s, i) => s + i.price * i.quantity, 0),
-    delivery_price: 0,
+    delivery_price: null,
     address_name: null,
     map_url: null,
     delivery_type: sellerItems[0].delivery_type ?? null,

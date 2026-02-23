@@ -73,7 +73,6 @@ class SellerCreateSchema(BaseModel):
     metro_id: Optional[int] = None
     metro_walk_minutes: Optional[int] = None
     delivery_type: str
-    delivery_price: float = 0.0
     placement_expired_at: Optional[datetime] = None
     commission_percent: Optional[int] = None
 
@@ -376,7 +375,6 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
             metro_id=data.metro_id,
             metro_walk_minutes=data.metro_walk_minutes,
             delivery_type=data.delivery_type,
-            delivery_price=data.delivery_price,
             placement_expired_at=data.placement_expired_at,
             commission_percent=data.commission_percent,
         )

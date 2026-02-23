@@ -161,7 +161,7 @@ export function DeliveryZonesSettingsTab({ me }: SettingsTabProps) {
 
         {zones.length === 0 && !showForm && (
           <div className="dz-empty">
-            Зон доставки пока нет. Без зон будет использоваться единая цена доставки из настроек магазина.
+            Зон доставки пока нет. Без настроенных зон доставка будет недоступна — только самовывоз.
           </div>
         )}
 

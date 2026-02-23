@@ -115,7 +115,7 @@ class UpdateMeBody(BaseModel):
     shop_name: Optional[str] = None
     description: Optional[str] = None
     delivery_type: Optional[str] = None  # 'доставка', 'самовывоз', 'доставка и самовывоз'
-    delivery_price: Optional[float] = None
+    # delivery_price removed — use delivery zones only
     address_name: Optional[str] = None
     map_url: Optional[str] = None
     banner_url: Optional[str] = None  # set to empty string or null to remove banner
@@ -172,8 +172,6 @@ async def update_me(
         await service.update_field(seller_id, "description", body.description)
     if body.delivery_type is not None:
         await service.update_field(seller_id, "delivery_type", body.delivery_type)
-    if body.delivery_price is not None:
-        await service.update_field(seller_id, "delivery_price", body.delivery_price)
     if body.address_name is not None:
         await service.update_field(seller_id, "address_name", body.address_name)
     if body.map_url is not None:

@@ -496,7 +496,6 @@ function AddSellerModal({
         metro_walk_minutes: metroWalkMinutes || undefined,
         map_url: addressLink || undefined,
         delivery_type: 'both',
-        delivery_price: 0,
       };
       if (initialInnData?.inn) {
         payload.inn = initialInnData.inn;
@@ -855,7 +854,6 @@ function SellerDetailsModal({
     } else if (section === 'delivery') {
       fields = {
         delivery_type: seller.delivery_type || 'both',
-        delivery_price: seller.delivery_price != null ? String(seller.delivery_price) : '0',
       };
     }
     setEditedFields(fields);
@@ -890,7 +888,6 @@ function SellerDetailsModal({
           : field === 'metro_id' ? seller.metro_id
           : field === 'metro_walk_minutes' ? seller.metro_walk_minutes
           : field === 'delivery_type' ? seller.delivery_type
-          : field === 'delivery_price' ? seller.delivery_price
           : undefined;
 
         const strOrig = originalValue != null ? String(originalValue) : '';
@@ -921,8 +918,6 @@ function SellerDetailsModal({
       Object.entries(editedFields).forEach(([field, value]) => {
         if (['district_id', 'metro_id', 'metro_walk_minutes'].includes(field)) {
           (upd as any)[field] = value ? parseInt(value, 10) : undefined;
-        } else if (field === 'delivery_price') {
-          (upd as any)[field] = value ? parseFloat(value) : 0;
         } else if (field === 'phone') {
           (upd as any)[field] = phoneToDigits(value);
         } else {
@@ -1351,8 +1346,8 @@ function SellerDetailsModal({
                     </select>
                   </div>
                   <div className="sdm-edit-field">
-                    <label className="sdm-edit-label">Стоимость доставки (₽)</label>
-                    <input className="sdm-edit-input" type="number" min="0" step="1" value={editedFields.delivery_price || '0'} onChange={(e) => handleFieldChange('delivery_price', e.target.value)} />
+                    <label className="sdm-edit-label">Стоимость доставки</label>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Настраивается в зонах доставки</span>
                   </div>
                   <div className="sdm-section-actions">
                     <button className="sdm-btn sdm-btn--secondary" onClick={cancelEdit} disabled={loading}>Отмена</button>
@@ -1369,7 +1364,7 @@ function SellerDetailsModal({
                   </div>
                   <div className="sdm-field">
                     <div className="sdm-field-label">Стоимость</div>
-                    <div className="sdm-field-value">{seller.delivery_price ?? 0} ₽</div>
+                    <div className="sdm-field-value" style={{ color: 'var(--text-muted)' }}>Зоны доставки</div>
                   </div>
                 </div>
               )}

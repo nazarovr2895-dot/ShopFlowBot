@@ -586,9 +586,7 @@ export function ShopDetails() {
           <span className="shop-details__info-line-text">
             {getDeliveryLabel(seller.delivery_type)}
             {seller.delivery_type && (seller.delivery_type === 'delivery' || seller.delivery_type === 'both') && (
-              seller.delivery_price === 0
-                ? ' — бесплатно'
-                : ` — ${formatPrice(seller.delivery_price)}`
+              ' — цена зависит от зоны'
             )}
           </span>
         </div>
@@ -864,7 +862,7 @@ export function ShopDetails() {
           }}
           showDatePicker={preorderDateForProductId === selectedProduct.id}
           onCancelDatePicker={() => setPreorderDateForProductId(null)}
-          deliveryPrice={seller.delivery_price}
+          deliveryPrice={seller.delivery_price ?? null}
           deliveryType={seller.delivery_type}
           loyaltyPointsPercent={loyalty?.points_percent ?? 0}
           pointsBalance={loyalty?.points_balance ?? 0}
