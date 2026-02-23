@@ -14,7 +14,7 @@ from backend.app.core.limiter import limiter
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.api import buyers, sellers, orders, admin, public, payments, subscriptions
+from backend.app.api import buyers, sellers, orders, admin, public, payments, subscriptions, admin_coverage
 from backend.app.api import admin_auth, seller_auth, seller_web, auth
 from backend.app.api.admin import require_admin_token
 from backend.app.api.deps import get_session
@@ -279,6 +279,12 @@ app.include_router(
     prefix="/admin",
     tags=["admin"],
     dependencies=[Depends(require_admin_token)],
+)
+# Admin Coverage API (cities, districts, metro + DaData)
+app.include_router(
+    admin_coverage.router,
+    prefix="/admin",
+    tags=["admin-coverage"],
 )
 
 @app.get("/")

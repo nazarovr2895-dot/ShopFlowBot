@@ -13,6 +13,7 @@ import { AdminAnalytics } from './pages/admin/AdminAnalytics';
 import { AdminOrders } from './pages/admin/AdminOrders';
 import { AdminCustomers } from './pages/admin/AdminCustomers';
 import { AdminFinance } from './pages/admin/AdminFinance';
+import { AdminCoverage } from './pages/admin/AdminCoverage';
 
 /* ── Seller pages ────────────────────────────────────────── */
 import { SellerDashboard } from './pages/seller/SellerDashboard';
@@ -87,6 +88,7 @@ function AppRoutes() {
             <Route path="customers" element={<AdminCustomers />} />
             <Route path="finance" element={<AdminFinance />} />
             <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="coverage" element={<AdminCoverage />} />
             {/* Legacy redirects */}
             <Route path="stats" element={<Navigate to="/analytics" replace />} />
             <Route path="stats/sellers" element={<Navigate to="/analytics?tab=sellers" replace />} />

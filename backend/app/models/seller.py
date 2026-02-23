@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, String, ForeignKey, Text, Boolean, Integer, DateTime, Date, Index, DECIMAL, JSON
+from sqlalchemy import BigInteger, String, ForeignKey, Text, Boolean, Integer, DateTime, Date, Float, Index, DECIMAL, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, date
 from typing import Optional, List
@@ -90,6 +90,7 @@ class City(Base):
     __tablename__ = 'cities'
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
+    kladr_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
 class District(Base):
     __tablename__ = 'districts'
@@ -104,10 +105,15 @@ class District(Base):
 class Metro(Base):
     __tablename__ = 'metro_stations'
     id: Mapped[int] = mapped_column(primary_key=True)
-    district_id: Mapped[int] = mapped_column(ForeignKey('districts.id'))
+    district_id: Mapped[Optional[int]] = mapped_column(ForeignKey('districts.id'), nullable=True)
     name: Mapped[str] = mapped_column(String(100))
-    line_color: Mapped[str] = mapped_column(String(7), nullable=True)  # HEX, e.g. "#FF0000"
+    line_color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)  # HEX, e.g. "#FF0000"
+    line_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    geo_lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    geo_lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    city_id: Mapped[Optional[int]] = mapped_column(ForeignKey('cities.id'), nullable=True)
 
     __table_args__ = (
         Index('ix_metro_stations_district_id', 'district_id'),
+        Index('ix_metro_stations_city_id', 'city_id'),
     )

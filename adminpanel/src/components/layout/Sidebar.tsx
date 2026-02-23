@@ -12,6 +12,7 @@ import {
   LogOut,
   UserCircle,
   DollarSign,
+  MapPin,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import './Sidebar.css';
@@ -42,6 +43,7 @@ const adminNav: NavItem[] = [
   { to: '/customers', label: 'Покупатели', icon: Users },
   { to: '/finance', label: 'Финансы', icon: DollarSign },
   { to: '/analytics', label: 'Аналитика', icon: BarChart3 },
+  { to: '/coverage', label: 'Покрытие', icon: MapPin },
 ];
 
 /* ── Component ───────────────────────────────────────────── */

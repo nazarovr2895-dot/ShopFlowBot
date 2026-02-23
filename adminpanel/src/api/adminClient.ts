@@ -383,3 +383,147 @@ export async function telegramAdminAuth(initData: string): Promise<{
   }
   return res.json();
 }
+
+// ── Coverage Areas (Cities, Districts, Metro) ──
+
+export interface CoverageCity {
+  id: number;
+  name: string;
+  kladr_id: string | null;
+  districts_count: number;
+  metro_count: number;
+  sellers_count: number;
+}
+
+export interface CoverageDistrict {
+  id: number;
+  name: string;
+  city_id: number;
+  metro_count: number;
+  sellers_count: number;
+}
+
+export interface CoverageMetro {
+  id: number;
+  name: string;
+  district_id: number | null;
+  city_id: number | null;
+  line_color: string | null;
+  line_name: string | null;
+  geo_lat: number | null;
+  geo_lon: number | null;
+}
+
+export interface DaDataCitySuggestion {
+  name: string;
+  kladr_id: string;
+  region: string | null;
+}
+
+export interface MetroImportResult {
+  imported: number;
+  skipped: number;
+  unmapped: number;
+  details: Array<{
+    name: string;
+    status: string;
+    line_name: string | null;
+    line_color: string | null;
+    district_id: number | null;
+  }>;
+  message?: string;
+}
+
+// Cities
+export async function getCoverageCities(): Promise<CoverageCity[]> {
+  return fetchAdmin<CoverageCity[]>('/admin/coverage/cities');
+}
+
+export async function createCoverageCity(data: { name: string; kladr_id?: string }): Promise<CoverageCity> {
+  return fetchAdmin<CoverageCity>('/admin/coverage/cities', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCoverageCity(cityId: number, data: { name?: string; kladr_id?: string }): Promise<CoverageCity> {
+  return fetchAdmin<CoverageCity>(`/admin/coverage/cities/${cityId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCoverageCity(cityId: number): Promise<{ status: string }> {
+  return fetchAdmin<{ status: string }>(`/admin/coverage/cities/${cityId}`, { method: 'DELETE' });
+}
+
+// Districts
+export async function getCoverageDistricts(cityId: number): Promise<CoverageDistrict[]> {
+  return fetchAdmin<CoverageDistrict[]>(`/admin/coverage/cities/${cityId}/districts`);
+}
+
+export async function createCoverageDistrict(cityId: number, data: { name: string }): Promise<CoverageDistrict> {
+  return fetchAdmin<CoverageDistrict>(`/admin/coverage/cities/${cityId}/districts`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCoverageDistrict(districtId: number, data: { name: string }): Promise<CoverageDistrict> {
+  return fetchAdmin<CoverageDistrict>(`/admin/coverage/districts/${districtId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCoverageDistrict(districtId: number): Promise<{ status: string }> {
+  return fetchAdmin<{ status: string }>(`/admin/coverage/districts/${districtId}`, { method: 'DELETE' });
+}
+
+// Metro
+export async function getCoverageMetroByCity(cityId: number): Promise<CoverageMetro[]> {
+  return fetchAdmin<CoverageMetro[]>(`/admin/coverage/cities/${cityId}/metro`);
+}
+
+export async function getCoverageMetroByDistrict(districtId: number): Promise<CoverageMetro[]> {
+  return fetchAdmin<CoverageMetro[]>(`/admin/coverage/districts/${districtId}/metro`);
+}
+
+export async function createCoverageMetro(districtId: number, data: {
+  name: string;
+  line_color?: string;
+  line_name?: string;
+}): Promise<CoverageMetro> {
+  return fetchAdmin<CoverageMetro>(`/admin/coverage/districts/${districtId}/metro`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCoverageMetro(metroId: number, data: {
+  name?: string;
+  district_id?: number;
+  line_color?: string;
+  line_name?: string;
+}): Promise<CoverageMetro> {
+  return fetchAdmin<CoverageMetro>(`/admin/coverage/metro/${metroId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCoverageMetro(metroId: number): Promise<{ status: string }> {
+  return fetchAdmin<{ status: string }>(`/admin/coverage/metro/${metroId}`, { method: 'DELETE' });
+}
+
+// DaData integration
+export async function suggestCityDadata(query: string): Promise<DaDataCitySuggestion[]> {
+  const params = new URLSearchParams({ q: query.trim() });
+  return fetchAdmin<DaDataCitySuggestion[]>(`/admin/coverage/dadata/suggest-city?${params}`);
+}
+
+export async function importMetroFromDadata(cityId: number): Promise<MetroImportResult> {
+  return fetchAdmin<MetroImportResult>(`/admin/coverage/cities/${cityId}/import-metro`, {
+    method: 'POST',
+  });
+}

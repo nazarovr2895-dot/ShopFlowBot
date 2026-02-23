@@ -1,4 +1,5 @@
 """DaData address autocomplete and geocoding for Russian addresses."""
+import asyncio
 import httpx
 from typing import List, Dict, Any, Optional
 from backend.app.core.settings import get_settings
@@ -7,6 +8,7 @@ from backend.app.core.logging import get_logger
 logger = get_logger(__name__)
 
 DADATA_SUGGEST_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address"
+DADATA_METRO_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/metro"
 
 # DaData returns full district names (city_area); our DB stores abbreviations.
 # Map lowercase full names → abbreviations for Moscow administrative okrugs.
@@ -182,5 +184,148 @@ async def resolve_district_from_address(address: str) -> Optional[str]:
         okato_district = _okato_to_district(okato)
         if okato_district:
             return okato_district
+
+    return None
+
+
+def _normalize_color(color: Optional[str]) -> Optional[str]:
+    """Normalize DaData color (RGB hex without #) to #RRGGBB format."""
+    if not color:
+        return None
+    color = color.strip()
+    if not color.startswith("#"):
+        color = f"#{color}"
+    return color[:7]
+
+
+def _safe_float(val: Any) -> Optional[float]:
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+async def _call_dadata_url(url: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Low-level DaData suggest call to arbitrary URL. Returns raw suggestions list."""
+    settings = get_settings()
+    if not settings.DADATA_API_KEY:
+        logger.warning("DADATA_API_KEY not configured")
+        return []
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": f"Token {settings.DADATA_API_KEY}",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+        return data.get("suggestions", [])
+    except httpx.HTTPStatusError as e:
+        logger.error(f"DaData API error: {e.response.status_code}", url=url)
+        return []
+    except httpx.TimeoutException:
+        logger.error("DaData API timeout", url=url)
+        return []
+    except Exception as e:
+        logger.error(f"DaData API unexpected error: {e}", url=url, exc_info=e)
+        return []
+
+
+async def suggest_city(query: str, count: int = 10) -> List[Dict[str, Any]]:
+    """City autocomplete via DaData. Returns [{name, kladr_id, region}]."""
+    payload = {
+        "query": query,
+        "count": count,
+        "from_bound": {"value": "city"},
+        "to_bound": {"value": "city"},
+    }
+    suggestions = await _call_dadata(payload)
+    result = []
+    seen = set()
+    for s in suggestions:
+        d = s.get("data", {})
+        name = d.get("city") or ""
+        kladr_id = d.get("city_kladr_id") or d.get("kladr_id") or ""
+        if not name or kladr_id in seen:
+            continue
+        seen.add(kladr_id)
+        result.append({
+            "name": name,
+            "kladr_id": kladr_id,
+            "region": d.get("region_with_type") or d.get("region"),
+        })
+    return result
+
+
+async def fetch_metro_stations(city_kladr_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetch all metro stations for a city from DaData /suggest/metro.
+    DaData returns max 20 per request, so we iterate through Cyrillic alphabet.
+    Returns [{name, line_name, line_color, geo_lat, geo_lon, is_closed}].
+    """
+    all_stations: Dict[str, Dict[str, Any]] = {}
+
+    # Iterate through Cyrillic letters + empty query to maximize coverage
+    queries = [""] + [chr(c) for c in range(ord("\u0430"), ord("\u044f") + 1)]
+
+    for q in queries:
+        payload = {
+            "query": q,
+            "filters": [{"city_kladr_id": city_kladr_id}],
+            "count": 20,
+        }
+        suggestions = await _call_dadata_url(DADATA_METRO_URL, payload)
+        for s in suggestions:
+            d = s.get("data", {})
+            name = d.get("name") or s.get("value", "")
+            if not name or name in all_stations:
+                continue
+            all_stations[name] = {
+                "name": name,
+                "line_name": d.get("line_name"),
+                "line_color": _normalize_color(d.get("color")),
+                "geo_lat": _safe_float(d.get("geo_lat")),
+                "geo_lon": _safe_float(d.get("geo_lon")),
+                "is_closed": d.get("is_closed", False),
+            }
+        # Small delay to avoid rate limiting (30 req/sec)
+        await asyncio.sleep(0.05)
+
+    return list(all_stations.values())
+
+
+async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[str]:
+    """
+    Resolve district name from coordinates using DaData address reverse geocode.
+    Returns normalized district name as stored in DB (e.g. "ЦАО") or None.
+    """
+    payload = {"query": f"{lat} {lon}", "count": 1}
+    suggestions = await _call_dadata(payload)
+    if not suggestions:
+        return None
+
+    d = suggestions[0].get("data", {})
+
+    # Same resolution logic as resolve_district_from_address
+    city_area = d.get("city_area")
+    if city_area:
+        normalized = _normalize_district_name(city_area)
+        if normalized:
+            return normalized
+
+    city_district = d.get("city_district")
+    normalized = _normalize_district_name(city_district, d.get("city_district_type"))
+    if normalized:
+        return normalized
+
+    okato = d.get("okato")
+    if okato:
+        return _okato_to_district(okato)
 
     return None
