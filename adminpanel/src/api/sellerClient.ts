@@ -1107,25 +1107,25 @@ export async function createSubscription(periodMonths: number): Promise<CreateSu
 // --- Delivery Zones ---
 
 export async function getDeliveryZones(): Promise<DeliveryZone[]> {
-  return fetchSeller<DeliveryZone[]>('/delivery-zones');
+  return fetchSeller<DeliveryZone[]>('/seller-web/delivery-zones');
 }
 
 export async function createDeliveryZone(data: CreateDeliveryZoneData): Promise<DeliveryZone> {
-  return fetchSeller<DeliveryZone>('/delivery-zones', {
+  return fetchSeller<DeliveryZone>('/seller-web/delivery-zones', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
 export async function updateDeliveryZone(id: number, data: Partial<CreateDeliveryZoneData>): Promise<DeliveryZone> {
-  return fetchSeller<DeliveryZone>(`/delivery-zones/${id}`, {
+  return fetchSeller<DeliveryZone>(`/seller-web/delivery-zones/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 }
 
 export async function deleteDeliveryZone(id: number): Promise<void> {
-  await fetchSeller<{ status: string }>(`/delivery-zones/${id}`, { method: 'DELETE' });
+  await fetchSeller<{ status: string }>(`/seller-web/delivery-zones/${id}`, { method: 'DELETE' });
 }
 
 /** Fetch districts from public API (no auth needed). */
