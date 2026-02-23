@@ -262,6 +262,7 @@ class CheckoutBody(BaseModel):
     comment: Optional[str] = None
     points_usage: Optional[List[PointsUsagePerSeller]] = None
     delivery_by_seller: Optional[List[DeliveryPerSeller]] = None
+    buyer_district_id: Optional[int] = None  # district for delivery zone matching
 
 
 class VisitedSellerRecord(BaseModel):
@@ -398,6 +399,7 @@ async def checkout_cart(
             comment=data.comment,
             points_by_seller=points_by_seller or None,
             delivery_by_seller=delivery_map or None,
+            buyer_district_id=data.buyer_district_id,
         )
         await session.commit()
 
@@ -420,6 +422,9 @@ async def checkout_cart(
                 total_price=o.get("total_price"),
                 is_preorder=o.get("is_preorder", False),
                 preorder_delivery_date=preorder_date_str,
+                delivery_type=o.get("delivery_type"),
+                delivery_fee=o.get("delivery_fee"),
+                delivery_zone_name=o.get("delivery_zone_name"),
             )
 
         return {"orders": orders}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
-import { EmptyState, ProductImage, LoyaltyLoginBanner, DesktopBackNav } from '../components';
+import { EmptyState, ProductImage, LoyaltyLoginBanner, DesktopBackNav, AddressAutocomplete } from '../components';
 import { getGuestCart, guestCartToGroups, clearGuestCart } from '../utils/guestCart';
 import './Checkout.css';
 
@@ -26,6 +26,9 @@ export function GuestCheckout() {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [cart, setCart] = useState<CartSellerGroup[]>([]);
+  const [buyerDistrictId, setBuyerDistrictId] = useState<number | null>(null);
+  const [deliveryCheckResults, setDeliveryCheckResults] = useState<Record<number, { delivers: boolean; delivery_price: number; message: string }>>({});
+  const [districtNameToId, setDistrictNameToId] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let items = getGuestCart();
@@ -56,6 +59,15 @@ export function GuestCheckout() {
     });
   }, [navigate]);
 
+  // Load districts for delivery zone matching
+  useEffect(() => {
+    api.getDistrictsByCityId(1).then((districts) => {
+      const nameMap: Record<string, number> = {};
+      for (const d of districts) nameMap[d.name] = d.id;
+      setDistrictNameToId(nameMap);
+    }).catch(() => { /* not critical */ });
+  }, []);
+
   const formatPrice = (n: number) =>
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
@@ -69,9 +81,11 @@ export function GuestCheckout() {
     return `${n} товаров`;
   };
 
+  const hasDeliveryFailure = Object.values(deliveryCheckResults).some(r => !r.delivers);
   const canSubmit = guestPhone.trim().length > 0 &&
     guestName.trim().length > 0 &&
-    (!hasAnyDelivery || address.trim().length > 0);
+    (!hasAnyDelivery || address.trim().length > 0) &&
+    !hasDeliveryFailure;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +97,13 @@ export function GuestCheckout() {
     }
     if (hasAnyDelivery && !address.trim()) {
       alert('Укажите адрес доставки');
+      return;
+    }
+
+    // Block submit if any seller doesn't deliver to the address
+    const failedDelivery = Object.entries(deliveryCheckResults).find(([, r]) => !r.delivers);
+    if (failedDelivery) {
+      alert(failedDelivery[1].message || 'Один из магазинов не доставляет по этому адресу');
       return;
     }
 
@@ -110,6 +131,7 @@ export function GuestCheckout() {
         comment: comment.trim() || undefined,
         items: allItems,
         delivery_by_seller: deliveryArr,
+        buyer_district_id: buyerDistrictId,
       });
 
       clearGuestCart();
@@ -263,17 +285,26 @@ export function GuestCheckout() {
         </label>
 
         {hasAnyDelivery && (
-          <label className="checkout-form__label">
+          <div className="checkout-form__label">
             Адрес доставки *
-            <input
-              type="text"
-              className="checkout-form__input"
+            <AddressAutocomplete
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Улица, дом, квартира"
+              onChange={setAddress}
+              sellerIds={Object.entries(deliveryBySeller).filter(([, dt]) => dt === 'Доставка').map(([id]) => Number(id))}
+              onDeliveryCheck={setDeliveryCheckResults}
+              districtNameToId={districtNameToId}
+              onDistrictIdResolved={setBuyerDistrictId}
               required
             />
-          </label>
+            {/* Per-seller delivery status */}
+            {Object.entries(deliveryCheckResults).map(([sid, result]) => (
+              <div key={sid} className={`address-autocomplete__status ${result.delivers ? 'address-autocomplete__status--ok' : 'address-autocomplete__status--error'}`}>
+                {result.delivers
+                  ? (result.delivery_price > 0 ? `Доставка: ${result.delivery_price} ₽` : 'Бесплатная доставка')
+                  : result.message || 'Магазин не доставляет по этому адресу'}
+              </div>
+            ))}
+          </div>
         )}
 
         <label className="checkout-form__label">

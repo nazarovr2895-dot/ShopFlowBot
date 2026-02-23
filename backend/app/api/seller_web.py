@@ -120,6 +120,7 @@ class UpdateMeBody(BaseModel):
     map_url: Optional[str] = None
     banner_url: Optional[str] = None  # set to empty string or null to remove banner
     yookassa_account_id: Optional[str] = None  # YuKassa marketplace account ID
+    use_delivery_zones: Optional[bool] = None  # enable zone-based delivery pricing
 
 
 @router.get("/me")
@@ -181,6 +182,8 @@ async def update_me(
         await service.update_field(seller_id, "banner_url", body.banner_url or "")
     if body.yookassa_account_id is not None:
         await service.update_field(seller_id, "yookassa_account_id", body.yookassa_account_id or "")
+    if body.use_delivery_zones is not None:
+        await service.update_field(seller_id, "use_delivery_zones", body.use_delivery_zones)
     result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
     seller = result.scalar_one_or_none()
     if seller:
@@ -234,6 +237,87 @@ async def update_me(
     bot_username = os.getenv("BOT_USERNAME", "")
     data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}" if bot_username else None
     return data
+
+
+# --- DELIVERY ZONES ---
+
+class CreateDeliveryZoneBody(BaseModel):
+    name: str
+    district_ids: List[int] = []
+    delivery_price: float = 0.0
+    min_order_amount: Optional[float] = None
+    free_delivery_from: Optional[float] = None
+    is_active: bool = True
+    priority: int = 0
+
+
+class UpdateDeliveryZoneBody(BaseModel):
+    name: Optional[str] = None
+    district_ids: Optional[List[int]] = None
+    delivery_price: Optional[float] = None
+    min_order_amount: Optional[float] = None
+    free_delivery_from: Optional[float] = None
+    is_active: Optional[bool] = None
+    priority: Optional[int] = None
+
+
+@router.get("/delivery-zones")
+async def get_delivery_zones(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """List all delivery zones for the current seller."""
+    from backend.app.services.delivery_zones import DeliveryZoneService
+    svc = DeliveryZoneService(session)
+    return await svc.get_zones(seller_id)
+
+
+@router.post("/delivery-zones")
+async def create_delivery_zone(
+    body: CreateDeliveryZoneBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Create a new delivery zone."""
+    from backend.app.services.delivery_zones import DeliveryZoneService
+    svc = DeliveryZoneService(session)
+    zone = await svc.create_zone(seller_id, body.model_dump())
+    await session.commit()
+    return zone
+
+
+@router.put("/delivery-zones/{zone_id}")
+async def update_delivery_zone(
+    zone_id: int,
+    body: UpdateDeliveryZoneBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update a delivery zone."""
+    from backend.app.services.delivery_zones import DeliveryZoneService
+    svc = DeliveryZoneService(session)
+    data = {k: v for k, v in body.model_dump().items() if v is not None}
+    zone = await svc.update_zone(zone_id, seller_id, data)
+    if not zone:
+        raise HTTPException(status_code=404, detail="Зона доставки не найдена")
+    await session.commit()
+    return zone
+
+
+@router.delete("/delivery-zones/{zone_id}")
+async def delete_delivery_zone(
+    zone_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Delete a delivery zone."""
+    from backend.app.services.delivery_zones import DeliveryZoneService
+    svc = DeliveryZoneService(session)
+    deleted = await svc.delete_zone(zone_id, seller_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Зона доставки не найдена")
+    await session.commit()
+    return {"status": "ok"}
 
 
 @router.get("/dashboard/alerts")

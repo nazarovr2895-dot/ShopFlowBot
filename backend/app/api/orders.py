@@ -92,6 +92,7 @@ async def create_order(
             order_id=order.id,
             items_info=data.items_info,
             total_price=float(order.total_price) if order.total_price is not None else None,
+            delivery_type=data.delivery_type,
         )
         return order
     except OrderServiceError as e:
@@ -454,12 +455,24 @@ async def guest_checkout(
                 total += db_price * it.quantity
                 verified_items.append((it, product, db_price))
 
-            # Add delivery price from seller settings
+            # Add delivery price: zone-based or legacy flat price
             seller = await session.get(Seller, seller_id)
             delivery_price = Decimal("0")
-            if seller and seller_delivery == "Доставка" and getattr(seller, "delivery_price", None):
-                delivery_price = Decimal(str(seller.delivery_price))
-                total += delivery_price
+            zone_match = None
+            if seller and seller_delivery == "Доставка":
+                if getattr(seller, "use_delivery_zones", False) and data.buyer_district_id is not None:
+                    from backend.app.services.delivery_zones import DeliveryZoneService
+                    zone_svc = DeliveryZoneService(session)
+                    zone_match = await zone_svc.find_zone_for_address(seller_id, district_id=data.buyer_district_id)
+                    if zone_match is None:
+                        raise HTTPException(status_code=400, detail="Магазин не доставляет по вашему адресу")
+                    delivery_price = Decimal(str(zone_match["delivery_price"]))
+                    if zone_match.get("free_delivery_from") and total >= Decimal(str(zone_match["free_delivery_from"])):
+                        delivery_price = Decimal("0")
+                    total += delivery_price
+                elif getattr(seller, "delivery_price", None):
+                    delivery_price = Decimal(str(seller.delivery_price))
+                    total += delivery_price
 
             items_info = ", ".join(
                 f"{it.product_id}:{product.name}@{db_price} x {it.quantity}" for it, product, db_price in verified_items
@@ -482,11 +495,20 @@ async def guest_checkout(
                 guest_address=data.address if seller_delivery == "Доставка" else None,
                 comment=(data.comment or "").strip() or None,
             )
+            # Save delivery zone info on order
+            if zone_match:
+                order.delivery_zone_id = zone_match["id"]
+                order.delivery_fee = float(Decimal(str(zone_match["delivery_price"])))
+            elif delivery_price > 0:
+                order.delivery_fee = float(delivery_price)
             created.append({
                 "order_id": order.id,
                 "seller_id": seller_id,
                 "total_price": float(order.total_price),
                 "items_info": items_info,
+                "delivery_type": seller_delivery,
+                "delivery_fee": float(order.delivery_fee) if order.delivery_fee else None,
+                "delivery_zone_name": zone_match["name"] if zone_match else None,
             })
 
         await session.commit()
@@ -501,6 +523,9 @@ async def guest_checkout(
                 total_price=o["total_price"],
                 guest_name=guest_name,
                 guest_phone=normalized_phone,
+                delivery_type=o.get("delivery_type"),
+                delivery_fee=o.get("delivery_fee"),
+                delivery_zone_name=o.get("delivery_zone_name"),
             )
 
         logger.info(

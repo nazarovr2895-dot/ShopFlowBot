@@ -12,9 +12,11 @@ import { AccountSettingsTab } from './settings/AccountSettingsTab';
 import { PaymentSettingsTab } from './settings/PaymentSettingsTab';
 import { SubscriptionSettingsTab } from './settings/SubscriptionSettingsTab';
 import { LegalSettingsTab } from './settings/LegalSettingsTab';
+import { DeliveryZonesSettingsTab } from './settings/DeliveryZonesSettingsTab';
 
 const TABS = [
   { key: 'shop', label: 'Магазин' },
+  { key: 'delivery', label: 'Доставка' },
   { key: 'hashtags', label: 'Хештеги' },
   { key: 'limits', label: 'Лимиты' },
   { key: 'hours', label: 'Время работы' },
@@ -75,6 +77,7 @@ export function SellerSettings() {
       <PageHeader title="Настройки" subtitle="Магазин, хештеги, лимиты, время работы, предзаказы, ЮКасса и аккаунт" />
       <TabBar tabs={TABS} activeTab={tab} onChange={setTab} />
       {tab === 'shop' && <ShopSettingsTab me={me} reload={reload} />}
+      {tab === 'delivery' && <DeliveryZonesSettingsTab me={me} reload={reload} />}
       {tab === 'hashtags' && <HashtagsSettingsTab me={me} reload={reload} />}
       {tab === 'limits' && <LimitsSettingsTab me={me} reload={reload} />}
       {tab === 'hours' && <WorkingHoursSettingsTab me={me} reload={reload} />}

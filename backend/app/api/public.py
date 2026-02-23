@@ -709,3 +709,48 @@ async def get_districts(
     await cache.set_districts(city_id, districts_data)
     
     return [DistrictResponse(**d) for d in districts_data]
+
+
+# --- ADDRESS AUTOCOMPLETE & DELIVERY ZONE CHECK ---
+
+class CheckDeliveryBody(BaseModel):
+    district_id: Optional[int] = None
+
+
+@router.get("/address/suggest")
+async def suggest_address_endpoint(
+    query: str = Query(..., min_length=2, description="Строка для поиска адреса"),
+    city: Optional[str] = Query(None, description="KLADR ID города для фильтрации"),
+    count: int = Query(5, ge=1, le=10),
+):
+    """DaData address autocomplete for buyer checkout."""
+    from backend.app.services.dadata_address import suggest_address
+    suggestions = await suggest_address(query, count=count, city_kladr_id=city)
+    # Enrich suggestions with district_id from DB by matching city_district name
+    return suggestions
+
+
+@router.post("/sellers/{seller_id}/check-delivery")
+async def check_delivery_endpoint(
+    seller_id: int,
+    body: CheckDeliveryBody,
+    session: AsyncSession = Depends(get_session),
+):
+    """Check if seller delivers to the given district. Returns zone + price."""
+    from backend.app.services.delivery_zones import DeliveryZoneService
+    svc = DeliveryZoneService(session)
+    return await svc.check_delivery(seller_id, district_id=body.district_id)
+
+
+@router.get("/sellers/{seller_id}/delivery-zones")
+async def get_seller_delivery_zones(
+    seller_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get active delivery zones for a seller (public, for checkout UI)."""
+    from backend.app.services.delivery_zones import DeliveryZoneService
+    svc = DeliveryZoneService(session)
+    seller = await session.get(Seller, seller_id)
+    if not seller or not getattr(seller, "use_delivery_zones", False):
+        return []
+    return await svc.get_active_zones(seller_id)

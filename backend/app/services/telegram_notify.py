@@ -147,6 +147,9 @@ async def notify_seller_new_order(
     total_price: Optional[float] = None,
     is_preorder: bool = False,
     preorder_delivery_date: Optional[str] = None,
+    delivery_type: Optional[str] = None,
+    delivery_fee: Optional[float] = None,
+    delivery_zone_name: Optional[str] = None,
 ) -> bool:
     """
     Notify seller about new order. Принять/отклонить — в админ-панели.
@@ -157,6 +160,14 @@ async def notify_seller_new_order(
         text = f"🆕 Новый заказ #{order_id}"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
+    if delivery_type:
+        text += f"\n🚚 {delivery_type}"
+        if delivery_zone_name:
+            text += f" — зона «{delivery_zone_name}»"
+        if delivery_fee is not None and delivery_fee > 0:
+            text += f" ({delivery_fee:.0f} руб.)"
+        elif delivery_fee == 0 and delivery_type == "Доставка":
+            text += " (бесплатно)"
     display_items = _format_items_for_display(items_info)
     if display_items:
         text += f"\n\n🛒 {display_items}"
@@ -352,11 +363,22 @@ async def notify_seller_new_order_guest(
     total_price: Optional[float] = None,
     guest_name: str = "",
     guest_phone: str = "",
+    delivery_type: Optional[str] = None,
+    delivery_fee: Optional[float] = None,
+    delivery_zone_name: Optional[str] = None,
 ) -> bool:
     """Notify seller about new guest order (web checkout, no Telegram account)."""
     text = f"🆕 Новый заказ #{order_id} (гость)"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
+    if delivery_type:
+        text += f"\n🚚 {delivery_type}"
+        if delivery_zone_name:
+            text += f" — зона «{delivery_zone_name}»"
+        if delivery_fee is not None and delivery_fee > 0:
+            text += f" ({delivery_fee:.0f} руб.)"
+        elif delivery_fee == 0 and delivery_type == "Доставка":
+            text += " (бесплатно)"
     display_items = _format_items_for_display(items_info)
     if display_items:
         text += f"\n\n🛒 {display_items}"

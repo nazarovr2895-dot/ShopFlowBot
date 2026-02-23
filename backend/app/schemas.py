@@ -89,6 +89,7 @@ class GuestCheckoutBody(BaseModel):
     comment: Optional[str] = None
     items: List[GuestCartItem] = Field(min_length=1)
     delivery_by_seller: Optional[List[GuestDeliveryPerSeller]] = None
+    buyer_district_id: Optional[int] = None  # district for delivery zone matching
 
     @field_validator("guest_name")
     @classmethod

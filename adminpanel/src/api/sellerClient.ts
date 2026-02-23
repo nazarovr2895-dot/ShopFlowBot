@@ -88,6 +88,29 @@ export interface SellerMe {
   preorder_discount_min_days?: number;
   banner_url?: string | null;
   yookassa_account_id?: string | null;
+  use_delivery_zones?: boolean;
+}
+
+export interface DeliveryZone {
+  id: number;
+  seller_id: number;
+  name: string;
+  district_ids: number[];
+  delivery_price: number;
+  min_order_amount?: number | null;
+  free_delivery_from?: number | null;
+  is_active: boolean;
+  priority: number;
+}
+
+export interface CreateDeliveryZoneData {
+  name: string;
+  district_ids: number[];
+  delivery_price: number;
+  min_order_amount?: number | null;
+  free_delivery_from?: number | null;
+  is_active?: boolean;
+  priority?: number;
 }
 
 export interface SellerOrder {
@@ -243,6 +266,7 @@ export async function updateMe(payload: {
   map_url?: string;
   banner_url?: string | null;
   yookassa_account_id?: string | null;
+  use_delivery_zones?: boolean;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',
@@ -1078,4 +1102,36 @@ export async function createSubscription(periodMonths: number): Promise<CreateSu
     method: 'POST',
     body: JSON.stringify({ period_months: periodMonths }),
   });
+}
+
+// --- Delivery Zones ---
+
+export async function getDeliveryZones(): Promise<DeliveryZone[]> {
+  return fetchSeller<DeliveryZone[]>('/delivery-zones');
+}
+
+export async function createDeliveryZone(data: CreateDeliveryZoneData): Promise<DeliveryZone> {
+  return fetchSeller<DeliveryZone>('/delivery-zones', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateDeliveryZone(id: number, data: Partial<CreateDeliveryZoneData>): Promise<DeliveryZone> {
+  return fetchSeller<DeliveryZone>(`/delivery-zones/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteDeliveryZone(id: number): Promise<void> {
+  await fetchSeller<{ status: string }>(`/delivery-zones/${id}`, { method: 'DELETE' });
+}
+
+/** Fetch districts from public API (no auth needed). */
+export async function getPublicDistricts(cityId: number): Promise<{ id: number; name: string; city_id: number }[]> {
+  const url = `${getApiBase()}/public/districts/${cityId}`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return res.json();
 }

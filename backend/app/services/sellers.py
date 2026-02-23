@@ -190,7 +190,7 @@ class SellerService:
         "fio", "phone", "shop_name", "hashtags", "description",
         "address_name", "map_url", "delivery_type", "delivery_price", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
-        "commission_percent", "yookassa_account_id"
+        "commission_percent", "yookassa_account_id", "use_delivery_zones"
     }
     
     def __init__(self, session: AsyncSession):
@@ -481,6 +481,7 @@ class SellerService:
             "working_hours": getattr(seller, "working_hours", None),
             "commission_percent": getattr(seller, "commission_percent", None),
             "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
+            "use_delivery_zones": getattr(seller, "use_delivery_zones", False),
         }
 
     async def create_seller(
@@ -736,6 +737,8 @@ class SellerService:
                 seller.yookassa_account_id = None
             else:
                 seller.yookassa_account_id = value_stripped
+        elif field == "use_delivery_zones":
+            seller.use_delivery_zones = bool(value)
 
         await self.session.commit()
         return {"status": "ok"}

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
-import { EmptyState, ProductImage, DesktopBackNav } from '../components';
+import { EmptyState, ProductImage, DesktopBackNav, AddressAutocomplete } from '../components';
 import { isBrowser } from '../utils/environment';
 import { computeRemaining } from '../hooks/useReservationTimer';
 import './Checkout.css';
@@ -45,6 +45,9 @@ export function Checkout() {
   const [commentInput, setCommentInput] = useState('');
   const [loyaltyBySellerMap, setLoyaltyBySellerMap] = useState<Record<number, SellerLoyaltyInfo>>({});
   const [pointsUsage, setPointsUsage] = useState<Record<number, number>>({});
+  const [buyerDistrictId, setBuyerDistrictId] = useState<number | null>(null);
+  const [deliveryCheckResults, setDeliveryCheckResults] = useState<Record<number, { delivers: boolean; delivery_price: number; message: string }>>({});
+  const [districtNameToId, setDistrictNameToId] = useState<Record<string, number>>({});
   useEffect(() => {
     const backPath = filterSellerId ? `/shop/${filterSellerId}` : '/';
     setBackButton(true, () => navigate(backPath));
@@ -87,6 +90,14 @@ export function Checkout() {
         }
         return next;
       });
+
+      // Load districts for delivery zone matching (city_id=1 for Moscow by default)
+      try {
+        const districts = await api.getDistrictsByCityId(1);
+        const nameMap: Record<string, number> = {};
+        for (const d of districts) nameMap[d.name] = d.id;
+        setDistrictNameToId(nameMap);
+      } catch { /* districts not critical */ }
 
       // Fetch loyalty balances for each seller in cart
       if (cartArr.length > 0) {
@@ -203,6 +214,13 @@ export function Checkout() {
       return;
     }
 
+    // Block submit if any seller doesn't deliver to the address
+    const failedDelivery = Object.entries(deliveryCheckResults).find(([, r]) => !r.delivers);
+    if (failedDelivery) {
+      showAlert(failedDelivery[1].message || 'Один из магазинов не доставляет по этому адресу');
+      return;
+    }
+
     // Check for expired reservations before submitting
     const hasExpiredItems = cart.some((g) =>
       g.items.some((item) =>
@@ -239,6 +257,7 @@ export function Checkout() {
         ...(commentInput.trim() ? { comment: commentInput.trim() } : {}),
         ...(pointsArr.length > 0 ? { points_usage: pointsArr } : {}),
         delivery_by_seller: deliveryArr,
+        buyer_district_id: buyerDistrictId,
       });
       setSubmitting(false);
       const ordersMsg = orders.length > 1
@@ -548,17 +567,26 @@ export function Checkout() {
         )}
         
         {hasAnyDelivery && (
-          <label className="checkout-form__label">
+          <div className="checkout-form__label">
             Адрес доставки
-            <input
-              type="text"
-              className="checkout-form__input"
+            <AddressAutocomplete
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Улица, дом, квартира"
+              onChange={setAddress}
+              sellerIds={Object.entries(deliveryBySeller).filter(([, dt]) => dt === 'Доставка').map(([id]) => Number(id))}
+              onDeliveryCheck={setDeliveryCheckResults}
+              districtNameToId={districtNameToId}
+              onDistrictIdResolved={setBuyerDistrictId}
               required={hasAnyDelivery}
             />
-          </label>
+            {/* Per-seller delivery status */}
+            {Object.entries(deliveryCheckResults).map(([sid, result]) => (
+              <div key={sid} className={`address-autocomplete__status ${result.delivers ? 'address-autocomplete__status--ok' : 'address-autocomplete__status--error'}`}>
+                {result.delivers
+                  ? (result.delivery_price > 0 ? `Доставка: ${result.delivery_price} ₽` : 'Бесплатная доставка')
+                  : result.message || 'Магазин не доставляет по этому адресу'}
+              </div>
+            ))}
+          </div>
         )}
         <label className="checkout-form__label">
           Комментарий к заказу
@@ -573,7 +601,7 @@ export function Checkout() {
         <button
           type="submit"
           className="checkout-form__submit"
-          disabled={submitting || !user?.phone}
+          disabled={submitting || !user?.phone || Object.values(deliveryCheckResults).some(r => !r.delivers)}
         >
           {submitting ? 'Оформляем…' : 'Подтвердить заказ'}
         </button>

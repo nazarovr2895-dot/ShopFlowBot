@@ -749,6 +749,8 @@ class OrderService:
             "points_used": float(order.points_used) if getattr(order, "points_used", None) else 0,
             "points_discount": float(order.points_discount) if getattr(order, "points_discount", None) else 0,
             "is_guest": order.buyer_id is None,
+            "delivery_fee": float(order.delivery_fee) if getattr(order, "delivery_fee", None) else None,
+            "delivery_zone_id": getattr(order, "delivery_zone_id", None),
         }
 
     async def get_buyer_orders(self, buyer_id: int) -> List[Dict[str, Any]]:

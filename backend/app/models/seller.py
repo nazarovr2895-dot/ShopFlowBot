@@ -74,6 +74,8 @@ class Seller(Base):
     # Working hours: JSON {"0": {"open": "09:00", "close": "18:00"}, "5": null, ...}
     # Keys: "0"=Mon, "6"=Sun. null = day off. If working_hours is null, no restrictions.
     working_hours: Mapped[Optional[dict]] = mapped_column(JSON(), nullable=True)
+    # Delivery zones: if True, use delivery_zones table instead of flat delivery_price
+    use_delivery_zones: Mapped[bool] = mapped_column(Boolean, default=False)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

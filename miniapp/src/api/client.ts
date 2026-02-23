@@ -414,6 +414,7 @@ class ApiClient {
     comment?: string;
     points_usage?: Array<{ seller_id: number; points_to_use: number }>;
     delivery_by_seller?: Array<{ seller_id: number; delivery_type: string }>;
+    buyer_district_id?: number | null;
   }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
     return this.fetch('/buyers/me/cart/checkout', {
       method: 'POST',
@@ -436,6 +437,7 @@ class ApiClient {
       price: number;
     }>;
     delivery_by_seller?: Array<{ seller_id: number; delivery_type: string }>;
+    buyer_district_id?: number | null;
   }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
     const url = `${this.getBaseUrl()}/orders/guest-checkout`;
     const response = await fetch(url, {
@@ -552,6 +554,54 @@ class ApiClient {
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Payment error' }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  }
+
+  // --- Address autocomplete & delivery zone check ---
+
+  async suggestAddress(query: string, city?: string): Promise<Array<{
+    value: string;
+    lat: string | null;
+    lon: string | null;
+    city: string | null;
+    city_district: string | null;
+    area: string | null;
+    region: string | null;
+    postal_code: string | null;
+  }>> {
+    const params = new URLSearchParams({ query });
+    if (city) params.set('city', city);
+    return this.fetchPublic<any[]>(`/public/address/suggest?${params}`);
+  }
+
+  async getDistrictsByCityId(cityId: number): Promise<Array<{ id: number; name: string; city_id: number }>> {
+    return this.fetchPublic(`/public/districts/${cityId}`);
+  }
+
+  async checkDelivery(sellerId: number, districtId: number): Promise<{
+    delivers: boolean;
+    zone: any | null;
+    delivery_price: number;
+    message: string;
+  }> {
+    return this.fetchPublic(`/public/sellers/${sellerId}/check-delivery`, {
+      method: 'POST',
+      body: JSON.stringify({ district_id: districtId }),
+    });
+  }
+
+  private async fetchPublic<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const url = `${this.getBaseUrl()}${path}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+      ...(options.headers as Record<string, string> || {}),
+    };
+    const response = await fetch(url, { ...options, headers });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Error' }));
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
     return response.json();
