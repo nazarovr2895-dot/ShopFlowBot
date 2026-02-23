@@ -91,11 +91,15 @@ export function Checkout() {
         return next;
       });
 
-      // Load districts for delivery zone matching (city_id=1 for Moscow by default)
+      // Load districts for delivery zone matching based on sellers' cities
       try {
-        const districts = await api.getDistrictsByCityId(1);
+        const cityIds = [...new Set(filteredCart.map(g => g.city_id).filter((id): id is number => id != null))];
+        if (cityIds.length === 0) cityIds.push(1); // fallback to Moscow
+        const allDistricts = await Promise.all(cityIds.map(id => api.getDistrictsByCityId(id)));
         const nameMap: Record<string, number> = {};
-        for (const d of districts) nameMap[d.name] = d.id;
+        for (const districts of allDistricts) {
+          for (const d of districts) nameMap[d.name] = d.id;
+        }
         setDistrictNameToId(nameMap);
       } catch { /* districts not critical */ }
 

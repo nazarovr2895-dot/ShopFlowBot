@@ -293,6 +293,7 @@ export function ShopDetails() {
         preorderDeliveryDate,
         sellerName: seller?.shop_name || undefined,
         sellerDeliveryType: seller?.delivery_type ?? null,
+        sellerCityId: seller?.city_id ?? null,
       });
 
       if (!preorderDeliveryDate && result.reserved_at) {

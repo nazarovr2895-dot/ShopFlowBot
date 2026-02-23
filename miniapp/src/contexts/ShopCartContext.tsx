@@ -20,6 +20,7 @@ export interface AddToCartParams {
   preorderDeliveryDate?: string | null;
   sellerName?: string;
   sellerDeliveryType?: 'delivery' | 'pickup' | 'both' | null;
+  sellerCityId?: number | null;
 }
 
 interface ShopCartContextValue {
@@ -133,7 +134,7 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
 
   /* ─── Add item ─────────────────────────────── */
   const addItem = useCallback(async (params: AddToCartParams): Promise<{ reserved_at?: string | null }> => {
-    const { product, quantity = 1, preorderDeliveryDate, sellerName, sellerDeliveryType } = params;
+    const { product, quantity = 1, preorderDeliveryDate, sellerName, sellerDeliveryType, sellerCityId } = params;
 
     if (isGuestRef.current) {
       addToGuestCart({
@@ -145,6 +146,7 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
         photo_id: product.photo_id ?? null,
         seller_name: sellerName,
         delivery_type: sellerDeliveryType ?? null,
+        city_id: sellerCityId ?? null,
       });
       // Optimistic local update
       if (!preorderDeliveryDate) {

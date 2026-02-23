@@ -87,6 +87,7 @@ class PublicSellerDetail(BaseModel):
     delivery_price: float = 0.0
     address_name: Optional[str] = None
     map_url: Optional[str]
+    city_id: Optional[int] = None
     city_name: Optional[str]
     district_name: Optional[str]
     metro_name: Optional[str]
@@ -548,6 +549,7 @@ async def get_public_seller_detail(
         delivery_price=float(seller.delivery_price) if seller.delivery_price else 0.0,
         address_name=getattr(seller, "address_name", None),
         map_url=seller.map_url,
+        city_id=seller.city_id,
         city_name=row.city_name,
         district_name=row.district_name,
         metro_name=row.metro_name,

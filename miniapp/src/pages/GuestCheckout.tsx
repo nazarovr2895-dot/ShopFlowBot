@@ -59,14 +59,19 @@ export function GuestCheckout() {
     });
   }, [navigate]);
 
-  // Load districts for delivery zone matching
+  // Load districts for delivery zone matching based on sellers' cities
   useEffect(() => {
-    api.getDistrictsByCityId(1).then((districts) => {
+    const cityIds = [...new Set(cart.map(g => g.city_id).filter((id): id is number => id != null))];
+    if (cityIds.length === 0 && cart.length > 0) cityIds.push(1); // fallback to Moscow
+    if (cityIds.length === 0) return;
+    Promise.all(cityIds.map(id => api.getDistrictsByCityId(id))).then((allDistricts) => {
       const nameMap: Record<string, number> = {};
-      for (const d of districts) nameMap[d.name] = d.id;
+      for (const districts of allDistricts) {
+        for (const d of districts) nameMap[d.name] = d.id;
+      }
       setDistrictNameToId(nameMap);
     }).catch(() => { /* not critical */ });
-  }, []);
+  }, [cart]);
 
   const formatPrice = (n: number) =>
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);

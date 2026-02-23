@@ -120,6 +120,7 @@ export function ProductDetail() {
           photo_id: product.photo_id ?? null,
           seller_name: shopName || undefined,
           delivery_type: sellerDetail?.delivery_type ?? null,
+          city_id: sellerDetail?.city_id ?? null,
         });
         showAlert(preorderDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
         setSelectedPreorderDate(null);

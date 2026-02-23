@@ -95,6 +95,7 @@ class CartService:
                 "address_name": address_name,
                 "map_url": map_url,
                 "delivery_type": normalize_delivery_type_setting(seller.delivery_type) if seller else None,
+                "city_id": getattr(seller, "city_id", None) if seller else None,
             })
         return out
 

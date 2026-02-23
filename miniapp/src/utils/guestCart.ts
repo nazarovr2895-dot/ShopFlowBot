@@ -10,6 +10,8 @@ export interface GuestCartItem {
   seller_name?: string;
   /** Seller's supported delivery type (stored from shop context). */
   delivery_type?: 'delivery' | 'pickup' | 'both' | null;
+  /** Seller's city ID (for delivery zone district matching). */
+  city_id?: number | null;
 }
 
 const GUEST_CART_KEY = 'flurai_guest_cart';
@@ -96,5 +98,6 @@ export function guestCartToGroups(items: GuestCartItem[]): CartSellerGroup[] {
     address_name: null,
     map_url: null,
     delivery_type: sellerItems[0].delivery_type ?? null,
+    city_id: sellerItems[0].city_id ?? null,
   }));
 }

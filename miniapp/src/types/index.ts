@@ -88,6 +88,8 @@ export interface CartSellerGroup {
   map_url?: string | null;
   /** Seller's supported delivery type. */
   delivery_type?: 'delivery' | 'pickup' | 'both' | null;
+  /** Seller's city ID (for loading districts). */
+  city_id?: number | null;
 }
 
 // Visited / Subscribed sellers (rich data, same shape as PublicSellerListItem)
@@ -159,6 +161,7 @@ export interface PublicSellerDetail {
   delivery_price: number;
   address_name?: string | null;
   map_url: string | null;
+  city_id: number | null;
   city_name: string | null;
   district_name: string | null;
   metro_name: string | null;
