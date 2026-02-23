@@ -47,7 +47,7 @@ export function Checkout() {
   const [pointsUsage, setPointsUsage] = useState<Record<number, number>>({});
   const [buyerDistrictId, setBuyerDistrictId] = useState<number | null>(null);
   const [buyerDistrictName, setBuyerDistrictName] = useState<string | null>(null);
-  const [deliveryCheckResults, setDeliveryCheckResults] = useState<Record<number, { delivers: boolean; delivery_price: number; message: string }>>({});
+  const [deliveryCheckResults, setDeliveryCheckResults] = useState<Record<number, { delivers: boolean; delivery_price: number; district_id?: number | null; message: string }>>({});
   const [districtNameToId, setDistrictNameToId] = useState<Record<string, number>>({});
   useEffect(() => {
     const backPath = filterSellerId ? `/shop/${filterSellerId}` : '/';

@@ -586,6 +586,7 @@ class ApiClient {
     delivers: boolean;
     zone: any | null;
     delivery_price: number;
+    district_id?: number | null;
     message: string;
   }> {
     return this.fetchPublic(`/public/sellers/${sellerId}/check-delivery`, {

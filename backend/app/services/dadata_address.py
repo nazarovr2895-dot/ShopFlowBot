@@ -117,9 +117,20 @@ async def suggest_address(
     result = []
     for s in suggestions:
         d = s.get("data", {})
+        # Try city_area first (contains okrug for Moscow even in multi-result),
+        # then city_district, then OKATO — same priority as resolve_district_from_address()
+        city_area = d.get("city_area")
         city_district_raw = d.get("city_district")
         city_district_type = d.get("city_district_type")
-        district_name = _normalize_district_name(city_district_raw, city_district_type)
+        district_name = None
+        if city_area:
+            district_name = _normalize_district_name(city_area)
+        if not district_name:
+            district_name = _normalize_district_name(city_district_raw, city_district_type)
+        if not district_name:
+            okato = d.get("okato")
+            if okato:
+                district_name = _okato_to_district(okato)
         result.append({
             "value": s.get("value", ""),
             "lat": d.get("geo_lat"),

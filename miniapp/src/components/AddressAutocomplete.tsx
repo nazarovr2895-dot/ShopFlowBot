@@ -13,6 +13,7 @@ interface AddressSuggestion {
 interface DeliveryCheckResult {
   delivers: boolean;
   delivery_price: number;
+  district_id?: number | null;
   message: string;
 }
 
@@ -123,6 +124,14 @@ export function AddressAutocomplete({
           }
         })
       );
+      // If district wasn't resolved from suggest, use district_id from check_delivery response
+      if (!districtId) {
+        const firstResult = Object.values(results).find(r => r.district_id);
+        if (firstResult?.district_id) {
+          districtId = firstResult.district_id;
+          onDistrictIdResolved?.(districtId);
+        }
+      }
       onDeliveryCheck(results);
     }
   };

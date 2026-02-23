@@ -368,6 +368,12 @@ class CartService:
                     resolved_district_id = buyer_district_id
                     if resolved_district_id is None and buyer_district_name:
                         resolved_district_id = await zone_svc.resolve_district_id(buyer_district_name)
+                    # Fallback: resolve district from address via DaData
+                    if resolved_district_id is None and address:
+                        from backend.app.services.dadata_address import resolve_district_from_address
+                        resolved_name = await resolve_district_from_address(address)
+                        if resolved_name:
+                            resolved_district_id = await zone_svc.resolve_district_id(resolved_name)
                     if zones and resolved_district_id is not None:
                         zone_match = await zone_svc.find_zone_for_address(seller_id, district_id=resolved_district_id)
                         if zone_match is None:
@@ -377,6 +383,9 @@ class CartService:
                         if zone_match.get("free_delivery_from") and total >= Decimal(str(zone_match["free_delivery_from"])):
                             delivery_fee = Decimal("0")
                         total += delivery_fee
+                    elif zones:
+                        # Zones exist but district not resolved — error, not silent skip
+                        raise CartServiceError("Не удалось определить район для доставки. Уточните адрес.", 400)
                     elif not zones:
                         # No zones configured — delivery not available
                         raise CartServiceError("Доставка недоступна — настройте зоны доставки", 400)

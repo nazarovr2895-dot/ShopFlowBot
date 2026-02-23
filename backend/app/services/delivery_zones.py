@@ -2,7 +2,7 @@
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
 
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.models.delivery_zone import DeliveryZone
@@ -70,9 +70,9 @@ class DeliveryZoneService:
         return True
 
     async def resolve_district_id(self, district_name: str) -> Optional[int]:
-        """Resolve district name (e.g. 'ЦАО') to district ID."""
+        """Resolve district name (e.g. 'ЦАО') to district ID. Case-insensitive."""
         result = await self.session.execute(
-            select(District.id).where(District.name == district_name)
+            select(District.id).where(func.lower(District.name) == district_name.lower())
         )
         row = result.scalar_one_or_none()
         return row
@@ -138,16 +138,17 @@ class DeliveryZoneService:
                 district_id = await self.resolve_district_id(resolved_name)
 
         if district_id is None:
-            return {"delivers": False, "zone": None, "delivery_price": 0, "message": "Укажите адрес для проверки доставки"}
+            return {"delivers": False, "zone": None, "delivery_price": 0, "district_id": None, "message": "Укажите адрес для проверки доставки"}
 
         zone = await self.find_zone_for_address(seller_id, district_id=district_id)
         if zone is None:
-            return {"delivers": False, "zone": None, "delivery_price": 0, "message": "Магазин не доставляет по этому адресу"}
+            return {"delivers": False, "zone": None, "delivery_price": 0, "district_id": district_id, "message": "Магазин не доставляет по этому адресу"}
 
         return {
             "delivers": True,
             "zone": zone,
             "delivery_price": zone["delivery_price"],
+            "district_id": district_id,
             "message": "",
         }
 
