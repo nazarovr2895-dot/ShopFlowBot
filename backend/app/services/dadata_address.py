@@ -351,38 +351,44 @@ async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[
     Falls back to suggest with the nearest address if geolocate doesn't return a district.
     Returns normalized district name as stored in DB (e.g. "ЦАО", "Ленинский") or None.
     """
-    # Use geolocate endpoint — suggest doesn't work with coordinates for non-Moscow cities
-    payload = {"lat": lat, "lon": lon, "count": 1}
+    # Use geolocate endpoint with multiple results — sometimes only addresses with
+    # house numbers have city_district filled in
+    payload = {"lat": lat, "lon": lon, "count": 5}
     suggestions = await _call_dadata_url(DADATA_GEOLOCATE_URL, payload)
     if not suggestions:
         return None
 
-    d = suggestions[0].get("data", {})
+    # Check all geolocate results for district info
+    for s in suggestions:
+        d = s.get("data", {})
 
-    # Try city_area first (Moscow okrugs)
-    city_area = d.get("city_area")
-    if city_area:
-        normalized = _normalize_district_name(city_area)
+        # Try city_area first (Moscow okrugs)
+        city_area = d.get("city_area")
+        if city_area:
+            normalized = _normalize_district_name(city_area)
+            if normalized:
+                return normalized
+
+        # Then city_district (works for most cities)
+        city_district = d.get("city_district")
+        normalized = _normalize_district_name(city_district, d.get("city_district_type"))
         if normalized:
             return normalized
 
-    # Then city_district (works for most cities: "Ленинский", "Октябрьский", etc.)
-    city_district = d.get("city_district")
-    normalized = _normalize_district_name(city_district, d.get("city_district_type"))
-    if normalized:
-        return normalized
-
-    # OKATO fallback (Moscow only)
-    okato = d.get("okato")
+    # OKATO fallback from first result (Moscow only)
+    okato = suggestions[0].get("data", {}).get("okato")
     if okato:
         okato_district = _okato_to_district(okato)
         if okato_district:
             return okato_district
 
-    # Fallback: geolocate returned an address but no district — try suggest with count=1
-    # (suggest with a specific address often resolves city_district even when geolocate doesn't)
-    address_value = suggestions[0].get("value")
-    if address_value:
-        return await resolve_district_from_address(address_value)
+    # Fallback: find the first result with a house number and resolve via suggest
+    # (suggest with a specific address often fills in city_district when geolocate doesn't)
+    for s in suggestions:
+        d = s.get("data", {})
+        if d.get("house"):
+            address_value = s.get("value")
+            if address_value:
+                return await resolve_district_from_address(address_value)
 
     return None
