@@ -107,7 +107,7 @@ export function AddressAutocomplete({
     }
     onDistrictIdResolved?.(districtId);
 
-    // Check delivery for each seller — use district_name directly (backend resolves ID)
+    // Check delivery for each seller — pass address string so backend can resolve district via DaData
     if (sellerIds && sellerIds.length > 0 && onDeliveryCheck) {
       const results: Record<number, DeliveryCheckResult> = {};
       await Promise.all(
@@ -116,6 +116,7 @@ export function AddressAutocomplete({
             results[sellerId] = await api.checkDelivery(sellerId, {
               districtId: districtId ?? undefined,
               districtName: districtName ?? undefined,
+              address: suggestion.value,
             });
           } catch {
             results[sellerId] = { delivers: false, delivery_price: 0, message: 'Ошибка проверки доставки' };

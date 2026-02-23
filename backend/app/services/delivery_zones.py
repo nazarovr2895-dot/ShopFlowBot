@@ -102,12 +102,13 @@ class DeliveryZoneService:
         seller_id: int,
         district_id: Optional[int] = None,
         district_name: Optional[str] = None,
+        address: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Check if seller delivers to the given district.
         Zones are always active — if seller has zones, use them;
         if not, fall back to flat delivery_price.
-        Accepts district_id or district_name (resolved to ID internally).
+        Accepts district_id, district_name, or address (resolved via DaData).
         """
         seller = await self.session.get(Seller, seller_id)
         if not seller:
@@ -128,6 +129,13 @@ class DeliveryZoneService:
         # Seller has zones — resolve district
         if district_id is None and district_name:
             district_id = await self.resolve_district_id(district_name)
+
+        # If still no district, try resolving from address via DaData
+        if district_id is None and address:
+            from backend.app.services.dadata_address import resolve_district_from_address
+            resolved_name = await resolve_district_from_address(address)
+            if resolved_name:
+                district_id = await self.resolve_district_id(resolved_name)
 
         if district_id is None:
             return {"delivers": False, "zone": None, "delivery_price": 0, "message": "Укажите адрес для проверки доставки"}

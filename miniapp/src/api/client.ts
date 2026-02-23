@@ -582,7 +582,7 @@ class ApiClient {
     return this.fetchPublic(`/public/districts/${cityId}`);
   }
 
-  async checkDelivery(sellerId: number, params: { districtId?: number; districtName?: string }): Promise<{
+  async checkDelivery(sellerId: number, params: { districtId?: number; districtName?: string; address?: string }): Promise<{
     delivers: boolean;
     zone: any | null;
     delivery_price: number;
@@ -590,7 +590,11 @@ class ApiClient {
   }> {
     return this.fetchPublic(`/public/sellers/${sellerId}/check-delivery`, {
       method: 'POST',
-      body: JSON.stringify({ district_id: params.districtId, district_name: params.districtName }),
+      body: JSON.stringify({
+        district_id: params.districtId,
+        district_name: params.districtName,
+        address: params.address,
+      }),
     });
   }
 
