@@ -522,6 +522,11 @@ export async function suggestCityDadata(query: string): Promise<DaDataCitySugges
   return fetchAdmin<DaDataCitySuggestion[]>(`/admin/coverage/dadata/suggest-city?${params}`);
 }
 
+export async function suggestDistrictDadata(query: string, cityKladrId: string): Promise<string[]> {
+  const params = new URLSearchParams({ q: query.trim(), city_kladr_id: cityKladrId });
+  return fetchAdmin<string[]>(`/admin/coverage/dadata/suggest-district?${params}`);
+}
+
 export async function importMetroFromDadata(cityId: number): Promise<MetroImportResult> {
   return fetchAdmin<MetroImportResult>(`/admin/coverage/cities/${cityId}/import-metro`, {
     method: 'POST',

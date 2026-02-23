@@ -385,6 +385,38 @@
   flex: 1;
 }
 
+/* ── District autocomplete ────────────────────── */
+.cov-district-ac {
+  position: relative;
+  flex: 1;
+}
+
+.cov-district-ac__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.cov-district-ac__option {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.cov-district-ac__option:hover {
+  background: var(--bg-surface-hover);
+}
+
 /* ── Assign district dropdown ──────────────────── */
 .cov-assign-select {
   font-size: var(--text-xs);

@@ -13,6 +13,7 @@ from backend.app.models.user import User
 from backend.app.services.cache import CacheService
 from backend.app.services.dadata_address import (
     suggest_city as dadata_suggest_city,
+    suggest_district as dadata_suggest_district,
     fetch_metro_stations as dadata_fetch_metro,
     resolve_district_from_coordinates,
 )
@@ -438,6 +439,17 @@ async def dadata_suggest_city_endpoint(
 ):
     """Autocomplete city names via DaData."""
     results = await dadata_suggest_city(q.strip(), count=10)
+    return results
+
+
+@router.get("/coverage/dadata/suggest-district")
+async def dadata_suggest_district_endpoint(
+    q: str = Query(..., min_length=1),
+    city_kladr_id: str = Query(..., min_length=1),
+    _token: None = Depends(require_admin_token),
+):
+    """Autocomplete district names within a city via DaData."""
+    results = await dadata_suggest_district(q.strip(), city_kladr_id=city_kladr_id)
     return results
 
 

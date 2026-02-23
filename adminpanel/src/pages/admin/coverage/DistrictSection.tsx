@@ -1,20 +1,109 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import { useToast, useConfirm } from '../../../components/ui';
 import {
   createCoverageDistrict,
   updateCoverageDistrict,
   deleteCoverageDistrict,
+  suggestDistrictDadata,
   type CoverageDistrict,
 } from '../../../api/adminClient';
 
+interface DistrictAutocompleteProps {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (name: string) => void;
+  cityKladrId: string | null;
+  placeholder?: string;
+  autoFocus?: boolean;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+}
+
+function DistrictAutocomplete({
+  value, onChange, onSelect, cityKladrId,
+  placeholder = 'Название района', autoFocus, onKeyDown,
+}: DistrictAutocompleteProps) {
+  const [options, setOptions] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const fetchOptions = useCallback(async (q: string) => {
+    if (!cityKladrId || q.length < 1) {
+      setOptions([]);
+      setOpen(false);
+      return;
+    }
+    try {
+      const data = await suggestDistrictDadata(q, cityKladrId);
+      setOptions(data);
+      setOpen(data.length > 0);
+    } catch {
+      setOptions([]);
+    }
+  }, [cityKladrId]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    onChange(v);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => fetchOptions(v), 250);
+  };
+
+  const handlePick = (name: string) => {
+    onChange(name);
+    setOpen(false);
+    setOptions([]);
+    onSelect(name);
+  };
+
+  return (
+    <div className="cov-district-ac" ref={wrapperRef}>
+      <input
+        className="form-input"
+        value={value}
+        onChange={handleChange}
+        onFocus={() => { if (options.length > 0) setOpen(true); }}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        autoComplete="off"
+      />
+      {open && options.length > 0 && (
+        <div className="cov-district-ac__dropdown">
+          {options.map((name) => (
+            <div
+              key={name}
+              className="cov-district-ac__option"
+              onClick={() => handlePick(name)}
+            >
+              {name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface DistrictSectionProps {
   cityId: number;
+  cityKladrId: string | null;
   districts: CoverageDistrict[];
   onReload: () => Promise<void>;
 }
 
-export function DistrictSection({ cityId, districts, onReload }: DistrictSectionProps) {
+export function DistrictSection({ cityId, cityKladrId, districts, onReload }: DistrictSectionProps) {
   const toast = useToast();
   const confirm = useConfirm();
   const [showAdd, setShowAdd] = useState(false);
@@ -81,13 +170,13 @@ export function DistrictSection({ cityId, districts, onReload }: DistrictSection
 
       {showAdd && (
         <div className="cov-inline-form">
-          <input
-            className="form-input"
+          <DistrictAutocomplete
             value={addName}
-            onChange={e => setAddName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            placeholder="Название района"
+            onChange={setAddName}
+            onSelect={(name) => { setAddName(name); }}
+            cityKladrId={cityKladrId}
             autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
           />
           <button className="btn btn-primary btn-sm" onClick={handleAdd}>
             <Check size={14} />
@@ -103,12 +192,13 @@ export function DistrictSection({ cityId, districts, onReload }: DistrictSection
           <div key={d.id} className="cov-district-row">
             {editId === d.id ? (
               <div className="cov-inline-form" style={{ flex: 1 }}>
-                <input
-                  className="form-input"
+                <DistrictAutocomplete
                   value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleUpdate(d.id)}
+                  onChange={setEditName}
+                  onSelect={(name) => { setEditName(name); }}
+                  cityKladrId={cityKladrId}
                   autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleUpdate(d.id)}
                 />
                 <button className="btn btn-primary btn-sm" onClick={() => handleUpdate(d.id)}>
                   <Check size={14} />

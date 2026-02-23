@@ -274,6 +274,39 @@ async def suggest_city(query: str, count: int = 10) -> List[Dict[str, Any]]:
     return result
 
 
+async def suggest_district(query: str, city_kladr_id: str, count: int = 10) -> List[str]:
+    """
+    Suggest district names for a city via DaData.
+    Queries addresses within the city and extracts unique city_area values.
+    Returns list of normalized district names (e.g. ["ЦАО", "САО", "СВАО"]).
+    """
+    payload: Dict[str, Any] = {
+        "query": query,
+        "count": 20,
+        "locations": [{"kladr_id": city_kladr_id}],
+    }
+    suggestions = await _call_dadata(payload)
+    seen: set[str] = set()
+    result: List[str] = []
+    for s in suggestions:
+        d = s.get("data", {})
+        # Try city_area first (okrugs for Moscow, районы for SPb), then city_district
+        raw = d.get("city_area") or d.get("city_district")
+        if not raw:
+            continue
+        normalized = _normalize_district_name(raw)
+        if not normalized:
+            continue
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(normalized)
+        if len(result) >= count:
+            break
+    return result
+
+
 async def fetch_metro_stations(city_kladr_id: str) -> List[Dict[str, Any]]:
     """
     Fetch all metro stations for a city from DaData /suggest/metro.

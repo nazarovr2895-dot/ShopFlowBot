@@ -176,6 +176,7 @@ export function CityDetail({ city, onReload, onClose }: CityDetailProps) {
         <>
           <DistrictSection
             cityId={city.id}
+            cityKladrId={city.kladr_id}
             districts={districts}
             onReload={async () => { await loadData(); await onReload(); }}
           />
