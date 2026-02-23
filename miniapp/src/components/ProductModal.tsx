@@ -170,7 +170,7 @@ export function ProductModal({
 
   const hasDelivery = deliveryType === 'delivery' || deliveryType === 'both';
   const deliveryCostLabel = hasDelivery
-    ? (deliveryPrice == null ? 'зависит от зоны' : deliveryPrice === 0 ? 'бесплатно' : `${deliveryPrice.toLocaleString('ru-RU')} ₽`)
+    ? (deliveryPrice == null ? 'зависит от зоны' : deliveryPrice === 0 ? 'бесплатно' : `от ${deliveryPrice.toLocaleString('ru-RU')} ₽`)
     : null;
 
   /* ---------- backdrop click ---------- */

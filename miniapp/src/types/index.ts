@@ -25,6 +25,8 @@ export interface PublicSellerListItem {
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
   /** @deprecated — use delivery zones. Always 0 from backend. */
   delivery_price?: number | null;
+  /** Minimum delivery price across active zones (null = no zones). */
+  min_delivery_price?: number | null;
   city_name: string | null;
   district_name: string | null;
   metro_name: string | null;
@@ -164,6 +166,8 @@ export interface PublicSellerDetail {
   delivery_type: 'delivery' | 'pickup' | 'both' | null;
   /** @deprecated — use delivery zones */
   delivery_price?: number | null;
+  /** Minimum delivery price across active zones (null = no zones). */
+  min_delivery_price?: number | null;
   address_name?: string | null;
   map_url: string | null;
   city_id: number | null;

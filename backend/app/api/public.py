@@ -58,6 +58,7 @@ class PublicSellerListItem(BaseModel):
     owner_fio: Optional[str]
     delivery_type: Optional[str]
     delivery_price: float = 0.0
+    min_delivery_price: Optional[float] = None
     city_name: Optional[str]
     district_name: Optional[str]
     metro_name: Optional[str]
@@ -85,6 +86,7 @@ class PublicSellerDetail(BaseModel):
     description: Optional[str]
     delivery_type: Optional[str]
     delivery_price: float = 0.0
+    min_delivery_price: Optional[float] = None
     address_name: Optional[str] = None
     map_url: Optional[str]
     city_id: Optional[int] = None
@@ -268,6 +270,18 @@ async def get_public_sellers(
         delivery_slots_expr = func.coalesce(Seller.max_delivery_orders, 10) - func.coalesce(Seller.active_delivery_orders, 0) - func.coalesce(Seller.pending_delivery_requests, 0)
         pickup_slots_expr = func.coalesce(Seller.max_pickup_orders, 20) - func.coalesce(Seller.active_pickup_orders, 0) - func.coalesce(Seller.pending_pickup_requests, 0)
 
+        # Min delivery price from active zones (per seller)
+        from backend.app.models.delivery_zone import DeliveryZone as DZ
+        min_dp_subq = (
+            select(
+                DZ.seller_id,
+                func.min(DZ.delivery_price).label("min_delivery_price"),
+            )
+            .where(DZ.is_active == True)
+            .group_by(DZ.seller_id)
+            .subquery()
+        )
+
         # Основной запрос
         query = (
             select(
@@ -284,6 +298,7 @@ async def get_public_sellers(
                 available_slots_expr.label("available_slots"),
                 delivery_slots_expr.label("delivery_slots"),
                 pickup_slots_expr.label("pickup_slots"),
+                min_dp_subq.c.min_delivery_price,
             )
             .outerjoin(User, Seller.seller_id == User.tg_id)
             .outerjoin(City, Seller.city_id == City.id)
@@ -291,6 +306,7 @@ async def get_public_sellers(
             .outerjoin(Metro, Seller.metro_id == Metro.id)
             .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
             .outerjoin(subscriber_count_subq, Seller.seller_id == subscriber_count_subq.c.seller_id)
+            .outerjoin(min_dp_subq, Seller.seller_id == min_dp_subq.c.seller_id)
             .where(and_(*base_conditions))
         )
 
@@ -352,6 +368,7 @@ async def get_public_sellers(
                 owner_fio=row.owner_fio,
                 delivery_type=_normalize_delivery_type(seller.delivery_type),
                 delivery_price=0.0,  # deprecated: use delivery zones
+                min_delivery_price=float(row.min_delivery_price) if row.min_delivery_price is not None else None,
                 city_name=row.city_name,
                 district_name=row.district_name,
                 metro_name=row.metro_name,
@@ -461,6 +478,17 @@ async def get_public_seller_detail(
     )
     subscriber_count = sub_count_result.scalar() or 0
 
+    # Min delivery price from active zones
+    from backend.app.models.delivery_zone import DeliveryZone
+    min_dp_result = await session.execute(
+        select(func.min(DeliveryZone.delivery_price)).where(
+            DeliveryZone.seller_id == seller_id,
+            DeliveryZone.is_active == True,
+        )
+    )
+    min_delivery_price_raw = min_dp_result.scalar()
+    min_delivery_price = float(min_delivery_price_raw) if min_delivery_price_raw is not None else None
+
     # Regular products (in stock, is_preorder=False)
     products_query = (
         select(Product)
@@ -558,6 +586,7 @@ async def get_public_seller_detail(
         description=seller.description,
         delivery_type=delivery_type_normalized,
         delivery_price=0.0,  # deprecated: use delivery zones
+        min_delivery_price=min_delivery_price,
         address_name=getattr(seller, "address_name", None),
         map_url=seller.map_url,
         city_id=seller.city_id,
