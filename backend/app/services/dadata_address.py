@@ -348,6 +348,7 @@ async def fetch_metro_stations(city_kladr_id: str) -> List[Dict[str, Any]]:
 async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[str]:
     """
     Resolve district name from coordinates using DaData geolocate API.
+    Falls back to suggest with the nearest address if geolocate doesn't return a district.
     Returns normalized district name as stored in DB (e.g. "ЦАО", "Ленинский") or None.
     """
     # Use geolocate endpoint — suggest doesn't work with coordinates for non-Moscow cities
@@ -377,5 +378,11 @@ async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[
         okato_district = _okato_to_district(okato)
         if okato_district:
             return okato_district
+
+    # Fallback: geolocate returned an address but no district — try suggest with count=1
+    # (suggest with a specific address often resolves city_district even when geolocate doesn't)
+    address_value = suggestions[0].get("value")
+    if address_value:
+        return await resolve_district_from_address(address_value)
 
     return None
