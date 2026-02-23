@@ -44,15 +44,25 @@ _OKATO_PREFIX_TO_DISTRICT: Dict[str, str] = {
 }
 
 
-def _normalize_district_name(city_district: Optional[str], city_district_type: Optional[str] = None) -> Optional[str]:
-    """Convert DaData city_area/city_district to DB district name (abbreviation or known name)."""
+def _normalize_district_name(
+    city_district: Optional[str],
+    city_district_type: Optional[str] = None,
+    okato: Optional[str] = None,
+) -> Optional[str]:
+    """Convert DaData city_area/city_district to DB district name.
+
+    Moscow abbreviation mapping (Центральный → ЦАО) is only applied when
+    the OKATO code starts with "45" (Moscow) to avoid mangling district names
+    in other cities (e.g. Новосибирск has "Центральный" as an actual district).
+    """
     if not city_district:
         return None
-    # Case-insensitive lookup: DaData may return "Северо-восточный" or "Северо-Восточный"
     lower = city_district.lower()
-    if lower in _DISTRICT_FULL_TO_ABBR:
+    # Apply Moscow abbreviation mapping only for Moscow (OKATO prefix 45)
+    is_moscow = okato and okato.startswith("45")
+    if is_moscow and lower in _DISTRICT_FULL_TO_ABBR:
         return _DISTRICT_FULL_TO_ABBR[lower]
-    # If it's already an abbreviation (ЦАО, САО, etc.) or a known outer district name
+    # Return as-is (already an abbreviation, or a district name for other cities)
     return city_district
 
 
@@ -123,13 +133,13 @@ async def suggest_address(
         city_area = d.get("city_area")
         city_district_raw = d.get("city_district")
         city_district_type = d.get("city_district_type")
+        okato = d.get("okato")
         district_name = None
         if city_area:
-            district_name = _normalize_district_name(city_area)
+            district_name = _normalize_district_name(city_area, okato=okato)
         if not district_name:
-            district_name = _normalize_district_name(city_district_raw, city_district_type)
+            district_name = _normalize_district_name(city_district_raw, city_district_type, okato=okato)
         if not district_name:
-            okato = d.get("okato")
             if okato:
                 district_name = _okato_to_district(okato)
         result.append({
@@ -182,12 +192,12 @@ async def resolve_district_from_address(address: str) -> Optional[str]:
 
     # Try city_area first (may contain okrug for Moscow)
     if city_area:
-        normalized = _normalize_district_name(city_area)
+        normalized = _normalize_district_name(city_area, okato=okato)
         if normalized:
             return normalized
 
     # Then try city_district
-    normalized = _normalize_district_name(city_district, city_district_type)
+    normalized = _normalize_district_name(city_district, city_district_type, okato=okato)
     if normalized:
         return normalized
 
@@ -295,7 +305,7 @@ async def suggest_district(query: str, city_kladr_id: str, count: int = 10) -> L
         raw = d.get("city_area") or d.get("city_district")
         if not raw:
             continue
-        normalized = _normalize_district_name(raw)
+        normalized = _normalize_district_name(raw, okato=d.get("okato"))
         if not normalized:
             continue
         key = normalized.lower()
@@ -361,17 +371,18 @@ async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[
     # Check all geolocate results for district info
     for s in suggestions:
         d = s.get("data", {})
+        s_okato = d.get("okato")
 
         # Try city_area first (Moscow okrugs)
         city_area = d.get("city_area")
         if city_area:
-            normalized = _normalize_district_name(city_area)
+            normalized = _normalize_district_name(city_area, okato=s_okato)
             if normalized:
                 return normalized
 
         # Then city_district (works for most cities)
         city_district = d.get("city_district")
-        normalized = _normalize_district_name(city_district, d.get("city_district_type"))
+        normalized = _normalize_district_name(city_district, d.get("city_district_type"), okato=s_okato)
         if normalized:
             return normalized
 
