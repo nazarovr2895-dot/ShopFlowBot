@@ -64,12 +64,25 @@ class CartService:
                 return ids[0]
             return getattr(p, "photo_id", None)
 
+        # Check which sellers have active delivery zones (batch)
+        from backend.app.services.delivery_zones import DeliveryZoneService
+        zone_svc = DeliveryZoneService(self.session)
+
         out = []
         for seller_id, items in by_seller.items():
             seller = sellers.get(seller_id)
             shop_name = (seller.shop_name or "Магазин") if seller else "Магазин"
             total = sum(Decimal(str(it.price)) * it.quantity for it in items)
-            delivery_price = Decimal(str(getattr(seller, "delivery_price", 0) or 0)) if seller else Decimal("0")
+
+            # If seller has delivery zones, delivery_price depends on address → return null
+            active_zones = await zone_svc.get_active_zones(seller_id)
+            has_delivery_zones = len(active_zones) > 0
+            if has_delivery_zones:
+                delivery_price_out = None
+            else:
+                dp = Decimal(str(getattr(seller, "delivery_price", 0) or 0)) if seller else Decimal("0")
+                delivery_price_out = float(dp.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
             address_name = getattr(seller, "address_name", None) if seller else None
             address_name = address_name if address_name and str(address_name).strip() else None
             map_url = getattr(seller, "map_url", None) if seller else None
@@ -91,7 +104,8 @@ class CartService:
                     for it in items
                 ],
                 "total": float(total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
-                "delivery_price": float(delivery_price.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+                "delivery_price": delivery_price_out,
+                "has_delivery_zones": has_delivery_zones,
                 "address_name": address_name,
                 "map_url": map_url,
                 "delivery_type": normalize_delivery_type_setting(seller.delivery_type) if seller else None,

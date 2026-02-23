@@ -29,7 +29,7 @@ interface ShopCartContextValue {
   cartQuantities: Map<number, number>;
   total: number;
   itemCount: number;
-  deliveryPrice: number;
+  deliveryPrice: number | null;
   deliveryType: 'delivery' | 'pickup' | 'both' | null;
   isLoading: boolean;
 
@@ -63,7 +63,7 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
 
   const [items, setItems] = useState<CartItemEntry[]>([]);
   const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map());
-  const [deliveryPrice, setDeliveryPrice] = useState(0);
+  const [deliveryPrice, setDeliveryPrice] = useState<number | null>(0);
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup' | 'both' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPanelOpen, setPanelOpen] = useState(false);
@@ -96,7 +96,7 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
         const group = groups.find((g) => g.seller_id === sellerId);
         if (group) {
           setItems(group.items);
-          setDeliveryPrice(group.delivery_price ?? 0);
+          setDeliveryPrice(group.delivery_price ?? null);
           setDeliveryType(group.delivery_type ?? null);
           const qtyMap = new Map<number, number>();
           for (const item of group.items) qtyMap.set(item.product_id, item.quantity);

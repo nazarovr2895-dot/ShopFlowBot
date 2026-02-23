@@ -164,7 +164,7 @@ export function ShopCartPanel() {
 
   if (!isPanelOpen) return null;
 
-  const grandTotal = total + deliveryPrice;
+  const grandTotal = total + (deliveryPrice ?? 0);
 
   return (
     <div
@@ -270,15 +270,20 @@ export function ShopCartPanel() {
               <span>Товары ({itemCount})</span>
               <span>{formatPrice(total)}</span>
             </div>
-            {deliveryPrice > 0 && (
+            {deliveryPrice === null ? (
+              <div className="shop-cart-panel__summary-row">
+                <span>Доставка</span>
+                <span style={{ color: 'var(--tg-theme-hint-color, #999)', fontSize: '0.85em' }}>зависит от адреса</span>
+              </div>
+            ) : deliveryPrice > 0 ? (
               <div className="shop-cart-panel__summary-row">
                 <span>Доставка</span>
                 <span>{formatPrice(deliveryPrice)}</span>
               </div>
-            )}
+            ) : null}
             <div className="shop-cart-panel__summary-row shop-cart-panel__summary-row--total">
-              <span>{deliveryPrice > 0 ? 'При доставке' : 'К оплате'}</span>
-              <span>{formatPrice(deliveryPrice > 0 ? grandTotal : total)}</span>
+              <span>{deliveryPrice !== null && deliveryPrice > 0 ? 'При доставке' : 'К оплате'}</span>
+              <span>{formatPrice(deliveryPrice !== null && deliveryPrice > 0 ? grandTotal : total)}</span>
             </div>
           </div>
           <button

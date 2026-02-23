@@ -281,9 +281,12 @@ export function Checkout() {
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
   const totalGoods = cart.reduce((sum, g) => sum + g.total, 0);
   // Only sum delivery price for sellers where delivery is chosen
+  // Prefer zone price from delivery check over flat cart price
   const totalDelivery = cart.reduce((sum, g) => {
-    if (deliveryBySeller[g.seller_id] === 'Доставка') return sum + (g.delivery_price ?? 0);
-    return sum;
+    if (deliveryBySeller[g.seller_id] !== 'Доставка') return sum;
+    const checkResult = deliveryCheckResults[g.seller_id];
+    if (checkResult?.delivers) return sum + checkResult.delivery_price;
+    return sum + (g.delivery_price ?? 0);
   }, 0);
   // Points discount per seller
   const totalPointsDiscount = cart.reduce((sum, g) => {
@@ -422,9 +425,13 @@ export function Checkout() {
             </ul>
             <div className="checkout-summary__group-total">
               Итого: {formatPrice(group.total)}
-              {(group.delivery_price ?? 0) > 0 && sellerDt === 'Доставка' && (
-                <span> + доставка {formatPrice(group.delivery_price!)}</span>
-              )}
+              {sellerDt === 'Доставка' && (() => {
+                const checkResult = deliveryCheckResults[group.seller_id];
+                const dp = checkResult?.delivers ? checkResult.delivery_price : (group.delivery_price ?? null);
+                if (dp !== null && dp > 0) return <span> + доставка {formatPrice(dp)}</span>;
+                if (dp === null) return <span style={{ color: 'var(--tg-theme-hint-color, #999)', fontSize: '0.85em' }}> + доставка уточняется</span>;
+                return null;
+              })()}
             </div>
             {/* Points usage per seller */}
             {(() => {

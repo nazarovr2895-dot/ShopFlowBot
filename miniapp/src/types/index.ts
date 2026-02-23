@@ -80,8 +80,10 @@ export interface CartSellerGroup {
   shop_name: string;
   items: CartItemEntry[];
   total: number;
-  /** Cost of delivery for this seller (when delivery is chosen). */
-  delivery_price?: number;
+  /** Cost of delivery for this seller. null = depends on address (zones configured). */
+  delivery_price?: number | null;
+  /** Whether seller has active delivery zones (price depends on address). */
+  has_delivery_zones?: boolean;
   /** Address name for pickup. */
   address_name?: string | null;
   /** Link to map for pickup (e.g. Google Maps). */
