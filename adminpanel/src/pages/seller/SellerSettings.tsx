@@ -11,6 +11,7 @@ import { PreordersSettingsTab } from './settings/PreordersSettingsTab';
 import { AccountSettingsTab } from './settings/AccountSettingsTab';
 import { PaymentSettingsTab } from './settings/PaymentSettingsTab';
 import { SubscriptionSettingsTab } from './settings/SubscriptionSettingsTab';
+import { LegalSettingsTab } from './settings/LegalSettingsTab';
 
 const TABS = [
   { key: 'shop', label: 'Магазин' },
@@ -21,6 +22,7 @@ const TABS = [
   { key: 'subscription', label: 'Подписка' },
   { key: 'payment', label: 'ЮКасса' },
   { key: 'account', label: 'Аккаунт' },
+  { key: 'legal', label: 'Документы' },
 ];
 
 /**
@@ -80,6 +82,7 @@ export function SellerSettings() {
       {tab === 'subscription' && <SubscriptionSettingsTab me={me} reload={reload} />}
       {tab === 'payment' && <PaymentSettingsTab me={me} reload={reload} />}
       {tab === 'account' && <AccountSettingsTab me={me} />}
+      {tab === 'legal' && <LegalSettingsTab />}
     </div>
   );
 }
