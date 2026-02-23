@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import './PrivacyConsentModal.css';
 
@@ -8,8 +8,13 @@ interface PrivacyConsentModalProps {
 }
 
 export function PrivacyConsentModal({ onAccepted }: PrivacyConsentModalProps) {
-  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [loading, setLoading] = useState(false);
+
+  // Hide overlay when user navigates to legal pages to read them
+  if (pathname === '/privacy' || pathname === '/terms') {
+    return null;
+  }
 
   const handleAccept = async () => {
     setLoading(true);
@@ -18,7 +23,6 @@ export function PrivacyConsentModal({ onAccepted }: PrivacyConsentModalProps) {
       onAccepted();
     } catch (err) {
       console.error('[PrivacyConsent] Failed to accept:', err);
-      // Still allow proceeding — backend might be temporarily unavailable
       onAccepted();
     }
   };
@@ -30,26 +34,16 @@ export function PrivacyConsentModal({ onAccepted }: PrivacyConsentModalProps) {
 
         <div className="privacy-consent-modal__text">
           <p>
-            Для работы платформы Flurai мы обрабатываем ваши персональные данные:
-          </p>
-          <ul>
-            <li>Telegram ID и имя профиля</li>
-            <li>Номер телефона (при добровольном предоставлении)</li>
-            <li>Адрес доставки (при оформлении заказа)</li>
-          </ul>
-          <p>
-            Данные используются для идентификации, оформления заказов и связи с вами.
-            Мы не передаём данные третьим лицам, кроме продавца для выполнения заказа.
+            Для работы платформы Flurai мы обрабатываем ваши данные: Telegram ID, имя, номер телефона и адрес доставки.
           </p>
         </div>
 
-        <button
-          type="button"
-          className="privacy-consent-modal__link"
-          onClick={() => navigate('/privacy')}
-        >
-          Подробнее — Политика конфиденциальности
-        </button>
+        <p className="privacy-consent-modal__legal">
+          Нажимая «Принимаю», вы даёте{' '}
+          <Link to="/privacy">Согласие на обработку персональных данных</Link>
+          {' '}и принимаете условия{' '}
+          <Link to="/terms">Публичной оферты</Link>.
+        </p>
 
         <button
           type="button"

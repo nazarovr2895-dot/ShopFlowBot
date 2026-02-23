@@ -14,7 +14,6 @@ import {
   GuestOrderConfirmation,
   TermsPage,
   PrivacyPage,
-  SellerTermsPage,
 } from './pages';
 import { ShopCartProvider } from './contexts/ShopCartContext';
 import { MainLayout, RequireAuth, ToastProvider, DesktopShell, PrivacyConsentModal } from './components';
@@ -127,7 +126,6 @@ function AppContent() {
         {/* Legal pages */}
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/seller-terms" element={<SellerTermsPage />} />
 
         {/* Redirect root to appropriate page */}
         <Route path="*" element={<Navigate to="/" replace />} />

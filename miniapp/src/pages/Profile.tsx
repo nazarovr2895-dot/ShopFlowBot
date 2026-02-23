@@ -339,9 +339,6 @@ export function Profile() {
           <button type="button" className="profile-legal-footer__link" onClick={() => navigate('/privacy')}>
             Политика конфиденциальности
           </button>
-          <button type="button" className="profile-legal-footer__link" onClick={() => navigate('/seller-terms')}>
-            Оферта для продавцов
-          </button>
         </footer>
       </div>
     );

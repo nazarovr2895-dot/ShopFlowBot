@@ -53,23 +53,19 @@
   margin-bottom: 2px;
 }
 
-.privacy-consent-modal__link {
-  display: block;
-  width: 100%;
-  padding: 0;
+.privacy-consent-modal__legal {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--app-text-secondary);
   margin-bottom: 20px;
-  background: none;
-  border: none;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--app-accent);
-  text-align: left;
-  cursor: pointer;
-  text-decoration: underline;
-  transition: opacity 0.15s ease;
 }
 
-.privacy-consent-modal__link:active {
+.privacy-consent-modal__legal a {
+  color: var(--app-accent);
+  text-decoration: underline;
+}
+
+.privacy-consent-modal__legal a:active {
   opacity: 0.7;
 }
 
@@ -80,7 +76,7 @@
   font-size: 16px;
   font-weight: 600;
   font-family: inherit;
-  color: #fff;
+  color: var(--app-bg);
   background: var(--app-accent);
   border: none;
   border-radius: 14px;
@@ -99,7 +95,7 @@
 
 /* Desktop */
 @media (min-width: 768px) {
-  .privacy-consent-modal__link:hover {
+  .privacy-consent-modal__legal a:hover {
     opacity: 0.8;
   }
 
