@@ -34,8 +34,15 @@ export function PrivacyConsentModal({ onAccepted }: PrivacyConsentModalProps) {
 
         <div className="privacy-consent-modal__text">
           <p>
-            Для работы платформы Flurai мы обрабатываем ваши данные: Telegram ID, имя, номер телефона и адрес доставки.
+            Для работы платформы Flurai мы обрабатываем ваши данные: Telegram ID, имя,
+            номер телефона и адрес доставки в целях:
           </p>
+          <ul>
+            <li>идентификации на платформе;</li>
+            <li>оформления и доставки заказов;</li>
+            <li>уведомлений о статусе заказов;</li>
+            <li>участия в программе лояльности.</li>
+          </ul>
         </div>
 
         <p className="privacy-consent-modal__legal">
