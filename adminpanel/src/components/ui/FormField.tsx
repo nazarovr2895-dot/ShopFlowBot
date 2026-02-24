@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import './FormField.css';
 
 interface FormFieldProps {
-  label: string;
+  label: ReactNode;
   hint?: string;
   error?: string;
   required?: boolean;

@@ -132,3 +132,54 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+
+/* ── Slot info hints ────────────────────────────── */
+.dz-slot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dz-slot-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  cursor: help;
+}
+
+.dz-slot-hint__text {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1.5;
+  width: 260px;
+  white-space: normal;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.dz-slot-hint:hover .dz-slot-hint__text {
+  display: block;
+}
+
+/* Arrow */
+.dz-slot-hint__text::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--border);
+}

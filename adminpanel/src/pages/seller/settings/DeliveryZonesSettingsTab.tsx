@@ -9,7 +9,7 @@ import {
 } from '../../../api/sellerClient';
 import type { DeliveryZone, CreateDeliveryZoneData } from '../../../api/sellerClient';
 import { FormField, useToast } from '../../../components/ui';
-import { MapPin, Plus, Pencil, Trash2, Clock } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Clock, Info } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './DeliveryZonesSettingsTab.css';
 
@@ -204,7 +204,7 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
 
           {slotsEnabled && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-              <FormField label="Доставок за 2-часовой слот">
+              <FormField label={<span className="dz-slot-label">Доставок за 2-часовой слот <span className="dz-slot-hint"><Info size={14} /><span className="dz-slot-hint__text">Сколько заказов вы можете доставить за один 2-часовой интервал. Например, 1 — один заказ на слот 10:00–12:00, 3 — три покупателя смогут выбрать одно время.</span></span></span>}>
                 <input
                   type="number"
                   className="form-input"
@@ -215,7 +215,7 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
                 />
               </FormField>
 
-              <FormField label="Дней вперёд">
+              <FormField label={<span className="dz-slot-label">Дней вперёд <span className="dz-slot-hint"><Info size={14} /><span className="dz-slot-hint__text">На сколько дней вперёд покупатель увидит доступные слоты. Например, 2 — сегодня и завтра, 7 — на неделю вперёд.</span></span></span>}>
                 <input
                   type="number"
                   className="form-input"
@@ -226,7 +226,7 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
                 />
               </FormField>
 
-              <FormField label="Минимум заранее">
+              <FormField label={<span className="dz-slot-label">Минимум заранее <span className="dz-slot-hint"><Info size={14} /><span className="dz-slot-hint__text">За сколько часов до начала слота можно его забронировать. Если сейчас 14:00 и минимум 2 часа — ближайший доступный слот начнётся не раньше 16:00.</span></span></span>}>
                 <select
                   className="form-input"
                   value={minSlotLead}

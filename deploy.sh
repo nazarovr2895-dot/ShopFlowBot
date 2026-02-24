@@ -92,6 +92,11 @@ git pull
 docker compose -f docker-compose.prod.yml build backend bot admin_bot admin miniapp
 docker compose -f docker-compose.prod.yml up -d
 
+# Перезагрузить nginx чтобы подхватить новые IP контейнеров
+docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload 2>/dev/null || \
+  docker compose -f docker-compose.prod.yml restart nginx
+echo "🔄 Nginx перезагружен"
+
 # Миграции
 echo "📦 Применяем миграции БД..."
 MIGRATE_OUT=$(docker compose -f docker-compose.prod.yml exec -T backend bash -c 'cd /src/backend && alembic upgrade head' 2>&1)
