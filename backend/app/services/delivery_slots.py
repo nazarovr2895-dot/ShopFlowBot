@@ -180,21 +180,26 @@ class DeliverySlotService:
         open_minutes = open_h * 60 + open_m
         close_minutes = close_h * 60 + close_m
 
-        # Cutoff for today: now + min_lead_minutes
+        # First slot starts after opening + preparation time (min_lead applies to all days)
+        earliest_slot_start = open_minutes + min_lead_minutes
+
+        # For today: also consider current time + min_lead
         is_today = day == now_msk.date()
-        cutoff_minutes = 0
         if is_today:
-            cutoff_minutes = now_msk.hour * 60 + now_msk.minute + min_lead_minutes
+            now_cutoff = now_msk.hour * 60 + now_msk.minute + min_lead_minutes
+            earliest_slot_start = max(earliest_slot_start, now_cutoff)
+
+        # Align earliest_slot_start to slot grid (snap to next slot boundary from open)
+        if earliest_slot_start > open_minutes:
+            slots_to_skip = (earliest_slot_start - open_minutes + SLOT_DURATION_MINUTES - 1) // SLOT_DURATION_MINUTES
+            aligned_start = open_minutes + slots_to_skip * SLOT_DURATION_MINUTES
+        else:
+            aligned_start = open_minutes
 
         slots = []
-        current_start = open_minutes
+        current_start = aligned_start
         while current_start + SLOT_DURATION_MINUTES <= close_minutes:
             slot_end = current_start + SLOT_DURATION_MINUTES
-
-            # Skip slots that start before cutoff (today only)
-            if is_today and current_start < cutoff_minutes:
-                current_start = slot_end
-                continue
 
             start_str = f"{current_start // 60:02d}:{current_start % 60:02d}"
             end_str = f"{slot_end // 60:02d}:{slot_end % 60:02d}"
