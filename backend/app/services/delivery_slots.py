@@ -11,7 +11,8 @@ from backend.app.models.order import Order
 from backend.app.models.seller import Seller
 
 MSK = ZoneInfo("Europe/Moscow")
-SLOT_DURATION_MINUTES = 120  # Fixed 2-hour slots
+DEFAULT_SLOT_DURATION = 120
+ALLOWED_DURATIONS = (60, 90, 120, 180)
 
 # Statuses that occupy a slot (everything except rejected/cancelled)
 CANCELLED_STATUSES = ("rejected", "cancelled")
@@ -42,11 +43,12 @@ class DeliverySlotService:
         """
         seller = await self.session.get(Seller, seller_id)
         if not seller or not seller.deliveries_per_slot:
-            return {"slots_enabled": False, "slot_duration_minutes": SLOT_DURATION_MINUTES, "slots": {}}
+            return {"slots_enabled": False, "slot_duration_minutes": DEFAULT_SLOT_DURATION, "slots": {}}
 
         capacity = seller.deliveries_per_slot
         working_hours = seller.working_hours
         min_lead = seller.min_slot_lead_minutes or 120
+        slot_duration = seller.slot_duration_minutes if seller.slot_duration_minutes in ALLOWED_DURATIONS else DEFAULT_SLOT_DURATION
         now_msk = datetime.now(MSK)
 
         # Clamp date range to seller's slot_days_ahead
@@ -60,13 +62,13 @@ class DeliverySlotService:
         all_slots: dict[str, list[dict]] = {}
         current = date_from
         while current <= date_to:
-            day_slots = self._generate_day_slots(current, working_hours, now_msk, min_lead)
+            day_slots = self._generate_day_slots(current, working_hours, now_msk, min_lead, slot_duration)
             if day_slots:
                 all_slots[current.isoformat()] = day_slots
             current += timedelta(days=1)
 
         if not all_slots:
-            return {"slots_enabled": True, "slot_duration_minutes": SLOT_DURATION_MINUTES, "slots": {}}
+            return {"slots_enabled": True, "slot_duration_minutes": slot_duration, "slots": {}}
 
         # Batch query: count booked orders per slot
         booked_counts = await self._get_booked_counts(seller_id, date_from, date_to)
@@ -88,7 +90,7 @@ class DeliverySlotService:
             if available:
                 result[day_str] = available
 
-        return {"slots_enabled": True, "slot_duration_minutes": SLOT_DURATION_MINUTES, "slots": result}
+        return {"slots_enabled": True, "slot_duration_minutes": slot_duration, "slots": result}
 
     async def validate_slot(
         self,
@@ -153,8 +155,9 @@ class DeliverySlotService:
         working_hours: Optional[dict],
         now_msk: datetime,
         min_lead_minutes: int,
+        slot_duration: int = DEFAULT_SLOT_DURATION,
     ) -> list[dict]:
-        """Generate 2-hour slots for a given day based on working hours."""
+        """Generate time slots for a given day based on working hours."""
         if not working_hours or not isinstance(working_hours, dict):
             return []
 
@@ -191,15 +194,15 @@ class DeliverySlotService:
 
         # Align earliest_slot_start to slot grid (snap to next slot boundary from open)
         if earliest_slot_start > open_minutes:
-            slots_to_skip = (earliest_slot_start - open_minutes + SLOT_DURATION_MINUTES - 1) // SLOT_DURATION_MINUTES
-            aligned_start = open_minutes + slots_to_skip * SLOT_DURATION_MINUTES
+            slots_to_skip = (earliest_slot_start - open_minutes + slot_duration - 1) // slot_duration
+            aligned_start = open_minutes + slots_to_skip * slot_duration
         else:
             aligned_start = open_minutes
 
         slots = []
         current_start = aligned_start
-        while current_start + SLOT_DURATION_MINUTES <= close_minutes:
-            slot_end = current_start + SLOT_DURATION_MINUTES
+        while current_start + slot_duration <= close_minutes:
+            slot_end = current_start + slot_duration
 
             start_str = f"{current_start // 60:02d}:{current_start % 60:02d}"
             end_str = f"{slot_end // 60:02d}:{slot_end % 60:02d}"

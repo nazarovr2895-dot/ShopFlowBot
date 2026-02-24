@@ -122,9 +122,10 @@ class UpdateMeBody(BaseModel):
     yookassa_account_id: Optional[str] = None  # YuKassa marketplace account ID
     use_delivery_zones: Optional[bool] = None  # enable zone-based delivery pricing
     # Delivery slot settings
-    deliveries_per_slot: Optional[int] = None  # null to disable, 1-10 deliveries per 2h slot
+    deliveries_per_slot: Optional[int] = None  # null to disable, 1-10 deliveries per slot
     slot_days_ahead: Optional[int] = None  # days ahead to show (1-7)
     min_slot_lead_minutes: Optional[int] = None  # min advance booking time in minutes
+    slot_duration_minutes: Optional[int] = None  # slot length: 60, 90, 120, 180
 
 
 @router.get("/me")
@@ -239,6 +240,8 @@ async def update_me(
             seller.slot_days_ahead = max(1, min(7, body.slot_days_ahead))
         if body.min_slot_lead_minutes is not None:
             seller.min_slot_lead_minutes = max(30, min(480, body.min_slot_lead_minutes))
+        if body.slot_duration_minutes is not None:
+            seller.slot_duration_minutes = body.slot_duration_minutes if body.slot_duration_minutes in (60, 90, 120, 180) else 120
         await session.commit()
     data = await service.get_seller(seller_id)
     if not data:

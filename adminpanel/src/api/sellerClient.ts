@@ -94,6 +94,7 @@ export interface SellerMe {
   deliveries_per_slot?: number | null;
   slot_days_ahead?: number;
   min_slot_lead_minutes?: number;
+  slot_duration_minutes?: number;
 }
 
 export interface DeliveryZone {
@@ -275,6 +276,7 @@ export async function updateMe(payload: {
   deliveries_per_slot?: number | null;
   slot_days_ahead?: number;
   min_slot_lead_minutes?: number;
+  slot_duration_minutes?: number;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',

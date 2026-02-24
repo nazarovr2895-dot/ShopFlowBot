@@ -80,6 +80,7 @@ class Seller(Base):
     deliveries_per_slot: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     slot_days_ahead: Mapped[int] = mapped_column(Integer, default=3)  # Days ahead to show (1-7)
     min_slot_lead_minutes: Mapped[int] = mapped_column(Integer, default=120)  # Min advance booking (minutes)
+    slot_duration_minutes: Mapped[int] = mapped_column(Integer, default=120)  # Slot length: 60/90/120/180
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

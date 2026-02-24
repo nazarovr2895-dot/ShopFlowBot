@@ -36,6 +36,13 @@ const LEAD_OPTIONS = [
   { value: 240, label: '4 часа' },
 ];
 
+const DURATION_OPTIONS = [
+  { value: 60, label: '1 час' },
+  { value: 90, label: '1.5 часа' },
+  { value: 120, label: '2 часа' },
+  { value: 180, label: '3 часа' },
+];
+
 export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
   const toast = useToast();
   const [zones, setZones] = useState<DeliveryZone[]>([]);
@@ -51,6 +58,7 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
   const [deliveriesPerSlot, setDeliveriesPerSlot] = useState(me.deliveries_per_slot ?? 1);
   const [slotDaysAhead, setSlotDaysAhead] = useState(me.slot_days_ahead ?? 3);
   const [minSlotLead, setMinSlotLead] = useState(me.min_slot_lead_minutes ?? 120);
+  const [slotDuration, setSlotDuration] = useState(me.slot_duration_minutes ?? 120);
   const [savingSlots, setSavingSlots] = useState(false);
 
   const saveSlotSettings = async () => {
@@ -60,6 +68,7 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
         deliveries_per_slot: slotsEnabled ? Math.max(1, deliveriesPerSlot) : 0,
         slot_days_ahead: slotDaysAhead,
         min_slot_lead_minutes: minSlotLead,
+        slot_duration_minutes: slotDuration,
       });
       toast.success('Настройки слотов сохранены');
       await reload();
@@ -187,7 +196,7 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
             </div>
             <div>
               <h3 className="shop-card__title">Слоты доставки</h3>
-              <p className="shop-card__subtitle">Покупатель выбирает 2-часовой интервал доставки</p>
+              <p className="shop-card__subtitle">Покупатель выбирает временной интервал доставки</p>
             </div>
           </div>
         </div>
@@ -204,7 +213,19 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
 
           {slotsEnabled && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-              <FormField label={<span className="dz-slot-label">Доставок за 2-часовой слот <span className="dz-slot-hint"><Info size={14} /><span className="dz-slot-hint__text">Сколько заказов вы можете доставить за один 2-часовой интервал. Например, 1 — один заказ на слот 10:00–12:00, 3 — три покупателя смогут выбрать одно время.</span></span></span>}>
+              <FormField label={<span className="dz-slot-label">Интервал слота <span className="dz-slot-hint"><Info size={14} /><span className="dz-slot-hint__text">Длительность одного слота доставки. Например, 1 час — слоты 10:00–11:00, 11:00–12:00; 2 часа — слоты 10:00–12:00, 12:00–14:00.</span></span></span>}>
+                <select
+                  className="form-input"
+                  value={slotDuration}
+                  onChange={e => setSlotDuration(parseInt(e.target.value))}
+                >
+                  {DURATION_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label={<span className="dz-slot-label">Доставок за слот <span className="dz-slot-hint"><Info size={14} /><span className="dz-slot-hint__text">Сколько заказов вы можете доставить за один интервал. Например, 1 — один заказ на слот 10:00–12:00, 3 — три покупателя смогут выбрать одно время.</span></span></span>}>
                 <input
                   type="number"
                   className="form-input"

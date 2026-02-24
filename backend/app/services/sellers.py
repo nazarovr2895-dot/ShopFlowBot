@@ -487,6 +487,7 @@ class SellerService:
             "deliveries_per_slot": getattr(seller, "deliveries_per_slot", None),
             "slot_days_ahead": getattr(seller, "slot_days_ahead", 3),
             "min_slot_lead_minutes": getattr(seller, "min_slot_lead_minutes", 120),
+            "slot_duration_minutes": getattr(seller, "slot_duration_minutes", 120),
         }
 
     async def create_seller(
