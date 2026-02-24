@@ -329,7 +329,6 @@ git push
 ## 📚 Дополнительные ресурсы
 
 - [TDD_GUIDE.md](./TDD_GUIDE.md) — как писать тесты для новых функций
-- [TESTS_GUIDE.md](./TESTS_GUIDE.md) — полное руководство по тестированию
 - [RUN_TESTS.md](./RUN_TESTS.md) — как запускать тесты на сервере
 - [scripts/pre-commit-hook.sh](./scripts/pre-commit-hook.sh) — pre-commit hook
 - [.github/workflows/tests.yml](./.github/workflows/tests.yml) — GitHub Actions

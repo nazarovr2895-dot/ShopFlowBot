@@ -505,7 +505,6 @@ def format_phone_number(phone: str) -> str:
 
 ## 📚 Полезные ресурсы
 
-- [TESTS_GUIDE.md](./TESTS_GUIDE.md) — полное руководство по тестированию
 - [backend/tests/conftest.py](./backend/tests/conftest.py) — фикстуры
 - [pytest документация](https://docs.pytest.org/)
 - [pytest-asyncio](https://pytest-asyncio.readthedocs.io/)

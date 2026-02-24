@@ -239,7 +239,6 @@ pytest backend/tests/ -v
 
 - **[TDD_GUIDE.md](./TDD_GUIDE.md)** — подробное руководство по TDD
 - **[TEST_AUTOMATION.md](./TEST_AUTOMATION.md)** — как работает автоматизация
-- **[TESTS_GUIDE.md](./TESTS_GUIDE.md)** — полное руководство по тестам
 - **[RUN_TESTS.md](./RUN_TESTS.md)** — запуск тестов на сервере
 
 ---

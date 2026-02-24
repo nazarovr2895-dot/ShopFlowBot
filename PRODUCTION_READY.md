@@ -194,7 +194,6 @@ curl http://localhost:8000/metrics
 3. Использовать Redis cluster
 4. Настроить CDN для статики
 
-Подробнее: см. `SCALING.md`
 
 ## Бэкапы
 
