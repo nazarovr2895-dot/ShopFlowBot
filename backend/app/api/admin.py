@@ -1283,6 +1283,18 @@ async def get_admin_customers(
             "registered_at": r.registered_at.isoformat() if r.registered_at else None,
         })
 
+    # --- TEMPORARY DEBUG: remove after fixing ---
+    _dbg_orders = (await session.execute(
+        select(Order.id, Order.buyer_id, Order.guest_phone, Order.guest_name, Order.status, Order.total_price)
+        .where(Order.status.notin_(excluded_statuses))
+        .order_by(Order.id.desc()).limit(20)
+    )).all()
+    _dbg_users = (await session.execute(
+        select(User.tg_id, User.fio, User.role, User.phone).limit(20)
+    )).all()
+    _dbg_auth = (await session.execute(select(auth_stats))).all()
+    _dbg_guest = (await session.execute(select(guest_stats))).all()
+
     return {
         "customers": customers,
         "total": total_filtered,
@@ -1295,6 +1307,12 @@ async def get_admin_customers(
             "avg_ltv": avg_ltv,
         },
         "city_distribution": city_distribution,
+        "_debug": {
+            "orders": [{"id": o.id, "buyer_id": o.buyer_id, "guest_phone": o.guest_phone, "guest_name": o.guest_name, "status": o.status, "total": float(o.total_price or 0)} for o in _dbg_orders],
+            "users": [{"tg_id": u.tg_id, "fio": u.fio, "role": u.role, "phone": u.phone} for u in _dbg_users],
+            "auth_stats": [{"user_id": r.user_id, "cnt": r.cnt, "spent": float(r.spent), "last_at": str(r.last_at)} for r in _dbg_auth],
+            "guest_stats": [{"user_id": r.user_id, "cnt": r.cnt, "spent": float(r.spent), "last_at": str(r.last_at)} for r in _dbg_guest],
+        },
     }
 
 
