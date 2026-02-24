@@ -379,7 +379,7 @@ async def get_dashboard_order_events(
         .limit(10)
     )
     for r in (await session.execute(q_cancelled)).all():
-        buyer_name = r[5] or r[4] or ""
+        buyer_name = r[4] or r[5] or ""  # prefer checkout-time name over current User.fio
         events.append({
             "type": "cancelled",
             "order_id": r[0],
@@ -403,7 +403,7 @@ async def get_dashboard_order_events(
         .limit(10)
     )
     for r in (await session.execute(q_payment)).all():
-        buyer_name = r[6] or r[4] or ""
+        buyer_name = r[4] or r[6] or ""  # prefer checkout-time name over current User.fio
         mins_since = int((now - r[2]).total_seconds() / 60) if r[2] else 0
         events.append({
             "type": "payment_failed",
@@ -430,7 +430,7 @@ async def get_dashboard_order_events(
         .limit(10)
     )
     for r in (await session.execute(q_preorder)).all():
-        buyer_name = r[5] or r[4] or ""
+        buyer_name = r[4] or r[5] or ""  # prefer checkout-time name over current User.fio
         delivery_date = r[2]
         events.append({
             "type": "preorder_due",
@@ -455,7 +455,7 @@ async def get_dashboard_order_events(
         .limit(10)
     )
     for r in (await session.execute(q_completed)).all():
-        buyer_name = r[5] or r[4] or ""
+        buyer_name = r[4] or r[5] or ""  # prefer checkout-time name over current User.fio
         events.append({
             "type": "completed",
             "order_id": r[0],

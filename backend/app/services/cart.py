@@ -459,6 +459,8 @@ class CartService:
                         delivery_slot_date=slot_date,
                         delivery_slot_start=slot_start,
                         delivery_slot_end=slot_end,
+                        guest_name=fio,
+                        guest_phone=phone,
                     )
                     # Save delivery zone info on order
                     if zone_match:

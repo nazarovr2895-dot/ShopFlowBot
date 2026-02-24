@@ -109,6 +109,8 @@ class OrderService:
         delivery_slot_date: Optional[date] = None,
         delivery_slot_start: Optional[str] = None,
         delivery_slot_end: Optional[str] = None,
+        guest_name: Optional[str] = None,
+        guest_phone: Optional[str] = None,
     ) -> Order:
         """
         Create a new order with limit checks and seller lock.
@@ -185,10 +187,12 @@ class OrderService:
             delivery_slot_date=delivery_slot_date,
             delivery_slot_start=delivery_slot_start,
             delivery_slot_end=delivery_slot_end,
+            guest_name=guest_name,
+            guest_phone=guest_phone,
         )
         self.session.add(order)
         await self.session.flush()
-        
+
         # Record metrics
         if orders_created_total:
             orders_created_total.labels(
@@ -668,9 +672,9 @@ class OrderService:
         out = []
         for row in rows:
             o, buyer_fio, buyer_phone = row[0], row[1], row[2]
-            # Fall back to guest fields for guest orders (buyer_id is None)
-            effective_fio = buyer_fio or getattr(o, 'guest_name', None)
-            effective_phone = buyer_phone or getattr(o, 'guest_phone', None)
+            # Prefer checkout-time name (guest_name) over current User.fio
+            effective_fio = getattr(o, 'guest_name', None) or buyer_fio
+            effective_phone = getattr(o, 'guest_phone', None) or buyer_phone
             customer_id = None
             if effective_phone:
                 norm = normalize_phone(effective_phone)
@@ -753,8 +757,9 @@ class OrderService:
         if not row:
             return None
         order, buyer_fio, buyer_phone = row[0], row[1], row[2]
-        effective_fio = buyer_fio or getattr(order, 'guest_name', None)
-        effective_phone = buyer_phone or getattr(order, 'guest_phone', None)
+        # Prefer checkout-time name (guest_name) over current User.fio
+        effective_fio = getattr(order, 'guest_name', None) or buyer_fio
+        effective_phone = getattr(order, 'guest_phone', None) or buyer_phone
         customer_id = None
         if effective_phone:
             loyalty_svc = LoyaltyService(self.session)

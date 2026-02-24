@@ -1063,6 +1063,8 @@ async def get_admin_orders(
             Seller.shop_name.label("seller_name"),
             User.fio.label("buyer_fio"),
             User.phone.label("buyer_phone"),
+            Order.guest_name,
+            Order.guest_phone,
         )
         .outerjoin(Seller, Seller.seller_id == Order.seller_id)
         .outerjoin(User, User.tg_id == Order.buyer_id)
@@ -1092,8 +1094,8 @@ async def get_admin_orders(
             "is_preorder": r.is_preorder or False,
             "preorder_delivery_date": str(r.preorder_delivery_date) if r.preorder_delivery_date else None,
             "seller_name": r.seller_name or "",
-            "buyer_fio": r.buyer_fio or "",
-            "buyer_phone": r.buyer_phone or "",
+            "buyer_fio": r.guest_name or r.buyer_fio or "",
+            "buyer_phone": r.guest_phone or r.buyer_phone or "",
         })
 
     # sellers list for filter dropdown
