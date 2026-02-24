@@ -312,6 +312,13 @@ export function SellerOrders() {
         />
         <DataRow label="Доставка" value={isPickup(order.delivery_type) ? 'Самовывоз' : 'Доставка'} />
         <DataRow label="Адрес" value={order.address} />
+        {order.delivery_slot_date && order.delivery_slot_start && (
+          <DataRow
+            label="Время доставки"
+            accent
+            value={`${new Date(order.delivery_slot_date).toLocaleDateString('ru-RU')} ${order.delivery_slot_start}–${order.delivery_slot_end}`}
+          />
+        )}
         {order.is_preorder && order.preorder_delivery_date && (
           <DataRow
             label="Дата поставки"

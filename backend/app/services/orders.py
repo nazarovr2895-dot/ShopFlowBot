@@ -701,6 +701,9 @@ class OrderService:
                 "is_guest": o.buyer_id is None,
                 "payment_id": getattr(o, "payment_id", None),
                 "payment_status": getattr(o, "payment_status", None),
+                "delivery_slot_date": o.delivery_slot_date.isoformat() if getattr(o, "delivery_slot_date", None) else None,
+                "delivery_slot_start": getattr(o, "delivery_slot_start", None),
+                "delivery_slot_end": getattr(o, "delivery_slot_end", None),
             })
         return out
 
@@ -788,6 +791,9 @@ class OrderService:
             "is_guest": order.buyer_id is None,
             "delivery_fee": float(order.delivery_fee) if getattr(order, "delivery_fee", None) else None,
             "delivery_zone_id": getattr(order, "delivery_zone_id", None),
+            "delivery_slot_date": order.delivery_slot_date.isoformat() if getattr(order, "delivery_slot_date", None) else None,
+            "delivery_slot_start": getattr(order, "delivery_slot_start", None),
+            "delivery_slot_end": getattr(order, "delivery_slot_end", None),
         }
 
     async def get_buyer_orders(self, buyer_id: int) -> List[Dict[str, Any]]:

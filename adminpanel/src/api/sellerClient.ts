@@ -140,6 +140,9 @@ export interface SellerOrder {
   points_discount?: number;
   payment_id?: string | null;
   payment_status?: string | null;
+  delivery_slot_date?: string | null;
+  delivery_slot_start?: string | null;
+  delivery_slot_end?: string | null;
 }
 
 export type SellerStatsPeriod = '1d' | '7d' | '30d' | 'custom';
