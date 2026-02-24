@@ -357,31 +357,33 @@ async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[
     if not suggestions:
         return None
 
-    # Check all geolocate results for district info
+    # Step 1: Check all geolocate results for city_district (rayon) — best case
     for s in suggestions:
         d = s.get("data", {})
-
-        # Prefer city_district (rayon) — more granular
         city_district = d.get("city_district")
         if city_district:
             normalized = _normalize_district_name(city_district, d.get("city_district_type"))
             if normalized:
                 return normalized
 
-        # Fallback: city_area
-        city_area = d.get("city_area")
-        if city_area:
-            normalized = _normalize_district_name(city_area)
-            if normalized:
-                return normalized
-
-    # Fallback: find the first result with a house number and resolve via suggest
-    # (suggest with a specific address often fills in city_district when geolocate doesn't)
+    # Step 2: Try suggest with a specific address (count=1) — DaData fills city_district
+    # for focused queries even when geolocate doesn't
     for s in suggestions:
         d = s.get("data", {})
         if d.get("house"):
             address_value = s.get("value")
             if address_value:
-                return await resolve_district_from_address(address_value)
+                result = await resolve_district_from_address(address_value)
+                if result:
+                    return result
+
+    # Step 3: Fallback to city_area (okrug) — last resort when district can't be determined
+    for s in suggestions:
+        d = s.get("data", {})
+        city_area = d.get("city_area")
+        if city_area:
+            normalized = _normalize_district_name(city_area)
+            if normalized:
+                return normalized
 
     return None
