@@ -266,26 +266,31 @@ async def suggest_district(query: str, city_kladr_id: str, count: int = 10) -> L
 async def fetch_city_districts(city_kladr_id: str) -> List[str]:
     """
     Fetch all district/rayon names for a city from DaData.
-    Queries addresses with various search terms and collects unique districts.
+    Uses city_district bound to get only district-level suggestions,
+    iterates through full Cyrillic alphabet + common prefixes for max coverage.
     Returns district names (e.g. ["Арбат", "Тверской", "Басманный"] for Moscow).
     """
     seen: set[str] = set()
     result: List[str] = []
 
-    # Use varied search terms to maximize coverage of all districts
-    queries = ["район", "ул", "пр", "а", "б", "в", "г", "д", "е", "к", "л", "м", "н", "о", "п", "р", "с", "т"]
+    # Full Cyrillic alphabet + empty + common 2-letter prefixes for max coverage
+    cyrillic = [chr(c) for c in range(ord("\u0430"), ord("\u044f") + 1)]
+    queries = [""] + cyrillic + ["район", "ул ", "пр "]
 
     for q in queries:
         payload: Dict[str, Any] = {
             "query": q,
             "count": 20,
             "locations": [{"kladr_id": city_kladr_id}],
+            # Limit to city_district level only — no okrugs, no streets
+            "from_bound": {"value": "city_district"},
+            "to_bound": {"value": "city_district"},
         }
         suggestions = await _call_dadata(payload)
         for s in suggestions:
             d = s.get("data", {})
-            # Unified logic: prefer city_district (rayon), fallback to city_area
-            raw = d.get("city_district") or d.get("city_area")
+            # Only use city_district (rayon) — NOT city_area (okrug)
+            raw = d.get("city_district")
 
             if not raw:
                 continue
