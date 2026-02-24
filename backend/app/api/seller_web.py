@@ -1806,10 +1806,8 @@ async def export_customers_csv(
     svc = LoyaltyService(session)
     customers = await svc.list_customers(seller_id)
 
-    # Create CSV in memory
+    # Create CSV in memory (utf-8-sig encoding adds BOM for Excel compatibility)
     output = io.StringIO()
-    # BOM for Excel UTF-8 compatibility
-    output.write('\ufeff')
     writer = csv.writer(output, delimiter=';')
 
     # Headers

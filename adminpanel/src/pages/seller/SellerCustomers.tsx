@@ -112,12 +112,14 @@ export function SellerCustomers() {
   const loadDetail = useCallback(async (customerId: number) => {
     setLoading(true);
     try {
-      const [data, orders] = await Promise.all([
+      const [data, orders, tags] = await Promise.all([
         getCustomer(customerId),
         getCustomerOrders(customerId),
+        getCustomerTags(),
       ]);
       setDetail(data);
       setCustomerOrders(orders || []);
+      setAllTags(tags || []);
       setCustomerNotes(data.notes || '');
       setCustomerTags(Array.isArray(data.tags) ? data.tags : []);
       setNewTagInput('');
@@ -152,7 +154,7 @@ export function SellerCustomers() {
     try {
       const result = await recordSale(detail.id, amount);
       setSaleAmount('');
-      setDetail((d) => (d ? { ...d, points_balance: result.new_balance, transactions: [{ id: 0, amount: result.amount, points_accrued: result.points_accrued, order_id: null, created_at: new Date().toISOString() }, ...d.transactions] } : null));
+      setDetail((d) => (d ? { ...d, points_balance: result.new_balance, transactions: [{ id: -Date.now(), amount: result.amount, points_accrued: result.points_accrued, order_id: null, created_at: new Date().toISOString() }, ...d.transactions] } : null));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -171,7 +173,7 @@ export function SellerCustomers() {
     try {
       const result = await deductPoints(detail.id, points);
       setDeductPointsAmount('');
-      setDetail((d) => (d ? { ...d, points_balance: result.new_balance, transactions: [{ id: 0, amount: 0, points_accrued: -result.points_deducted, order_id: null, created_at: new Date().toISOString() }, ...d.transactions] } : null));
+      setDetail((d) => (d ? { ...d, points_balance: result.new_balance, transactions: [{ id: -Date.now(), amount: 0, points_accrued: -result.points_deducted, order_id: null, created_at: new Date().toISOString() }, ...d.transactions] } : null));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -223,7 +225,7 @@ export function SellerCustomers() {
       const ev = await updateCustomerEvent(detail.id, editingEvent.id, {
         title: eventForm.title.trim() || undefined,
         event_date: eventForm.event_date || undefined,
-        remind_days_before: parseInt(eventForm.remind_days_before) || undefined,
+        remind_days_before: eventForm.remind_days_before !== '' ? parseInt(eventForm.remind_days_before) : undefined,
         notes: eventForm.notes.trim() || null,
       });
       setEvents((prev) => prev.map((x) => (x.id === ev.id ? ev : x)));

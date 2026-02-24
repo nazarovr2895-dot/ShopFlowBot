@@ -1136,6 +1136,8 @@ async def get_admin_customers(
     from backend.app.models.seller import City
 
     today_start = dt.combine(date_type.today(), time_t.min)
+    # Exclude only rejected/cancelled — accepted orders already represent real spending
+    excluded_statuses = ["rejected", "cancelled"]
 
     # summary
     total_buyers = (await session.execute(
@@ -1144,7 +1146,7 @@ async def get_admin_customers(
 
     active_buyers = (await session.execute(
         select(func.count(func.distinct(Order.buyer_id))).where(
-            Order.status.in_(["done", "completed"])
+            Order.status.notin_(excluded_statuses)
         )
     )).scalar() or 0
 
@@ -1154,7 +1156,7 @@ async def get_admin_customers(
 
     avg_ltv_r = (await session.execute(
         select(func.avg(func.coalesce(Order.total_price, 0))).where(
-            Order.status.in_(["done", "completed"])
+            Order.status.notin_(excluded_statuses)
         )
     )).scalar()
     avg_ltv = round(float(avg_ltv_r or 0))
@@ -1171,7 +1173,7 @@ async def get_admin_customers(
     city_rows = (await session.execute(q_city)).all()
     city_distribution = [{"city": r[0], "count": r[1]} for r in city_rows]
 
-    # customers with aggregation (only completed orders count as real purchases)
+    # customers with aggregation (all non-rejected/cancelled orders count as purchases)
     subq = (
         select(
             Order.buyer_id,
@@ -1179,7 +1181,7 @@ async def get_admin_customers(
             func.coalesce(func.sum(Order.total_price), 0).label("total_spent"),
             func.max(Order.created_at).label("last_order_at"),
         )
-        .where(Order.status.in_(["done", "completed"]))
+        .where(Order.status.notin_(excluded_statuses))
         .group_by(Order.buyer_id)
         .subquery()
     )
