@@ -187,128 +187,139 @@ export function GuestCheckout() {
         />
       )}
 
-      {/* Order summary */}
-      <div className="checkout-summary">
-        <div className="checkout-summary__header">
-          <h2 className="checkout-summary__title">Ваш заказ</h2>
-          <span className="checkout-summary__count">{itemCountLabel(totalItemCount)}</span>
+      {/* ===== Section: Order Items ===== */}
+      <div className="checkout-section">
+        <div className="checkout-section__header">
+          <h2 className="checkout-section__title">Ваш заказ</h2>
+          <span className="checkout-section__badge">{itemCountLabel(totalItemCount)}</span>
         </div>
+
         {cart.map((group) => {
           const sellerDt = deliveryBySeller[group.seller_id] ?? 'Самовывоз';
           const supportsDelivery = group.delivery_type === 'delivery' || group.delivery_type === 'both' || !group.delivery_type;
           const supportsPickup = group.delivery_type === 'pickup' || group.delivery_type === 'both' || !group.delivery_type;
           return (
-          <div key={group.seller_id} className="checkout-summary__group">
-            <div className="checkout-summary__shop">{group.shop_name}</div>
+            <div key={group.seller_id} className="checkout-seller">
+              <div className="checkout-seller__name">{group.shop_name}</div>
 
-            {/* Per-seller delivery type selector */}
-            <div className="checkout-delivery-segment" style={{ marginBottom: '0.5rem' }}>
-              <span className="checkout-delivery-segment__label">Способ получения</span>
-              <div className="checkout-delivery-segment__buttons">
-                {supportsPickup && (
-                  <button
-                    type="button"
-                    className={`checkout-delivery-segment__btn ${sellerDt === 'Самовывоз' ? 'checkout-delivery-segment__btn--active' : ''}`}
-                    onClick={() => setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Самовывоз' }))}
-                  >
-                    Самовывоз
-                  </button>
-                )}
-                {supportsDelivery && (
-                  <button
-                    type="button"
-                    className={`checkout-delivery-segment__btn ${sellerDt === 'Доставка' ? 'checkout-delivery-segment__btn--active' : ''}`}
-                    onClick={() => setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Доставка' }))}
-                  >
-                    Курьером
-                  </button>
-                )}
+              {/* Delivery type toggle */}
+              <div className="checkout-toggle">
+                <span className="checkout-toggle__label">Способ получения</span>
+                <div className="checkout-toggle__pills">
+                  {supportsPickup && (
+                    <button
+                      type="button"
+                      className={`checkout-toggle__pill ${sellerDt === 'Самовывоз' ? 'checkout-toggle__pill--active' : ''}`}
+                      onClick={() => setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Самовывоз' }))}
+                    >
+                      Самовывоз
+                    </button>
+                  )}
+                  {supportsDelivery && (
+                    <button
+                      type="button"
+                      className={`checkout-toggle__pill ${sellerDt === 'Доставка' ? 'checkout-toggle__pill--active' : ''}`}
+                      onClick={() => setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Доставка' }))}
+                    >
+                      Курьером
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Pickup address for this seller */}
-            {sellerDt === 'Самовывоз' && ((group.address_name && group.address_name.trim()) || (group.map_url && group.map_url.trim())) && (
-              <div className="checkout-pickup-map" style={{ marginBottom: '0.5rem' }}>
-                {group.address_name && (
-                  <div className="checkout-pickup-address">{group.address_name}</div>
-                )}
-                {group.map_url && (
-                  <a href={group.map_url} target="_blank" rel="noopener noreferrer" className="checkout-pickup-map__btn">
-                    Показать на карте
-                  </a>
-                )}
-              </div>
-            )}
+              {/* Pickup address */}
+              {sellerDt === 'Самовывоз' && ((group.address_name && group.address_name.trim()) || (group.map_url && group.map_url.trim())) && (
+                <div className="checkout-pickup">
+                  {group.address_name && (
+                    <div className="checkout-pickup__address">{group.address_name}</div>
+                  )}
+                  {group.map_url && (
+                    <a href={group.map_url} target="_blank" rel="noopener noreferrer" className="checkout-pickup__map-btn">
+                      Показать на карте
+                    </a>
+                  )}
+                </div>
+              )}
 
-            <ul className="checkout-summary__list">
-              {group.items.map((item) => (
-                <li key={item.product_id} className="checkout-summary__item">
-                  <div className="checkout-summary__item-image-wrap">
-                    <ProductImage
-                      src={api.getProductImageUrl(item.photo_id ?? null)}
-                      alt={item.name}
-                      className="checkout-summary__item-image"
-                      placeholderClassName="checkout-summary__item-image-placeholder"
-                      placeholderIconClassName="checkout-summary__item-image-placeholder-icon"
-                    />
-                  </div>
-                  <div className="checkout-summary__item-body">
-                    <span className="checkout-summary__item-name">{item.name}</span>
-                    <div className="checkout-summary__item-meta">
-                      <span className="checkout-summary__item-qty">{item.quantity} шт</span>
-                      <span className="checkout-summary__item-price">{formatPrice(item.price * item.quantity)}</span>
+              {/* Items */}
+              <ul className="checkout-items">
+                {group.items.map((item) => (
+                  <li key={item.product_id} className="checkout-item">
+                    <div className="checkout-item__image-wrap">
+                      <ProductImage
+                        src={api.getProductImageUrl(item.photo_id ?? null)}
+                        alt={item.name}
+                        className="checkout-item__image"
+                        placeholderClassName="checkout-item__image-placeholder"
+                        placeholderIconClassName="checkout-item__image-placeholder-icon"
+                      />
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <div className="checkout-summary__group-total">
-              Итого: {formatPrice(group.total)}
-              {sellerDt === 'Доставка' && (() => {
-                const checkResult = deliveryCheckResults[group.seller_id];
-                const dp = checkResult?.delivers ? checkResult.delivery_price : (group.delivery_price ?? null);
-                if (dp !== null && dp > 0) return <span> + доставка {formatPrice(dp)}</span>;
-                if (dp === null) return <span style={{ color: 'var(--tg-theme-hint-color, #999)', fontSize: '0.85em' }}> + доставка уточняется</span>;
-                return null;
-              })()}
+                    <div className="checkout-item__body">
+                      <span className="checkout-item__name">{item.name}</span>
+                      <div className="checkout-item__meta">
+                        <span className="checkout-item__qty">{item.quantity} шт</span>
+                        <span className="checkout-item__price">{formatPrice(item.price * item.quantity)}</span>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Subtotal */}
+              <div className="checkout-seller__subtotal">
+                Итого: {formatPrice(group.total)}
+                {sellerDt === 'Доставка' && (() => {
+                  const checkResult = deliveryCheckResults[group.seller_id];
+                  const dp = checkResult?.delivers ? checkResult.delivery_price : (group.delivery_price ?? null);
+                  if (dp !== null && dp > 0) return <span> + доставка {formatPrice(dp)}</span>;
+                  if (dp === null) return <span className="checkout-seller__subtotal-delivery"> + доставка уточняется</span>;
+                  return null;
+                })()}
+              </div>
             </div>
-          </div>
           );
         })}
-        <div className="checkout-summary__grand-total">
-          К оплате: {formatPrice(totalToPay)}
-        </div>
       </div>
 
-      {/* Checkout form */}
-      <form className="checkout-form" onSubmit={handleSubmit}>
-        <label className="checkout-form__label">
-          Имя получателя *
-          <input
-            type="text"
-            className="checkout-form__input"
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            placeholder="ФИО или имя"
-            required
-          />
-        </label>
+      {/* ===== Form ===== */}
+      <form onSubmit={handleSubmit}>
+        {/* ===== Section: Contact Info ===== */}
+        <div className="checkout-section">
+          <div className="checkout-section__header">
+            <h2 className="checkout-section__title">Контактные данные</h2>
+          </div>
 
-        <label className="checkout-form__label">
-          Телефон *
-          <input
-            type="tel"
-            className="checkout-form__input"
-            value={guestPhone}
-            onChange={(e) => setGuestPhone(e.target.value)}
-            placeholder="+7 999 123 45 67"
-            required
-          />
-        </label>
+          <div className="checkout-field">
+            <span className="checkout-field__label checkout-field__label--required">Имя получателя</span>
+            <input
+              type="text"
+              className="checkout-field__input"
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder="ФИО или имя"
+              required
+            />
+          </div>
 
+          <div className="checkout-field" style={{ marginTop: 12 }}>
+            <span className="checkout-field__label checkout-field__label--required">Телефон</span>
+            <input
+              type="tel"
+              className="checkout-field__input"
+              value={guestPhone}
+              onChange={(e) => setGuestPhone(e.target.value)}
+              placeholder="+7 999 123 45 67"
+              required
+            />
+          </div>
+        </div>
+
+        {/* ===== Section: Delivery Address ===== */}
         {hasAnyDelivery && (
-          <div className="checkout-form__label">
-            Адрес доставки *
+          <div className="checkout-section">
+            <div className="checkout-section__header">
+              <h2 className="checkout-section__title">Адрес доставки</h2>
+            </div>
             <AddressAutocomplete
               value={address}
               onChange={setAddress}
@@ -319,31 +330,53 @@ export function GuestCheckout() {
               onDistrictResolved={setBuyerDistrictName}
               required
             />
-            {/* Per-seller delivery status */}
             {Object.entries(deliveryCheckResults).map(([sid, result]) => (
-              <div key={sid} className={`address-autocomplete__status ${result.delivers ? 'address-autocomplete__status--ok' : 'address-autocomplete__status--error'}`}>
+              <div key={sid} className={`checkout-delivery-status ${result.delivers ? 'checkout-delivery-status--ok' : 'checkout-delivery-status--error'}`}>
                 {result.delivers
-                  ? (result.delivery_price > 0 ? `Доставка: ${result.delivery_price} ₽` : 'Бесплатная доставка')
+                  ? (result.delivery_price > 0 ? `Доставка: ${result.delivery_price} \u20BD` : 'Бесплатная доставка')
                   : result.message || 'Магазин не доставляет по этому адресу'}
               </div>
             ))}
           </div>
         )}
 
-        <label className="checkout-form__label">
-          Комментарий к заказу
+        {/* ===== Section: Comment ===== */}
+        <div className="checkout-section">
+          <div className="checkout-section__header">
+            <h2 className="checkout-section__title">Комментарий</h2>
+          </div>
           <textarea
-            className="checkout-form__input checkout-form__textarea"
+            className="checkout-field__input checkout-field__textarea"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Код домофона, этаж, удобное время, пожелания"
             rows={3}
           />
-        </label>
+        </div>
 
+        {/* ===== Totals ===== */}
+        <div className="checkout-totals">
+          <div className="checkout-totals__row">
+            <span className="checkout-totals__label">Товары ({totalItemCount})</span>
+            <span className="checkout-totals__value">{formatPrice(totalGoods)}</span>
+          </div>
+          {totalDelivery > 0 && (
+            <div className="checkout-totals__row">
+              <span className="checkout-totals__label">Доставка</span>
+              <span className="checkout-totals__value">{formatPrice(totalDelivery)}</span>
+            </div>
+          )}
+          <div className="checkout-totals__divider" />
+          <div className="checkout-totals__grand">
+            <span className="checkout-totals__grand-label">К оплате</span>
+            <span className="checkout-totals__grand-value">{formatPrice(totalToPay)}</span>
+          </div>
+        </div>
+
+        {/* ===== Submit ===== */}
         <button
           type="submit"
-          className="checkout-form__submit"
+          className="checkout-submit"
           disabled={submitting || !canSubmit}
         >
           {submitting ? 'Оформляем...' : 'Подтвердить заказ'}

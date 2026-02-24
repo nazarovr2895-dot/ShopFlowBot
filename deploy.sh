@@ -16,8 +16,8 @@ fi
 echo "📝 Изменения:"
 git status --short
 
-# Проверяем, есть ли изменения в backend
-BACKEND_CHANGES=$(git status --porcelain | grep -E '^.M backend/' || true)
+# Проверяем, есть ли изменения в backend (любые: modified, added, deleted, renamed)
+BACKEND_CHANGES=$(git status --porcelain | grep -E 'backend/' || true)
 
 if [ -n "$BACKEND_CHANGES" ]; then
     echo ""
@@ -81,48 +81,53 @@ git push
 
 echo "✅ Код отправлен в GitHub"
 
-# Обновление на сервере
+# Обновление на сервере (одна SSH-сессия: pull + build + up + миграции + health checks)
 echo "🔄 Обновляем сервер..."
-ssh yandex-cloud "cd ~/flurai && git pull && docker compose -f docker-compose.prod.yml build backend bot admin_bot admin miniapp && docker compose -f docker-compose.prod.yml up -d"
+ssh yandex-cloud bash -s << 'REMOTE'
+set -e
+cd ~/flurai
 
-# Применяем миграции БД
+# Pull + Build + Up
+git pull
+docker compose -f docker-compose.prod.yml build backend bot admin_bot admin miniapp
+docker compose -f docker-compose.prod.yml up -d
+
+# Миграции
 echo "📦 Применяем миграции БД..."
-MIGRATE_RESULT=$(ssh yandex-cloud "cd ~/flurai && docker compose -f docker-compose.prod.yml exec -T backend bash -c 'cd /src/backend && alembic upgrade head'" 2>&1)
-if echo "$MIGRATE_RESULT" | grep -qE "done|Running upgrade|OK"; then
+MIGRATE_OUT=$(docker compose -f docker-compose.prod.yml exec -T backend bash -c 'cd /src/backend && alembic upgrade head' 2>&1)
+if echo "$MIGRATE_OUT" | grep -qE "Running upgrade"; then
     echo "✅ Миграции применены"
 else
-    echo "⚠️  Миграции: $MIGRATE_RESULT"
+    echo "✅ Миграции актуальны"
 fi
 
-# Перезапуск nginx для обновления upstream connections
-echo "🔧 Перезапускаем nginx..."
-ssh yandex-cloud "docker compose -f ~/flurai/docker-compose.prod.yml restart nginx"
+# Пауза для стабилизации
+sleep 3
 
-# Небольшая пауза для стабилизации
-sleep 2
-
-# Проверка что всё работает
+# Health checks
 echo "🔍 Проверка сервисов..."
-HEALTH_CHECK=$(ssh yandex-cloud "curl -s http://localhost/health" 2>&1)
-if echo "$HEALTH_CHECK" | grep -q "healthy"; then
+
+HEALTH=$(curl -sf http://backend:8000/health 2>/dev/null || curl -sf http://localhost:8000/health 2>/dev/null || echo "")
+if echo "$HEALTH" | grep -q "healthy"; then
     echo "✅ Backend: OK"
 else
     echo "⚠️  Backend: проверьте вручную"
 fi
 
-APP_CHECK=$(ssh yandex-cloud "curl -s -o /dev/null -w '%{http_code}' https://app.flurai.ru" 2>&1)
-if [ "$APP_CHECK" = "200" ]; then
+APP_CODE=$(curl -s -o /dev/null -w '%{http_code}' https://app.flurai.ru 2>/dev/null)
+if [ "$APP_CODE" = "200" ]; then
     echo "✅ Mini App: OK"
 else
-    echo "⚠️  Mini App: проверьте вручную (status: $APP_CHECK)"
+    echo "⚠️  Mini App: status $APP_CODE"
 fi
 
-ADMIN_CHECK=$(ssh yandex-cloud "curl -s -o /dev/null -w '%{http_code}' https://admin.flurai.ru" 2>&1)
-if [ "$ADMIN_CHECK" = "200" ]; then
+ADMIN_CODE=$(curl -s -o /dev/null -w '%{http_code}' https://admin.flurai.ru 2>/dev/null)
+if [ "$ADMIN_CODE" = "200" ]; then
     echo "✅ Admin Panel: OK"
 else
-    echo "⚠️  Admin Panel: проверьте вручную (status: $ADMIN_CHECK)"
+    echo "⚠️  Admin Panel: status $ADMIN_CODE"
 fi
+REMOTE
 
 echo ""
 echo "✅ Деплой завершён!"
@@ -130,7 +135,3 @@ echo ""
 echo "🌐 Проверьте сайты:"
 echo "   https://app.flurai.ru"
 echo "   https://admin.flurai.ru"
-echo ""
-echo "📊 Логи:"
-echo "  ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 20 backend'"
-echo "  ssh yandex-cloud 'cd ~/flurai && docker compose -f docker-compose.prod.yml logs --tail 20 nginx'"
