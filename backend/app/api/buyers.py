@@ -254,6 +254,13 @@ class DeliveryPerSeller(BaseModel):
     delivery_type: str  # "Доставка" | "Самовывоз"
 
 
+class DeliverySlotPerSeller(BaseModel):
+    seller_id: int
+    date: str       # YYYY-MM-DD
+    start: str      # HH:MM
+    end: str        # HH:MM
+
+
 class CheckoutBody(BaseModel):
     fio: Optional[str] = None
     phone: str
@@ -262,6 +269,7 @@ class CheckoutBody(BaseModel):
     comment: Optional[str] = None
     points_usage: Optional[List[PointsUsagePerSeller]] = None
     delivery_by_seller: Optional[List[DeliveryPerSeller]] = None
+    delivery_slots: Optional[List[DeliverySlotPerSeller]] = None
     buyer_district_id: Optional[int] = None  # district for delivery zone matching
     buyer_district_name: Optional[str] = None  # district name from DaData (e.g. "Арбат")
 
@@ -391,6 +399,12 @@ async def checkout_cart(
             for item in data.delivery_by_seller:
                 delivery_map[item.seller_id] = item.delivery_type
 
+        # Build per-seller delivery slots map
+        slots_map: dict = {}
+        if data.delivery_slots:
+            for slot in data.delivery_slots:
+                slots_map[slot.seller_id] = {"date": slot.date, "start": slot.start, "end": slot.end}
+
         orders = await service.checkout(
             current_user.user.id,
             fio=fio,
@@ -402,6 +416,7 @@ async def checkout_cart(
             delivery_by_seller=delivery_map or None,
             buyer_district_id=data.buyer_district_id,
             buyer_district_name=data.buyer_district_name,
+            delivery_slots_by_seller=slots_map or None,
         )
         await session.commit()
 

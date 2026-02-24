@@ -106,6 +106,9 @@ class OrderService:
         comment: Optional[str] = None,
         is_preorder: bool = False,
         preorder_delivery_date: Optional[date] = None,
+        delivery_slot_date: Optional[date] = None,
+        delivery_slot_start: Optional[str] = None,
+        delivery_slot_end: Optional[str] = None,
     ) -> Order:
         """
         Create a new order with limit checks and seller lock.
@@ -154,6 +157,16 @@ class OrderService:
                 seller.pending_pickup_requests = (seller.pending_pickup_requests or 0) + 1
             seller.pending_requests += 1
 
+        # Validate delivery slot if seller has slots enabled and delivery type is "Доставка"
+        if delivery_slot_date and delivery_slot_start and delivery_slot_end:
+            if seller.deliveries_per_slot:
+                from backend.app.services.delivery_slots import DeliverySlotService
+                slot_svc = DeliverySlotService(self.session)
+                if not await slot_svc.validate_slot(seller, delivery_slot_date, delivery_slot_start, delivery_slot_end):
+                    raise OrderServiceError("Выбранный слот доставки уже занят. Выберите другое время.", 409)
+        elif seller.deliveries_per_slot and normalize_delivery_type(delivery_type) == "delivery" and not is_preorder:
+            raise OrderServiceError("Выберите время доставки", 400)
+
         # НЕ уменьшаем количество товаров при создании заказа
         # Количество будет уменьшено только при принятии заказа продавцом (accept_order)
 
@@ -169,6 +182,9 @@ class OrderService:
             status="pending",
             is_preorder=is_preorder,
             preorder_delivery_date=preorder_delivery_date,
+            delivery_slot_date=delivery_slot_date,
+            delivery_slot_start=delivery_slot_start,
+            delivery_slot_end=delivery_slot_end,
         )
         self.session.add(order)
         await self.session.flush()
@@ -193,6 +209,9 @@ class OrderService:
         guest_name: str = "",
         guest_phone: str = "",
         guest_address: Optional[str] = None,
+        delivery_slot_date: Optional[date] = None,
+        delivery_slot_start: Optional[str] = None,
+        delivery_slot_end: Optional[str] = None,
     ) -> Order:
         """
         Create a new order for a guest (no Telegram account).
@@ -223,6 +242,16 @@ class OrderService:
             seller.pending_pickup_requests = (seller.pending_pickup_requests or 0) + 1
         seller.pending_requests += 1
 
+        # Validate delivery slot if seller has slots enabled
+        if delivery_slot_date and delivery_slot_start and delivery_slot_end:
+            if seller.deliveries_per_slot:
+                from backend.app.services.delivery_slots import DeliverySlotService
+                slot_svc = DeliverySlotService(self.session)
+                if not await slot_svc.validate_slot(seller, delivery_slot_date, delivery_slot_start, delivery_slot_end):
+                    raise OrderServiceError("Выбранный слот доставки уже занят. Выберите другое время.", 409)
+        elif seller.deliveries_per_slot and normalize_delivery_type(delivery_type) == "delivery":
+            raise OrderServiceError("Выберите время доставки", 400)
+
         order = Order(
             buyer_id=None,
             seller_id=seller_id,
@@ -235,6 +264,9 @@ class OrderService:
             guest_name=guest_name,
             guest_phone=guest_phone,
             guest_address=guest_address,
+            delivery_slot_date=delivery_slot_date,
+            delivery_slot_start=delivery_slot_start,
+            delivery_slot_end=delivery_slot_end,
         )
         self.session.add(order)
         await self.session.flush()

@@ -483,6 +483,10 @@ class SellerService:
             "commission_percent": getattr(seller, "commission_percent", None),
             "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
             "use_delivery_zones": getattr(seller, "use_delivery_zones", False),
+            # Delivery slot settings
+            "deliveries_per_slot": getattr(seller, "deliveries_per_slot", None),
+            "slot_days_ahead": getattr(seller, "slot_days_ahead", 3),
+            "min_slot_lead_minutes": getattr(seller, "min_slot_lead_minutes", 120),
         }
 
     async def create_seller(

@@ -5,10 +5,11 @@ import {
   updateDeliveryZone,
   deleteDeliveryZone,
   getPublicDistricts,
+  updateMe,
 } from '../../../api/sellerClient';
 import type { DeliveryZone, CreateDeliveryZoneData } from '../../../api/sellerClient';
 import { FormField, useToast } from '../../../components/ui';
-import { MapPin, Plus, Pencil, Trash2 } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Clock } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './DeliveryZonesSettingsTab.css';
 
@@ -28,7 +29,14 @@ const EMPTY_FORM: CreateDeliveryZoneData = {
   priority: 0,
 };
 
-export function DeliveryZonesSettingsTab({ me }: SettingsTabProps) {
+const LEAD_OPTIONS = [
+  { value: 60, label: '1 час' },
+  { value: 120, label: '2 часа' },
+  { value: 180, label: '3 часа' },
+  { value: 240, label: '4 часа' },
+];
+
+export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
   const toast = useToast();
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [districts, setDistricts] = useState<DistrictOption[]>([]);
@@ -37,6 +45,30 @@ export function DeliveryZonesSettingsTab({ me }: SettingsTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingZoneId, setEditingZoneId] = useState<number | null>(null);
   const [form, setForm] = useState<CreateDeliveryZoneData>({ ...EMPTY_FORM });
+
+  // Delivery slots state
+  const [slotsEnabled, setSlotsEnabled] = useState(me.deliveries_per_slot != null && me.deliveries_per_slot > 0);
+  const [deliveriesPerSlot, setDeliveriesPerSlot] = useState(me.deliveries_per_slot ?? 1);
+  const [slotDaysAhead, setSlotDaysAhead] = useState(me.slot_days_ahead ?? 3);
+  const [minSlotLead, setMinSlotLead] = useState(me.min_slot_lead_minutes ?? 120);
+  const [savingSlots, setSavingSlots] = useState(false);
+
+  const saveSlotSettings = async () => {
+    setSavingSlots(true);
+    try {
+      await updateMe({
+        deliveries_per_slot: slotsEnabled ? Math.max(1, deliveriesPerSlot) : 0,
+        slot_days_ahead: slotDaysAhead,
+        min_slot_lead_minutes: minSlotLead,
+      });
+      toast.success('Настройки слотов сохранены');
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка сохранения');
+    } finally {
+      setSavingSlots(false);
+    }
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -146,6 +178,80 @@ export function DeliveryZonesSettingsTab({ me }: SettingsTabProps) {
 
   return (
     <div className="settings-shop">
+      {/* Delivery Slots Section */}
+      <div className="shop-card">
+        <div className="shop-card__header">
+          <div className="shop-card__header-left">
+            <div className="shop-card__icon-badge" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>
+              <Clock size={18} />
+            </div>
+            <div>
+              <h3 className="shop-card__title">Слоты доставки</h3>
+              <p className="shop-card__subtitle">Покупатель выбирает 2-часовой интервал доставки</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '0 var(--space-4) var(--space-4)' }}>
+          <label className="dz-form__district-checkbox" style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={slotsEnabled}
+              onChange={e => setSlotsEnabled(e.target.checked)}
+            />
+            <span>Включить выбор времени доставки</span>
+          </label>
+
+          {slotsEnabled && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <FormField label="Доставок за 2-часовой слот">
+                <input
+                  type="number"
+                  className="form-input"
+                  min={1}
+                  max={10}
+                  value={deliveriesPerSlot}
+                  onChange={e => setDeliveriesPerSlot(parseInt(e.target.value) || 1)}
+                />
+              </FormField>
+
+              <FormField label="Дней вперёд">
+                <input
+                  type="number"
+                  className="form-input"
+                  min={1}
+                  max={7}
+                  value={slotDaysAhead}
+                  onChange={e => setSlotDaysAhead(parseInt(e.target.value) || 3)}
+                />
+              </FormField>
+
+              <FormField label="Минимум заранее">
+                <select
+                  className="form-input"
+                  value={minSlotLead}
+                  onChange={e => setMinSlotLead(parseInt(e.target.value))}
+                >
+                  {LEAD_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </FormField>
+            </div>
+          )}
+
+          <button
+            className="btn btn-primary btn-sm"
+            style={{ marginTop: 'var(--space-3)' }}
+            onClick={saveSlotSettings}
+            disabled={savingSlots}
+          >
+            {savingSlots ? 'Сохранение...' : 'Сохранить'}
+          </button>
+        </div>
+      </div>
+
+      {/* Delivery Zones Section */}
       <div className="shop-card">
         <div className="shop-card__header">
           <div className="shop-card__header-left">

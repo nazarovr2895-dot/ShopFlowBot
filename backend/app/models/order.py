@@ -32,6 +32,10 @@ class Order(Base):
     # Payment fields (YuKassa split payments)
     payment_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     payment_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Delivery time slot
+    delivery_slot_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    delivery_slot_start: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)  # "10:00"
+    delivery_slot_end: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)  # "12:00"
 
     __table_args__ = (
         Index('ix_orders_seller_id', 'seller_id'),
@@ -47,4 +51,5 @@ class Order(Base):
         Index('ix_orders_preorder_date', 'is_preorder', 'preorder_delivery_date'),  # Preorder dates
         Index('ix_orders_payment_id', 'payment_id'),  # Payment lookup
         Index('ix_orders_payment_status', 'payment_status'),  # Payment status filter
+        Index('ix_orders_slot_lookup', 'seller_id', 'delivery_slot_date', 'delivery_slot_start', 'status'),
     )

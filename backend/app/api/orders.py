@@ -428,6 +428,12 @@ async def guest_checkout(
         for dbs in data.delivery_by_seller:
             delivery_map[dbs.seller_id] = dbs.delivery_type
 
+    # Build per-seller delivery slots map
+    slots_map: dict = {}
+    if data.delivery_slots:
+        for slot in data.delivery_slots:
+            slots_map[slot.seller_id] = {"date": slot.date, "start": slot.start, "end": slot.end}
+
     # Pre-fetch all products from DB to validate prices (never trust client prices)
     all_product_ids = [it.product_id for it in data.items]
     products_result = await session.execute(
@@ -488,6 +494,20 @@ async def guest_checkout(
             else:
                 addr = f"{data.address}\n📞 {normalized_phone}\n👤 {guest_name}"
 
+            # Resolve delivery slot for this seller
+            slot_data = slots_map.get(seller_id)
+            slot_date_val = None
+            slot_start_val = None
+            slot_end_val = None
+            if slot_data:
+                from datetime import date as _date_cls
+                try:
+                    slot_date_val = _date_cls.fromisoformat(slot_data["date"])
+                except (ValueError, TypeError, KeyError):
+                    pass
+                slot_start_val = slot_data.get("start")
+                slot_end_val = slot_data.get("end")
+
             order = await order_service.create_guest_order(
                 seller_id=seller_id,
                 items_info=items_info,
@@ -498,6 +518,9 @@ async def guest_checkout(
                 guest_phone=normalized_phone,
                 guest_address=data.address if seller_delivery == "Доставка" else None,
                 comment=(data.comment or "").strip() or None,
+                delivery_slot_date=slot_date_val,
+                delivery_slot_start=slot_start_val,
+                delivery_slot_end=slot_end_val,
             )
             # Save delivery zone info on order
             if zone_match:

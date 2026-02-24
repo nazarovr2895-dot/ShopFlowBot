@@ -4,6 +4,8 @@ import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { EmptyState, ProductImage, DesktopBackNav, AddressAutocomplete } from '../components';
+import { DeliverySlotPicker } from '../components/DeliverySlotPicker';
+import type { DeliverySlot } from '../components/DeliverySlotPicker';
 import { isBrowser } from '../utils/environment';
 import { computeRemaining } from '../hooks/useReservationTimer';
 import './Checkout.css';
@@ -49,6 +51,7 @@ export function Checkout() {
   const [buyerDistrictName, setBuyerDistrictName] = useState<string | null>(null);
   const [deliveryCheckResults, setDeliveryCheckResults] = useState<Record<number, { delivers: boolean; delivery_price: number; district_id?: number | null; message: string }>>({});
   const [districtNameToId, setDistrictNameToId] = useState<Record<string, number>>({});
+  const [slotsBySeller, setSlotsBySeller] = useState<Record<number, DeliverySlot | null>>({});
   useEffect(() => {
     const backPath = filterSellerId ? `/shop/${filterSellerId}` : '/';
     setBackButton(true, () => navigate(backPath));
@@ -254,6 +257,16 @@ export function Checkout() {
         delivery_type: deliveryBySeller[g.seller_id] ?? 'Самовывоз',
       }));
 
+      // Build delivery slots array from selected slots
+      const deliverySlotsArr = Object.entries(slotsBySeller)
+        .filter(([sid, slot]) => slot && deliveryBySeller[Number(sid)] === 'Доставка')
+        .map(([sid, slot]) => ({
+          seller_id: Number(sid),
+          date: slot!.date,
+          start: slot!.start,
+          end: slot!.end,
+        }));
+
       const { orders } = await api.checkoutCart({
         fio,
         phone: user.phone,
@@ -262,6 +275,7 @@ export function Checkout() {
         ...(commentInput.trim() ? { comment: commentInput.trim() } : {}),
         ...(pointsArr.length > 0 ? { points_usage: pointsArr } : {}),
         delivery_by_seller: deliveryArr,
+        ...(deliverySlotsArr.length > 0 ? { delivery_slots: deliverySlotsArr } : {}),
         buyer_district_id: buyerDistrictId,
         buyer_district_name: buyerDistrictName,
       });
@@ -404,6 +418,15 @@ export function Checkout() {
                     </a>
                   )}
                 </div>
+              )}
+
+              {/* Delivery time slot picker */}
+              {sellerDt === 'Доставка' && (
+                <DeliverySlotPicker
+                  sellerId={group.seller_id}
+                  selectedSlot={slotsBySeller[group.seller_id] ?? null}
+                  onSelect={(slot) => setSlotsBySeller(prev => ({ ...prev, [group.seller_id]: slot }))}
+                />
               )}
 
               {/* Items */}

@@ -800,3 +800,26 @@ async def get_seller_delivery_zones(
     from backend.app.services.delivery_zones import DeliveryZoneService
     svc = DeliveryZoneService(session)
     return await svc.get_active_zones(seller_id)
+
+
+@router.get("/sellers/{seller_id}/delivery-slots")
+async def get_seller_delivery_slots(
+    seller_id: int,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get available delivery time slots for a seller (public, for checkout UI)."""
+    from datetime import date as _date, timedelta
+    from backend.app.services.delivery_slots import DeliverySlotService
+    svc = DeliverySlotService(session)
+    today = _date.today()
+    try:
+        d_from = _date.fromisoformat(date_from) if date_from else today
+    except ValueError:
+        d_from = today
+    try:
+        d_to = _date.fromisoformat(date_to) if date_to else today + timedelta(days=7)
+    except ValueError:
+        d_to = today + timedelta(days=7)
+    return await svc.get_available_slots(seller_id, d_from, d_to)

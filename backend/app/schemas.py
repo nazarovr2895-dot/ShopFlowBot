@@ -81,6 +81,13 @@ class GuestDeliveryPerSeller(BaseModel):
     delivery_type: str  # "Доставка" | "Самовывоз"
 
 
+class GuestDeliverySlotPerSeller(BaseModel):
+    seller_id: int
+    date: str       # YYYY-MM-DD
+    start: str      # HH:MM
+    end: str        # HH:MM
+
+
 class GuestCheckoutBody(BaseModel):
     guest_name: str
     guest_phone: str
@@ -89,6 +96,7 @@ class GuestCheckoutBody(BaseModel):
     comment: Optional[str] = None
     items: List[GuestCartItem] = Field(min_length=1)
     delivery_by_seller: Optional[List[GuestDeliveryPerSeller]] = None
+    delivery_slots: Optional[List[GuestDeliverySlotPerSeller]] = None
     buyer_district_id: Optional[int] = None  # district for delivery zone matching
     buyer_district_name: Optional[str] = None  # district name from DaData (e.g. "ЦАО")
 

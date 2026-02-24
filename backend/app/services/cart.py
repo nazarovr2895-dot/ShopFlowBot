@@ -315,6 +315,7 @@ class CartService:
         delivery_by_seller: Optional[Dict[int, str]] = None,
         buyer_district_id: Optional[int] = None,
         buyer_district_name: Optional[str] = None,
+        delivery_slots_by_seller: Optional[Dict[int, dict]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Create one order per (seller, is_preorder) from cart, then clear cart.
@@ -431,6 +432,19 @@ class CartService:
                                 total = total - discount
                 # Track original price before discounts for loyalty accrual
                 original_total = total + preorder_discount_amount + points_discount
+                # Resolve delivery slot for this seller (if configured)
+                slot_data = (delivery_slots_by_seller or {}).get(seller_id)
+                slot_date = None
+                slot_start = None
+                slot_end = None
+                if slot_data and not is_preorder:
+                    from datetime import date as _date_cls
+                    try:
+                        slot_date = _date_cls.fromisoformat(slot_data["date"])
+                    except (ValueError, TypeError, KeyError):
+                        pass
+                    slot_start = slot_data.get("start")
+                    slot_end = slot_data.get("end")
                 try:
                     order = await order_service.create_order(
                         buyer_id=buyer_id,
@@ -442,6 +456,9 @@ class CartService:
                         comment=(comment or "").strip() or None,
                         is_preorder=is_preorder,
                         preorder_delivery_date=preorder_date,
+                        delivery_slot_date=slot_date,
+                        delivery_slot_start=slot_start,
+                        delivery_slot_end=slot_end,
                     )
                     # Save delivery zone info on order
                     if zone_match:
@@ -470,6 +487,9 @@ class CartService:
                         "delivery_type": seller_delivery,
                         "delivery_fee": float(order.delivery_fee) if order.delivery_fee else None,
                         "delivery_zone_name": zone_match["name"] if zone_match else None,
+                        "delivery_slot_date": order.delivery_slot_date.isoformat() if order.delivery_slot_date else None,
+                        "delivery_slot_start": order.delivery_slot_start,
+                        "delivery_slot_end": order.delivery_slot_end,
                     })
                 except OrderServiceError as e:
                     raise CartServiceError(e.message, e.status_code)

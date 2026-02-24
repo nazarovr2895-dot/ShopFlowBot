@@ -414,6 +414,7 @@ class ApiClient {
     comment?: string;
     points_usage?: Array<{ seller_id: number; points_to_use: number }>;
     delivery_by_seller?: Array<{ seller_id: number; delivery_type: string }>;
+    delivery_slots?: Array<{ seller_id: number; date: string; start: string; end: string }>;
     buyer_district_id?: number | null;
     buyer_district_name?: string | null;
   }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
@@ -438,6 +439,7 @@ class ApiClient {
       price: number;
     }>;
     delivery_by_seller?: Array<{ seller_id: number; delivery_type: string }>;
+    delivery_slots?: Array<{ seller_id: number; date: string; start: string; end: string }>;
     buyer_district_id?: number | null;
     buyer_district_name?: string | null;
   }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
@@ -597,6 +599,14 @@ class ApiClient {
         address: params.address,
       }),
     });
+  }
+
+  async getDeliverySlots(sellerId: number, dateFrom: string, dateTo: string): Promise<{
+    slots_enabled: boolean;
+    slot_duration_minutes: number;
+    slots: Record<string, Array<{ start: string; end: string; available: number }>>;
+  }> {
+    return this.fetchPublic(`/public/sellers/${sellerId}/delivery-slots?date_from=${dateFrom}&date_to=${dateTo}`);
   }
 
   private async fetchPublic<T>(path: string, options: RequestInit = {}): Promise<T> {

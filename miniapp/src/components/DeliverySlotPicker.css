@@ -1,0 +1,93 @@
+.slot-picker {
+  margin-top: 12px;
+}
+
+.slot-picker__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color);
+  margin-bottom: 8px;
+}
+
+.slot-picker__loading,
+.slot-picker__empty {
+  font-size: 13px;
+  color: var(--tg-theme-hint-color, #999);
+  padding: 8px 0;
+}
+
+/* Date pills - horizontal scroll */
+.slot-picker__dates {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 10px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.slot-picker__dates::-webkit-scrollbar {
+  display: none;
+}
+
+.slot-picker__date-pill {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  background: var(--tg-theme-bg-color, rgba(0, 0, 0, 0.06));
+  color: var(--tg-theme-hint-color, #999);
+  border-radius: 8px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.slot-picker__date-pill:active {
+  transform: scale(0.97);
+}
+.slot-picker__date-pill--active {
+  background: var(--tg-theme-button-color, #000);
+  color: var(--tg-theme-button-text-color, #fff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Time slot chips - wrap grid */
+.slot-picker__times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.slot-picker__time-chip {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1.5px solid var(--tg-theme-hint-color, rgba(0, 0, 0, 0.12));
+  cursor: pointer;
+  background: transparent;
+  color: var(--tg-theme-text-color);
+  border-radius: 10px;
+  transition: all 0.15s;
+}
+.slot-picker__time-chip:active {
+  transform: scale(0.97);
+}
+.slot-picker__time-chip--active {
+  background: var(--tg-theme-button-color, #000);
+  color: var(--tg-theme-button-text-color, #fff);
+  border-color: var(--tg-theme-button-color, #000);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Desktop */
+@media (min-width: 600px) {
+  .slot-picker__date-pill {
+    padding: 9px 18px;
+    font-size: 14px;
+  }
+  .slot-picker__time-chip {
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+}

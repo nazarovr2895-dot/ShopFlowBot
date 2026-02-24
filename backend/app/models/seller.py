@@ -76,6 +76,10 @@ class Seller(Base):
     working_hours: Mapped[Optional[dict]] = mapped_column(JSON(), nullable=True)
     # Delivery zones: if True, use delivery_zones table instead of flat delivery_price
     use_delivery_zones: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Delivery slot settings: null = slots disabled, otherwise max deliveries per 2-hour slot
+    deliveries_per_slot: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    slot_days_ahead: Mapped[int] = mapped_column(Integer, default=3)  # Days ahead to show (1-7)
+    min_slot_lead_minutes: Mapped[int] = mapped_column(Integer, default=120)  # Min advance booking (minutes)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

@@ -90,6 +90,10 @@ export interface SellerMe {
   banner_url?: string | null;
   yookassa_account_id?: string | null;
   use_delivery_zones?: boolean;
+  // Delivery slot settings
+  deliveries_per_slot?: number | null;
+  slot_days_ahead?: number;
+  min_slot_lead_minutes?: number;
 }
 
 export interface DeliveryZone {
@@ -268,6 +272,9 @@ export async function updateMe(payload: {
   banner_url?: string | null;
   yookassa_account_id?: string | null;
   use_delivery_zones?: boolean;
+  deliveries_per_slot?: number | null;
+  slot_days_ahead?: number;
+  min_slot_lead_minutes?: number;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',
