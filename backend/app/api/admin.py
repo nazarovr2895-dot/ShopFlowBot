@@ -1195,20 +1195,26 @@ async def get_admin_customers(
     city_rows = (await session.execute(q_city)).all()
     city_distribution = [{"city": r[0], "count": r[1]} for r in city_rows]
 
-    # customers with aggregation: UNION ALL of auth orders + guest orders matched by phone
-    # Part 1: authenticated orders (buyer_id IS NOT NULL)
-    auth_orders = (
+    # Two separate subqueries instead of UNION ALL (avoids SQLAlchemy mapper issues)
+    # Subquery 1: authenticated orders aggregated by buyer_id
+    auth_stats = (
         select(
             Order.buyer_id.label("user_id"),
-            Order.id, Order.total_price, Order.created_at,
+            func.count(Order.id).label("cnt"),
+            func.coalesce(func.sum(Order.total_price), 0).label("spent"),
+            func.max(Order.created_at).label("last_at"),
         )
         .where(Order.status.notin_(excluded_statuses), Order.buyer_id.isnot(None))
+        .group_by(Order.buyer_id)
+        .subquery("auth_stats")
     )
-    # Part 2: guest orders matched to registered users by phone
-    guest_orders = (
+    # Subquery 2: guest orders aggregated by matched user (phone)
+    guest_stats = (
         select(
             GuestUser.tg_id.label("user_id"),
-            Order.id, Order.total_price, Order.created_at,
+            func.count(Order.id).label("cnt"),
+            func.coalesce(func.sum(Order.total_price), 0).label("spent"),
+            func.max(Order.created_at).label("last_at"),
         )
         .select_from(Order)
         .join(GuestUser, Order.guest_phone == GuestUser.phone)
@@ -1218,17 +1224,16 @@ async def get_admin_customers(
             Order.guest_phone.isnot(None), Order.guest_phone != "",
             GuestUser.phone.isnot(None), GuestUser.phone != "",
         )
+        .group_by(GuestUser.tg_id)
+        .subquery("guest_stats")
     )
-    combined = union_all(auth_orders, guest_orders).subquery("combined_orders")
-    subq = (
-        select(
-            combined.c.user_id,
-            func.count(combined.c.id).label("orders_count"),
-            func.coalesce(func.sum(combined.c.total_price), 0).label("total_spent"),
-            func.max(combined.c.created_at).label("last_order_at"),
-        )
-        .group_by(combined.c.user_id)
-        .subquery()
+
+    # Combine auth + guest stats with addition (handles NULLs via COALESCE)
+    orders_count_expr = (
+        func.coalesce(auth_stats.c.cnt, 0) + func.coalesce(guest_stats.c.cnt, 0)
+    )
+    total_spent_expr = (
+        func.coalesce(auth_stats.c.spent, 0) + func.coalesce(guest_stats.c.spent, 0)
     )
 
     q_base = (
@@ -1239,11 +1244,12 @@ async def get_admin_customers(
             User.phone,
             User.created_at.label("registered_at"),
             City.name.label("city"),
-            func.coalesce(subq.c.orders_count, 0).label("orders_count"),
-            func.coalesce(subq.c.total_spent, 0).label("total_spent"),
-            subq.c.last_order_at,
+            orders_count_expr.label("orders_count"),
+            total_spent_expr.label("total_spent"),
+            func.greatest(auth_stats.c.last_at, guest_stats.c.last_at).label("last_order_at"),
         )
-        .outerjoin(subq, subq.c.user_id == User.tg_id)
+        .outerjoin(auth_stats, auth_stats.c.user_id == User.tg_id)
+        .outerjoin(guest_stats, guest_stats.c.user_id == User.tg_id)
         .outerjoin(City, City.id == User.city_id)
         .where(User.role == "BUYER")
     )
@@ -1251,7 +1257,7 @@ async def get_admin_customers(
     if city_id:
         q_base = q_base.where(User.city_id == city_id)
     if min_orders:
-        q_base = q_base.where(func.coalesce(subq.c.orders_count, 0) >= min_orders)
+        q_base = q_base.where(orders_count_expr >= min_orders)
 
     # count for pagination
     from sqlalchemy import text
