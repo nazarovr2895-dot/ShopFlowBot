@@ -1133,9 +1133,14 @@ async def get_admin_customers(
     """Список покупателей с агрегированной статистикой."""
     from datetime import datetime as dt, time as time_t, date as date_type
     from sqlalchemy import select, func, and_, desc, case, union_all
+    from sqlalchemy.orm import aliased
     from backend.app.models.order import Order
     from backend.app.models.user import User
     from backend.app.models.seller import City
+
+    # Separate alias for User inside UNION ALL subqueries to avoid
+    # SQLAlchemy mapper conflict with the outer query's User reference
+    GuestUser = aliased(User, flat=True)
 
     today_start = dt.combine(date_type.today(), time_t.min)
     # Exclude only rejected/cancelled — accepted orders already represent real spending
@@ -1152,13 +1157,14 @@ async def get_admin_customers(
         .where(Order.status.notin_(excluded_statuses), Order.buyer_id.isnot(None))
     )
     _guest_buyer_ids = (
-        select(User.tg_id.label("uid"))
+        select(GuestUser.tg_id.label("uid"))
+        .select_from(Order)
+        .join(GuestUser, Order.guest_phone == GuestUser.phone)
         .where(
             Order.status.notin_(excluded_statuses),
             Order.buyer_id.is_(None),
             Order.guest_phone.isnot(None), Order.guest_phone != "",
-            User.phone.isnot(None), User.phone != "",
-            Order.guest_phone == User.phone,
+            GuestUser.phone.isnot(None), GuestUser.phone != "",
         )
     )
     _all_buyer_ids = union_all(_auth_buyer_ids, _guest_buyer_ids).subquery("all_buyers")
@@ -1201,15 +1207,16 @@ async def get_admin_customers(
     # Part 2: guest orders matched to registered users by phone
     guest_orders = (
         select(
-            User.tg_id.label("user_id"),
+            GuestUser.tg_id.label("user_id"),
             Order.id, Order.total_price, Order.created_at,
         )
+        .select_from(Order)
+        .join(GuestUser, Order.guest_phone == GuestUser.phone)
         .where(
             Order.status.notin_(excluded_statuses),
             Order.buyer_id.is_(None),
             Order.guest_phone.isnot(None), Order.guest_phone != "",
-            User.phone.isnot(None), User.phone != "",
-            Order.guest_phone == User.phone,
+            GuestUser.phone.isnot(None), GuestUser.phone != "",
         )
     )
     combined = union_all(auth_orders, guest_orders).subquery("combined_orders")
