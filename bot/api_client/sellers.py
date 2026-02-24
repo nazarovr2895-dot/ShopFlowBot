@@ -153,7 +153,7 @@ async def api_get_cities():
     return await make_request("GET", "/admin/cities")
 
 async def api_get_districts(city_id: int):
-    """Получить список округов по городу"""
+    """Получить список районов по городу"""
     return await make_request("GET", f"/admin/districts/{city_id}")
 
 

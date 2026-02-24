@@ -42,7 +42,7 @@ export function LocationSetup({ onComplete }: LocationSetupProps) {
     }
   }, [selectedCityId]);
 
-  // Update main button when selection changes (city required; district optional — "Все округи" = no district)
+  // Update main button when selection changes (city required; district optional — "Все районы" = no district)
   useEffect(() => {
     if (selectedCityId) {
       setMainButton(
@@ -115,7 +115,7 @@ export function LocationSetup({ onComplete }: LocationSetupProps) {
               onChange={handleDistrictChange}
               disabled={!selectedCityId || loadingDistricts}
             >
-              <option value="">Все округи</option>
+              <option value="">Все районы</option>
               {districts.map((district) => (
                 <option key={district.id} value={district.id}>
                   {district.name}

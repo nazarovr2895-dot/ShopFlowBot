@@ -154,7 +154,7 @@ async def update_location(
     session: AsyncSession = Depends(get_session),
 ):
     """
-    Обновить локацию текущего пользователя (город и округ).
+    Обновить локацию текущего пользователя (город и район).
     
     Используется в Mini App для сохранения выбранных фильтров.
     """
@@ -263,7 +263,7 @@ class CheckoutBody(BaseModel):
     points_usage: Optional[List[PointsUsagePerSeller]] = None
     delivery_by_seller: Optional[List[DeliveryPerSeller]] = None
     buyer_district_id: Optional[int] = None  # district for delivery zone matching
-    buyer_district_name: Optional[str] = None  # district name from DaData (e.g. "ЦАО")
+    buyer_district_name: Optional[str] = None  # district name from DaData (e.g. "Арбат")
 
 
 class VisitedSellerRecord(BaseModel):

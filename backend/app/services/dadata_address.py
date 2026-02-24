@@ -11,67 +11,20 @@ DADATA_SUGGEST_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/sugge
 DADATA_METRO_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/metro"
 DADATA_GEOLOCATE_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address"
 
-# DaData returns full district names (city_area); our DB stores abbreviations.
-# Map lowercase full names → abbreviations for Moscow administrative okrugs.
-# DaData may use mixed case (e.g. "Северо-восточный"), so we compare lowercase.
-_DISTRICT_FULL_TO_ABBR: Dict[str, str] = {
-    "центральный": "ЦАО",
-    "северный": "САО",
-    "северо-восточный": "СВАО",
-    "восточный": "ВАО",
-    "юго-восточный": "ЮВАО",
-    "южный": "ЮАО",
-    "юго-западный": "ЮЗАО",
-    "западный": "ЗАО",
-    "северо-западный": "СЗАО",
-}
-
-
-# Moscow OKATO 3-digit codes → administrative okrug name (as stored in DB)
-_OKATO_PREFIX_TO_DISTRICT: Dict[str, str] = {
-    "45286": "ЦАО",
-    "45280": "САО",
-    "45281": "СВАО",
-    "45283": "ВАО",
-    "45285": "ЮВАО",
-    "45284": "ЮАО",
-    "45293": "ЮЗАО",
-    "45263": "ЗАО",
-    "45277": "СЗАО",
-    "45272": "Зеленоградский",
-    "45298": "Новомосковский",
-    "45297": "Троицкий",
-}
-
 
 def _normalize_district_name(
     city_district: Optional[str],
     city_district_type: Optional[str] = None,
     okato: Optional[str] = None,
 ) -> Optional[str]:
-    """Convert DaData city_area/city_district to DB district name.
+    """Return district name as-is. No abbreviation mapping needed.
 
-    Moscow abbreviation mapping (Центральный → ЦАО) is only applied when
-    the OKATO code starts with "45" (Moscow) to avoid mangling district names
-    in other cities (e.g. Новосибирск has "Центральный" as an actual district).
+    All cities (including Moscow) now store actual district/rayon names
+    from DaData's city_district field (e.g. "Тверской", "Арбат").
     """
     if not city_district:
         return None
-    lower = city_district.lower()
-    # Apply Moscow abbreviation mapping only for Moscow (OKATO prefix 45)
-    is_moscow = okato and okato.startswith("45")
-    if is_moscow and lower in _DISTRICT_FULL_TO_ABBR:
-        return _DISTRICT_FULL_TO_ABBR[lower]
-    # Return as-is (already an abbreviation, or a district name for other cities)
     return city_district
-
-
-def _okato_to_district(okato: str) -> Optional[str]:
-    """Resolve Moscow administrative okrug from OKATO code (first 5 digits)."""
-    if not okato or len(okato) < 5:
-        return None
-    prefix = okato[:5]
-    return _OKATO_PREFIX_TO_DISTRICT.get(prefix)
 
 
 async def _call_dadata(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -128,20 +81,17 @@ async def suggest_address(
     result = []
     for s in suggestions:
         d = s.get("data", {})
-        # Try city_area first (contains okrug for Moscow even in multi-result),
-        # then city_district, then OKATO — same priority as resolve_district_from_address()
+        # Prefer city_district (rayon) — more granular than city_area (okrug).
+        # city_district may be null in multi-result queries — that's OK for autocomplete.
         city_area = d.get("city_area")
         city_district_raw = d.get("city_district")
         city_district_type = d.get("city_district_type")
         okato = d.get("okato")
         district_name = None
-        if city_area:
-            district_name = _normalize_district_name(city_area, okato=okato)
-        if not district_name:
+        if city_district_raw:
             district_name = _normalize_district_name(city_district_raw, city_district_type, okato=okato)
-        if not district_name:
-            if okato:
-                district_name = _okato_to_district(okato)
+        if not district_name and city_area:
+            district_name = _normalize_district_name(city_area, okato=okato)
         result.append({
             "value": s.get("value", ""),
             "lat": d.get("geo_lat"),
@@ -157,10 +107,10 @@ async def suggest_address(
 
 async def resolve_district_from_address(address: str) -> Optional[str]:
     """
-    Resolve Moscow district name from a full address string.
+    Resolve district/rayon name from a full address string.
     Makes a DaData call with count=1 to get detailed address data
     (DaData populates city_district only for focused single-result queries).
-    Returns normalized district name as stored in DB (e.g. "ЦАО") or None.
+    Returns district name as stored in DB (e.g. "Тверской", "Арбат") or None.
     """
     if not address or len(address) < 5:
         return None
@@ -190,22 +140,17 @@ async def resolve_district_from_address(address: str) -> Optional[str]:
         settlement_type=settlement_type,
     )
 
-    # Try city_area first (may contain okrug for Moscow)
+    # Prefer city_district (rayon) — more granular for delivery zones
+    if city_district:
+        normalized = _normalize_district_name(city_district, city_district_type, okato=okato)
+        if normalized:
+            return normalized
+
+    # Fallback: city_area (useful for non-Moscow cities or when city_district is empty)
     if city_area:
         normalized = _normalize_district_name(city_area, okato=okato)
         if normalized:
             return normalized
-
-    # Then try city_district
-    normalized = _normalize_district_name(city_district, city_district_type, okato=okato)
-    if normalized:
-        return normalized
-
-    # Try OKATO-based resolution as fallback
-    if okato:
-        okato_district = _okato_to_district(okato)
-        if okato_district:
-            return okato_district
 
     return None
 
@@ -287,9 +232,9 @@ async def suggest_city(query: str, count: int = 10) -> List[Dict[str, Any]]:
 
 async def suggest_district(query: str, city_kladr_id: str, count: int = 10) -> List[str]:
     """
-    Suggest district names for a city via DaData.
-    Queries addresses within the city and extracts unique city_area values.
-    Returns list of normalized district names (e.g. ["ЦАО", "САО", "СВАО"]).
+    Suggest district/rayon names for a city via DaData.
+    Queries addresses within the city and extracts unique city_district values.
+    Returns list of district names (e.g. ["Тверской", "Арбат", "Басманный"]).
     """
     payload: Dict[str, Any] = {
         "query": query,
@@ -301,8 +246,8 @@ async def suggest_district(query: str, city_kladr_id: str, count: int = 10) -> L
     result: List[str] = []
     for s in suggestions:
         d = s.get("data", {})
-        # Try city_area first (okrugs for Moscow, районы for SPb), then city_district
-        raw = d.get("city_area") or d.get("city_district")
+        # Prefer city_district (rayon), fallback to city_area
+        raw = d.get("city_district") or d.get("city_area")
         if not raw:
             continue
         normalized = _normalize_district_name(raw, okato=d.get("okato"))
@@ -320,16 +265,15 @@ async def suggest_district(query: str, city_kladr_id: str, count: int = 10) -> L
 
 async def fetch_city_districts(city_kladr_id: str) -> List[str]:
     """
-    Fetch all district names for a city from DaData.
+    Fetch all district/rayon names for a city from DaData.
     Queries addresses with various search terms and collects unique districts.
-    For Moscow (OKATO 45*), returns okrugs only (ЦАО, САО, etc.).
-    For other cities, returns city_district names (Ленинский, Октябрьский, etc.).
+    Returns district names (e.g. ["Арбат", "Тверской", "Басманный"] for Moscow).
     """
     seen: set[str] = set()
     result: List[str] = []
 
-    # Use a few search terms to maximize coverage
-    queries = ["район", "ул", "пр", "а", "к", "м", "с", "п", "н", "л"]
+    # Use varied search terms to maximize coverage of all districts
+    queries = ["район", "ул", "пр", "а", "б", "в", "г", "д", "е", "к", "л", "м", "н", "о", "п", "р", "с", "т"]
 
     for q in queries:
         payload: Dict[str, Any] = {
@@ -340,19 +284,12 @@ async def fetch_city_districts(city_kladr_id: str) -> List[str]:
         suggestions = await _call_dadata(payload)
         for s in suggestions:
             d = s.get("data", {})
-            okato = d.get("okato")
-            is_moscow = okato and okato.startswith("45")
-
-            if is_moscow:
-                # Moscow: only use city_area (okrugs), skip municipal districts
-                raw = d.get("city_area")
-            else:
-                # Other cities: city_area first, then city_district
-                raw = d.get("city_area") or d.get("city_district")
+            # Unified logic: prefer city_district (rayon), fallback to city_area
+            raw = d.get("city_district") or d.get("city_area")
 
             if not raw:
                 continue
-            normalized = _normalize_district_name(raw, okato=okato)
+            normalized = _normalize_district_name(raw, okato=d.get("okato"))
             if not normalized:
                 continue
             key = normalized.lower()
@@ -404,9 +341,9 @@ async def fetch_metro_stations(city_kladr_id: str) -> List[Dict[str, Any]]:
 
 async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[str]:
     """
-    Resolve district name from coordinates using DaData geolocate API.
+    Resolve district/rayon name from coordinates using DaData geolocate API.
     Falls back to suggest with the nearest address if geolocate doesn't return a district.
-    Returns normalized district name as stored in DB (e.g. "ЦАО", "Ленинский") or None.
+    Returns district name (e.g. "Тверской", "Арбат") or None.
     """
     # Use geolocate endpoint with multiple results — sometimes only addresses with
     # house numbers have city_district filled in
@@ -418,27 +355,20 @@ async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[
     # Check all geolocate results for district info
     for s in suggestions:
         d = s.get("data", {})
-        s_okato = d.get("okato")
 
-        # Try city_area first (Moscow okrugs)
-        city_area = d.get("city_area")
-        if city_area:
-            normalized = _normalize_district_name(city_area, okato=s_okato)
+        # Prefer city_district (rayon) — more granular
+        city_district = d.get("city_district")
+        if city_district:
+            normalized = _normalize_district_name(city_district, d.get("city_district_type"))
             if normalized:
                 return normalized
 
-        # Then city_district (works for most cities)
-        city_district = d.get("city_district")
-        normalized = _normalize_district_name(city_district, d.get("city_district_type"), okato=s_okato)
-        if normalized:
-            return normalized
-
-    # OKATO fallback from first result (Moscow only)
-    okato = suggestions[0].get("data", {}).get("okato")
-    if okato:
-        okato_district = _okato_to_district(okato)
-        if okato_district:
-            return okato_district
+        # Fallback: city_area
+        city_area = d.get("city_area")
+        if city_area:
+            normalized = _normalize_district_name(city_area)
+            if normalized:
+                return normalized
 
     # Fallback: find the first result with a house number and resolve via suggest
     # (suggest with a specific address often fills in city_district when geolocate doesn't)

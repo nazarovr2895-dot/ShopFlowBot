@@ -177,7 +177,7 @@ class SellerStatsResponse(BaseModel):
 
 
 # ============================================
-# СПРАВОЧНИКИ (ГОРОДА, ОКРУГА)
+# СПРАВОЧНИКИ (ГОРОДА, РАЙОНЫ)
 # ============================================
 
 @router.get("/cities")
@@ -189,7 +189,7 @@ async def get_cities(session: AsyncSession = Depends(get_session)):
 
 @router.get("/districts/{city_id}")
 async def get_districts(city_id: int, session: AsyncSession = Depends(get_session)):
-    """Получить список округов по городу"""
+    """Получить список районов по городу"""
     service = SellerService(session)
     return await service.get_districts(city_id)
 
@@ -444,9 +444,11 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
                     seller.use_delivery_zones = True
 
                 await session.commit()
+                result["delivery_zone_created"] = True
                 logger.info("Auto-created delivery zone", tg_id=created_tg_id, district=zone_name)
             except Exception as e:
                 logger.error("Failed to auto-create delivery zone", exc_info=e)
+                result["delivery_zone_created"] = False
 
         return result
     except SellerServiceError as e:

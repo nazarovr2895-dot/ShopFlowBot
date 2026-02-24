@@ -18,26 +18,11 @@ async def reset_and_seed():
     
     # Заполняем справочники
     async with async_session() as session:
-        print("🌱 Заполняю Москву и округа...")
-        moscow = City(id=1, name="Москва")
+        print("🌱 Заполняю Москву...")
+        moscow = City(id=1, name="Москва", kladr_id="7700000000000")
         session.add(moscow)
-        
-        districts = [
-            District(id=1, city_id=1, name="ЦАО"),
-            District(id=2, city_id=1, name="САО"),
-            District(id=3, city_id=1, name="СВАО"),
-            District(id=4, city_id=1, name="ВАО"),
-            District(id=5, city_id=1, name="ЮВАО"),
-            District(id=6, city_id=1, name="ЮАО"),
-            District(id=7, city_id=1, name="ЮЗАО"),
-            District(id=8, city_id=1, name="ЗАО"),
-            District(id=9, city_id=1, name="СЗАО"),
-            District(id=10, city_id=1, name="НАО"),
-            District(id=11, city_id=1, name="ТАО"),
-            District(id=12, city_id=1, name="ЗелАО"),
-        ]
-        session.add_all(districts)
         await session.commit()
+        # Районы импортируются через админ-панель (Coverage → Import Districts)
     print("✅ База данных полностью готова!")
 
 if __name__ == "__main__":

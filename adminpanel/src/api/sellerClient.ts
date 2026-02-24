@@ -70,6 +70,7 @@ export interface SellerMe {
   delivery_price?: number;
   city_id?: number;
   district_id?: number;
+  district_name?: string;
   metro_id?: number;
   metro_walk_minutes?: number;
   address_name?: string;

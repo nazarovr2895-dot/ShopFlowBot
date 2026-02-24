@@ -273,6 +273,42 @@ async def create_district(
             "metro_count": 0, "sellers_count": 0}
 
 
+@router.post("/coverage/cities/{city_id}/import-districts")
+async def import_districts_from_dadata(
+    city_id: int,
+    session: AsyncSession = Depends(get_session),
+    cache: CacheService = Depends(get_cache),
+    _token: None = Depends(require_admin_token),
+):
+    """Fetch districts/rayons from DaData and add missing ones for an existing city."""
+    city = await session.get(City, city_id)
+    if not city:
+        raise HTTPException(404, "Город не найден")
+    if not city.kladr_id:
+        raise HTTPException(400, "У города не указан КЛАДР-код")
+
+    district_names = await dadata_fetch_districts(city.kladr_id)
+
+    # Load existing districts (case-insensitive)
+    existing_q = await session.execute(
+        select(District.name).where(District.city_id == city_id)
+    )
+    existing_names = {n.lower() for n in existing_q.scalars().all()}
+
+    added = 0
+    for name in district_names:
+        if name.lower() not in existing_names:
+            session.add(District(name=name, city_id=city_id))
+            existing_names.add(name.lower())
+            added += 1
+
+    if added:
+        await session.commit()
+        await cache.invalidate_districts()
+
+    return {"added": added, "total_from_dadata": len(district_names)}
+
+
 @router.put("/coverage/districts/{district_id}")
 async def update_district(
     district_id: int,

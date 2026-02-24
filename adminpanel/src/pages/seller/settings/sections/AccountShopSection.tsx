@@ -14,21 +14,14 @@ const DELIVERY_LABELS: Record<string, string> = {
   'доставка и самовывоз': 'Доставка и самовывоз',
 };
 
-const DISTRICTS_MSK: { id: number; name: string }[] = [
-  { id: 1, name: 'ЦАО' }, { id: 2, name: 'САО' }, { id: 3, name: 'СВАО' },
-  { id: 4, name: 'ВАО' }, { id: 5, name: 'ЮВАО' }, { id: 6, name: 'ЮАО' },
-  { id: 7, name: 'ЮЗАО' }, { id: 8, name: 'ЗАО' }, { id: 9, name: 'СЗАО' },
-  { id: 10, name: 'Зеленоградский' }, { id: 11, name: 'Новомосковский' }, { id: 12, name: 'Троицкий' },
-];
-
 export function AccountShopSection({ me }: Props) {
-  const districtName = DISTRICTS_MSK.find((d) => d.id === me.district_id)?.name ?? '—';
+  const districtName = me.district_name || '—';
 
   return (
     <div className="account-section-content">
       <DataRow label="Название" value={me.shop_name || '—'} />
       <DataRow label="Описание" value={me.description || '—'} />
-      <DataRow label="Округ" value={districtName} />
+      <DataRow label="Район" value={districtName} />
       <DataRow label="Тип доставки" value={DELIVERY_LABELS[me.delivery_type || ''] || me.delivery_type || '—'} />
       <DataRow label="Стоимость доставки" value="Настраивается в зонах доставки" />
       <DataRow

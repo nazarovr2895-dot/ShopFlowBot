@@ -463,6 +463,7 @@ class SellerService:
             "delivery_price": float(seller.delivery_price) if seller.delivery_price else 0.0,
             "city_id": seller.city_id,
             "district_id": seller.district_id,
+            "district_name": await self._get_district_name(seller.district_id),
             "metro_id": seller.metro_id,
             "metro_walk_minutes": seller.metro_walk_minutes,
             "address_name": getattr(seller, "address_name", None),
@@ -621,26 +622,23 @@ class SellerService:
             if not city and city_id == 1:
                 self.session.add(City(id=1, name="Москва"))
     
+    async def _get_district_name(self, district_id: Optional[int]) -> Optional[str]:
+        """Get district name by ID."""
+        if district_id is None:
+            return None
+        district = await self.session.get(District, district_id)
+        return district.name if district else None
+
     async def _ensure_district_exists(
-        self, 
-        district_id: Optional[int], 
+        self,
+        district_id: Optional[int],
         city_id: Optional[int]
     ) -> None:
-        """Ensure district record exists."""
+        """Validate that district record exists. Districts are managed via Coverage admin."""
         if district_id is not None:
             district = await self.session.get(District, district_id)
             if not district:
-                district_names = {
-                    1: "ЦАО", 2: "САО", 3: "СВАО", 4: "ВАО",
-                    5: "ЮВАО", 6: "ЮАО", 7: "ЮЗАО", 8: "ЗАО",
-                    9: "СЗАО", 10: "Зеленоградский", 
-                    11: "Новомосковский", 12: "Троицкий",
-                }
-                self.session.add(District(
-                    id=district_id,
-                    city_id=city_id,
-                    name=district_names.get(district_id, f"Округ {district_id}")
-                ))
+                raise SellerServiceError(f"Район с ID {district_id} не найден. Добавьте его через управление покрытием.")
     
     async def update_field(
         self,

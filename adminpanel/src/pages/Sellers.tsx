@@ -39,12 +39,7 @@ const DELIVERY_TYPES = [
   { value: 'both', label: 'Оба' },
 ];
 
-const DISTRICTS_MSK = [
-  { id: 1, name: 'ЦАО' }, { id: 2, name: 'САО' }, { id: 3, name: 'СВАО' },
-  { id: 4, name: 'ВАО' }, { id: 5, name: 'ЮВАО' }, { id: 6, name: 'ЮАО' },
-  { id: 7, name: 'ЮЗАО' }, { id: 8, name: 'ЗАО' }, { id: 9, name: 'СЗАО' },
-  { id: 10, name: 'Зеленоградский' }, { id: 11, name: 'Новомосковский' }, { id: 12, name: 'Троицкий' },
-];
+// Districts are loaded from API (no hardcoded list)
 
 function formatPlacementExpired(iso: string | undefined): string {
   if (!iso) return '—';
@@ -398,6 +393,7 @@ function AddSellerModal({
   onSuccess: () => void;
   initialInnData?: InnData;
 }) {
+  const toast = useToast();
   const [tgId, setTgId] = useState('');
   const [fio, setFio] = useState('');
   const [phoneDisplay, setPhoneDisplay] = useState('');
@@ -450,12 +446,20 @@ function AddSellerModal({
   useEffect(() => {
     getDistricts(cityId).then((list) => {
       setDistricts(list);
-      if (list.length > 0 && !list.find(d => d.id === districtId)) {
+      // Don't override districtId if it was set from coverage check
+      if (list.length > 0 && !list.find(d => d.id === districtId) && !coverageResult?.district_id) {
         setDistrictId(list[0].id);
       }
     }).catch(() => setDistricts([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityId]);
+
+  // Cleanup address debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (addressTimerRef.current) clearTimeout(addressTimerRef.current);
+    };
+  }, []);
 
   // Close address dropdown on outside click
   useEffect(() => {
@@ -489,6 +493,7 @@ function AddSellerModal({
     setAddressQuery(v);
     setSelectedAddress('');
     setCoverageResult(null);
+    setDistrictId(0);
     if (addressTimerRef.current) clearTimeout(addressTimerRef.current);
     addressTimerRef.current = setTimeout(() => fetchAddressSuggestions(v), 250);
   };
@@ -594,8 +599,11 @@ function AddSellerModal({
         const cp = parseInt(commissionPercent, 10);
         if (!isNaN(cp) && cp >= 0 && cp <= 100) payload.commission_percent = cp;
       }
-      const res = await createSeller(payload) as { status?: string; web_login?: string; web_password?: string };
+      const res = await createSeller(payload) as { status?: string; web_login?: string; web_password?: string; delivery_zone_created?: boolean };
       if (res?.status === 'ok' || res?.status === undefined) {
+        if (res.delivery_zone_created === false) {
+          toast.error('Продавец создан, но зона доставки не создалась. Создайте вручную.');
+        }
         if (res.web_login && res.web_password) {
           setCredentials({ web_login: res.web_login, web_password: res.web_password });
         } else {
@@ -744,9 +752,9 @@ function AddSellerModal({
             )
           )}
         </div>
-        <FormRow label="Округ" render={
+        <FormRow label="Район" render={
           <select className="form-input" value={districtId} onChange={(e) => { setDistrictId(parseInt(e.target.value, 10)); setCoverageResult(null); setSelectedAddress(''); setAddressQuery(''); }}>
-            {(districts.length > 0 ? districts : DISTRICTS_MSK).map((d) => (
+            {districts.map((d) => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
           </select>
@@ -894,6 +902,9 @@ function SellerDetailsModal({
   const [metroSearching, setMetroSearching] = useState(false);
   const [metroDropdownOpen, setMetroDropdownOpen] = useState(false);
 
+  // Districts loaded from API for this seller's city
+  const [modalDistricts, setModalDistricts] = useState<District[]>([]);
+
   // ── Navigation ──
   const scrollToSection = useCallback((id: SdmSection) => {
     setActiveSection(id);
@@ -917,6 +928,13 @@ function SellerDetailsModal({
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
+
+  // Load districts for seller's city
+  useEffect(() => {
+    if (seller.city_id) {
+      getDistricts(seller.city_id).then(setModalDistricts).catch(() => setModalDistricts([]));
+    }
+  }, [seller.city_id]);
 
   // Load org data
   useEffect(() => {
@@ -1200,8 +1218,9 @@ function SellerDetailsModal({
   };
 
   const getDistrictName = (id: number | undefined) => {
-    const found = DISTRICTS_MSK.find(d => d.id === id);
-    return found?.name || '—';
+    if (!id) return '—';
+    const found = modalDistricts.find(d => d.id === id);
+    return found?.name || `#${id}`;
   };
 
   const getPlanLabel = (plan: string) => {
@@ -1369,9 +1388,10 @@ function SellerDetailsModal({
               {editingSection === 'address' ? (
                 <>
                   <div className="sdm-edit-field">
-                    <label className="sdm-edit-label">Округ</label>
-                    <select className="sdm-edit-input sdm-edit-input--select" value={editedFields.district_id || '1'} onChange={(e) => handleFieldChange('district_id', e.target.value)}>
-                      {DISTRICTS_MSK.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    <label className="sdm-edit-label">Район</label>
+                    <select className="sdm-edit-input sdm-edit-input--select" value={editedFields.district_id || ''} onChange={(e) => handleFieldChange('district_id', e.target.value)}>
+                      <option value="">— не выбран —</option>
+                      {modalDistricts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                   </div>
                   <div className="sdm-edit-field">
@@ -1422,7 +1442,7 @@ function SellerDetailsModal({
               ) : (
                 <div className="sdm-field-grid">
                   <div className="sdm-field">
-                    <div className="sdm-field-label">Округ</div>
+                    <div className="sdm-field-label">Район</div>
                     <div className="sdm-field-value">{getDistrictName(seller.district_id)}</div>
                   </div>
                   <div className="sdm-field">

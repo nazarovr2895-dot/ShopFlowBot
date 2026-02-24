@@ -757,7 +757,7 @@ async def get_districts(
 
 class CheckDeliveryBody(BaseModel):
     district_id: Optional[int] = None
-    district_name: Optional[str] = None  # e.g. "ЦАО"
+    district_name: Optional[str] = None  # e.g. "Арбат"
     address: Optional[str] = None  # full address string for DaData district resolution
 
 
