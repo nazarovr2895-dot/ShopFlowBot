@@ -52,4 +52,5 @@ class Order(Base):
         Index('ix_orders_payment_id', 'payment_id'),  # Payment lookup
         Index('ix_orders_payment_status', 'payment_status'),  # Payment status filter
         Index('ix_orders_slot_lookup', 'seller_id', 'delivery_slot_date', 'delivery_slot_start', 'status'),
+        Index('ix_orders_guest_phone', 'guest_phone'),  # Guest order → user phone matching
     )

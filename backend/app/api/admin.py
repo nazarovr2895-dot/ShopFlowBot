@@ -1130,7 +1130,7 @@ async def get_admin_customers(
 ):
     """Список покупателей с агрегированной статистикой."""
     from datetime import datetime as dt, time as time_t, date as date_type
-    from sqlalchemy import select, func, and_, desc, case
+    from sqlalchemy import select, func, and_, desc, case, union_all
     from backend.app.models.order import Order
     from backend.app.models.user import User
     from backend.app.models.seller import City
@@ -1144,10 +1144,24 @@ async def get_admin_customers(
         select(func.count(User.tg_id)).where(User.role == "BUYER")
     )).scalar() or 0
 
-    active_buyers = (await session.execute(
-        select(func.count(func.distinct(Order.buyer_id))).where(
-            Order.status.notin_(excluded_statuses)
+    # active_buyers: count distinct users who placed orders (auth + guest matched by phone)
+    _auth_buyer_ids = (
+        select(Order.buyer_id.label("uid"))
+        .where(Order.status.notin_(excluded_statuses), Order.buyer_id.isnot(None))
+    )
+    _guest_buyer_ids = (
+        select(User.tg_id.label("uid"))
+        .where(
+            Order.status.notin_(excluded_statuses),
+            Order.buyer_id.is_(None),
+            Order.guest_phone.isnot(None), Order.guest_phone != "",
+            User.phone.isnot(None), User.phone != "",
+            Order.guest_phone == User.phone,
         )
+    )
+    _all_buyer_ids = union_all(_auth_buyer_ids, _guest_buyer_ids).subquery("all_buyers")
+    active_buyers = (await session.execute(
+        select(func.count(func.distinct(_all_buyer_ids.c.uid)))
     )).scalar() or 0
 
     new_today = (await session.execute(
@@ -1173,16 +1187,38 @@ async def get_admin_customers(
     city_rows = (await session.execute(q_city)).all()
     city_distribution = [{"city": r[0], "count": r[1]} for r in city_rows]
 
-    # customers with aggregation (all non-rejected/cancelled orders count as purchases)
+    # customers with aggregation: UNION ALL of auth orders + guest orders matched by phone
+    # Part 1: authenticated orders (buyer_id IS NOT NULL)
+    auth_orders = (
+        select(
+            Order.buyer_id.label("user_id"),
+            Order.id, Order.total_price, Order.created_at,
+        )
+        .where(Order.status.notin_(excluded_statuses), Order.buyer_id.isnot(None))
+    )
+    # Part 2: guest orders matched to registered users by phone
+    guest_orders = (
+        select(
+            User.tg_id.label("user_id"),
+            Order.id, Order.total_price, Order.created_at,
+        )
+        .where(
+            Order.status.notin_(excluded_statuses),
+            Order.buyer_id.is_(None),
+            Order.guest_phone.isnot(None), Order.guest_phone != "",
+            User.phone.isnot(None), User.phone != "",
+            Order.guest_phone == User.phone,
+        )
+    )
+    combined = union_all(auth_orders, guest_orders).subquery("combined_orders")
     subq = (
         select(
-            Order.buyer_id,
-            func.count(Order.id).label("orders_count"),
-            func.coalesce(func.sum(Order.total_price), 0).label("total_spent"),
-            func.max(Order.created_at).label("last_order_at"),
+            combined.c.user_id,
+            func.count(combined.c.id).label("orders_count"),
+            func.coalesce(func.sum(combined.c.total_price), 0).label("total_spent"),
+            func.max(combined.c.created_at).label("last_order_at"),
         )
-        .where(Order.status.notin_(excluded_statuses))
-        .group_by(Order.buyer_id)
+        .group_by(combined.c.user_id)
         .subquery()
     )
 
@@ -1198,7 +1234,7 @@ async def get_admin_customers(
             func.coalesce(subq.c.total_spent, 0).label("total_spent"),
             subq.c.last_order_at,
         )
-        .outerjoin(subq, subq.c.buyer_id == User.tg_id)
+        .outerjoin(subq, subq.c.user_id == User.tg_id)
         .outerjoin(City, City.id == User.city_id)
         .where(User.role == "BUYER")
     )

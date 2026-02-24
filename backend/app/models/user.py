@@ -28,4 +28,5 @@ class User(Base):
     __table_args__ = (
         Index('ix_users_referrer_id', 'referrer_id'),
         Index('ix_users_role', 'role'),
+        Index('ix_users_phone', 'phone'),
     )
