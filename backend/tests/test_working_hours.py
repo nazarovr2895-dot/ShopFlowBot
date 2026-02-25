@@ -196,6 +196,32 @@ class TestIsOpenNow:
             result = _is_open_now(wh)
             assert result is None
 
+    def test_before_6am_uses_actual_calendar_day(self):
+        """Before 6:00 MSK, _is_open_now should use actual calendar day (not shifted).
+
+        Regression: previously used _current_weekday_msk() which shifts day back
+        before 6 AM, causing shops with early hours (e.g. 00:00-18:00) to appear closed.
+        """
+        # Thursday (weekday=3) at 01:00 MSK — shop has Thu 00:00-18:00
+        wh = {"3": {"open": "00:00", "close": "18:00"}}
+        fake_now = datetime(2025, 1, 16, 1, 0, 0, tzinfo=LIMIT_TIMEZONE)
+        with patch("backend.app.services.sellers.datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            result = _is_open_now(wh)
+            assert result is True  # Should be open — 01:00 is within 00:00-18:00
+
+    def test_before_6am_day_off_correctly_closed(self):
+        """Before 6:00 MSK, if today is a day off, shop is closed."""
+        # Thursday (weekday=3) at 01:00 MSK — Thu is day off
+        wh = {"3": None, "2": {"open": "00:00", "close": "23:59"}}
+        fake_now = datetime(2025, 1, 16, 1, 0, 0, tzinfo=LIMIT_TIMEZONE)
+        with patch("backend.app.services.sellers.datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            result = _is_open_now(wh)
+            assert result is False  # Thursday is day off
+
 
 # ============================================
 # API TESTS: PUT /seller-web/working-hours

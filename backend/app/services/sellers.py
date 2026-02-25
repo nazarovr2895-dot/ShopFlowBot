@@ -53,10 +53,14 @@ def _is_open_now(working_hours: Optional[dict]) -> Optional[bool]:
     Returns None if working_hours is not set (no restrictions — always open).
     Returns False if day off OR current MSK time is outside open-close interval.
     Returns True if within open-close interval.
+
+    Uses actual calendar weekday (not 6 AM boundary) — working hours
+    like 00:00–18:00 on Thursday should be active from midnight Thursday.
     """
     if not working_hours or not isinstance(working_hours, dict):
         return None  # No restrictions
-    weekday = _current_weekday_msk()
+    now = datetime.now(LIMIT_TIMEZONE)
+    weekday = now.weekday()  # actual calendar day, not 6 AM shifted
     day_key = str(weekday)
     # Day not present in config → treat as no restriction for that day
     if day_key not in working_hours:
@@ -71,7 +75,7 @@ def _is_open_now(working_hours: Optional[dict]) -> Optional[bool]:
     if not open_time or not close_time:
         return None
     try:
-        current_time = datetime.now(LIMIT_TIMEZONE).strftime("%H:%M")
+        current_time = now.strftime("%H:%M")
         return open_time <= current_time < close_time
     except (ValueError, TypeError):
         return None
