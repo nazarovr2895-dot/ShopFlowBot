@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
-import { StatusBadge } from '../../../components/ui';
 import { formatItemsInfo, formatAddress, formatPhone, getDaysUntil } from '../../../utils/formatters';
-import { STATUS_LABELS, getStatusVariant, isPickup } from './constants';
+import { STATUS_LABELS, isPickup } from './constants';
 import type { SellerOrder } from '../../../api/sellerClient';
 import './OrderCardCompact.css';
 
@@ -28,6 +27,18 @@ interface OrderCardCompactProps {
   onPriceChange: (value: string) => void;
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'var(--warning)',
+  accepted: 'var(--info)',
+  assembling: 'var(--warning)',
+  in_transit: 'var(--accent)',
+  ready_for_pickup: '#f97316',
+  done: 'var(--success)',
+  completed: 'var(--success)',
+  rejected: 'var(--danger)',
+  cancelled: 'var(--danger)',
+};
+
 export function OrderCardCompact({
   order,
   context,
@@ -43,140 +54,102 @@ export function OrderCardCompact({
 }: OrderCardCompactProps) {
   const pickup = isPickup(order.delivery_type);
   const showPriceEdit = context === 'pending' || context === 'preorder_requests';
+  const statusColor = STATUS_COLORS[order.status] || 'var(--text-tertiary)';
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return '—';
+  const fmtTime = (iso?: string) => {
+    if (!iso) return '';
     try {
       return new Date(iso).toLocaleString('ru-RU', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
+        day: '2-digit', month: '2-digit',
         hour: '2-digit', minute: '2-digit',
       });
-    } catch {
-      return iso;
-    }
+    } catch { return ''; }
   };
 
   return (
     <div className={`occ ${pickup ? 'occ--pickup' : 'occ--delivery'}`}>
-      {/* Header */}
-      <div className="occ__header">
+      {/* Row 1: ID + price + status dot */}
+      <div className="occ__top">
         <Link to={`/orders/${order.id}`} className="occ__id">#{order.id}</Link>
-        <div className="occ__badges">
-          <span className={`occ__delivery-badge ${pickup ? 'occ__delivery-badge--pickup' : 'occ__delivery-badge--delivery'}`}>
-            {pickup ? '📦 Самовывоз' : '🚚 Доставка'}
-          </span>
-          <StatusBadge variant={getStatusVariant(order.status)}>
-            {STATUS_LABELS[order.status] || order.status}
-          </StatusBadge>
-          {order.payment_status === 'succeeded' && (
-            <StatusBadge variant="success">Оплачено</StatusBadge>
-          )}
-          {order.payment_id && order.payment_status !== 'succeeded' && context === 'awaiting_payment' && (
-            <StatusBadge variant="warning">💳 Ожидает</StatusBadge>
-          )}
+        <span className="occ__price">{order.total_price} ₽</span>
+        {order.original_price != null && Math.abs((order.original_price ?? 0) - (order.total_price ?? 0)) > 0.01 && (
+          <span className="occ__price-old">{order.original_price}</span>
+        )}
+        <div className="occ__top-right">
+          {order.payment_status === 'succeeded' && <span className="occ__paid" title="Оплачено">$</span>}
+          <span className="occ__status-dot" style={{ background: statusColor }} title={STATUS_LABELS[order.status] || order.status} />
         </div>
       </div>
 
-      {/* Buyer info */}
+      {/* Row 2: Buyer name + phone */}
       {(order.buyer_fio || order.buyer_phone) && (
         <div className="occ__buyer">
-          {order.buyer_fio && <div className="occ__buyer-name">{order.buyer_fio}</div>}
-          <div className="occ__buyer-phone-row">
-            {order.buyer_phone && <span className="occ__buyer-phone">{formatPhone(order.buyer_phone)}</span>}
-            {order.customer_id && (
-              <Link to={`/customers/${order.customer_id}`} className="occ__buyer-link">Профиль →</Link>
-            )}
-          </div>
+          {order.buyer_fio && <span className="occ__name">{order.buyer_fio}</span>}
+          {order.buyer_phone && <span className="occ__phone">{formatPhone(order.buyer_phone)}</span>}
         </div>
       )}
 
-      {/* Items */}
+      {/* Row 3: Items */}
       <div className="occ__items" title={formatItemsInfo(order.items_info)}>
         {formatItemsInfo(order.items_info)}
       </div>
 
-      {/* Details */}
-      <div className="occ__details">
-        {/* Price */}
-        <div className="occ__price-row">
-          {editingPrice === order.id ? (
-            <span className="occ__price-edit">
-              <input
-                type="number"
-                value={newPrice}
-                onChange={(e) => onPriceChange(e.target.value)}
-                className="form-input occ__price-input"
-              />
-              <button className="btn btn-sm btn-primary" onClick={() => onSavePrice(order.id)}>OK</button>
-              <button className="btn btn-sm btn-secondary" onClick={onCancelPrice}>✕</button>
-            </span>
-          ) : (
-            <>
-              <span className="occ__price">{order.total_price} ₽</span>
-              {order.original_price != null && Math.abs((order.original_price ?? 0) - (order.total_price ?? 0)) > 0.01 && (
-                <span className="occ__price-original">было: {order.original_price} ₽</span>
-              )}
-              {showPriceEdit && (
-                <button
-                  className="btn btn-sm btn-secondary occ__price-change-btn"
-                  onClick={() => onEditPrice(order.id, order.total_price ?? 0)}
-                  title="Укажите итоговую цену перед принятием заказа"
-                >
-                  Изменить
-                </button>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Delivery slot */}
+      {/* Row 4: Meta line — delivery type + slot/address + time */}
+      <div className="occ__meta">
+        <span className={`occ__type ${pickup ? 'occ__type--pickup' : 'occ__type--delivery'}`}>
+          {pickup ? 'Самовывоз' : 'Доставка'}
+        </span>
         {order.delivery_slot_date && order.delivery_slot_start && (
-          <div className="occ__detail-line">
-            <span className="occ__detail-label">📅</span>
-            <span className="occ__detail-value occ__detail-value--accent">
-              {new Date(order.delivery_slot_date).toLocaleDateString('ru-RU')} {order.delivery_slot_start}–{order.delivery_slot_end}
-            </span>
-          </div>
+          <span className="occ__slot">
+            {new Date(order.delivery_slot_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} {order.delivery_slot_start}–{order.delivery_slot_end}
+          </span>
         )}
-
-        {/* Address — hidden for pickup */}
         {!pickup && order.address && (
-          <div className="occ__detail-line">
-            <span className="occ__detail-label">📍</span>
-            <span className="occ__detail-value">{formatAddress(order.address)}</span>
-          </div>
+          <span className="occ__addr" title={formatAddress(order.address)}>{formatAddress(order.address)}</span>
         )}
-
-        {/* Preorder delivery date */}
         {order.is_preorder && order.preorder_delivery_date && (
-          <div className="occ__detail-line">
-            <span className="occ__detail-label">📦</span>
-            <span className="occ__detail-value">
-              Поставка: {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU')}
-              {context === 'preorder_waiting' && (() => {
-                const cd = getDaysUntil(order.preorder_delivery_date);
-                return <span className={cd.className}> — {cd.label}</span>;
-              })()}
-            </span>
-          </div>
+          <span className="occ__slot">
+            Поставка: {new Date(order.preorder_delivery_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+            {context === 'preorder_waiting' && (() => {
+              const cd = getDaysUntil(order.preorder_delivery_date);
+              return <span className={cd.className}> {cd.label}</span>;
+            })()}
+          </span>
         )}
-
-        {/* Points */}
         {(order.points_discount ?? 0) > 0 && (
-          <div className="occ__detail-line">
-            <span className="occ__detail-label">🎁</span>
-            <span className="occ__detail-value occ__detail-value--accent">
-              −{order.points_discount} ₽ ({order.points_used} баллов)
-            </span>
-          </div>
+          <span className="occ__points">−{order.points_discount} ₽ бонус</span>
         )}
-
-        {/* Preorder label */}
-        {order.is_preorder && <span className="occ__preorder-label">Предзаказ</span>}
-
-        {/* Created */}
-        <div className="occ__created">{formatDate(order.created_at)}</div>
+        <span className="occ__time">{fmtTime(order.created_at)}</span>
       </div>
+
+      {/* Price edit (inline, only when editing) */}
+      {editingPrice === order.id && (
+        <div className="occ__price-edit">
+          <input
+            type="number"
+            value={newPrice}
+            onChange={(e) => onPriceChange(e.target.value)}
+            className="form-input occ__price-input"
+          />
+          <button className="btn btn-sm btn-primary" onClick={() => onSavePrice(order.id)}>OK</button>
+          <button className="btn btn-sm btn-secondary" onClick={onCancelPrice}>✕</button>
+        </div>
+      )}
+
+      {/* Price edit trigger for pending */}
+      {showPriceEdit && editingPrice !== order.id && (
+        <button
+          className="occ__edit-price-btn"
+          onClick={() => onEditPrice(order.id, order.total_price ?? 0)}
+        >
+          Изменить цену
+        </button>
+      )}
+
+      {/* Customer profile link */}
+      {order.customer_id && (
+        <Link to={`/customers/${order.customer_id}`} className="occ__profile-link">Профиль клиента</Link>
+      )}
 
       {/* Actions */}
       {renderActions(order, context, pickup, onAccept, onReject, onStatusChange)}
@@ -194,17 +167,10 @@ function renderActions(
 ) {
   const buttons: JSX.Element[] = [];
 
-  if (context === 'pending') {
+  if (context === 'pending' || context === 'preorder_requests') {
     buttons.push(
-      <button key="accept" className="btn btn-sm btn-primary" onClick={() => onAccept?.(order)}>✅ Принять</button>,
-      <button key="reject" className="btn btn-sm btn-secondary" onClick={() => onReject?.(order.id)}>❌ Отклонить</button>,
-    );
-  }
-
-  if (context === 'preorder_requests') {
-    buttons.push(
-      <button key="accept" className="btn btn-sm btn-primary" onClick={() => onAccept?.(order)}>✅ Принять</button>,
-      <button key="reject" className="btn btn-sm btn-secondary" onClick={() => onReject?.(order.id)}>❌ Отклонить</button>,
+      <button key="accept" className="occ__btn occ__btn--primary" onClick={() => onAccept?.(order)}>Принять</button>,
+      <button key="reject" className="occ__btn occ__btn--danger" onClick={() => onReject?.(order.id)}>Отклонить</button>,
     );
   }
 
@@ -212,46 +178,44 @@ function renderActions(
     const cd = getDaysUntil(order.preorder_delivery_date);
     if (cd.days <= 0) {
       buttons.push(
-        <button key="assemble" className="btn btn-sm btn-primary" onClick={() => onStatusChange?.(order.id, 'assembling')}>📦 Собирать</button>,
+        <button key="assemble" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'assembling')}>Собирать</button>,
       );
     }
   }
 
   if (context === 'active') {
     if (!pickup) {
-      // Delivery flow
       if (order.status === 'accepted') {
         buttons.push(
-          <button key="assembling" className="btn btn-sm btn-secondary" onClick={() => onStatusChange?.(order.id, 'assembling')}>📦 Собирается</button>,
-          <button key="in_transit" className="btn btn-sm btn-secondary" onClick={() => onStatusChange?.(order.id, 'in_transit')}>🚚 В пути</button>,
-          <button key="done" className="btn btn-sm btn-primary" onClick={() => onStatusChange?.(order.id, 'done')}>✅ Выполнен</button>,
+          <button key="assembling" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'assembling')}>Сборка</button>,
+          <button key="in_transit" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'in_transit')}>В пути</button>,
+          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
         );
       } else if (order.status === 'assembling') {
         buttons.push(
-          <button key="in_transit" className="btn btn-sm btn-secondary" onClick={() => onStatusChange?.(order.id, 'in_transit')}>🚚 В пути</button>,
-          <button key="done" className="btn btn-sm btn-primary" onClick={() => onStatusChange?.(order.id, 'done')}>✅ Выполнен</button>,
+          <button key="in_transit" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'in_transit')}>В пути</button>,
+          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
         );
       } else if (order.status === 'in_transit') {
         buttons.push(
-          <button key="done" className="btn btn-sm btn-primary" onClick={() => onStatusChange?.(order.id, 'done')}>✅ Выполнен</button>,
+          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
         );
       }
     } else {
-      // Pickup flow
       if (order.status === 'accepted') {
         buttons.push(
-          <button key="assembling" className="btn btn-sm btn-secondary" onClick={() => onStatusChange?.(order.id, 'assembling')}>📦 Собирается</button>,
-          <button key="ready" className="btn btn-sm btn-secondary" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>✅ Готов к выдаче</button>,
-          <button key="done" className="btn btn-sm btn-primary" onClick={() => onStatusChange?.(order.id, 'done')}>✅ Выполнен</button>,
+          <button key="assembling" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'assembling')}>Сборка</button>,
+          <button key="ready" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>К выдаче</button>,
+          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
         );
       } else if (order.status === 'assembling') {
         buttons.push(
-          <button key="ready" className="btn btn-sm btn-secondary" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>✅ Готов к выдаче</button>,
-          <button key="done" className="btn btn-sm btn-primary" onClick={() => onStatusChange?.(order.id, 'done')}>✅ Выполнен</button>,
+          <button key="ready" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>К выдаче</button>,
+          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
         );
       } else if (order.status === 'ready_for_pickup') {
         buttons.push(
-          <button key="done" className="btn btn-sm btn-primary" onClick={() => onStatusChange?.(order.id, 'done')}>✅ Выполнен</button>,
+          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
         );
       }
     }
