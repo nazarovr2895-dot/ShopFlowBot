@@ -403,6 +403,117 @@ async def get_public_sellers(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+class SellerGeoItem(BaseModel):
+    """Seller coordinates for map display."""
+    seller_id: int
+    shop_name: Optional[str] = None
+    geo_lat: Optional[float] = None
+    geo_lon: Optional[float] = None
+    metro_name: Optional[str] = None
+    metro_line_color: Optional[str] = None
+    availability: str = "available"
+    product_count: int = 0
+    min_price: Optional[float] = None
+    delivery_type: Optional[str] = None
+
+
+class MetroGeoItem(BaseModel):
+    """Metro station with coordinates for map display."""
+    id: int
+    name: str
+    geo_lat: Optional[float] = None
+    geo_lon: Optional[float] = None
+    line_color: Optional[str] = None
+    line_name: Optional[str] = None
+
+
+@router.get("/sellers/geo", response_model=List[SellerGeoItem])
+async def get_sellers_geo(
+    city_id: Optional[int] = Query(None, description="Filter by city"),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Lightweight seller coordinates for map display.
+    Returns sellers with geo coordinates (own or metro fallback).
+    """
+    from sqlalchemy import case, literal
+    now = datetime.utcnow()
+    today = _today_6am_date()
+
+    effective_limit_expr = case(
+        (and_(Seller.daily_limit_date == today, Seller.max_orders > 0), Seller.max_orders),
+        else_=func.coalesce(Seller.default_daily_limit, 0),
+    )
+
+    base_conditions = [
+        Seller.is_blocked == False,
+        Seller.deleted_at.is_(None),
+        (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
+        effective_limit_expr > 0,
+        Seller.subscription_plan == "active",
+    ]
+
+    if city_id:
+        base_conditions.append(Seller.city_id == city_id)
+
+    product_stats = (
+        select(
+            Product.seller_id,
+            func.min(Product.price).label("min_price"),
+            func.count(Product.id).label("product_count"),
+        )
+        .where(Product.is_active == True, Product.quantity > 0)
+        .group_by(Product.seller_id)
+        .subquery()
+    )
+
+    available_slots_expr = effective_limit_expr - Seller.active_orders - Seller.pending_requests
+
+    # Effective geo: seller's own coords or metro fallback
+    eff_lat = func.coalesce(Seller.geo_lat, Metro.geo_lat)
+    eff_lon = func.coalesce(Seller.geo_lon, Metro.geo_lon)
+
+    query = (
+        select(
+            Seller.seller_id,
+            Seller.shop_name,
+            eff_lat.label("geo_lat"),
+            eff_lon.label("geo_lon"),
+            Metro.name.label("metro_name"),
+            Metro.line_color.label("metro_line_color"),
+            available_slots_expr.label("available_slots"),
+            func.coalesce(product_stats.c.product_count, 0).label("product_count"),
+            product_stats.c.min_price,
+            Seller.delivery_type,
+        )
+        .outerjoin(Metro, Seller.metro_id == Metro.id)
+        .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
+        .where(and_(*base_conditions))
+        # Only sellers with some coordinates
+        .where(or_(Seller.geo_lat.isnot(None), Metro.geo_lat.isnot(None)))
+    )
+
+    result = await session.execute(query)
+    rows = result.all()
+
+    items = []
+    for row in rows:
+        slots = row.available_slots if row.available_slots else 0
+        items.append(SellerGeoItem(
+            seller_id=row.seller_id,
+            shop_name=row.shop_name,
+            geo_lat=row.geo_lat,
+            geo_lon=row.geo_lon,
+            metro_name=row.metro_name,
+            metro_line_color=row.metro_line_color,
+            availability="available" if slots > 0 else "busy",
+            product_count=row.product_count or 0,
+            min_price=float(row.min_price) if row.min_price else None,
+            delivery_type=_normalize_delivery_type(row.delivery_type),
+        ))
+    return items
+
+
 @router.get("/sellers/{seller_id}", response_model=PublicSellerDetail)
 async def get_public_seller_detail(
     seller_id: int,
@@ -702,115 +813,6 @@ async def get_metro_stations(
     return [MetroResponse(**s) for s in stations_data]
 
 
-class SellerGeoItem(BaseModel):
-    """Seller coordinates for map display."""
-    seller_id: int
-    shop_name: Optional[str] = None
-    geo_lat: Optional[float] = None
-    geo_lon: Optional[float] = None
-    metro_name: Optional[str] = None
-    metro_line_color: Optional[str] = None
-    availability: str = "available"
-    product_count: int = 0
-    min_price: Optional[float] = None
-    delivery_type: Optional[str] = None
-
-
-class MetroGeoItem(BaseModel):
-    """Metro station with coordinates for map display."""
-    id: int
-    name: str
-    geo_lat: Optional[float] = None
-    geo_lon: Optional[float] = None
-    line_color: Optional[str] = None
-    line_name: Optional[str] = None
-
-
-@router.get("/sellers/geo", response_model=List[SellerGeoItem])
-async def get_sellers_geo(
-    city_id: Optional[int] = Query(None, description="Filter by city"),
-    session: AsyncSession = Depends(get_session),
-):
-    """
-    Lightweight seller coordinates for map display.
-    Returns sellers with geo coordinates (own or metro fallback).
-    """
-    from sqlalchemy import case, literal
-    now = datetime.utcnow()
-    today = _today_6am_date()
-
-    effective_limit_expr = case(
-        (and_(Seller.daily_limit_date == today, Seller.max_orders > 0), Seller.max_orders),
-        else_=func.coalesce(Seller.default_daily_limit, 0),
-    )
-
-    base_conditions = [
-        Seller.is_blocked == False,
-        Seller.deleted_at.is_(None),
-        (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
-        effective_limit_expr > 0,
-        Seller.subscription_plan == "active",
-    ]
-
-    if city_id:
-        base_conditions.append(Seller.city_id == city_id)
-
-    product_stats = (
-        select(
-            Product.seller_id,
-            func.min(Product.price).label("min_price"),
-            func.count(Product.id).label("product_count"),
-        )
-        .where(Product.is_active == True, Product.quantity > 0)
-        .group_by(Product.seller_id)
-        .subquery()
-    )
-
-    available_slots_expr = effective_limit_expr - Seller.active_orders - Seller.pending_requests
-
-    # Effective geo: seller's own coords or metro fallback
-    eff_lat = func.coalesce(Seller.geo_lat, Metro.geo_lat)
-    eff_lon = func.coalesce(Seller.geo_lon, Metro.geo_lon)
-
-    query = (
-        select(
-            Seller.seller_id,
-            Seller.shop_name,
-            eff_lat.label("geo_lat"),
-            eff_lon.label("geo_lon"),
-            Metro.name.label("metro_name"),
-            Metro.line_color.label("metro_line_color"),
-            available_slots_expr.label("available_slots"),
-            func.coalesce(product_stats.c.product_count, 0).label("product_count"),
-            product_stats.c.min_price,
-            Seller.delivery_type,
-        )
-        .outerjoin(Metro, Seller.metro_id == Metro.id)
-        .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
-        .where(and_(*base_conditions))
-        # Only sellers with some coordinates
-        .where(or_(Seller.geo_lat.isnot(None), Metro.geo_lat.isnot(None)))
-    )
-
-    result = await session.execute(query)
-    rows = result.all()
-
-    items = []
-    for row in rows:
-        slots = row.available_slots if row.available_slots else 0
-        items.append(SellerGeoItem(
-            seller_id=row.seller_id,
-            shop_name=row.shop_name,
-            geo_lat=row.geo_lat,
-            geo_lon=row.geo_lon,
-            metro_name=row.metro_name,
-            metro_line_color=row.metro_line_color,
-            availability="available" if slots > 0 else "busy",
-            product_count=row.product_count or 0,
-            min_price=float(row.min_price) if row.min_price else None,
-            delivery_type=_normalize_delivery_type(row.delivery_type),
-        ))
-    return items
 
 
 @router.get("/metro/city/{city_id}", response_model=List[MetroGeoItem])
