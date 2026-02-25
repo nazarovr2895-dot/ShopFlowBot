@@ -15,6 +15,7 @@ interface KanbanBoardProps {
   onSavePrice: (orderId: number) => void;
   onCancelPrice: () => void;
   onPriceChange: (value: string) => void;
+  onProductClick?: (productId: number) => void;
 }
 
 function sortOrders(orders: SellerOrder[]): SellerOrder[] {
@@ -41,6 +42,7 @@ export function KanbanBoard({
   onSavePrice,
   onCancelPrice,
   onPriceChange,
+  onProductClick,
 }: KanbanBoardProps) {
   const columns = useMemo(() => {
     return KANBAN_COLUMNS.map((col) => {
@@ -76,6 +78,7 @@ export function KanbanBoard({
                   onSavePrice={onSavePrice}
                   onCancelPrice={onCancelPrice}
                   onPriceChange={onPriceChange}
+                  onProductClick={onProductClick}
                 />
               ))
             )}

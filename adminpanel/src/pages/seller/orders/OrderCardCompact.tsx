@@ -26,6 +26,7 @@ interface OrderCardCompactProps {
   onSavePrice: (orderId: number) => void;
   onCancelPrice: () => void;
   onPriceChange: (value: string) => void;
+  onProductClick?: (productId: number) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -52,6 +53,7 @@ export function OrderCardCompact({
   onSavePrice,
   onCancelPrice,
   onPriceChange,
+  onProductClick,
 }: OrderCardCompactProps) {
   const pickup = isPickup(order.delivery_type);
   const showPriceEdit = context === 'pending' || context === 'preorder_requests';
@@ -107,10 +109,13 @@ export function OrderCardCompact({
         {items.map((item, i) => (
           <Fragment key={i}>
             {i > 0 && ', '}
-            {item.id ? (
-              <Link to={`/catalog?product=${item.id}`} className="occ__item-link">
+            {item.id && onProductClick ? (
+              <span
+                className="occ__item-link"
+                onClick={() => onProductClick(item.id!)}
+              >
                 {item.name}
-              </Link>
+              </span>
             ) : (
               <span>{item.name}</span>
             )}

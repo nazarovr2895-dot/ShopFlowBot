@@ -8,8 +8,10 @@ import {
   updateOrderStatus,
   updateOrderPrice,
   getPreorderSummary,
+  getProducts,
 } from '../../api/sellerClient';
-import type { SellerOrder, PreorderSummary } from '../../api/sellerClient';
+import type { SellerOrder, SellerProduct, PreorderSummary } from '../../api/sellerClient';
+import { ProductEditModal } from '../../components/ProductEditModal';
 import { STATUS_LABELS, STATUS_ACTION_LABELS, isPickup } from './orders/constants';
 import { OrderCardCompact } from './orders/OrderCardCompact';
 import type { CardContext } from './orders/OrderCardCompact';
@@ -46,6 +48,7 @@ export function SellerOrders() {
   const [summary, setSummary] = useState<PreorderSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [previewProduct, setPreviewProduct] = useState<SellerProduct | null>(null);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -180,6 +183,17 @@ export function SellerOrders() {
     }
   };
 
+  const handleProductClick = async (productId: number) => {
+    try {
+      const products = await getProducts();
+      const found = products.find(p => p.id === productId);
+      if (found) setPreviewProduct(found);
+      else toast.warning('Товар не найден');
+    } catch {
+      toast.error('Не удалось загрузить товар');
+    }
+  };
+
   // --- Derived state ---
 
   const isPreorderRequests = activeTab === 'preorder' && preorderSubTab === 'requests';
@@ -239,6 +253,7 @@ export function SellerOrders() {
     onSavePrice: handlePriceChange,
     onCancelPrice: () => { setEditingPrice(null); setNewPrice(''); },
     onPriceChange: setNewPrice,
+    onProductClick: handleProductClick,
   };
 
   return (
@@ -444,6 +459,13 @@ export function SellerOrders() {
           </div>
         )
       )}
+
+      {/* Product preview modal */}
+      <ProductEditModal
+        product={previewProduct}
+        onClose={() => setPreviewProduct(null)}
+        onSaved={() => setPreviewProduct(null)}
+      />
     </div>
   );
 }
