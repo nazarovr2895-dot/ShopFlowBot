@@ -11,7 +11,7 @@ import {
   getProducts,
 } from '../../api/sellerClient';
 import type { SellerOrder, SellerProduct, PreorderSummary } from '../../api/sellerClient';
-import { ProductEditModal } from '../../components/ProductEditModal';
+import { ProductPreviewModal } from './orders/ProductPreviewModal';
 import { STATUS_LABELS, STATUS_ACTION_LABELS, isPickup } from './orders/constants';
 import { OrderCardCompact } from './orders/OrderCardCompact';
 import type { CardContext } from './orders/OrderCardCompact';
@@ -461,10 +461,9 @@ export function SellerOrders() {
       )}
 
       {/* Product preview modal */}
-      <ProductEditModal
+      <ProductPreviewModal
         product={previewProduct}
         onClose={() => setPreviewProduct(null)}
-        onSaved={() => setPreviewProduct(null)}
       />
     </div>
   );
