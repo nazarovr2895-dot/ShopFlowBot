@@ -1,5 +1,6 @@
+import { useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { formatItemsInfo, formatAddress, formatPhone, getDaysUntil } from '../../../utils/formatters';
+import { parseItemsInfo, formatAddress, formatPhone, getDaysUntil } from '../../../utils/formatters';
 import { STATUS_LABELS, isPickup } from './constants';
 import type { SellerOrder } from '../../../api/sellerClient';
 import './OrderCardCompact.css';
@@ -55,6 +56,7 @@ export function OrderCardCompact({
   const pickup = isPickup(order.delivery_type);
   const showPriceEdit = context === 'pending' || context === 'preorder_requests';
   const statusColor = STATUS_COLORS[order.status] || 'var(--text-tertiary)';
+  const [copiedAddr, setCopiedAddr] = useState(false);
 
   const fmtTime = (iso?: string) => {
     if (!iso) return '';
@@ -65,6 +67,17 @@ export function OrderCardCompact({
       });
     } catch { return ''; }
   };
+
+  const handleCopyAddress = () => {
+    const text = formatAddress(order.address);
+    if (text && text !== '\u2014') {
+      navigator.clipboard.writeText(text);
+      setCopiedAddr(true);
+      setTimeout(() => setCopiedAddr(false), 1500);
+    }
+  };
+
+  const items = parseItemsInfo(order.items_info);
 
   return (
     <div className={`occ ${pickup ? 'occ--pickup' : 'occ--delivery'}`}>
@@ -89,9 +102,21 @@ export function OrderCardCompact({
         </div>
       )}
 
-      {/* Row 3: Items */}
-      <div className="occ__items" title={formatItemsInfo(order.items_info)}>
-        {formatItemsInfo(order.items_info)}
+      {/* Row 3: Items (clickable product names) */}
+      <div className="occ__items">
+        {items.map((item, i) => (
+          <Fragment key={i}>
+            {i > 0 && ', '}
+            {item.id ? (
+              <Link to={`/catalog?product=${item.id}`} className="occ__item-link">
+                {item.name}
+              </Link>
+            ) : (
+              <span>{item.name}</span>
+            )}
+            <span className="occ__item-qty"> × {item.qty}</span>
+          </Fragment>
+        ))}
       </div>
 
       {/* Row 4: Meta line — delivery type + slot/address + time */}
@@ -105,7 +130,13 @@ export function OrderCardCompact({
           </span>
         )}
         {!pickup && order.address && (
-          <span className="occ__addr" title={formatAddress(order.address)}>{formatAddress(order.address)}</span>
+          <span
+            className={`occ__addr occ__addr--clickable ${copiedAddr ? 'occ__addr--copied' : ''}`}
+            title="Нажмите чтобы скопировать"
+            onClick={handleCopyAddress}
+          >
+            {copiedAddr ? 'Скопировано!' : formatAddress(order.address)}
+          </span>
         )}
         {order.is_preorder && order.preorder_delivery_date && (
           <span className="occ__slot">
@@ -184,40 +215,29 @@ function renderActions(
   }
 
   if (context === 'active') {
-    if (!pickup) {
-      if (order.status === 'accepted') {
+    // One button per status — next logical step only
+    if (order.status === 'accepted') {
+      buttons.push(
+        <button key="assembling" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'assembling')}>Сборка</button>,
+      );
+    } else if (order.status === 'assembling') {
+      if (!pickup) {
         buttons.push(
-          <button key="assembling" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'assembling')}>Сборка</button>,
-          <button key="in_transit" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'in_transit')}>В пути</button>,
-          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
+          <button key="in_transit" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'in_transit')}>В пути</button>,
         );
-      } else if (order.status === 'assembling') {
+      } else {
         buttons.push(
-          <button key="in_transit" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'in_transit')}>В пути</button>,
-          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
-        );
-      } else if (order.status === 'in_transit') {
-        buttons.push(
-          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
+          <button key="ready" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>К выдаче</button>,
         );
       }
-    } else {
-      if (order.status === 'accepted') {
-        buttons.push(
-          <button key="assembling" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'assembling')}>Сборка</button>,
-          <button key="ready" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>К выдаче</button>,
-          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
-        );
-      } else if (order.status === 'assembling') {
-        buttons.push(
-          <button key="ready" className="occ__btn" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>К выдаче</button>,
-          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
-        );
-      } else if (order.status === 'ready_for_pickup') {
-        buttons.push(
-          <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
-        );
-      }
+    } else if (order.status === 'in_transit') {
+      buttons.push(
+        <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
+      );
+    } else if (order.status === 'ready_for_pickup') {
+      buttons.push(
+        <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
+      );
     }
   }
 

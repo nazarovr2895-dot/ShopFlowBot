@@ -90,6 +90,21 @@ export function formatItemsInfo(itemsInfo: string): string {
     .replace(/x\s*/g, ' \u00D7 ');
 }
 
+/** Parse items_info into structured array with product IDs for clickable links */
+export function parseItemsInfo(itemsInfo: string): Array<{ id: number | null; name: string; qty: string }> {
+  // format: "123:Rose@8000.0 x 2, 456:Tulip@5200.0 x 1"
+  // legacy: "Rose x 2, Tulip x 1"
+  return itemsInfo.split(',').map(part => {
+    const trimmed = part.trim();
+    const idMatch = trimmed.match(/^(\d+):/);
+    const id = idMatch ? parseInt(idMatch[1], 10) : null;
+    const withoutId = trimmed.replace(/^\d+:/, '');
+    const withoutPrice = withoutId.replace(/@[\d.]+/, '');
+    const [name, qty] = withoutPrice.split(/\s*x\s*/i);
+    return { id, name: name.trim(), qty: qty?.trim() || '1' };
+  });
+}
+
 /** Strip phone/name lines from concatenated address */
 export function formatAddress(address?: string | null): string {
   if (!address) return '\u2014';
