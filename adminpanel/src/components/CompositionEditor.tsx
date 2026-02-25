@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react';
 import type { CompositionItem } from '../api/sellerClient';
 import './CompositionEditor.css';
 
@@ -34,48 +35,63 @@ export function CompositionEditor({ items, onChange, className }: CompositionEdi
   };
 
   return (
-    <div className={`composition-editor${className ? ` ${className}` : ''}`}>
-      <label className="form-field-label">Состав</label>
+    <div className={`ce${className ? ` ${className}` : ''}`}>
+      <div className="ce__header">
+        <label className="ce__title">Состав</label>
+        <span className="ce__subtitle">Укажите цветы и материалы</span>
+      </div>
+
       {items.map((item, i) => (
-        <div key={i} className="composition-editor__row">
-          <input
-            type="text"
-            className="form-input composition-editor__name"
-            placeholder="Название"
-            value={item.name}
-            onChange={(e) => update(i, 'name', e.target.value)}
-          />
-          <input
-            type="number"
-            className="form-input composition-editor__qty"
-            placeholder="Кол-во"
-            min={0}
-            step="any"
-            value={item.qty ?? ''}
-            onChange={(e) => update(i, 'qty', e.target.value)}
-          />
-          <select
-            className="form-input composition-editor__unit"
-            value={item.unit ?? ''}
-            onChange={(e) => update(i, 'unit', e.target.value)}
-          >
-            <option value="">—</option>
-            {UNITS.map((u) => (
-              <option key={u} value={u}>{u}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="btn btn-sm composition-editor__remove"
-            onClick={() => remove(i)}
-            aria-label="Удалить"
-          >
-            &times;
-          </button>
+        <div key={i} className="ce-item">
+          <div className="ce-item__top">
+            <input
+              type="text"
+              className="ce-item__name"
+              placeholder="Название ингредиента"
+              value={item.name}
+              onChange={(e) => update(i, 'name', e.target.value)}
+            />
+            <button
+              type="button"
+              className="ce-item__remove"
+              onClick={() => remove(i)}
+              aria-label="Удалить"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+          <div className="ce-item__bottom">
+            <div className="ce-item__field">
+              <span className="ce-item__label">Кол-во</span>
+              <input
+                type="number"
+                className="ce-item__qty"
+                placeholder="—"
+                min={0}
+                step="any"
+                value={item.qty ?? ''}
+                onChange={(e) => update(i, 'qty', e.target.value)}
+              />
+            </div>
+            <div className="ce-item__field">
+              <span className="ce-item__label">Ед.</span>
+              <select
+                className="ce-item__unit"
+                value={item.unit ?? ''}
+                onChange={(e) => update(i, 'unit', e.target.value)}
+              >
+                <option value="">—</option>
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       ))}
-      <button type="button" className="btn btn-sm btn-secondary" onClick={add}>
-        + Добавить
+
+      <button type="button" className="ce-add" onClick={add}>
+        + Добавить ингредиент
       </button>
     </div>
   );

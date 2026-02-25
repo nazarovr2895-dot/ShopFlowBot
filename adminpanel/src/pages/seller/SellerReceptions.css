@@ -28,7 +28,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .flower-item:last-child {
@@ -73,13 +73,30 @@
   opacity: 0.65;
 }
 
-/* --- Reception header --- */
+/* --- Reception header (two-row layout) --- */
 
 .reception-header {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.reception-header__top {
+  display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.reception-header__bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -91,7 +108,7 @@
 .reception-status-badge {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-1) var(--space-2);
+  padding: 2px var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--warning);
   color: #fff;
@@ -101,7 +118,7 @@
 
 .reception-meta {
   color: var(--text-tertiary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
 /* --- Sections --- */
@@ -130,23 +147,40 @@
 .reception-items-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
 .reception-items-table th,
 .reception-items-table td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-2);
   text-align: left;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .reception-items-table th {
   font-weight: 600;
-  background: var(--bg-surface);
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--bg);
+  white-space: nowrap;
+}
+
+.reception-items-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.reception-items-table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.04);
 }
 
 .reception-items-table tr.row-expiring {
-  background: rgba(255, 193, 7, 0.12);
+  background: rgba(255, 193, 7, 0.08);
+}
+
+.reception-items-table tr.row-expiring:hover {
+  background: rgba(255, 193, 7, 0.14);
 }
 
 .reception-items-table tr.row-expiring td:nth-child(7) {
@@ -167,21 +201,26 @@
 /* Actions cell in table */
 
 .actions-cell {
-  white-space: nowrap;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
 }
 
 .actions-cell .btn {
-  margin-right: var(--space-1);
-}
-
-.actions-cell .btn:last-child {
   margin-right: 0;
 }
 
-/* Write-off button */
+/* Warning button — fixed visibility */
 
 .btn-warning {
+  background: rgba(245, 158, 11, 0.15);
   color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.btn-warning:hover {
+  background: rgba(245, 158, 11, 0.25);
 }
 
 /* --- Write-off modal content --- */

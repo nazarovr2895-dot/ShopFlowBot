@@ -559,29 +559,33 @@ export function SellerReceptions() {
         {selectedReception && (
           <>
             <div className="reception-header">
-              <strong>{selectedReception.name}</strong>
-              {selectedReception.reception_date && (
-                <span className="reception-date">{selectedReception.reception_date}</span>
-              )}
-              {selectedReception.is_closed && <span className="reception-status-badge">Закрыта</span>}
-              {selectedReception.supplier && <span className="reception-meta">Поставщик: {selectedReception.supplier}</span>}
-              {selectedReception.invoice_number && <span className="reception-meta">Накладная: {selectedReception.invoice_number}</span>}
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleToggleReceptionClosed}
-              >
-                {selectedReception.is_closed ? 'Открыть приёмку' : 'Закрыть приёмку'}
-              </button>
-              {!selectedReception.is_closed && (
+              <div className="reception-header__top">
+                <strong>{selectedReception.name}</strong>
+                {selectedReception.reception_date && (
+                  <span className="reception-date">{selectedReception.reception_date}</span>
+                )}
+                {selectedReception.is_closed && <span className="reception-status-badge">Закрыта</span>}
+              </div>
+              <div className="reception-header__bottom">
+                {selectedReception.supplier && <span className="reception-meta">Поставщик: {selectedReception.supplier}</span>}
+                {selectedReception.invoice_number && <span className="reception-meta">Накладная: {selectedReception.invoice_number}</span>}
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => setShowAddItem(true)}
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleToggleReceptionClosed}
                 >
-                  Добавить позицию
+                  {selectedReception.is_closed ? 'Открыть приёмку' : 'Закрыть приёмку'}
                 </button>
-              )}
+                {!selectedReception.is_closed && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setShowAddItem(true)}
+                  >
+                    Добавить позицию
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="reception-items-wrap">
