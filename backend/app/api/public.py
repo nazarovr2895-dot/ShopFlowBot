@@ -95,6 +95,8 @@ class PublicSellerDetail(BaseModel):
     metro_name: Optional[str]
     metro_walk_minutes: Optional[int] = None
     metro_line_color: Optional[str] = None
+    geo_lat: Optional[float] = None
+    geo_lon: Optional[float] = None
     available_slots: int
     availability: str = "available"  # "available" | "busy" | "unavailable"
     delivery_slots: Optional[int] = None
@@ -419,6 +421,8 @@ async def get_public_seller_detail(
             District.name.label("district_name"),
             Metro.name.label("metro_name"),
             Metro.line_color.label("metro_line_color"),
+            Metro.geo_lat.label("metro_geo_lat"),
+            Metro.geo_lon.label("metro_geo_lon"),
             User.username.label("owner_username"),
             User.fio.label("owner_fio"),
         )
@@ -580,6 +584,12 @@ async def get_public_seller_detail(
 
     delivery_type_normalized = _normalize_delivery_type(seller.delivery_type)
 
+    # Geo: prefer seller's own coords, fallback to metro station coords
+    seller_geo_lat = getattr(seller, "geo_lat", None)
+    seller_geo_lon = getattr(seller, "geo_lon", None)
+    effective_lat = seller_geo_lat if seller_geo_lat is not None else row.metro_geo_lat
+    effective_lon = seller_geo_lon if seller_geo_lon is not None else row.metro_geo_lon
+
     return PublicSellerDetail(
         seller_id=seller.seller_id,
         shop_name=seller.shop_name,
@@ -595,6 +605,8 @@ async def get_public_seller_detail(
         metro_name=row.metro_name,
         metro_walk_minutes=seller.metro_walk_minutes,
         metro_line_color=row.metro_line_color,
+        geo_lat=effective_lat,
+        geo_lon=effective_lon,
         available_slots=available_slots,
         availability=availability,
         delivery_slots=d_slots,
@@ -688,6 +700,143 @@ async def get_metro_stations(
     await cache.set_metro(district_id, stations_data)
     
     return [MetroResponse(**s) for s in stations_data]
+
+
+class SellerGeoItem(BaseModel):
+    """Seller coordinates for map display."""
+    seller_id: int
+    shop_name: Optional[str] = None
+    geo_lat: Optional[float] = None
+    geo_lon: Optional[float] = None
+    metro_name: Optional[str] = None
+    metro_line_color: Optional[str] = None
+    availability: str = "available"
+    product_count: int = 0
+    min_price: Optional[float] = None
+    delivery_type: Optional[str] = None
+
+
+class MetroGeoItem(BaseModel):
+    """Metro station with coordinates for map display."""
+    id: int
+    name: str
+    geo_lat: Optional[float] = None
+    geo_lon: Optional[float] = None
+    line_color: Optional[str] = None
+    line_name: Optional[str] = None
+
+
+@router.get("/sellers/geo", response_model=List[SellerGeoItem])
+async def get_sellers_geo(
+    city_id: Optional[int] = Query(None, description="Filter by city"),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Lightweight seller coordinates for map display.
+    Returns sellers with geo coordinates (own or metro fallback).
+    """
+    from sqlalchemy import case, literal
+    now = datetime.utcnow()
+    today = _today_6am_date()
+
+    effective_limit_expr = case(
+        (and_(Seller.daily_limit_date == today, Seller.max_orders > 0), Seller.max_orders),
+        else_=func.coalesce(Seller.default_daily_limit, 0),
+    )
+
+    base_conditions = [
+        Seller.is_blocked == False,
+        Seller.deleted_at.is_(None),
+        (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
+        effective_limit_expr > 0,
+        Seller.subscription_plan == "active",
+    ]
+
+    if city_id:
+        base_conditions.append(Seller.city_id == city_id)
+
+    product_stats = (
+        select(
+            Product.seller_id,
+            func.min(Product.price).label("min_price"),
+            func.count(Product.id).label("product_count"),
+        )
+        .where(Product.is_active == True, Product.quantity > 0)
+        .group_by(Product.seller_id)
+        .subquery()
+    )
+
+    available_slots_expr = effective_limit_expr - Seller.active_orders - Seller.pending_requests
+
+    # Effective geo: seller's own coords or metro fallback
+    eff_lat = func.coalesce(Seller.geo_lat, Metro.geo_lat)
+    eff_lon = func.coalesce(Seller.geo_lon, Metro.geo_lon)
+
+    query = (
+        select(
+            Seller.seller_id,
+            Seller.shop_name,
+            eff_lat.label("geo_lat"),
+            eff_lon.label("geo_lon"),
+            Metro.name.label("metro_name"),
+            Metro.line_color.label("metro_line_color"),
+            available_slots_expr.label("available_slots"),
+            func.coalesce(product_stats.c.product_count, 0).label("product_count"),
+            product_stats.c.min_price,
+            Seller.delivery_type,
+        )
+        .outerjoin(Metro, Seller.metro_id == Metro.id)
+        .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
+        .where(and_(*base_conditions))
+        # Only sellers with some coordinates
+        .where(or_(Seller.geo_lat.isnot(None), Metro.geo_lat.isnot(None)))
+    )
+
+    result = await session.execute(query)
+    rows = result.all()
+
+    items = []
+    for row in rows:
+        slots = row.available_slots if row.available_slots else 0
+        items.append(SellerGeoItem(
+            seller_id=row.seller_id,
+            shop_name=row.shop_name,
+            geo_lat=row.geo_lat,
+            geo_lon=row.geo_lon,
+            metro_name=row.metro_name,
+            metro_line_color=row.metro_line_color,
+            availability="available" if slots > 0 else "busy",
+            product_count=row.product_count or 0,
+            min_price=float(row.min_price) if row.min_price else None,
+            delivery_type=_normalize_delivery_type(row.delivery_type),
+        ))
+    return items
+
+
+@router.get("/metro/city/{city_id}", response_model=List[MetroGeoItem])
+async def get_metro_by_city(
+    city_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """All metro stations in a city with coordinates (for map display)."""
+    query = (
+        select(Metro)
+        .where(Metro.city_id == city_id, Metro.geo_lat.isnot(None))
+        .order_by(Metro.name)
+    )
+    result = await session.execute(query)
+    stations = result.scalars().all()
+    return [
+        MetroGeoItem(
+            id=s.id,
+            name=s.name,
+            geo_lat=s.geo_lat,
+            geo_lon=s.geo_lon,
+            line_color=s.line_color,
+            line_name=s.line_name,
+        )
+        for s in stations
+    ]
 
 
 @router.get("/cities", response_model=List[CityResponse])

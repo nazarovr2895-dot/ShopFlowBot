@@ -81,6 +81,9 @@ class Seller(Base):
     slot_days_ahead: Mapped[int] = mapped_column(Integer, default=3)  # Days ahead to show (1-7)
     min_slot_lead_minutes: Mapped[int] = mapped_column(Integer, default=120)  # Min advance booking (minutes)
     slot_duration_minutes: Mapped[int] = mapped_column(Integer, default=120)  # Slot length: 60/90/120/180
+    # Geo coordinates for map display (fallback: Metro.geo_lat/geo_lon)
+    geo_lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    geo_lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

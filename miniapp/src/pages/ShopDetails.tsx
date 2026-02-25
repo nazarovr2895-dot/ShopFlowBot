@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import type { PublicSellerDetail, Product } from '../types';
 import { api } from '../api/client';
@@ -8,7 +8,10 @@ import { useShopCart } from '../contexts/ShopCartContext';
 import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal, LiquidGlassCard } from '../components';
 import { FloatingCartBar } from '../components/FloatingCartBar';
 import { ShopCartPanel } from '../components/ShopCartPanel';
+import { getYmapsApiKey } from '../api/ymapsConfig';
 import './ShopDetails.css';
+
+const MiniMap = lazy(() => import('../components/map/MiniMap').then(m => ({ default: m.MiniMap })));
 
 type ProductTab = 'regular' | 'preorder';
 
@@ -561,25 +564,41 @@ export function ShopDetails() {
           </div>
         )}
         {hasPickup && seller.address_name && (
-          <div className="shop-details__info-line">
-            <AddressIcon />
-            <span className="shop-details__info-line-text">{seller.address_name}</span>
-            {showMapButton && (
-              <a
-                href={seller.map_url!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shop-details__map-link-inline"
-                aria-label="Открыть на карте"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                На карте
-              </a>
+          <>
+            <div className="shop-details__info-line">
+              <AddressIcon />
+              <span className="shop-details__info-line-text">{seller.address_name}</span>
+              {/* Fallback link when no inline map available */}
+              {showMapButton && !(seller.geo_lat && seller.geo_lon && getYmapsApiKey()) && (
+                <a
+                  href={seller.map_url!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shop-details__map-link-inline"
+                  aria-label="Открыть на карте"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  На карте
+                </a>
+              )}
+            </div>
+            {/* Inline mini-map when coordinates available */}
+            {seller.geo_lat && seller.geo_lon && getYmapsApiKey() && (
+              <div style={{ marginTop: 8 }}>
+                <Suspense fallback={<div style={{ height: 150, borderRadius: 12, background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)' }} />}>
+                  <MiniMap
+                    lat={seller.geo_lat}
+                    lon={seller.geo_lon}
+                    name={seller.shop_name || ''}
+                    markerColor={seller.metro_line_color}
+                  />
+                </Suspense>
+              </div>
             )}
-          </div>
+          </>
         )}
         <div className="shop-details__info-line">
           <DeliveryIcon />

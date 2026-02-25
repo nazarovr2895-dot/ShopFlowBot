@@ -14,15 +14,17 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build argument for API URL
+# Build arguments
 ARG VITE_API_URL
 ARG VITE_BOT_USERNAME
+ARG VITE_YANDEX_MAPS_KEY
 
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_BOT_USERNAME=$VITE_BOT_USERNAME
+ENV VITE_YANDEX_MAPS_KEY=$VITE_YANDEX_MAPS_KEY
 
-# Ensure config.json has API URL at build time so production never has empty base (fixes product images in Telegram)
-RUN echo "{\"apiUrl\":\"${VITE_API_URL}\"}" > public/config.json
+# Ensure config.json has API URL and Yandex Maps key at build time
+RUN echo "{\"apiUrl\":\"${VITE_API_URL}\",\"ymapsApiKey\":\"${VITE_YANDEX_MAPS_KEY}\"}" > public/config.json
 
 # Build the app
 RUN npm run build

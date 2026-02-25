@@ -14,6 +14,7 @@ import {
   GuestOrderConfirmation,
   TermsPage,
   PrivacyPage,
+  SellersMapPage,
 } from './pages';
 import { ShopCartProvider } from './contexts/ShopCartContext';
 import { MainLayout, RequireAuth, ToastProvider, DesktopShell, PrivacyConsentModal } from './components';
@@ -122,6 +123,9 @@ function AppContent() {
         <Route path="/shop/:sellerId" element={<ShopCartProvider><ShopDetails /></ShopCartProvider>} />
         <Route path="/shop/:sellerId/product/:productId" element={<ShopCartProvider><ProductDetail /></ShopCartProvider>} />
         <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
+
+        {/* Map */}
+        <Route path="/map" element={<SellersMapPage />} />
 
         {/* Legal pages */}
         <Route path="/terms" element={<TermsPage />} />

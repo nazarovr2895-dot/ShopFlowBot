@@ -176,6 +176,8 @@ export interface PublicSellerDetail {
   metro_name: string | null;
   metro_walk_minutes?: number;
   metro_line_color?: string;
+  geo_lat?: number | null;
+  geo_lon?: number | null;
   available_slots: number;
   availability?: 'available' | 'busy' | 'unavailable';
   delivery_slots?: number | null;
@@ -206,6 +208,29 @@ export interface PublicSellersResponse {
   total: number;
   page: number;
   per_page: number;
+}
+
+// Geo types (map)
+export interface SellerGeoItem {
+  seller_id: number;
+  shop_name: string | null;
+  geo_lat: number | null;
+  geo_lon: number | null;
+  metro_name: string | null;
+  metro_line_color: string | null;
+  availability: 'available' | 'busy';
+  product_count: number;
+  min_price: number | null;
+  delivery_type: 'delivery' | 'pickup' | 'both' | null;
+}
+
+export interface MetroGeoItem {
+  id: number;
+  name: string;
+  geo_lat: number | null;
+  geo_lon: number | null;
+  line_color: string | null;
+  line_name: string | null;
 }
 
 // Filter types

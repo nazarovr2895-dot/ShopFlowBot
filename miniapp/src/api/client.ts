@@ -10,6 +10,8 @@ import type {
   VisitedSeller,
   FavoriteProduct,
   BuyerOrder,
+  SellerGeoItem,
+  MetroGeoItem,
 } from '../types';
 
 // API base URL: сначала runtime (config.json), иначе из сборки (VITE_API_URL)
@@ -273,6 +275,16 @@ class ApiClient {
   async searchMetroStations(query: string): Promise<Metro[]> {
     const params = new URLSearchParams({ q: query });
     return this.fetch<Metro[]>(`/public/metro/search?${params.toString()}`);
+  }
+
+  // Geo API (map)
+  async getSellersGeo(cityId?: number): Promise<SellerGeoItem[]> {
+    const params = cityId ? `?city_id=${cityId}` : '';
+    return this.fetchPublic<SellerGeoItem[]>(`/public/sellers/geo${params}`);
+  }
+
+  async getMetroStationsByCity(cityId: number): Promise<MetroGeoItem[]> {
+    return this.fetchPublic<MetroGeoItem[]>(`/public/metro/city/${cityId}`);
   }
 
   // Sellers API

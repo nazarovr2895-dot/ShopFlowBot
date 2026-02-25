@@ -12,3 +12,4 @@ export { GuestCheckout } from './GuestCheckout';
 export { GuestOrderConfirmation } from './GuestOrderConfirmation';
 export { TermsPage } from './TermsPage';
 export { PrivacyPage } from './PrivacyPage';
+export { SellersMapPage } from './SellersMapPage';
