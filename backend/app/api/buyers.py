@@ -715,6 +715,32 @@ async def cancel_order(
         result = await order_service.cancel_order(order_id, current_user.user.id)
         await session.commit()
 
+        # Auto-refund if order was paid
+        order_obj = await session.get(Order, order_id)
+        if order_obj and order_obj.payment_status == "succeeded":
+            try:
+                from backend.app.services.payment import PaymentService
+                pay_svc = PaymentService(session)
+                await pay_svc.refund_payment(order_id)
+                await session.commit()
+                from backend.app.services.telegram_notify import (
+                    notify_buyer_payment_refunded, notify_seller_payment_refunded,
+                )
+                refund_amt = result.get("total_price", 0)
+                if order_obj.buyer_id:
+                    await notify_buyer_payment_refunded(
+                        order_obj.buyer_id, order_id, order_obj.seller_id, refund_amt,
+                    )
+                await notify_seller_payment_refunded(
+                    order_obj.seller_id, order_id, refund_amt,
+                )
+            except Exception as refund_err:
+                logger.warning(
+                    "Auto-refund failed for cancelled order",
+                    order_id=order_id,
+                    error=str(refund_err),
+                )
+
         # Notify seller about cancellation
         is_preorder = result.get("is_preorder", False)
         if is_preorder:

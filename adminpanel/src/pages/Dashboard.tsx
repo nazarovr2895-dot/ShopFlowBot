@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAdminDashboard } from '../api/adminClient';
 import type { AdminDashboardData } from '../types';
 import { SalesChart } from '../components/SalesChart';
 import {
   TrendingUp, TrendingDown, Clock, AlertTriangle,
-  ShoppingBag, Truck, CheckCircle, XCircle, Users, Store,
+  ShoppingBag, Truck, CheckCircle, XCircle, Users, Store, RefreshCw,
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -39,19 +39,23 @@ export function Dashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const result = await getAdminDashboard();
-        setData(result);
-      } catch {
-        setData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const result = await getAdminDashboard();
+      setData(result);
+    } catch {
+      if (!silent) setData(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(() => loadData(true), 60_000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -83,7 +87,12 @@ export function Dashboard() {
       <div className="dash-header">
         <div>
           <h1 className="dash-title">Дашборд</h1>
-          <p className="dash-subtitle">Обзор платформы в реальном времени</p>
+          <div className="dash-subtitle-row">
+            <p className="dash-subtitle">Обзор платформы</p>
+            <button className="dash-refresh-btn" onClick={() => loadData(true)} title="Обновить">
+              <RefreshCw size={14} />
+            </button>
+          </div>
         </div>
         <div className="dash-totals">
           <div className="dash-total-item">

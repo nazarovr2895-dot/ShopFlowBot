@@ -51,6 +51,29 @@
   margin: var(--space-1) 0 0;
 }
 
+.dash-subtitle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: var(--space-1) 0 0;
+}
+.dash-subtitle-row .dash-subtitle { margin: 0; }
+
+.dash-refresh-btn {
+  background: none;
+  border: 1px solid var(--border, #444);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text-secondary, #aaa);
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+.dash-refresh-btn:hover {
+  color: var(--text-primary, #fff);
+}
+
 .dash-totals {
   display: flex;
   gap: var(--space-4);

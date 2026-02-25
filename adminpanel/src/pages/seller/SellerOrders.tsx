@@ -10,6 +10,7 @@ import {
   getPreorderSummary,
 } from '../../api/sellerClient';
 import type { SellerOrder, PreorderSummary } from '../../api/sellerClient';
+import { formatItemsInfo, formatAddress, getDaysUntil } from '../../utils/formatters';
 import './SellerOrders.css';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,13 +25,16 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Отменён',
 };
 
+const STATUS_ACTION_LABELS: Record<string, string> = {
+  assembling: 'Начать сборку заказа?',
+  in_transit: 'Отправить заказ в доставку?',
+  ready_for_pickup: 'Отметить заказ как готовый к выдаче?',
+  done: 'Завершить заказ? Это действие необратимо.',
+};
+
 type MainTab = 'pending' | 'awaiting_payment' | 'active' | 'history' | 'cancelled' | 'preorder';
 type PreorderSubTab = 'requests' | 'waiting' | 'dashboard';
 type DeliveryFilter = 'all' | 'pickup' | 'delivery';
-
-function formatItemsInfo(itemsInfo: string): string {
-  return itemsInfo.replace(/\d+:/g, '').replace(/x\s*/g, ' × ');
-}
 
 function getStatusVariant(status: string): 'success' | 'danger' | 'warning' | 'info' | 'neutral' {
   if (['done', 'completed'].includes(status)) return 'success';
@@ -56,22 +60,6 @@ function DeliveryBadge({ type }: { type?: string }) {
     return <span className="delivery-badge delivery-badge--delivery">🚚 Доставка</span>;
   }
   return null;
-}
-
-/** Days-until countdown helper */
-function getDaysUntil(dateStr: string): { days: number; label: string; className: string } {
-  const target = new Date(dateStr);
-  const now = new Date();
-  // Compare dates only (strip time)
-  const targetDate = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffMs = targetDate.getTime() - today.getTime();
-  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-  if (days < 0) return { days, label: `${Math.abs(days)} дн. назад`, className: 'waiting-countdown waiting-countdown--overdue' };
-  if (days === 0) return { days, label: 'Сегодня — готов к сборке!', className: 'waiting-countdown waiting-countdown--today' };
-  if (days === 1) return { days, label: 'Завтра!', className: 'waiting-countdown waiting-countdown--tomorrow' };
-  return { days, label: `через ${days} дн.`, className: 'waiting-countdown' };
 }
 
 export function SellerOrders() {
@@ -193,6 +181,8 @@ export function SellerOrders() {
   };
 
   const handleStatusChange = async (orderId: number, status: string) => {
+    const msg = STATUS_ACTION_LABELS[status] || `Сменить статус на "${STATUS_LABELS[status] || status}"?`;
+    if (!await confirm({ message: msg })) return;
     try {
       await updateOrderStatus(orderId, status);
       loadOrders();
@@ -311,7 +301,7 @@ export function SellerOrders() {
           }
         />
         <DataRow label="Доставка" value={isPickup(order.delivery_type) ? 'Самовывоз' : 'Доставка'} />
-        <DataRow label="Адрес" value={order.address} />
+        <DataRow label="Адрес" value={formatAddress(order.address)} />
         {order.delivery_slot_date && order.delivery_slot_start && (
           <DataRow
             label="Время доставки"

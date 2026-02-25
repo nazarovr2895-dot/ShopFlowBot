@@ -412,6 +412,30 @@ async def notify_seller_payment_received(
     return await _send_telegram_message(seller_id, text)
 
 
+async def notify_buyer_payment_refunded(
+    buyer_id: int,
+    order_id: int,
+    seller_id: int,
+    refund_amount: float,
+) -> bool:
+    """Notify buyer that their payment is being refunded."""
+    text = f"💸 Возврат средств по заказу #{order_id}\n\n"
+    text += f"Сумма {refund_amount:.0f} ₽ будет возвращена на карту в течение нескольких дней."
+    reply_markup = _order_notification_keyboard(order_id, seller_id)
+    return await _send_telegram_message(buyer_id, text, reply_markup=reply_markup)
+
+
+async def notify_seller_payment_refunded(
+    seller_id: int,
+    order_id: int,
+    refund_amount: float,
+) -> bool:
+    """Notify seller that a refund was issued for an order."""
+    text = f"💸 Возврат средств по заказу #{order_id} ({refund_amount:.0f} ₽)\n\n"
+    text += "Средства будут возвращены покупателю."
+    return await _send_telegram_message(seller_id, text)
+
+
 # --- Subscription notifications ---
 
 

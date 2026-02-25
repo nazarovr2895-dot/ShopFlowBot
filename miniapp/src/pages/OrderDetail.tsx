@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { Loader, EmptyState, DesktopBackNav } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isTelegram } from '../utils/environment';
+import { parseItemsDisplay, formatDeliveryAddress } from '../utils/formatters';
 import './OrderDetail.css';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -65,21 +66,6 @@ function getStepIndex(status: string, deliveryType: string): number {
   const steps = getStepperSteps(deliveryType);
   const idx = steps.findIndex((s) => s.key === status);
   return idx >= 0 ? idx : -1;
-}
-
-/** Strip product IDs from items_info: "123:Розы x 2" -> "Розы x 2" */
-function parseItemsDisplay(itemsInfo: string): string {
-  return itemsInfo.replace(/\d+:/g, '');
-}
-
-/** Strip phone/name lines from address (they were concatenated during checkout) */
-function formatDeliveryAddress(address: string | null): string {
-  if (!address) return '—';
-  return address
-    .split('\n')
-    .filter(line => !line.startsWith('📞') && !line.startsWith('👤'))
-    .join('\n')
-    .trim() || '—';
 }
 
 const formatPrice = (n: number) =>
@@ -443,7 +429,7 @@ export function OrderDetail() {
             </button>
           )}
 
-        {canConfirm && (
+        {canConfirm && (!order.payment_id || order.payment_status === 'succeeded') && (
           <button
             type="button"
             className="order-detail__action-btn order-detail__action-btn--primary"

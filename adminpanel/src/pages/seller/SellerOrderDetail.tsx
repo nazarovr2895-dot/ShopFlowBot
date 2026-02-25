@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getOrder } from '../../api/sellerClient';
 import type { SellerOrderDetail as SellerOrderDetailType } from '../../api/sellerClient';
+import { formatItemsInfo, formatAddress } from '../../utils/formatters';
 import './SellerOrders.css';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -14,10 +15,6 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Завершён',
   rejected: 'Отклонён',
 };
-
-function formatItemsInfo(itemsInfo: string): string {
-  return itemsInfo.replace(/\d+:/g, '').replace(/x\s*/g, ' × ');
-}
 
 function formatDate(iso?: string | null): string {
   if (!iso) return '—';
@@ -87,7 +84,7 @@ export function SellerOrderDetail() {
           </div>
           {order.address && (
             <div className="print-address">
-              <strong>Адрес:</strong> {order.address}
+              <strong>Адрес:</strong> {formatAddress(order.address)}
             </div>
           )}
           <div className="print-items">
@@ -134,7 +131,7 @@ export function SellerOrderDetail() {
           )}
           <h3>Доставка</h3>
           <p><strong>Способ:</strong> {deliveryLabel}</p>
-          {order.address && <p><strong>Адрес:</strong> {order.address}</p>}
+          {order.address && <p><strong>Адрес:</strong> {formatAddress(order.address)}</p>}
           <p className="order-date"><strong>Создан:</strong> {formatDate(order.created_at)}</p>
           {order.completed_at && (
             <p className="order-date"><strong>Завершён:</strong> {formatDate(order.completed_at)}</p>

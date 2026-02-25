@@ -42,6 +42,7 @@ if [ -n "$BACKEND_CHANGES" ]; then
              backend/tests/test_buyers.py \
              backend/tests/test_seller_web.py \
              backend/tests/test_services.py \
+             backend/tests/test_payments.py \
              -q --tb=short; then
         echo ""
         echo "✅ Все тесты прошли успешно!"

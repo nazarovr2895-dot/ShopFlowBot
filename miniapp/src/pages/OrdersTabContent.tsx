@@ -4,6 +4,7 @@ import type { BuyerOrder } from '../types';
 import { api } from '../api/client';
 import { Loader, EmptyState, ProductImage } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
+import { parseItemsDisplay } from '../utils/formatters';
 import './OrdersList.css';
 
 type OrderTab = 'active' | 'completed';
@@ -34,11 +35,6 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: '#e74c3c',
   cancelled: '#95a5a6',
 };
-
-/** Strip product IDs from items_info: "123:Розы x 2" -> "Розы x 2" */
-function parseItemsDisplay(itemsInfo: string): string {
-  return itemsInfo.replace(/\d+:/g, '');
-}
 
 const formatPrice = (n: number) =>
   new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);

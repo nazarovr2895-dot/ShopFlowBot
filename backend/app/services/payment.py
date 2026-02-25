@@ -13,6 +13,7 @@ Commission rates are determined by the existing commission system
 import asyncio
 import re
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Dict, Any, List
 
@@ -276,18 +277,46 @@ class PaymentService:
             raise PaymentServiceError(f"Order {order_id} not found", 404)
 
         # If a payment already exists and is still active, return it
+        # (but only if the confirmation URL is still fresh — YooKassa URLs expire in ~10-15 min)
+        PAYMENT_URL_MAX_AGE_SECONDS = 600  # 10 minutes
         if order.payment_id:
             try:
                 existing = await asyncio.to_thread(YooPayment.find_one, order.payment_id)
                 if existing and existing.status in ("pending", "waiting_for_capture"):
-                    confirmation_url = None
-                    if existing.confirmation:
-                        confirmation_url = existing.confirmation.confirmation_url
-                    return {
-                        "payment_id": existing.id,
-                        "confirmation_url": confirmation_url,
-                        "status": existing.status,
-                    }
+                    # Check if the payment is still fresh enough for its confirmation URL to work
+                    is_fresh = True
+                    if existing.created_at:
+                        try:
+                            created = datetime.fromisoformat(
+                                str(existing.created_at).replace("Z", "+00:00")
+                            )
+                            age = (datetime.now(timezone.utc) - created).total_seconds()
+                            is_fresh = age < PAYMENT_URL_MAX_AGE_SECONDS
+                        except (ValueError, TypeError):
+                            is_fresh = False
+
+                    if is_fresh and existing.confirmation:
+                        return {
+                            "payment_id": existing.id,
+                            "confirmation_url": existing.confirmation.confirmation_url,
+                            "status": existing.status,
+                        }
+
+                    # Payment is stale — cancel it and create a new one
+                    if existing.status == "pending":
+                        try:
+                            await asyncio.to_thread(YooPayment.cancel, existing.id)
+                            logger.info(
+                                "Cancelled stale payment, creating new",
+                                payment_id=existing.id,
+                                order_id=order_id,
+                            )
+                        except Exception as cancel_exc:
+                            logger.warning(
+                                "Failed to cancel stale payment",
+                                payment_id=existing.id,
+                                error=str(cancel_exc),
+                            )
             except Exception as exc:
                 logger.warning(
                     "Failed to fetch existing payment, creating new",

@@ -82,9 +82,22 @@ export function formatCurrency(value: number, precise = false): string {
 
 /* ── Orders ──────────────────────────────────────────────── */
 
-/** Format items_info string for display (e.g. "1:Rose x2" → "Rose × 2") */
+/** Format items_info string for display (e.g. "1:Rose@8000.0 x2" → "Rose × 2") */
 export function formatItemsInfo(itemsInfo: string): string {
-  return itemsInfo.replace(/\d+:/g, '').replace(/x\s*/g, ' \u00D7 ');
+  return itemsInfo
+    .replace(/\d+:/g, '')       // убрать ID товара "123:"
+    .replace(/@[\d.]+/g, '')    // убрать цену "@8000.0"
+    .replace(/x\s*/g, ' \u00D7 ');
+}
+
+/** Strip phone/name lines from concatenated address */
+export function formatAddress(address?: string | null): string {
+  if (!address) return '\u2014';
+  return address
+    .split('\n')
+    .filter(line => !line.startsWith('\u{1F4DE}') && !line.startsWith('\u{1F464}'))
+    .join(', ')
+    .trim() || '\u2014';
 }
 
 /** Calculate days until a target date */

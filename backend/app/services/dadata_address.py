@@ -11,6 +11,25 @@ DADATA_SUGGEST_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/sugge
 DADATA_METRO_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/metro"
 DADATA_GEOLOCATE_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address"
 
+# ── Shared HTTP client with connection pooling ──────────────────────
+# Reuses TCP+TLS connections across requests instead of creating a new
+# connection for every DaData call.  Thread-safe for asyncio usage.
+_http_client: Optional[httpx.AsyncClient] = None
+
+
+def _get_http_client() -> httpx.AsyncClient:
+    """Return (and lazily create) a module-level pooled HTTP client."""
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=10.0,
+            limits=httpx.Limits(
+                max_connections=20,
+                max_keepalive_connections=10,
+            ),
+        )
+    return _http_client
+
 
 def _normalize_district_name(
     city_district: Optional[str],
@@ -41,10 +60,10 @@ async def _call_dadata(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.post(DADATA_SUGGEST_URL, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
+        client = _get_http_client()
+        response = await client.post(DADATA_SUGGEST_URL, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
         return data.get("suggestions", [])
     except httpx.HTTPStatusError as e:
         logger.error(f"DaData API error: {e.response.status_code}")
@@ -188,10 +207,10 @@ async def _call_dadata_url(url: str, payload: Dict[str, Any]) -> List[Dict[str, 
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
+        client = _get_http_client()
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
         return data.get("suggestions", [])
     except httpx.HTTPStatusError as e:
         logger.error(f"DaData API error: {e.response.status_code}", url=url)
