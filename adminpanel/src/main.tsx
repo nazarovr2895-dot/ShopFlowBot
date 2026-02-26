@@ -8,7 +8,7 @@ import { setYmapsApiKey } from './lib/ymaps';
 async function initAndRender() {
   // Load runtime config (API URL) — same pattern as miniapp
   try {
-    const res = await fetch('/config.json');
+    const res = await fetch(`/config.json?_=${Date.now()}`);
     const config = res.ok ? await res.json() : null;
     if (config?.apiUrl && String(config.apiUrl).trim()) {
       const url = String(config.apiUrl).trim().replace(/\/$/, '');
