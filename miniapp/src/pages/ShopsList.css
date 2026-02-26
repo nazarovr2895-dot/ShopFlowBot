@@ -47,7 +47,8 @@
 @media (min-width: 768px) {
   .shops-list {
     padding: 24px;
-    padding-top: calc(24px + 60px);
+    /* On desktop, MainLayout handles CatalogNavBar offset — no extra padding needed */
+    padding-top: 24px;
     max-width: 1400px;
     margin: 0 auto;
   }

@@ -47,7 +47,7 @@
 
 /* Desktop layout + search bar visible: top nav + search bar */
 .main-layout--desktop .main-layout__content--with-search {
-  padding-top: 68px;
+  padding-top: 56px;
 }
 
 /* When inside DesktopShell — TopNav is rendered by the shell, not MainLayout */

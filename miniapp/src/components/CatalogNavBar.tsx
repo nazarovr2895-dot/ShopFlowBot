@@ -21,6 +21,8 @@ interface CatalogNavBarProps {
   onDeliveryTabChange?: (tab: DeliveryTab) => void;
   /** Show delivery tabs inline (mobile) — replaces the separate DeliveryNavBar */
   showDeliveryTabsInline?: boolean;
+  /** "На карте" button click handler — shown after filter icon on desktop */
+  onMapClick?: () => void;
 }
 
 export function CatalogNavBar({
@@ -34,6 +36,7 @@ export function CatalogNavBar({
   deliveryTab,
   onDeliveryTabChange,
   showDeliveryTabsInline = false,
+  onMapClick,
 }: CatalogNavBarProps) {
   const systemTheme = useSystemTheme();
   const isTelegramEnv = isTelegram();
@@ -125,6 +128,20 @@ export function CatalogNavBar({
                   {activeFiltersCount}
                 </span>
               )}
+            </button>
+          )}
+
+          {onMapClick && (
+            <button
+              className="catalog-nav-bar__map-btn"
+              onClick={onMapClick}
+              aria-label="Показать на карте"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                <circle cx="12" cy="9" r="2.5" />
+              </svg>
+              На карте
             </button>
           )}
         </div>

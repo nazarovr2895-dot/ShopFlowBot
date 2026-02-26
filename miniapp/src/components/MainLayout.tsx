@@ -66,6 +66,7 @@ export function MainLayout() {
             activeFiltersCount,
             deliveryTab,
             onDeliveryTabChange: handleDeliveryTabChange,
+            ...(filters.city_id ? { onMapClick: () => navigate(`/map?city_id=${filters.city_id}`) } : {}),
           } : {})}
         />
       )}

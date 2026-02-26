@@ -168,7 +168,8 @@ export function ShopsList() {
             <>
               <div className="shops-list__info" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span>Найдено: {total} {getShopWord(total)}</span>
-                {filters.city_id && (
+                {/* Map button: only on mobile — on desktop it's in CatalogNavBar */}
+                {!isDesktop && filters.city_id && (
                   <button
                     onClick={() => navigate(`/map?city_id=${filters.city_id}`)}
                     style={{
