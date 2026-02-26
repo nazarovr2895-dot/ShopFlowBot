@@ -1,5 +1,6 @@
 import { useMemo, useRef, useCallback } from 'react';
 import { useYmaps } from './YandexMapProvider';
+import { SellerMarker } from './SellerMarker';
 import type { SellerGeoItem } from '../../types';
 import './Map.css';
 
@@ -77,7 +78,9 @@ export function SellersMap({ sellers, onSellerClick, onBoundsChange, onZoomChang
     reactify,
   } = ymaps;
 
-  // Render individual marker (single point, not a cluster)
+  const hasClusterer = YMapClusterer && clusterByGrid;
+
+  // Render individual marker for clusterer (receives GeoJSON feature)
   const renderMarker = (feature: any) => {
     const seller: SellerGeoItem = feature.properties.seller;
     const color = seller.metro_line_color || '#3390ec';
@@ -104,8 +107,6 @@ export function SellersMap({ sellers, onSellerClick, onBoundsChange, onZoomChang
     </YMapMarker>
   );
 
-  const method = clusterByGrid({ gridSize: 64 });
-
   return (
     <div className="map-container" style={{ height }}>
       <YMap
@@ -115,13 +116,25 @@ export function SellersMap({ sellers, onSellerClick, onBoundsChange, onZoomChang
         <YMapDefaultSchemeLayer />
         <YMapDefaultFeaturesLayer />
         {(onBoundsChange || onZoomChange) && <YMapListener onUpdate={handleUpdate} />}
-        {features.length > 0 && (
+
+        {/* Use clusterer if available, otherwise fall back to individual markers */}
+        {hasClusterer && features.length > 0 ? (
           <YMapClusterer
-            method={method}
+            method={clusterByGrid({ gridSize: 64 })}
             features={features}
             marker={renderMarker}
             cluster={renderCluster}
           />
+        ) : (
+          sellers
+            .filter(s => s.geo_lat && s.geo_lon)
+            .map(seller => (
+              <SellerMarker
+                key={seller.seller_id}
+                seller={seller}
+                onClick={onSellerClick}
+              />
+            ))
         )}
       </YMap>
     </div>

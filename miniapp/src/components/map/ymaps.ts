@@ -81,8 +81,17 @@ export async function loadYmaps() {
       } = reactify.module(ymaps3);
 
       // Load clusterer module from CDN (no npm package needed)
-      const ymaps3Clusterer = await ymaps3.import('@yandex/ymaps3-clusterer');
-      const { YMapClusterer, clusterByGrid } = reactify.module(ymaps3Clusterer);
+      // clusterByGrid is a plain function — take it directly, only reactify the component
+      let YMapClusterer: any = null;
+      let clusterByGrid: any = null;
+      try {
+        const ymaps3Clusterer = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
+        clusterByGrid = ymaps3Clusterer.clusterByGrid;
+        const reactified = reactify.module(ymaps3Clusterer);
+        YMapClusterer = reactified.YMapClusterer;
+      } catch (e) {
+        console.warn('Failed to load ymaps3-clusterer, clustering disabled:', e);
+      }
 
       _components = {
         YMap,
