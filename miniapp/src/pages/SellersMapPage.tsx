@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { YandexMapProvider } from '../components/map/YandexMapProvider';
 import { SellersMap, type BBox } from '../components/map/SellersMap';
@@ -19,6 +19,24 @@ export function SellersMapPage() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const fetchRef = useRef(0); // tracks latest fetch to ignore stale responses
+  const initialFetchDone = useRef(false);
+
+  // Initial fetch WITHOUT bounds — ensures sellers are shown immediately
+  // even if the map's first onUpdate doesn't include bounds
+  useEffect(() => {
+    const fetchId = ++fetchRef.current;
+    api.getSellersGeo(cityId)
+      .then((data) => {
+        if (fetchRef.current === fetchId) {
+          setSellers(data);
+          initialFetchDone.current = true;
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (fetchRef.current === fetchId) setLoading(false);
+      });
+  }, [cityId]);
 
   const handleBoundsChange = useCallback((bbox: BBox) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
