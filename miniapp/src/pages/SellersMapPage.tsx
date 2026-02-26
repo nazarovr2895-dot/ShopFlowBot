@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { YandexMapProvider } from '../components/map/YandexMapProvider';
 import { SellersMap } from '../components/map/SellersMap';
