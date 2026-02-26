@@ -115,6 +115,7 @@ function AppContent() {
           <Route path="favorites" element={<FavoriteProducts />} />
           <Route path="cart" element={<Navigate to="/" replace />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="map" element={<SellersMapPage />} />
         </Route>
 
         <Route path="/cart/checkout" element={<RequireAuth from="checkout"><Checkout /></RequireAuth>} />
@@ -123,9 +124,6 @@ function AppContent() {
         <Route path="/shop/:sellerId" element={<ShopCartProvider><ShopDetails /></ShopCartProvider>} />
         <Route path="/shop/:sellerId/product/:productId" element={<ShopCartProvider><ProductDetail /></ShopCartProvider>} />
         <Route path="/order/:orderId" element={<RequireAuth from="orders"><OrderDetail /></RequireAuth>} />
-
-        {/* Map */}
-        <Route path="/map" element={<SellersMapPage />} />
 
         {/* Legal pages */}
         <Route path="/terms" element={<TermsPage />} />
