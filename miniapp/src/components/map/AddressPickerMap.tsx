@@ -5,7 +5,6 @@ import './Map.css';
 
 interface Props {
   initialCenter?: [number, number]; // [lon, lat]
-  cityKladrId?: string;
   onSelect: (address: string, lat: number, lon: number) => void;
   onClose: () => void;
 }
@@ -13,7 +12,7 @@ interface Props {
 // Moscow center fallback
 const DEFAULT_CENTER: [number, number] = [37.6173, 55.7558];
 
-export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props) {
+export function AddressPickerMap({ initialCenter, onSelect }: Props) {
   const ymaps = useYmaps();
   const [address, setAddress] = useState('');
   const [isDragging, setIsDragging] = useState(false);
