@@ -80,6 +80,10 @@ export async function loadYmaps() {
         YMapDefaultMarker,
       } = reactify.module(ymaps3);
 
+      const { YMapZoomControl } = reactify.module(
+        await ymaps3.import('@yandex/ymaps3-default-ui-theme'),
+      );
+
       _components = {
         YMap,
         YMapDefaultSchemeLayer,
@@ -88,6 +92,8 @@ export async function loadYmaps() {
         YMapListener,
         YMapControls,
         YMapDefaultMarker,
+        YMapZoomControl,
+        reactify,
       };
       return _components;
     })(), SDK_TIMEOUT_MS).catch((err) => {

@@ -72,6 +72,8 @@ export interface YmapsComponents {
   YMapMarker: any;
   YMapListener: any;
   YMapControls: any;
+  YMapZoomControl: any;
+  reactify: any;
 }
 
 export async function loadYmaps(): Promise<YmapsComponents> {
@@ -94,6 +96,10 @@ export async function loadYmaps(): Promise<YmapsComponents> {
         YMapControls,
       } = reactify.module(ymaps3);
 
+      const { YMapZoomControl } = reactify.module(
+        await ymaps3.import('@yandex/ymaps3-default-ui-theme'),
+      );
+
       _components = {
         YMap,
         YMapDefaultSchemeLayer,
@@ -101,6 +107,8 @@ export async function loadYmaps(): Promise<YmapsComponents> {
         YMapMarker,
         YMapListener,
         YMapControls,
+        YMapZoomControl,
+        reactify,
       };
       return _components;
     })(), SDK_TIMEOUT_MS).catch((err) => {

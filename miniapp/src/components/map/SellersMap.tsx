@@ -45,16 +45,19 @@ export function SellersMap({ sellers, onSellerClick, onBoundsChange, height = '1
 
   if (!ymaps) return null;
 
-  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener } = ymaps;
+  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, YMapControls, YMapZoomControl, reactify } = ymaps;
 
   return (
     <div className="map-container" style={{ height }}>
       <YMap
-        location={{ center, zoom: DEFAULT_ZOOM }}
+        location={reactify.useDefault({ center, zoom: DEFAULT_ZOOM })}
         mode="vector"
       >
         <YMapDefaultSchemeLayer />
         <YMapDefaultFeaturesLayer />
+        <YMapControls position="right">
+          <YMapZoomControl />
+        </YMapControls>
         {onBoundsChange && <YMapListener onUpdate={handleUpdate} />}
         {sellers
           .filter(s => s.geo_lat && s.geo_lon)

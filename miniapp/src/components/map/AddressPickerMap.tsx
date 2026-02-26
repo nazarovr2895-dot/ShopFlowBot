@@ -58,17 +58,22 @@ export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props
 
   if (!ymaps) return null;
 
-  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener } = ymaps;
+  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, YMapControls, YMapZoomControl, reactify } = ymaps;
+
+  const center = initialCenter || DEFAULT_CENTER;
 
   return (
     <div className="address-picker" style={{ height: '100%' }}>
       <div style={{ width: '100%', height: '100%' }}>
         <YMap
-          location={{ center: initialCenter || DEFAULT_CENTER, zoom: 16 }}
+          location={reactify.useDefault({ center, zoom: 16 })}
           mode="vector"
         >
           <YMapDefaultSchemeLayer />
           <YMapDefaultFeaturesLayer />
+          <YMapControls position="right">
+            <YMapZoomControl />
+          </YMapControls>
           <YMapListener
             onUpdate={handleUpdate}
             onActionStart={() => setIsDragging(true)}

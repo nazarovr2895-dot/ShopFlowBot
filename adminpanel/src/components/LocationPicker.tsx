@@ -70,7 +70,10 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
     );
   }
 
-  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener } = ymaps;
+  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, YMapControls, YMapZoomControl, reactify } = ymaps;
+
+  const center = initialCenter || DEFAULT_CENTER;
+  const zoom = initialCenter ? 16 : 11;
 
   return (
     <div className="location-picker__overlay" onClick={onClose}>
@@ -88,11 +91,14 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
         {/* Map */}
         <div className="location-picker__map-container">
           <YMap
-            location={{ center: initialCenter || DEFAULT_CENTER, zoom: initialCenter ? 16 : 11 }}
+            location={reactify.useDefault({ center, zoom })}
             mode="vector"
           >
             <YMapDefaultSchemeLayer theme="light" />
             <YMapDefaultFeaturesLayer />
+            <YMapControls position="right">
+              <YMapZoomControl />
+            </YMapControls>
             <YMapListener
               onUpdate={handleUpdate}
               onActionStart={() => setIsDragging(true)}

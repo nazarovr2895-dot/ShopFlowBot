@@ -11,6 +11,8 @@ interface YmapsComponents {
   YMapListener: any;
   YMapControls: any;
   YMapDefaultMarker: any;
+  YMapZoomControl: any;
+  reactify: any;
 }
 
 const YmapsContext = createContext<YmapsComponents | null>(null);
