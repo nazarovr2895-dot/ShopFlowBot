@@ -1,13 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { YandexMapProvider } from '../components/map/YandexMapProvider';
-import { SellersMap, type BBox } from '../components/map/SellersMap';
+import { SellersMap } from '../components/map/SellersMap';
 import { MapPlaceholder } from '../components/map/MapPlaceholder';
 import { api } from '../api/client';
 import type { SellerGeoItem } from '../types';
 import '../components/map/Map.css';
-
-const DEBOUNCE_MS = 400;
 
 export function SellersMapPage() {
   const navigate = useNavigate();
@@ -18,47 +16,12 @@ export function SellersMapPage() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [selected, setSelected] = useState<SellerGeoItem | null>(null);
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-  const fetchRef = useRef(0); // tracks latest fetch to ignore stale responses
-  const initialFetchDone = useRef(false);
-  const boundsActiveRef = useRef(false);
-
-  // Initial fetch WITHOUT bounds — ensures sellers are shown immediately
-  // even if the map's first onUpdate doesn't include bounds
+  // Fetch all sellers for the city once on mount
   useEffect(() => {
-    const fetchId = ++fetchRef.current;
     api.getSellersGeo(cityId)
-      .then((data) => {
-        if (fetchRef.current === fetchId) setSellers(data);
-      })
+      .then(setSellers)
       .catch(() => {})
-      .finally(() => {
-        initialFetchDone.current = true;
-        if (fetchRef.current === fetchId) setInitialLoaded(true);
-      });
-  }, [cityId]);
-
-  // Enable bounds-based fetching after map stabilizes
-  useEffect(() => {
-    if (initialLoaded) {
-      const t = setTimeout(() => { boundsActiveRef.current = true; }, 1000);
-      return () => clearTimeout(t);
-    }
-  }, [initialLoaded]);
-
-  const handleBoundsChange = useCallback((bbox: BBox) => {
-    if (!boundsActiveRef.current) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      const fetchId = ++fetchRef.current;
-      api.getSellersGeo(cityId, bbox)
-        .then((data) => {
-          if (fetchRef.current === fetchId) setSellers(data);
-        })
-        .catch(() => {
-          if (fetchRef.current === fetchId) setSellers([]);
-        });
-    }, DEBOUNCE_MS);
+      .finally(() => setInitialLoaded(true));
   }, [cityId]);
 
   const handleSellerClick = useCallback((seller: SellerGeoItem) => {
@@ -93,7 +56,6 @@ export function SellersMapPage() {
             <SellersMap
               sellers={sellers}
               onSellerClick={handleSellerClick}
-              onBoundsChange={handleBoundsChange}
               height="100%"
             />
           ) : (
