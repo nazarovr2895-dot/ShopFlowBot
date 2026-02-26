@@ -1,10 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { YandexMapProvider } from '../components/map/YandexMapProvider';
-import { SellersMap } from '../components/map/SellersMap';
+import { SellersMap, type BBox } from '../components/map/SellersMap';
 import { api } from '../api/client';
 import type { SellerGeoItem } from '../types';
 import '../components/map/Map.css';
+
+const DEBOUNCE_MS = 400;
 
 export function SellersMapPage() {
   const navigate = useNavigate();
@@ -15,12 +17,25 @@ export function SellersMapPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<SellerGeoItem | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    api.getSellersGeo(cityId)
-      .then(setSellers)
-      .catch(() => setSellers([]))
-      .finally(() => setLoading(false));
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const fetchRef = useRef(0); // tracks latest fetch to ignore stale responses
+
+  const handleBoundsChange = useCallback((bbox: BBox) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const fetchId = ++fetchRef.current;
+      setLoading(true);
+      api.getSellersGeo(cityId, bbox)
+        .then((data) => {
+          if (fetchRef.current === fetchId) setSellers(data);
+        })
+        .catch(() => {
+          if (fetchRef.current === fetchId) setSellers([]);
+        })
+        .finally(() => {
+          if (fetchRef.current === fetchId) setLoading(false);
+        });
+    }, DEBOUNCE_MS);
   }, [cityId]);
 
   const handleSellerClick = useCallback((seller: SellerGeoItem) => {
@@ -54,6 +69,7 @@ export function SellersMapPage() {
           <SellersMap
             sellers={sellers}
             onSellerClick={handleSellerClick}
+            onBoundsChange={handleBoundsChange}
             height="100%"
           />
         </YandexMapProvider>

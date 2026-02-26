@@ -430,6 +430,10 @@ class MetroGeoItem(BaseModel):
 @router.get("/sellers/geo", response_model=List[SellerGeoItem])
 async def get_sellers_geo(
     city_id: Optional[int] = Query(None, description="Filter by city"),
+    sw_lat: Optional[float] = Query(None, description="Bounding box south-west latitude"),
+    sw_lon: Optional[float] = Query(None, description="Bounding box south-west longitude"),
+    ne_lat: Optional[float] = Query(None, description="Bounding box north-east latitude"),
+    ne_lon: Optional[float] = Query(None, description="Bounding box north-east longitude"),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -492,6 +496,13 @@ async def get_sellers_geo(
         # Only sellers with some coordinates
         .where(or_(Seller.geo_lat.isnot(None), Metro.geo_lat.isnot(None)))
     )
+
+    # Viewport bounding box filter
+    if all(v is not None for v in (sw_lat, sw_lon, ne_lat, ne_lon)):
+        query = query.where(
+            eff_lat.between(sw_lat, ne_lat),
+            eff_lon.between(sw_lon, ne_lon),
+        )
 
     result = await session.execute(query)
     rows = result.all()

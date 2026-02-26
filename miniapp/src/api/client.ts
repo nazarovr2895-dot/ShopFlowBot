@@ -278,8 +278,19 @@ class ApiClient {
   }
 
   // Geo API (map)
-  async getSellersGeo(cityId?: number): Promise<SellerGeoItem[]> {
-    const params = cityId ? `?city_id=${cityId}` : '';
+  async getSellersGeo(
+    cityId?: number,
+    bbox?: { sw_lat: number; sw_lon: number; ne_lat: number; ne_lon: number },
+  ): Promise<SellerGeoItem[]> {
+    const qs = new URLSearchParams();
+    if (cityId) qs.set('city_id', String(cityId));
+    if (bbox) {
+      qs.set('sw_lat', String(bbox.sw_lat));
+      qs.set('sw_lon', String(bbox.sw_lon));
+      qs.set('ne_lat', String(bbox.ne_lat));
+      qs.set('ne_lon', String(bbox.ne_lon));
+    }
+    const params = qs.toString() ? `?${qs.toString()}` : '';
     return this.fetchPublic<SellerGeoItem[]>(`/public/sellers/geo${params}`);
   }
 

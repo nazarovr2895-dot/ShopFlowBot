@@ -402,7 +402,10 @@ export function ShopDetails() {
 
   const showFavoriteBtn = true;
   const hasPickup = seller.delivery_type === 'pickup' || seller.delivery_type === 'both';
-  const showMapButton = hasPickup && seller.map_url;
+  const showMapButton = hasPickup && seller.geo_lat && seller.geo_lon;
+  const mapExternalUrl = seller.geo_lat && seller.geo_lon
+    ? `https://yandex.ru/maps/?pt=${seller.geo_lon},${seller.geo_lat}&z=17&l=map`
+    : null;
 
   // Today's working hours (Mon=0 ... Sun=6)
   const todayIdx = (new Date().getDay() + 6) % 7;
@@ -569,10 +572,10 @@ export function ShopDetails() {
             <div className="shop-details__info-line">
               <AddressIcon />
               <span className="shop-details__info-line-text">{seller.address_name}</span>
-              {/* Fallback link when no inline map available */}
-              {showMapButton && !(seller.geo_lat && seller.geo_lon && getYmapsApiKey()) && (
+              {/* Link to open full Yandex Maps */}
+              {showMapButton && mapExternalUrl && (
                 <a
-                  href={seller.map_url!}
+                  href={mapExternalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shop-details__map-link-inline"
