@@ -30,6 +30,8 @@ export function SellersMapPage() {
   const [cityCenter, setCityCenter] = useState<[number, number] | undefined>();
   // Track whether initial sellers were loaded to avoid duplicate city-level fetches
   const initialFetchDone = useRef(false);
+  // Only show "load zone" button after real user interaction (skip initial onUpdate)
+  const userInteracted = useRef(false);
 
   // Initial load: fetch all city sellers for center calculation + first view
   useEffect(() => {
@@ -51,11 +53,15 @@ export function SellersMapPage() {
       .finally(() => setInitialLoaded(true));
   }, [cityId]);
 
-  // Handle map viewport changes
+  // Handle map viewport changes — only show button after real user interaction
   const handleBoundsChange = useCallback((bbox: BBox) => {
     setCurrentBbox(bbox);
-    // Show "load zone" button after user moves the map
-    setShowLoadButton(true);
+    if (userInteracted.current) {
+      setShowLoadButton(true);
+    } else {
+      // Skip initial onUpdate calls; activate after 1s so first render settles
+      setTimeout(() => { userInteracted.current = true; }, 1000);
+    }
   }, []);
 
   // Handle zoom level changes
@@ -69,7 +75,10 @@ export function SellersMapPage() {
     setLoadingZone(true);
     try {
       const data = await api.getSellersGeo(cityId, currentBbox);
-      setSellers(data);
+      // Only replace sellers if API returned results; keep existing on empty response
+      if (data.length > 0) {
+        setSellers(data);
+      }
       setShowLoadButton(false);
     } catch {
       // Keep existing sellers on error
