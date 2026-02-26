@@ -91,7 +91,7 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
             location={{ center: initialCenter || DEFAULT_CENTER, zoom: initialCenter ? 16 : 11 }}
             mode="vector"
           >
-            <YMapDefaultSchemeLayer />
+            <YMapDefaultSchemeLayer theme="light" />
             <YMapDefaultFeaturesLayer />
             <YMapListener
               onUpdate={handleUpdate}

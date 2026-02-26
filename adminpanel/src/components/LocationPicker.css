@@ -67,6 +67,8 @@
   position: relative;
   flex: 1;
   min-height: 400px;
+  color-scheme: light;
+  background: #fff;
 }
 
 .location-picker__map-container > div:first-child {

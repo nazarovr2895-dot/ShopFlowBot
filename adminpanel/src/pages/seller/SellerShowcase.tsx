@@ -45,6 +45,7 @@ export function SellerShowcase() {
   const [markupPercent, setMarkupPercent] = useState('50');
   const [selectedBouquetCost, setSelectedBouquetCost] = useState(0);
   const [recalculating, setRecalculating] = useState<number | null>(null);
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<SellerProduct | null>(null);
 
@@ -97,13 +98,14 @@ export function SellerShowcase() {
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!me) return;
+    if (!me || isAddingProduct) return;
     const price = parseFloat(newProduct.price);
     const quantity = parseInt(newProduct.quantity, 10);
     if (isNaN(price) || price < 0 || isNaN(quantity) || quantity < 0) {
       toast.warning('Проверьте цену и количество');
       return;
     }
+    setIsAddingProduct(true);
     try {
       const photo_ids: string[] = [];
       for (const file of productPhotoFiles.slice(0, 3)) {
@@ -139,6 +141,8 @@ export function SellerShowcase() {
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setIsAddingProduct(false);
     }
   };
 
@@ -425,7 +429,9 @@ export function SellerShowcase() {
             >
               Отмена
             </button>
-            <button type="submit" className="btn btn-primary">Добавить</button>
+            <button type="submit" className="btn btn-primary" disabled={isAddingProduct}>
+              {isAddingProduct ? 'Добавление...' : 'Добавить'}
+            </button>
           </div>
         </form>
       )}
