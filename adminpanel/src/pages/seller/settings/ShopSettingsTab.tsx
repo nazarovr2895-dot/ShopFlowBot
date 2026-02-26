@@ -3,7 +3,6 @@ import { updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../../api/sel
 import { FormField, useToast } from '../../../components/ui';
 import { useEditMode } from '../../../hooks/useEditMode';
 import { LocationPicker } from '../../../components/LocationPicker';
-import { getYmapsApiKey } from '../../../lib/ymaps';
 import { Store, Image, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, Upload, Trash2 } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './ShopSettingsTab.css';
@@ -103,7 +102,6 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
   };
 
   const hasGeo = me.geo_lat != null && me.geo_lon != null;
-  const hasYmaps = !!getYmapsApiKey();
 
   return (
     <div className="settings-shop">
@@ -171,16 +169,37 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
               </FormField>
             </div>
 
-            {/* Row 4: Address */}
-            <FormField label="Адрес магазина">
-              <input
-                type="text"
-                value={shopEdit.draft.addressName}
-                onChange={(e) => shopEdit.updateField('addressName', e.target.value)}
-                placeholder="Например: ул. Тверская, д. 1"
-                className="form-input"
-              />
-            </FormField>
+            {/* Row 4: Address + Map button */}
+            <div className="shop-form__row-2col">
+              <FormField label="Адрес магазина">
+                <input
+                  type="text"
+                  value={shopEdit.draft.addressName}
+                  onChange={(e) => shopEdit.updateField('addressName', e.target.value)}
+                  placeholder="Например: ул. Тверская, д. 1"
+                  className="form-input"
+                />
+              </FormField>
+              <FormField label="Точка на карте">
+                <button
+                  type="button"
+                  className="shop-form__map-btn"
+                  onClick={() => setShowMapPicker(true)}
+                  disabled={savingGeo}
+                >
+                  <MapPin size={15} />
+                  {hasGeo
+                    ? (savingGeo ? 'Сохранение...' : 'Изменить точку на карте')
+                    : (savingGeo ? 'Сохранение...' : 'Указать на карте')
+                  }
+                </button>
+                {hasGeo && (
+                  <span className="shop-form__geo-hint">
+                    {me.geo_lat!.toFixed(5)}, {me.geo_lon!.toFixed(5)}
+                  </span>
+                )}
+              </FormField>
+            </div>
 
             {/* Actions */}
             <div className="shop-form__actions">
@@ -248,30 +267,26 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
                         <ExternalLink size={13} />
                         Открыть на карте
                       </a>
-                      {hasYmaps && (
-                        <button
-                          className="shop-view__map-btn"
-                          onClick={() => setShowMapPicker(true)}
-                          disabled={savingGeo}
-                        >
-                          <MapPin size={13} />
-                          {savingGeo ? 'Сохранение...' : 'Изменить'}
-                        </button>
-                      )}
+                      <button
+                        className="shop-view__map-btn"
+                        onClick={() => setShowMapPicker(true)}
+                        disabled={savingGeo}
+                      >
+                        <MapPin size={13} />
+                        {savingGeo ? 'Сохранение...' : 'Изменить'}
+                      </button>
                     </span>
                   ) : (
                     <span className="shop-view__geo-info">
                       <span style={{ color: 'var(--text-tertiary)' }}>Не указана</span>
-                      {hasYmaps && (
-                        <button
-                          className="shop-view__map-btn shop-view__map-btn--primary"
-                          onClick={() => setShowMapPicker(true)}
-                          disabled={savingGeo}
-                        >
-                          <MapPin size={13} />
-                          {savingGeo ? 'Сохранение...' : 'Указать на карте'}
-                        </button>
-                      )}
+                      <button
+                        className="shop-view__map-btn shop-view__map-btn--primary"
+                        onClick={() => setShowMapPicker(true)}
+                        disabled={savingGeo}
+                      >
+                        <MapPin size={13} />
+                        {savingGeo ? 'Сохранение...' : 'Указать на карте'}
+                      </button>
                     </span>
                   )}
                 </span>
