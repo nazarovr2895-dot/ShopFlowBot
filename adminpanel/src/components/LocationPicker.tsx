@@ -17,6 +17,8 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const centerRef = useRef<[number, number]>(initialCenter || DEFAULT_CENTER);
+  const mapRef = useRef<any>(null);
+  const zoomRef = useRef(initialCenter ? 16 : 11);
   const [coords, setCoords] = useState<{ lat: number; lon: number }>(() => {
     const c = initialCenter || DEFAULT_CENTER;
     return { lat: c[1], lon: c[0] };
@@ -33,10 +35,18 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
       .catch((err) => setErrorMsg(err?.message || 'Ошибка загрузки SDK'));
   }, []);
 
-  const handleUpdate = useCallback((event: { location: { center: [number, number] } }) => {
+  const handleUpdate = useCallback((event: { location: { center: [number, number]; zoom: number } }) => {
     const [lon, lat] = event.location.center;
     centerRef.current = [lon, lat];
+    zoomRef.current = event.location.zoom;
     setCoords({ lat, lon });
+  }, []);
+
+  const handleZoom = useCallback((delta: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const newZoom = Math.min(Math.max(zoomRef.current + delta, 1), 21);
+    map.update({ location: { zoom: newZoom, duration: 200 } });
   }, []);
 
   const handleConfirm = useCallback(() => {
@@ -70,7 +80,7 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
     );
   }
 
-  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, YMapControls, YMapZoomControl, reactify } = ymaps;
+  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, reactify } = ymaps;
 
   const center = initialCenter || DEFAULT_CENTER;
   const zoom = initialCenter ? 16 : 11;
@@ -91,20 +101,24 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
         {/* Map */}
         <div className="location-picker__map-container">
           <YMap
+            ref={mapRef}
             location={reactify.useDefault({ center, zoom })}
             mode="vector"
           >
             <YMapDefaultSchemeLayer theme="light" />
             <YMapDefaultFeaturesLayer />
-            <YMapControls position="right">
-              <YMapZoomControl />
-            </YMapControls>
             <YMapListener
               onUpdate={handleUpdate}
               onActionStart={() => setIsDragging(true)}
               onActionEnd={() => setIsDragging(false)}
             />
           </YMap>
+
+          {/* Zoom controls */}
+          <div className="location-picker__zoom">
+            <button className="location-picker__zoom-btn" onClick={() => handleZoom(1)}>+</button>
+            <button className="location-picker__zoom-btn" onClick={() => handleZoom(-1)}>−</button>
+          </div>
 
           {/* Center pin — fixed in the middle of the map */}
           <div className={`location-picker__pin ${isDragging ? 'location-picker__pin--dragging' : ''}`}>

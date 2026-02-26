@@ -11,7 +11,6 @@ interface YmapsComponents {
   YMapListener: any;
   YMapControls: any;
   YMapDefaultMarker: any;
-  YMapZoomControl: any;
   reactify: any;
 }
 

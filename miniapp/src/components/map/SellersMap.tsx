@@ -45,7 +45,7 @@ export function SellersMap({ sellers, onSellerClick, onBoundsChange, height = '1
 
   if (!ymaps) return null;
 
-  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, YMapControls, YMapZoomControl, reactify } = ymaps;
+  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, reactify } = ymaps;
 
   return (
     <div className="map-container" style={{ height }}>
@@ -55,9 +55,6 @@ export function SellersMap({ sellers, onSellerClick, onBoundsChange, height = '1
       >
         <YMapDefaultSchemeLayer />
         <YMapDefaultFeaturesLayer />
-        <YMapControls position="right">
-          <YMapZoomControl />
-        </YMapControls>
         {onBoundsChange && <YMapListener onUpdate={handleUpdate} />}
         {sellers
           .filter(s => s.geo_lat && s.geo_lon)

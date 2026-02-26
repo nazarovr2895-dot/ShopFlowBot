@@ -240,6 +240,40 @@
   opacity: 0.5;
 }
 
+/* Zoom controls (address picker) */
+.map-zoom {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.map-zoom__btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #333);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-zoom__btn:active {
+  background: var(--tg-theme-secondary-bg-color, #e0e0e0);
+}
+
 /* Mini-map on ShopDetails */
 .mini-map {
   width: 100%;

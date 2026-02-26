@@ -19,6 +19,8 @@ export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const centerRef = useRef<[number, number]>(initialCenter || DEFAULT_CENTER);
+  const mapRef = useRef<any>(null);
+  const zoomRef = useRef(16);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const reverseGeocode = useCallback(async (lon: number, lat: number) => {
@@ -40,9 +42,10 @@ export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props
     }
   }, [cityKladrId]);
 
-  const handleUpdate = useCallback((event: { location: { center: [number, number] } }) => {
+  const handleUpdate = useCallback((event: { location: { center: [number, number]; zoom: number } }) => {
     const [lon, lat] = event.location.center;
     centerRef.current = [lon, lat];
+    zoomRef.current = event.location.zoom;
 
     // Debounce reverse geocode
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -51,6 +54,13 @@ export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props
     }, 500);
   }, [reverseGeocode]);
 
+  const handleZoom = useCallback((delta: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const newZoom = Math.min(Math.max(zoomRef.current + delta, 1), 21);
+    map.update({ location: { zoom: newZoom, duration: 200 } });
+  }, []);
+
   const handleConfirm = useCallback(() => {
     const [lon, lat] = centerRef.current;
     onSelect(address, lat, lon);
@@ -58,7 +68,7 @@ export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props
 
   if (!ymaps) return null;
 
-  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, YMapControls, YMapZoomControl, reactify } = ymaps;
+  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapListener, reactify } = ymaps;
 
   const center = initialCenter || DEFAULT_CENTER;
 
@@ -66,20 +76,24 @@ export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props
     <div className="address-picker" style={{ height: '100%' }}>
       <div style={{ width: '100%', height: '100%' }}>
         <YMap
+          ref={mapRef}
           location={reactify.useDefault({ center, zoom: 16 })}
           mode="vector"
         >
           <YMapDefaultSchemeLayer />
           <YMapDefaultFeaturesLayer />
-          <YMapControls position="right">
-            <YMapZoomControl />
-          </YMapControls>
           <YMapListener
             onUpdate={handleUpdate}
             onActionStart={() => setIsDragging(true)}
             onActionEnd={() => setIsDragging(false)}
           />
         </YMap>
+      </div>
+
+      {/* Zoom controls */}
+      <div className="map-zoom">
+        <button className="map-zoom__btn" onClick={() => handleZoom(1)}>+</button>
+        <button className="map-zoom__btn" onClick={() => handleZoom(-1)}>−</button>
       </div>
 
       {/* Center pin (stays fixed in the middle) */}
