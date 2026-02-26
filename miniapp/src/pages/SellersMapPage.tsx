@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { YandexMapProvider } from '../components/map/YandexMapProvider';
 import { SellersMap, type BBox } from '../components/map/SellersMap';
+import { MapPlaceholder } from '../components/map/MapPlaceholder';
 import { api } from '../api/client';
 import type { SellerGeoItem } from '../types';
 import '../components/map/Map.css';
@@ -27,18 +28,17 @@ export function SellersMapPage() {
     const fetchId = ++fetchRef.current;
     api.getSellersGeo(cityId)
       .then((data) => {
-        if (fetchRef.current === fetchId) {
-          setSellers(data);
-          initialFetchDone.current = true;
-        }
+        if (fetchRef.current === fetchId) setSellers(data);
       })
       .catch(() => {})
       .finally(() => {
+        initialFetchDone.current = true;
         if (fetchRef.current === fetchId) setLoading(false);
       });
   }, [cityId]);
 
   const handleBoundsChange = useCallback((bbox: BBox) => {
+    if (!initialFetchDone.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const fetchId = ++fetchRef.current;
@@ -84,12 +84,16 @@ export function SellersMapPage() {
       {/* Map */}
       <div className="sellers-map-page__map">
         <YandexMapProvider height="100%">
-          <SellersMap
-            sellers={sellers}
-            onSellerClick={handleSellerClick}
-            onBoundsChange={handleBoundsChange}
-            height="100%"
-          />
+          {!loading ? (
+            <SellersMap
+              sellers={sellers}
+              onSellerClick={handleSellerClick}
+              onBoundsChange={handleBoundsChange}
+              height="100%"
+            />
+          ) : (
+            <MapPlaceholder height="100%" />
+          )}
         </YandexMapProvider>
       </div>
 
