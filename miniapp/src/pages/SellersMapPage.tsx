@@ -15,7 +15,7 @@ export function SellersMapPage() {
   const cityId = searchParams.get('city_id') ? Number(searchParams.get('city_id')) : undefined;
 
   const [sellers, setSellers] = useState<SellerGeoItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [selected, setSelected] = useState<SellerGeoItem | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -33,7 +33,7 @@ export function SellersMapPage() {
       .catch(() => {})
       .finally(() => {
         initialFetchDone.current = true;
-        if (fetchRef.current === fetchId) setLoading(false);
+        if (fetchRef.current === fetchId) setInitialLoaded(true);
       });
   }, [cityId]);
 
@@ -42,16 +42,12 @@ export function SellersMapPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const fetchId = ++fetchRef.current;
-      setLoading(true);
       api.getSellersGeo(cityId, bbox)
         .then((data) => {
           if (fetchRef.current === fetchId) setSellers(data);
         })
         .catch(() => {
           if (fetchRef.current === fetchId) setSellers([]);
-        })
-        .finally(() => {
-          if (fetchRef.current === fetchId) setLoading(false);
         });
     }, DEBOUNCE_MS);
   }, [cityId]);
@@ -77,14 +73,14 @@ export function SellersMapPage() {
         </button>
         <span className="sellers-map-page__title">
           Магазины на карте
-          {!loading && sellers.length > 0 && ` (${sellers.length})`}
+          {initialLoaded && sellers.length > 0 && ` (${sellers.length})`}
         </span>
       </div>
 
       {/* Map */}
       <div className="sellers-map-page__map">
         <YandexMapProvider height="100%">
-          {!loading ? (
+          {initialLoaded ? (
             <SellersMap
               sellers={sellers}
               onSellerClick={handleSellerClick}
