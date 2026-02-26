@@ -146,6 +146,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${PUBLIC_API_URL:-https://api.flurai.ru}
+        VITE_YANDEX_MAPS_KEY: ${YANDEX_MAPS_KEY:-}
     restart: always
     networks:
       - app_net

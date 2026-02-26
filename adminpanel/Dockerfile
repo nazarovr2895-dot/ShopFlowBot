@@ -9,9 +9,11 @@ RUN npm ci
 COPY . .
 
 ARG VITE_API_URL
+ARG VITE_YANDEX_MAPS_KEY
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_YANDEX_MAPS_KEY=$VITE_YANDEX_MAPS_KEY
 
-RUN echo "{\"apiUrl\":\"${VITE_API_URL}\"}" > public/config.json
+RUN echo "{\"apiUrl\":\"${VITE_API_URL}\",\"ymapsApiKey\":\"${VITE_YANDEX_MAPS_KEY}\"}" > public/config.json
 RUN npm run build
 
 # Production stage
