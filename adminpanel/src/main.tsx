@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { setAdminApiBaseUrl } from './api/adminClient';
 import { setSellerApiBaseUrl } from './api/sellerClient';
+import { setYmapsApiKey } from './lib/ymaps';
 
 async function initAndRender() {
   // Load runtime config (API URL) — same pattern as miniapp
@@ -13,6 +14,9 @@ async function initAndRender() {
       const url = String(config.apiUrl).trim().replace(/\/$/, '');
       setAdminApiBaseUrl(url);
       setSellerApiBaseUrl(url);
+    }
+    if (config?.ymapsApiKey && String(config.ymapsApiKey).trim()) {
+      setYmapsApiKey(String(config.ymapsApiKey).trim());
     }
   } catch {
     // Fallback to VITE_API_URL (set at build time)

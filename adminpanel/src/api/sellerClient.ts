@@ -95,6 +95,9 @@ export interface SellerMe {
   slot_days_ahead?: number;
   min_slot_lead_minutes?: number;
   slot_duration_minutes?: number;
+  // Geo coordinates
+  geo_lat?: number | null;
+  geo_lon?: number | null;
 }
 
 export interface DeliveryZone {
@@ -280,6 +283,8 @@ export async function updateMe(payload: {
   slot_days_ahead?: number;
   min_slot_lead_minutes?: number;
   slot_duration_minutes?: number;
+  geo_lat?: number | null;
+  geo_lon?: number | null;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',

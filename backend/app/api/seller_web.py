@@ -126,6 +126,9 @@ class UpdateMeBody(BaseModel):
     slot_days_ahead: Optional[int] = None  # days ahead to show (1-7)
     min_slot_lead_minutes: Optional[int] = None  # min advance booking time in minutes
     slot_duration_minutes: Optional[int] = None  # slot length: 60, 90, 120, 180
+    # Geo coordinates (manual pin on map)
+    geo_lat: Optional[float] = None
+    geo_lon: Optional[float] = None
 
 
 @router.get("/me")
@@ -187,6 +190,11 @@ async def update_me(
         await service.update_field(seller_id, "yookassa_account_id", body.yookassa_account_id or "")
     if body.use_delivery_zones is not None:
         await service.update_field(seller_id, "use_delivery_zones", body.use_delivery_zones)
+    # Geo coordinates — set AFTER address_name so manual pin overrides auto-geocode
+    if body.geo_lat is not None:
+        await service.update_field(seller_id, "geo_lat", str(body.geo_lat))
+    if body.geo_lon is not None:
+        await service.update_field(seller_id, "geo_lon", str(body.geo_lon))
     result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
     seller = result.scalar_one_or_none()
     if seller:

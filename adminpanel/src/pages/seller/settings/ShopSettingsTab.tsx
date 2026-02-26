@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../../api/sellerClient';
 import { FormField, useToast } from '../../../components/ui';
 import { useEditMode } from '../../../hooks/useEditMode';
+import { LocationPicker } from '../../../components/LocationPicker';
+import { getYmapsApiKey } from '../../../lib/ymaps';
 import { Store, Image, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, Upload, Trash2 } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './ShopSettingsTab.css';
@@ -27,9 +29,10 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
     description: me.description || '',
     deliveryType: me.delivery_type || '',
     addressName: me.address_name || '',
-    mapUrl: me.map_url || '',
   });
 
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [savingGeo, setSavingGeo] = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [bannerRemoving, setBannerRemoving] = useState(false);
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
@@ -37,13 +40,15 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
   const handleSaveShopSettings = async () => {
     shopEdit.setSaving(true);
     try {
-      await updateMe({
+      const payload: Parameters<typeof updateMe>[0] = {
         shop_name: shopEdit.draft.shopName.trim() || undefined,
         description: shopEdit.draft.description.trim() || undefined,
         delivery_type: shopEdit.draft.deliveryType.trim() || undefined,
         address_name: shopEdit.draft.addressName.trim() || undefined,
-        map_url: shopEdit.draft.mapUrl.trim() || undefined,
-      });
+      };
+      // If seller already has geo coordinates and address changed, keep existing coords
+      // (they'll be auto-geocoded by backend, but seller can re-pick on map)
+      await updateMe(payload);
       await reload();
       shopEdit.setIsEditing(false);
       toast.success('Настройки сохранены');
@@ -51,6 +56,20 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       shopEdit.setSaving(false);
+    }
+  };
+
+  const handleMapConfirm = async (lat: number, lon: number) => {
+    setShowMapPicker(false);
+    setSavingGeo(true);
+    try {
+      await updateMe({ geo_lat: lat, geo_lon: lon });
+      await reload();
+      toast.success('Местоположение сохранено');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка сохранения координат');
+    } finally {
+      setSavingGeo(false);
     }
   };
 
@@ -82,6 +101,9 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
       setBannerRemoving(false);
     }
   };
+
+  const hasGeo = me.geo_lat != null && me.geo_lon != null;
+  const hasYmaps = !!getYmapsApiKey();
 
   return (
     <div className="settings-shop">
@@ -149,27 +171,16 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
               </FormField>
             </div>
 
-            {/* Row 4: Address — 2 columns */}
-            <div className="shop-form__row-2col">
-              <FormField label="Название адреса">
-                <input
-                  type="text"
-                  value={shopEdit.draft.addressName}
-                  onChange={(e) => shopEdit.updateField('addressName', e.target.value)}
-                  placeholder="Например: ул. Тверская, д. 1"
-                  className="form-input"
-                />
-              </FormField>
-              <FormField label="Ссылка на карту">
-                <input
-                  type="text"
-                  value={shopEdit.draft.mapUrl}
-                  onChange={(e) => shopEdit.updateField('mapUrl', e.target.value)}
-                  placeholder="https://yandex.ru/maps/..."
-                  className="form-input"
-                />
-              </FormField>
-            </div>
+            {/* Row 4: Address */}
+            <FormField label="Адрес магазина">
+              <input
+                type="text"
+                value={shopEdit.draft.addressName}
+                onChange={(e) => shopEdit.updateField('addressName', e.target.value)}
+                placeholder="Например: ул. Тверская, д. 1"
+                className="form-input"
+              />
+            </FormField>
 
             {/* Actions */}
             <div className="shop-form__actions">
@@ -215,7 +226,7 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
                 </span>
               </div>
 
-              {/* Address — 2 columns */}
+              {/* Address + Location — 2 columns */}
               <div className="shop-view__item">
                 <div className="shop-view__label-row">
                   <MapPin size={14} className="shop-view__label-icon" />
@@ -224,14 +235,45 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
                 <span className="shop-view__value">{me.address_name || '—'}</span>
               </div>
               <div className="shop-view__item">
-                <span className="shop-view__label">Карта</span>
+                <span className="shop-view__label">Точка на карте</span>
                 <span className="shop-view__value">
-                  {me.map_url ? (
-                    <a href={me.map_url} target="_blank" rel="noopener noreferrer" className="shop-view__link">
-                      <ExternalLink size={13} />
-                      Открыть на карте
-                    </a>
-                  ) : '—'}
+                  {hasGeo ? (
+                    <span className="shop-view__geo-info">
+                      <a
+                        href={`https://yandex.ru/maps/?pt=${me.geo_lon},${me.geo_lat}&z=16&l=map`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shop-view__link"
+                      >
+                        <ExternalLink size={13} />
+                        Открыть на карте
+                      </a>
+                      {hasYmaps && (
+                        <button
+                          className="shop-view__map-btn"
+                          onClick={() => setShowMapPicker(true)}
+                          disabled={savingGeo}
+                        >
+                          <MapPin size={13} />
+                          {savingGeo ? 'Сохранение...' : 'Изменить'}
+                        </button>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="shop-view__geo-info">
+                      <span style={{ color: 'var(--text-tertiary)' }}>Не указана</span>
+                      {hasYmaps && (
+                        <button
+                          className="shop-view__map-btn shop-view__map-btn--primary"
+                          onClick={() => setShowMapPicker(true)}
+                          disabled={savingGeo}
+                        >
+                          <MapPin size={13} />
+                          {savingGeo ? 'Сохранение...' : 'Указать на карте'}
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -332,6 +374,19 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
           <p className="shop-card__muted">Ссылка генерируется автоматически. Обратитесь к администратору.</p>
         )}
       </div>
+
+      {/* ── Map Picker Modal ──────────────────────── */}
+      {showMapPicker && (
+        <LocationPicker
+          initialCenter={
+            hasGeo
+              ? [me.geo_lon!, me.geo_lat!]
+              : undefined
+          }
+          onConfirm={handleMapConfirm}
+          onClose={() => setShowMapPicker(false)}
+        />
+      )}
     </div>
   );
 }
