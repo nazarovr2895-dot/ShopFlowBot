@@ -14,7 +14,7 @@ const DEFAULT_CENTER: [number, number] = [37.6173, 55.7558];
 
 export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
   const [ymaps, setYmaps] = useState<YmapsComponents | null>(null);
-  const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const centerRef = useRef<[number, number]>(initialCenter || DEFAULT_CENTER);
   const [coords, setCoords] = useState<{ lat: number; lon: number }>(() => {
@@ -23,13 +23,14 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
   });
 
   useEffect(() => {
-    if (!getYmapsApiKey()) {
-      setError(true);
+    const key = getYmapsApiKey();
+    if (!key) {
+      setErrorMsg('API ключ Яндекс Карт не найден. Проверьте config.json (ymapsApiKey).');
       return;
     }
     loadYmaps()
       .then(setYmaps)
-      .catch(() => setError(true));
+      .catch((err) => setErrorMsg(err?.message || 'Ошибка загрузки SDK'));
   }, []);
 
   const handleUpdate = useCallback((event: { location: { center: [number, number] } }) => {
@@ -42,12 +43,13 @@ export function LocationPicker({ initialCenter, onConfirm, onClose }: Props) {
     onConfirm(coords.lat, coords.lon);
   }, [coords, onConfirm]);
 
-  if (error) {
+  if (errorMsg) {
     return (
       <div className="location-picker__overlay" onClick={onClose}>
         <div className="location-picker__modal" onClick={(e) => e.stopPropagation()}>
           <div className="location-picker__error">
             <p>Не удалось загрузить карту</p>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', maxWidth: 400 }}>{errorMsg}</p>
             <button className="btn btn-ghost" onClick={onClose}>Закрыть</button>
           </div>
         </div>
