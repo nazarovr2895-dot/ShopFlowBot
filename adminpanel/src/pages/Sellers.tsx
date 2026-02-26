@@ -4,7 +4,7 @@ import { PageHeader, useToast } from '../components/ui';
 import {
   Plus, Store, User, MapPin, Truck, Building2, Percent,
   Gauge, Calendar, Globe, Shield, Trash2, X, Edit3, Save,
-  Copy, ExternalLink, Eye, EyeOff, CreditCard, AlertTriangle,
+  Copy, Eye, EyeOff, CreditCard, AlertTriangle,
 } from 'lucide-react';
 import {
   searchSellers,
@@ -102,14 +102,6 @@ function phoneToDigits(display: string): string {
 }
 
 /** Форматирование даты: "ДД.ММ.ГГГГ" */
-function formatDateInput(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length === 0) return '';
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4, 8)}`;
-}
-
 export function Sellers() {
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -405,8 +397,6 @@ function AddSellerModal({
   const [districtId, setDistrictId] = useState(1);
   const [metroId, setMetroId] = useState<number | null>(null);
   const [metroWalkMinutes, setMetroWalkMinutes] = useState<number | null>(null);
-  const [addressLink, setAddressLink] = useState('');
-  const [expiryDateDisplay, setExpiryDateDisplay] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [commissionPercent, setCommissionPercent] = useState('');
@@ -534,11 +524,6 @@ function AddSellerModal({
     setPhoneDisplay(formatted);
   };
 
-  const handleDateChange = (value: string) => {
-    const formatted = formatDateInput(value);
-    setExpiryDateDisplay(formatted);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -550,12 +535,6 @@ function AddSellerModal({
       return;
     }
 
-    // Validate date format if provided
-    if (expiryDateDisplay && expiryDateDisplay.length !== 10) {
-      setError('Введите дату в формате ДД.ММ.ГГГГ');
-      return;
-    }
-    
     // Validate tg_id — required
     if (!tgId.trim()) {
       setError('Telegram ID обязателен');
@@ -580,7 +559,6 @@ function AddSellerModal({
         district_id: districtId,
         metro_id: metroId || undefined,
         metro_walk_minutes: metroWalkMinutes || undefined,
-        map_url: addressLink || undefined,
         address_name: selectedAddress || undefined,
         delivery_type: 'both',
         auto_create_delivery_zone: coverageResult?.covered && coverageResult?.district_id ? true : false,
@@ -590,10 +568,6 @@ function AddSellerModal({
       }
       if (initialInnData?.ogrn) {
         payload.ogrn = initialInnData.ogrn;
-      }
-      if (expiryDateDisplay) {
-        const [d, m, y] = expiryDateDisplay.split('.');
-        if (d && m && y) payload.placement_expired_at = `${y}-${m}-${d}`;
       }
       if (commissionPercent) {
         const cp = parseInt(commissionPercent, 10);
@@ -767,32 +741,6 @@ function AddSellerModal({
             setMetroWalkMinutes(walkMin);
           }}
         />
-        <FormRow label="Ссылка на адрес (Яндекс.Карты)" value={addressLink} onChange={setAddressLink} />
-        <div className="form-group">
-          <label className="form-label">Дата окончания размещения</label>
-          <input
-            type="text"
-            className="form-input"
-            value={expiryDateDisplay}
-            onChange={(e) => handleDateChange(e.target.value)}
-            placeholder="ДД.ММ.ГГГГ"
-            maxLength={10}
-          />
-          <small className="form-hint">Формат: ДД.ММ.ГГГГ или выберите дату</small>
-          <input
-            type="date"
-            className="form-input form-input--secondary"
-            onChange={(e) => {
-              if (e.target.value) {
-                const date = new Date(e.target.value);
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const year = date.getFullYear();
-                setExpiryDateDisplay(`${day}.${month}.${year}`);
-              }
-            }}
-          />
-        </div>
         <div className="form-group">
           <label className="form-label">Индивидуальная комиссия (%)</label>
           <input
@@ -988,7 +936,6 @@ function SellerDetailsModal({
       fields = {
         district_id: seller.district_id ? String(seller.district_id) : '1',
         address_name: seller.address_name || '',
-        map_url: seller.map_url || '',
         metro_id: seller.metro_id ? String(seller.metro_id) : '',
         metro_walk_minutes: seller.metro_walk_minutes ? String(seller.metro_walk_minutes) : '',
       };
@@ -1026,7 +973,6 @@ function SellerDetailsModal({
           : field === 'hashtags' ? seller.hashtags
           : field === 'district_id' ? seller.district_id
           : field === 'address_name' ? seller.address_name
-          : field === 'map_url' ? seller.map_url
           : field === 'metro_id' ? seller.metro_id
           : field === 'metro_walk_minutes' ? seller.metro_walk_minutes
           : field === 'delivery_type' ? seller.delivery_type
@@ -1255,8 +1201,8 @@ function SellerDetailsModal({
   const status = getSellerStatus();
 
   return (
-    <div className="sdm-overlay" onClick={onClose}>
-      <div className="sdm-panel" onClick={(e) => e.stopPropagation()}>
+    <div className="sdm-overlay">
+      <div className="sdm-panel">
 
         {/* ── Header ── */}
         <div className="sdm-header">
@@ -1399,10 +1345,6 @@ function SellerDetailsModal({
                     <input className="sdm-edit-input" value={editedFields.address_name || ''} onChange={(e) => handleFieldChange('address_name', e.target.value)} placeholder="ул. Цветочная, д. 1" />
                   </div>
                   <div className="sdm-edit-field">
-                    <label className="sdm-edit-label">Ссылка на карту</label>
-                    <input className="sdm-edit-input" value={editedFields.map_url || ''} onChange={(e) => handleFieldChange('map_url', e.target.value)} placeholder="https://yandex.ru/maps/..." />
-                  </div>
-                  <div className="sdm-edit-field">
                     <label className="sdm-edit-label">Станция метро</label>
                     <div className="sdm-metro-wrap">
                       <input className="sdm-edit-input" placeholder="Поиск станции..." value={metroQuery} onChange={(e) => setMetroQuery(e.target.value)} onFocus={() => metroResults.length > 0 && setMetroDropdownOpen(true)} />
@@ -1448,16 +1390,6 @@ function SellerDetailsModal({
                   <div className="sdm-field">
                     <div className="sdm-field-label">Адрес</div>
                     <div className="sdm-field-value">{seller.address_name || <span className="sdm-field-value--muted">—</span>}</div>
-                  </div>
-                  <div className="sdm-field">
-                    <div className="sdm-field-label">Карта</div>
-                    <div className="sdm-field-value">
-                      {seller.map_url ? (
-                        <a href={seller.map_url} target="_blank" rel="noopener noreferrer">
-                          Открыть карту <ExternalLink size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />
-                        </a>
-                      ) : <span className="sdm-field-value--muted">—</span>}
-                    </div>
                   </div>
                   <div className="sdm-field">
                     <div className="sdm-field-label">Метро</div>
@@ -1929,8 +1861,8 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal">
         <div className="modal-header">
           <h2>{title}</h2>
           <button className="modal-close" onClick={onClose}>×</button>
