@@ -216,51 +216,55 @@
 }
 
 /* ============================================
-   Map button (desktop only, after filter icon)
+   Map button (desktop only, icon-only like filter)
    ============================================ */
 .catalog-nav-bar__map-btn {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 12px;
+  width: 15%;
+  min-width: 44px;
+  max-width: 60px;
+  height: 28px;
+  padding: 0;
   border: none;
-  border-radius: 10px;
-  background: rgba(128, 128, 128, 0.12);
-  color: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
+  background: transparent;
+  color: var(--app-text);
   cursor: pointer;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: 12px;
   transition: all 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
 .catalog-nav-bar__map-btn:hover {
-  background: rgba(128, 128, 128, 0.2);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .catalog-nav-bar__map-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.95);
+}
+
+.catalog-nav-bar__map-icon {
+  flex-shrink: 0;
+  color: inherit;
 }
 
 [data-theme-opposite="dark"] .catalog-nav-bar__map-btn {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.12);
 }
 
 [data-theme-opposite="dark"] .catalog-nav-bar__map-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 [data-theme-opposite="light"] .catalog-nav-bar__map-btn {
   color: #000000;
-  background: rgba(0, 0, 0, 0.07);
 }
 
 [data-theme-opposite="light"] .catalog-nav-bar__map-btn:hover {
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 /* ============================================
@@ -353,28 +357,28 @@
   height: 28px;
 }
 
-/* Show delivery tabs only on desktop */
+/* Show delivery tabs only on desktop — flat style matching filter button */
 .catalog-nav-bar--desktop .catalog-nav-bar__delivery-tabs {
   display: flex;
   align-items: center;
   flex-shrink: 0;
   gap: 2px;
-  background: rgba(128, 128, 128, 0.12);
-  border-radius: 14px;
-  padding: 3px;
-  height: 26px;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  height: auto;
 }
 
 .catalog-nav-bar__delivery-tab {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 14px;
-  height: 22px;
+  padding: 0 8px;
+  height: 28px;
   border: none;
   background: transparent;
   color: inherit;
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
@@ -386,38 +390,34 @@
 }
 
 .catalog-nav-bar__delivery-tab:hover {
-  opacity: 0.85;
+  opacity: 0.8;
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.catalog-nav-bar__delivery-tab:active {
+  transform: scale(0.95);
 }
 
 .catalog-nav-bar__delivery-tab--active {
   opacity: 1;
   font-weight: 600;
-  background: rgba(128, 128, 128, 0.18);
 }
 
 /* Delivery tab theme styles */
-[data-theme-opposite="dark"] .catalog-nav-bar__delivery-tabs {
-  background: rgba(255, 255, 255, 0.1);
-}
-
 [data-theme-opposite="dark"] .catalog-nav-bar__delivery-tab {
   color: #ffffff;
 }
 
-[data-theme-opposite="dark"] .catalog-nav-bar__delivery-tab--active {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-[data-theme-opposite="light"] .catalog-nav-bar__delivery-tabs {
-  background: rgba(0, 0, 0, 0.07);
+[data-theme-opposite="dark"] .catalog-nav-bar__delivery-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 [data-theme-opposite="light"] .catalog-nav-bar__delivery-tab {
   color: #000000;
 }
 
-[data-theme-opposite="light"] .catalog-nav-bar__delivery-tab--active {
-  background: rgba(0, 0, 0, 0.12);
+[data-theme-opposite="light"] .catalog-nav-bar__delivery-tab:hover {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 /* Desktop adjustments (non--desktop modifier, e.g. on ShopsList page only) */
@@ -449,6 +449,16 @@
   }
 
   .catalog-nav-bar__filter-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .catalog-nav-bar__map-btn {
+    height: 32px;
+    max-width: 70px;
+  }
+
+  .catalog-nav-bar__map-icon {
     width: 22px;
     height: 22px;
   }
