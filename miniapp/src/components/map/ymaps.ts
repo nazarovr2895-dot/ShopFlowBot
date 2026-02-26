@@ -80,6 +80,10 @@ export async function loadYmaps() {
         YMapDefaultMarker,
       } = reactify.module(ymaps3);
 
+      // Load clusterer module from CDN (no npm package needed)
+      const ymaps3Clusterer = await ymaps3.import('@yandex/ymaps3-clusterer');
+      const { YMapClusterer, clusterByGrid } = reactify.module(ymaps3Clusterer);
+
       _components = {
         YMap,
         YMapDefaultSchemeLayer,
@@ -88,6 +92,8 @@ export async function loadYmaps() {
         YMapListener,
         YMapControls,
         YMapDefaultMarker,
+        YMapClusterer,
+        clusterByGrid,
         reactify,
       };
       return _components;

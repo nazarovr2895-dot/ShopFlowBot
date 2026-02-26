@@ -1,11 +1,15 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { YandexMapProvider } from '../components/map/YandexMapProvider';
 import { SellersMap } from '../components/map/SellersMap';
+import type { BBox } from '../components/map/SellersMap';
 import { MapPlaceholder } from '../components/map/MapPlaceholder';
 import { api } from '../api/client';
 import type { SellerGeoItem } from '../types';
 import '../components/map/Map.css';
+
+/** Minimum zoom level to allow "show sellers" action (~district level) */
+const MIN_ZOOM_FOR_LOAD = 12;
 
 export function SellersMapPage() {
   const navigate = useNavigate();
@@ -16,13 +20,63 @@ export function SellersMapPage() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [selected, setSelected] = useState<SellerGeoItem | null>(null);
 
-  // Fetch all sellers for the city once on mount
+  // Zone-loading state
+  const [zoom, setZoom] = useState(DEFAULT_INITIAL_ZOOM);
+  const [currentBbox, setCurrentBbox] = useState<BBox | null>(null);
+  const [showLoadButton, setShowLoadButton] = useState(false);
+  const [loadingZone, setLoadingZone] = useState(false);
+
+  // Track city center for initial positioning
+  const [cityCenter, setCityCenter] = useState<[number, number] | undefined>();
+  // Track whether initial sellers were loaded to avoid duplicate city-level fetches
+  const initialFetchDone = useRef(false);
+
+  // Initial load: fetch all city sellers for center calculation + first view
   useEffect(() => {
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
+
     api.getSellersGeo(cityId)
-      .then(setSellers)
+      .then(data => {
+        setSellers(data);
+        // Compute city center from seller coordinates
+        const withCoords = data.filter(s => s.geo_lat && s.geo_lon);
+        if (withCoords.length > 0) {
+          const avgLon = withCoords.reduce((s, d) => s + d.geo_lon!, 0) / withCoords.length;
+          const avgLat = withCoords.reduce((s, d) => s + d.geo_lat!, 0) / withCoords.length;
+          setCityCenter([avgLon, avgLat]);
+        }
+      })
       .catch(() => {})
       .finally(() => setInitialLoaded(true));
   }, [cityId]);
+
+  // Handle map viewport changes
+  const handleBoundsChange = useCallback((bbox: BBox) => {
+    setCurrentBbox(bbox);
+    // Show "load zone" button after user moves the map
+    setShowLoadButton(true);
+  }, []);
+
+  // Handle zoom level changes
+  const handleZoomChange = useCallback((newZoom: number) => {
+    setZoom(newZoom);
+  }, []);
+
+  // "Показать магазины здесь" button handler
+  const handleLoadZone = useCallback(async () => {
+    if (!currentBbox) return;
+    setLoadingZone(true);
+    try {
+      const data = await api.getSellersGeo(cityId, currentBbox);
+      setSellers(data);
+      setShowLoadButton(false);
+    } catch {
+      // Keep existing sellers on error
+    } finally {
+      setLoadingZone(false);
+    }
+  }, [cityId, currentBbox]);
 
   const handleSellerClick = useCallback((seller: SellerGeoItem) => {
     setSelected(seller);
@@ -56,12 +110,33 @@ export function SellersMapPage() {
             <SellersMap
               sellers={sellers}
               onSellerClick={handleSellerClick}
+              onBoundsChange={handleBoundsChange}
+              onZoomChange={handleZoomChange}
+              initialCenter={cityCenter}
               height="100%"
             />
           ) : (
             <MapPlaceholder height="100%" />
           )}
         </YandexMapProvider>
+
+        {/* Zoom hint: too far out */}
+        {initialLoaded && zoom < MIN_ZOOM_FOR_LOAD && (
+          <div className="sellers-map-page__zoom-hint">
+            Приблизьте карту для поиска магазинов
+          </div>
+        )}
+
+        {/* "Show shops here" button: visible after moving map when zoomed in enough */}
+        {initialLoaded && zoom >= MIN_ZOOM_FOR_LOAD && showLoadButton && (
+          <button
+            className="sellers-map-page__load-zone"
+            onClick={handleLoadZone}
+            disabled={loadingZone}
+          >
+            {loadingZone ? 'Загрузка...' : 'Показать магазины здесь'}
+          </button>
+        )}
 
         {/* Seller popup (inside map container for absolute positioning) */}
         {selected && (
@@ -109,3 +184,6 @@ export function SellersMapPage() {
     </div>
   );
 }
+
+/** Default initial zoom (city-level overview) */
+const DEFAULT_INITIAL_ZOOM = 11;

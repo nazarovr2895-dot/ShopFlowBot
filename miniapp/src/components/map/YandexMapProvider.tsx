@@ -11,6 +11,8 @@ interface YmapsComponents {
   YMapListener: any;
   YMapControls: any;
   YMapDefaultMarker: any;
+  YMapClusterer: any;
+  clusterByGrid: any;
   reactify: any;
 }
 
