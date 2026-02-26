@@ -603,6 +603,19 @@ class ApiClient {
     return this.fetchPublic<any[]>(`/public/address/suggest?${params}`);
   }
 
+  async reverseGeocode(lat: number, lon: number): Promise<Array<{
+    value: string;
+    lat: string | null;
+    lon: string | null;
+    city: string | null;
+    city_district: string | null;
+    area: string | null;
+    region: string | null;
+    postal_code: string | null;
+  }>> {
+    return this.fetchPublic<any[]>(`/public/address/reverse-geocode?lat=${lat}&lon=${lon}`);
+  }
+
   async getDistrictsByCityId(cityId: number): Promise<Array<{ id: number; name: string; city_id: number }>> {
     return this.fetchPublic(`/public/districts/${cityId}`);
   }

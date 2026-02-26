@@ -26,12 +26,9 @@ export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props
   const reverseGeocode = useCallback(async (lon: number, lat: number) => {
     setLoading(true);
     try {
-      const suggestions = await api.suggestAddress(
-        `${lat}, ${lon}`,
-        cityKladrId,
-      );
-      if (suggestions.length > 0) {
-        setAddress(suggestions[0].value);
+      const results = await api.reverseGeocode(lat, lon);
+      if (results.length > 0) {
+        setAddress(results[0].value);
       } else {
         setAddress(`${lat.toFixed(6)}, ${lon.toFixed(6)}`);
       }
@@ -40,7 +37,7 @@ export function AddressPickerMap({ initialCenter, cityKladrId, onSelect }: Props
     } finally {
       setLoading(false);
     }
-  }, [cityKladrId]);
+  }, []);
 
   const handleUpdate = useCallback((event: { location: { center: [number, number]; zoom: number } }) => {
     const [lon, lat] = event.location.center;

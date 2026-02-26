@@ -936,6 +936,16 @@ async def suggest_address_endpoint(
     return suggestions
 
 
+@router.get("/address/reverse-geocode")
+async def reverse_geocode_endpoint(
+    lat: float = Query(..., description="Широта"),
+    lon: float = Query(..., description="Долгота"),
+):
+    """Reverse geocode coordinates → address via DaData geolocate."""
+    from backend.app.services.dadata_address import reverse_geocode_address
+    return await reverse_geocode_address(lat, lon)
+
+
 @router.post("/sellers/{seller_id}/check-delivery")
 async def check_delivery_endpoint(
     seller_id: int,

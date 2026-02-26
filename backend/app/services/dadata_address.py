@@ -363,6 +363,39 @@ async def fetch_metro_stations(city_kladr_id: str) -> List[Dict[str, Any]]:
     return list(all_stations.values())
 
 
+async def reverse_geocode_address(lat: float, lon: float) -> List[Dict[str, Any]]:
+    """
+    Reverse geocode coordinates → address via DaData geolocate API.
+    Returns list of dicts in the same format as suggest_address():
+    [{value, lat, lon, city, city_district, area, region, postal_code}]
+    """
+    payload = {"lat": lat, "lon": lon, "count": 1, "radius_meters": 100}
+    suggestions = await _call_dadata_url(DADATA_GEOLOCATE_URL, payload)
+    result = []
+    for s in suggestions:
+        d = s.get("data", {})
+        city_area = d.get("city_area")
+        city_district_raw = d.get("city_district")
+        city_district_type = d.get("city_district_type")
+        okato = d.get("okato")
+        district_name = None
+        if city_district_raw:
+            district_name = _normalize_district_name(city_district_raw, city_district_type, okato=okato)
+        if not district_name and city_area:
+            district_name = _normalize_district_name(city_area, okato=okato)
+        result.append({
+            "value": s.get("value", ""),
+            "lat": d.get("geo_lat"),
+            "lon": d.get("geo_lon"),
+            "city": d.get("city"),
+            "city_district": district_name,
+            "area": d.get("area"),
+            "region": d.get("region"),
+            "postal_code": d.get("postal_code"),
+        })
+    return result
+
+
 async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[str]:
     """
     Resolve district/rayon name from coordinates using DaData geolocate API.
