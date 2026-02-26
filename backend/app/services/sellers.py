@@ -194,7 +194,8 @@ class SellerService:
         "fio", "phone", "shop_name", "hashtags", "description",
         "address_name", "map_url", "delivery_type", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
-        "commission_percent", "yookassa_account_id", "use_delivery_zones"
+        "commission_percent", "yookassa_account_id", "use_delivery_zones",
+        "geo_lat", "geo_lon",
     }
     
     def __init__(self, session: AsyncSession):
@@ -619,8 +620,16 @@ class SellerService:
             web_password_hash=password_hash,
             commission_percent=commission_percent,
         )
+        # Auto-geocode address for map display
+        if address_name and address_name.strip():
+            from backend.app.services.dadata_address import geocode_address
+            geo_lat, geo_lon = await geocode_address(address_name)
+            if geo_lat is not None and geo_lon is not None:
+                new_seller.geo_lat = geo_lat
+                new_seller.geo_lon = geo_lon
+
         self.session.add(new_seller)
-        
+
         await self.session.commit()
         return {"status": "ok", "web_login": web_login, "web_password": web_password, "tg_id": tg_id}
     
@@ -679,6 +688,17 @@ class SellerService:
             seller.description = value
         elif field == "address_name":
             seller.address_name = (value or "").strip() or None
+            # Auto-geocode address for map display
+            if seller.address_name:
+                from backend.app.services.dadata_address import geocode_address
+                lat, lon = await geocode_address(seller.address_name)
+                if lat is not None and lon is not None:
+                    seller.geo_lat = lat
+                    seller.geo_lon = lon
+        elif field == "geo_lat":
+            seller.geo_lat = float(value) if value else None
+        elif field == "geo_lon":
+            seller.geo_lon = float(value) if value else None
         elif field == "map_url":
             seller.map_url = value
         elif field == "delivery_type":

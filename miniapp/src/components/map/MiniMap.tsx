@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { loadYmaps } from './ymaps';
+import { useYmaps } from './YandexMapProvider';
 import { MapPlaceholder } from './MapPlaceholder';
 import './Map.css';
 
@@ -11,11 +10,7 @@ interface Props {
 }
 
 export function MiniMap({ lat, lon, name, markerColor = '#3390ec' }: Props) {
-  const [ymaps, setYmaps] = useState<any>(null);
-
-  useEffect(() => {
-    loadYmaps().then(setYmaps).catch(() => {});
-  }, []);
+  const ymaps = useYmaps();
 
   if (!ymaps) return <MapPlaceholder height={150} />;
 

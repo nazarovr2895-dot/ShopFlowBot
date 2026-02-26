@@ -12,6 +12,7 @@ import { getYmapsApiKey } from '../api/ymapsConfig';
 import './ShopDetails.css';
 
 const MiniMap = lazy(() => import('../components/map/MiniMap').then(m => ({ default: m.MiniMap })));
+const YandexMapProvider = lazy(() => import('../components/map/YandexMapProvider').then(m => ({ default: m.YandexMapProvider })));
 
 type ProductTab = 'regular' | 'preorder';
 
@@ -589,12 +590,14 @@ export function ShopDetails() {
             {seller.geo_lat && seller.geo_lon && getYmapsApiKey() && (
               <div style={{ marginTop: 8 }}>
                 <Suspense fallback={<div style={{ height: 150, borderRadius: 12, background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)' }} />}>
-                  <MiniMap
-                    lat={seller.geo_lat}
-                    lon={seller.geo_lon}
-                    name={seller.shop_name || ''}
-                    markerColor={seller.metro_line_color}
-                  />
+                  <YandexMapProvider height={150}>
+                    <MiniMap
+                      lat={seller.geo_lat}
+                      lon={seller.geo_lon}
+                      name={seller.shop_name || ''}
+                      markerColor={seller.metro_line_color}
+                    />
+                  </YandexMapProvider>
                 </Suspense>
               </div>
             )}

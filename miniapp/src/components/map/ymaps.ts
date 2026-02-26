@@ -6,14 +6,26 @@
  *   const { YMap, YMapDefaultSchemeLayer, ... } = await loadYmaps();
  */
 import React from 'react';
-import ReactDOM from 'react-dom';
+import * as ReactDOM from 'react-dom';
 import { getYmapsApiKey } from '../../api/ymapsConfig';
 
 // Global ymaps3 is loaded from CDN script
 declare const ymaps3: any;
 
+const SDK_TIMEOUT_MS = 15_000;
+
 let _promise: Promise<any> | null = null;
 let _components: any = null;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Yandex Maps SDK load timeout')), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
 
 function injectScript(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -23,8 +35,13 @@ function injectScript(): Promise<void> {
     }
     const existing = document.getElementById('ymaps3-script');
     if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', () => reject(new Error('Failed to load Yandex Maps SDK')));
+      // Script tag exists but may have already loaded
+      if (typeof ymaps3 !== 'undefined') {
+        resolve();
+      } else {
+        existing.addEventListener('load', () => resolve());
+        existing.addEventListener('error', () => reject(new Error('Failed to load Yandex Maps SDK')));
+      }
       return;
     }
     const key = getYmapsApiKey();
@@ -46,7 +63,7 @@ export async function loadYmaps() {
   if (_components) return _components;
 
   if (!_promise) {
-    _promise = (async () => {
+    _promise = withTimeout((async () => {
       await injectScript();
       await ymaps3.ready;
 
@@ -63,18 +80,6 @@ export async function loadYmaps() {
         YMapDefaultMarker,
       } = reactify.module(ymaps3);
 
-      // Import clusterer module
-      let YMapClusterer: any = null;
-      let clusterByGrid: any = null;
-      try {
-        const clustererModule = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
-        const reactifiedClusterer = reactify.module(clustererModule);
-        YMapClusterer = reactifiedClusterer.YMapClusterer;
-        clusterByGrid = clustererModule.clusterByGrid;
-      } catch {
-        console.warn('[YMaps] Clusterer module not available');
-      }
-
       _components = {
         YMap,
         YMapDefaultSchemeLayer,
@@ -83,11 +88,12 @@ export async function loadYmaps() {
         YMapListener,
         YMapControls,
         YMapDefaultMarker,
-        YMapClusterer,
-        clusterByGrid,
       };
       return _components;
-    })();
+    })(), SDK_TIMEOUT_MS).catch((err) => {
+      _promise = null; // Allow retry on next call
+      throw err;
+    });
   }
   return _promise;
 }

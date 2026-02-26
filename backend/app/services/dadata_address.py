@@ -406,3 +406,16 @@ async def resolve_district_from_coordinates(lat: float, lon: float) -> Optional[
                 return normalized
 
     return None
+
+
+async def geocode_address(address: str) -> tuple:
+    """Geocode address string → (lat, lon) via DaData suggest with count=1.
+    Returns (float, float) or (None, None) if geocoding fails.
+    """
+    if not address or len(address.strip()) < 5:
+        return None, None
+    suggestions = await _call_dadata({"query": address.strip(), "count": 1})
+    if not suggestions:
+        return None, None
+    d = suggestions[0].get("data", {})
+    return _safe_float(d.get("geo_lat")), _safe_float(d.get("geo_lon"))

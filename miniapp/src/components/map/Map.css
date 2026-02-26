@@ -33,6 +33,22 @@
   50% { opacity: 1; }
 }
 
+.map-placeholder__icon--error {
+  animation: none;
+  color: var(--tg-theme-destructive-text-color, #e53935);
+}
+
+.map-placeholder__retry {
+  margin-top: 4px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--tg-theme-button-color, #3390ec);
+  color: var(--tg-theme-button-text-color, #fff);
+  font-size: 14px;
+  cursor: pointer;
+}
+
 /* Seller marker popup */
 .seller-marker {
   display: flex;

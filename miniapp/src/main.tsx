@@ -20,6 +20,10 @@ async function initAndRender() {
     // Yandex Maps API key
     const ymapsKey = config?.ymapsApiKey ? String(config.ymapsApiKey).trim() : '';
     setYmapsApiKey(ymapsKey || YMAPS_KEY_FALLBACK);
+    // Preload Yandex Maps SDK in background (non-blocking)
+    if (ymapsKey || YMAPS_KEY_FALLBACK) {
+      import('./components/map/ymaps').then(({ loadYmaps }) => loadYmaps().catch(() => {}));
+    }
   } catch {
     if (API_BASE_FALLBACK) setApiBaseUrl(API_BASE_FALLBACK.replace(/\/$/, ''));
     if (YMAPS_KEY_FALLBACK) setYmapsApiKey(YMAPS_KEY_FALLBACK);
