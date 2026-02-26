@@ -21,9 +21,14 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
   const [metroDropdownOpen, setMetroDropdownOpen] = useState(false);
   const metroSearchRef = useRef<HTMLDivElement>(null);
 
-  // Load cities on mount
+  // Load cities on mount; auto-select first city if none chosen
   useEffect(() => {
-    api.getCities().then(setCities).catch(console.error);
+    api.getCities().then((data) => {
+      setCities(data);
+      if (!filters.city_id && data.length > 0) {
+        onFiltersChange({ ...filters, city_id: data[0].id });
+      }
+    }).catch(console.error);
   }, []);
 
   // Load districts when city changes
@@ -206,7 +211,6 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
           value={filters.city_id || ''}
           onChange={handleCityChange}
         >
-          <option value="">Все города</option>
           {cities.map((city) => (
             <option key={city.id} value={city.id}>
               {city.name}

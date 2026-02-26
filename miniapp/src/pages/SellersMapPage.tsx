@@ -21,6 +21,7 @@ export function SellersMapPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const fetchRef = useRef(0); // tracks latest fetch to ignore stale responses
   const initialFetchDone = useRef(false);
+  const boundsActiveRef = useRef(false);
 
   // Initial fetch WITHOUT bounds — ensures sellers are shown immediately
   // even if the map's first onUpdate doesn't include bounds
@@ -37,8 +38,16 @@ export function SellersMapPage() {
       });
   }, [cityId]);
 
+  // Enable bounds-based fetching after map stabilizes
+  useEffect(() => {
+    if (initialLoaded) {
+      const t = setTimeout(() => { boundsActiveRef.current = true; }, 1000);
+      return () => clearTimeout(t);
+    }
+  }, [initialLoaded]);
+
   const handleBoundsChange = useCallback((bbox: BBox) => {
-    if (!initialFetchDone.current) return;
+    if (!boundsActiveRef.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const fetchId = ++fetchRef.current;
