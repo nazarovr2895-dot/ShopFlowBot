@@ -709,8 +709,10 @@
   text-decoration: none;
   white-space: nowrap;
   padding: 2px 8px;
+  border: none;
   border-radius: 6px;
   background: var(--app-surface, #f0f0f0);
+  cursor: pointer;
   transition: opacity 0.15s;
 }
 

@@ -87,6 +87,7 @@ export function ShopDetails() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [hoursExpanded, setHoursExpanded] = useState(false);
   const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [showMiniMap, setShowMiniMap] = useState(false);
   const { cartQuantities, addItem: ctxAddItem, updateQuantity: ctxUpdateQuantity, isPanelOpen, setPanelOpen, itemCount: cartItemCount } = useShopCart();
 
   // Set up back button — close cart panel first, then navigate back
@@ -402,10 +403,7 @@ export function ShopDetails() {
 
   const showFavoriteBtn = true;
   const hasPickup = seller.delivery_type === 'pickup' || seller.delivery_type === 'both';
-  const showMapButton = hasPickup && seller.geo_lat && seller.geo_lon;
-  const mapExternalUrl = seller.geo_lat && seller.geo_lon
-    ? `https://yandex.ru/maps/?pt=${seller.geo_lon},${seller.geo_lat}&z=17&l=map`
-    : null;
+  const showMapButton = hasPickup && seller.geo_lat && seller.geo_lon && getYmapsApiKey();
 
   // Today's working hours (Mon=0 ... Sun=6)
   const todayIdx = (new Date().getDay() + 6) % 7;
@@ -572,25 +570,24 @@ export function ShopDetails() {
             <div className="shop-details__info-line">
               <AddressIcon />
               <span className="shop-details__info-line-text">{seller.address_name}</span>
-              {/* Link to open full Yandex Maps */}
-              {showMapButton && mapExternalUrl && (
-                <a
-                  href={mapExternalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {/* Toggle inline mini-map */}
+              {showMapButton && (
+                <button
+                  type="button"
                   className="shop-details__map-link-inline"
-                  aria-label="Открыть на карте"
+                  aria-label="Показать на карте"
+                  onClick={() => setShowMiniMap(prev => !prev)}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                     <circle cx="12" cy="10" r="3" />
                   </svg>
-                  На карте
-                </a>
+                  {showMiniMap ? 'Скрыть' : 'На карте'}
+                </button>
               )}
             </div>
-            {/* Inline mini-map when coordinates available */}
-            {seller.geo_lat && seller.geo_lon && getYmapsApiKey() && (
+            {/* Inline mini-map — loads only on button click */}
+            {showMiniMap && seller.geo_lat && seller.geo_lon && (
               <div style={{ marginTop: 8 }}>
                 <Suspense fallback={<div style={{ height: 150, borderRadius: 12, background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)' }} />}>
                   <YandexMapProvider height={150}>
