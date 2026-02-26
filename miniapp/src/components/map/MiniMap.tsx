@@ -14,12 +14,12 @@ export function MiniMap({ lat, lon, name, markerColor = '#3390ec' }: Props) {
 
   if (!ymaps) return <MapPlaceholder height={150} />;
 
-  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker } = ymaps;
+  const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker, reactify } = ymaps;
 
   return (
     <div className="mini-map">
       <YMap
-        location={{ center: [lon, lat], zoom: 16 }}
+        location={reactify.useDefault({ center: [lon, lat], zoom: 16 })}
         mode="vector"
       >
         <YMapDefaultSchemeLayer />

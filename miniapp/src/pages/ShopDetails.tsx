@@ -403,7 +403,7 @@ export function ShopDetails() {
 
   const showFavoriteBtn = true;
   const hasPickup = seller.delivery_type === 'pickup' || seller.delivery_type === 'both';
-  const showMapButton = hasPickup && seller.geo_lat && seller.geo_lon && getYmapsApiKey();
+  const showMapButton = seller.geo_lat && seller.geo_lon && getYmapsApiKey();
 
   // Today's working hours (Mon=0 ... Sun=6)
   const todayIdx = (new Date().getDay() + 6) % 7;
