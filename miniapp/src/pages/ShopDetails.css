@@ -1205,3 +1205,21 @@
 [data-theme="dark"] .shop-details__nav-bar-tab--active {
   background: rgba(255, 255, 255, 0.18);
 }
+
+/* Compact nav bar for mobile / Telegram mini app (-30%) */
+@media (max-width: 767px) {
+  .shop-details__nav-bar {
+    padding: 8px 0 2px;
+  }
+
+  .shop-details__nav-bar-container {
+    height: 34px;
+    padding: 4px;
+  }
+
+  .shop-details__nav-bar-tab {
+    height: 26px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+}

@@ -7,7 +7,7 @@
 
 /* Telegram version */
 .my-flowers-page[data-telegram="true"] {
-  padding-top: calc(12px + 48px);
+  padding-top: calc(12px + 38px);
 }
 
 .my-flowers-page__content {

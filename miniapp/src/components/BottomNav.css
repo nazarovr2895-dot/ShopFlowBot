@@ -55,3 +55,20 @@
 .bottom-nav__label {
   white-space: nowrap;
 }
+
+/* Compact bottom nav for mobile / Telegram mini app (-20%) */
+@media (max-width: 767px) {
+  .bottom-nav {
+    height: 45px;
+  }
+
+  .bottom-nav__item {
+    padding: 4px 12px;
+    font-size: 10px;
+  }
+
+  .bottom-nav__icon {
+    width: 20px;
+    height: 20px;
+  }
+}

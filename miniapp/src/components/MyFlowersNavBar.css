@@ -32,8 +32,8 @@
 
 .my-flowers-nav-bar--telegram .my-flowers-nav-bar__container,
 .my-flowers-nav-bar[data-telegram="true"] .my-flowers-nav-bar__container {
-  height: 48px;
-  padding: 6px;
+  height: 38px;
+  padding: 5px;
 }
 
 .my-flowers-nav-bar__tab {
@@ -57,7 +57,7 @@
 
 .my-flowers-nav-bar--telegram .my-flowers-nav-bar__tab,
 .my-flowers-nav-bar[data-telegram="true"] .my-flowers-nav-bar__tab {
-  height: 36px;
+  height: 28px;
   padding: 0 12px;
   font-size: 13px;
 }
