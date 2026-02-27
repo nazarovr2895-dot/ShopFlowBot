@@ -164,7 +164,7 @@
 }
 
 .filter-modal[data-telegram="true"] .filter-modal__body {
-  padding: 12px 14px 14px;
+  padding: 12px 14px 16px;
 }
 
 /* Desktop */

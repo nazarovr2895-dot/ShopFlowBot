@@ -51,7 +51,7 @@
 .filters__pill--active {
   background: var(--app-accent);
   border-color: var(--app-accent);
-  color: #fff;
+  color: var(--app-bg);
   font-weight: 600;
 }
 
@@ -296,7 +296,7 @@ select.filters__input {
   border: none;
   border-radius: 10px;
   background: var(--app-accent);
-  color: #fff;
+  color: var(--app-bg);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
