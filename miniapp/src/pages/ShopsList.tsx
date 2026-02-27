@@ -8,6 +8,7 @@ import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import { useCatalogFilter } from '../contexts/CatalogFilterContext';
 import { isTelegram, isBrowser } from '../utils/environment';
 import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal, BrowserFilterPanel } from '../components';
+import type { DeliveryTab } from '../components';
 import './ShopsList.css';
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -124,8 +125,22 @@ export function ShopsList() {
     setFilters(() => newFilters);
   };
 
+  // Derive delivery tab from filters (sync two-way)
+  const deliveryTab: DeliveryTab =
+    filters.delivery_type === 'delivery' ? 'delivery'
+    : filters.delivery_type === 'pickup' ? 'pickup'
+    : 'all';
+
+  const handleDeliveryTabChange = (tab: DeliveryTab) => {
+    setFilters((prev: SellerFilters) => ({
+      ...prev,
+      delivery_type: tab === 'all' ? undefined : tab,
+    }));
+  };
+
+  // Exclude delivery_type from active filters count (since it has its own nav bar)
   const activeFiltersCount = Object.entries(filters).filter(
-    ([k, v]) => k !== 'search' && v !== undefined && v !== ''
+    ([k, v]) => k !== 'search' && k !== 'delivery_type' && v !== undefined && v !== ''
   ).length;
 
   // Build filter chips for quick removal
@@ -179,6 +194,9 @@ export function ShopsList() {
           onFilterClick={() => setIsFilterModalOpen(true)}
           activeFiltersCount={activeFiltersCount}
           showFilterButton
+          showDeliveryTabsInline
+          deliveryTab={deliveryTab}
+          onDeliveryTabChange={handleDeliveryTabChange}
         />
       )}
 

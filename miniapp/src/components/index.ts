@@ -16,6 +16,8 @@ export { MyFlowersNavBar } from './MyFlowersNavBar';
 export { ProductModal } from './ProductModal';
 export { ImageViewer } from './ImageViewer';
 export { BrowserFilterPanel } from './BrowserFilterPanel';
+export { DeliveryNavBar } from './DeliveryNavBar';
+export type { DeliveryTab } from './DeliveryNavBar';
 export { LoyaltyLoginBanner } from './LoyaltyLoginBanner';
 export { ToastProvider, showBrowserToast } from './Toast';
 export { DesktopShell } from './DesktopShell';

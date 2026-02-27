@@ -310,6 +310,7 @@ class ApiClient {
     if (filters.city_id) params.append('city_id', filters.city_id.toString());
     if (filters.district_id) params.append('district_id', filters.district_id.toString());
     if (filters.metro_id) params.append('metro_id', filters.metro_id.toString());
+    if (filters.delivery_type) params.append('delivery_type', filters.delivery_type);
     if (filters.free_delivery !== undefined) params.append('free_delivery', filters.free_delivery.toString());
     if (filters.sort_price) params.append('sort_price', filters.sort_price);
     if (filters.price_min) params.append('price_min', filters.price_min.toString());

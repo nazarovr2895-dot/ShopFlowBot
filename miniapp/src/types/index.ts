@@ -246,6 +246,7 @@ export interface SellerFilters {
   city_id?: number;
   district_id?: number;
   metro_id?: number;
+  delivery_type?: 'delivery' | 'pickup' | 'both';
   free_delivery?: boolean;
   sort_price?: 'asc' | 'desc';
   /** Поиск по названию магазина и хештегам */
