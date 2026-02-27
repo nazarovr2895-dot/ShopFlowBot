@@ -314,6 +314,11 @@ class ApiClient {
     if (filters.free_delivery !== undefined) params.append('free_delivery', filters.free_delivery.toString());
     if (filters.sort_price) params.append('sort_price', filters.sort_price);
     if (filters.sort_mode) params.append('sort_mode', filters.sort_mode);
+    if (filters.price_min) params.append('price_min', filters.price_min.toString());
+    if (filters.price_max) params.append('price_max', filters.price_max.toString());
+    if (filters.only_available) params.append('only_available', 'true');
+    if (filters.has_preorder) params.append('has_preorder', 'true');
+    if (filters.show_closed) params.append('show_closed', 'true');
     
     params.append('page', page.toString());
     params.append('per_page', perPage.toString());

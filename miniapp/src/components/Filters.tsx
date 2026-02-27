@@ -20,6 +20,10 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
   const [metroSearching, setMetroSearching] = useState(false);
   const [metroDropdownOpen, setMetroDropdownOpen] = useState(false);
   const metroSearchRef = useRef<HTMLDivElement>(null);
+  const [priceMinInput, setPriceMinInput] = useState(filters.price_min?.toString() ?? '');
+  const [priceMaxInput, setPriceMaxInput] = useState(filters.price_max?.toString() ?? '');
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
   // Load cities on mount; auto-select first city if none chosen
   useEffect(() => {
@@ -72,6 +76,25 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     }, 300);
     return () => clearTimeout(timer);
   }, [metroSearchQuery]);
+
+  // Sync price inputs when filters change externally (e.g. reset)
+  useEffect(() => {
+    setPriceMinInput(filters.price_min?.toString() ?? '');
+    setPriceMaxInput(filters.price_max?.toString() ?? '');
+  }, [filters.price_min, filters.price_max]);
+
+  // Debounced price filter application (use ref to avoid stale closure)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const min = priceMinInput ? parseInt(priceMinInput) : undefined;
+      const max = priceMaxInput ? parseInt(priceMaxInput) : undefined;
+      const current = filtersRef.current;
+      if (min !== current.price_min || max !== current.price_max) {
+        onFiltersChange({ ...current, price_min: min, price_max: max });
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [priceMinInput, priceMaxInput, onFiltersChange]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -167,6 +190,14 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     });
   };
 
+  const handleToggle = (key: 'only_available' | 'has_preorder' | 'show_closed') => {
+    hapticFeedback('light');
+    onFiltersChange({
+      ...filters,
+      [key]: filters[key] ? undefined : true,
+    });
+  };
+
   const handleReset = () => {
     hapticFeedback('medium');
     onFiltersChange({});
@@ -179,7 +210,12 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     filters.delivery_type ||
     filters.free_delivery !== undefined ||
     filters.sort_price ||
-    filters.sort_mode;
+    filters.sort_mode ||
+    filters.price_min ||
+    filters.price_max ||
+    filters.only_available ||
+    filters.has_preorder ||
+    filters.show_closed;
 
   return (
     <div className="filters">
@@ -320,6 +356,57 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
           <option value="asc">Сначала дешевле</option>
           <option value="desc">Сначала дороже</option>
         </select>
+      </div>
+
+      {/* Price range */}
+      <div className="filters__item">
+        <div className="filters__label">Цена</div>
+        <div className="filters__row">
+          <input
+            type="number"
+            className="filters__price-input"
+            placeholder="От"
+            min="0"
+            value={priceMinInput}
+            onChange={(e) => setPriceMinInput(e.target.value)}
+          />
+          <input
+            type="number"
+            className="filters__price-input"
+            placeholder="До"
+            min="0"
+            value={priceMaxInput}
+            onChange={(e) => setPriceMaxInput(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Toggle filters */}
+      <div className="filters__toggles">
+        <button
+          type="button"
+          className={`filters__toggle ${filters.only_available ? 'active' : ''}`}
+          onClick={() => handleToggle('only_available')}
+        >
+          <span className="filters__toggle-check">{filters.only_available ? '✓' : ''}</span>
+          Только доступные
+        </button>
+        <button
+          type="button"
+          className={`filters__toggle ${filters.has_preorder ? 'active' : ''}`}
+          onClick={() => handleToggle('has_preorder')}
+        >
+          <span className="filters__toggle-check">{filters.has_preorder ? '✓' : ''}</span>
+          С предзаказом
+        </button>
+        <button
+          type="button"
+          className={`filters__toggle ${filters.show_closed ? 'active' : ''}`}
+          onClick={() => handleToggle('show_closed')}
+        >
+          <span className="filters__toggle-check">{filters.show_closed ? '✓' : ''}</span>
+          Показать закрытые
+        </button>
       </div>
 
       {hasFilters && (

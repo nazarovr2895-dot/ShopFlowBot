@@ -158,6 +158,11 @@ async def get_public_sellers(
     free_delivery: Optional[bool] = Query(None, description="Фильтр по бесплатной доставке: true - только бесплатная, false - только платная"),
     sort_price: Optional[str] = Query(None, description="Сортировка по цене: asc, desc"),
     sort_mode: Optional[str] = Query(None, description="Режим: all_city (все магазины), nearby (по близости)"),
+    price_min: Optional[int] = Query(None, ge=0, description="Мин. цена товара"),
+    price_max: Optional[int] = Query(None, ge=0, description="Макс. цена товара"),
+    only_available: Optional[bool] = Query(None, description="Только доступные магазины (есть слоты)"),
+    has_preorder: Optional[bool] = Query(None, description="Только магазины с предзаказом"),
+    show_closed: Optional[bool] = Query(None, description="Показывать закрытые магазины"),
     page: int = Query(1, ge=1, description="Номер страницы"),
     per_page: int = Query(20, ge=1, le=100, description="Количество на странице"),
 ):
@@ -255,6 +260,9 @@ async def get_public_sellers(
                     )
                 )
 
+        if has_preorder:
+            base_conditions.append(Seller.preorder_enabled == True)
+
         # Подзапрос: количество подписчиков по продавцам
         subscriber_count_subq = (
             select(
@@ -267,6 +275,9 @@ async def get_public_sellers(
 
         # available_slots: effective_limit - active - pending (без completed_today)
         available_slots_expr = effective_limit_expr - Seller.active_orders - Seller.pending_requests
+
+        if only_available:
+            base_conditions.append(available_slots_expr > 0)
 
         # Per-type slot expressions
         delivery_slots_expr = func.coalesce(Seller.max_delivery_orders, 10) - func.coalesce(Seller.active_delivery_orders, 0) - func.coalesce(Seller.pending_delivery_requests, 0)
@@ -312,6 +323,12 @@ async def get_public_sellers(
             .where(and_(*base_conditions))
         )
 
+        # Фильтр по диапазону цен (на уровне продуктов продавца)
+        if price_min is not None:
+            query = query.where(product_stats.c.min_price >= price_min)
+        if price_max is not None:
+            query = query.where(product_stats.c.max_price <= price_max)
+
         # Сортировка: доступные первыми, затем занятые
         if sort_price == "asc":
             query = query.order_by(product_stats.c.min_price.asc().nullslast())
@@ -333,6 +350,10 @@ async def get_public_sellers(
             .join(product_stats, Seller.seller_id == product_stats.c.seller_id)
             .where(and_(*base_conditions))
         )
+        if price_min is not None:
+            count_query = count_query.where(product_stats.c.min_price >= price_min)
+        if price_max is not None:
+            count_query = count_query.where(product_stats.c.max_price <= price_max)
         total_result = await session.execute(count_query)
         total = total_result.scalar() or 0
 
@@ -351,7 +372,7 @@ async def get_public_sellers(
             # Filter by working hours: hide shops that are closed or on day off
             wh = getattr(seller, "working_hours", None)
             is_open = _is_open_now(wh)
-            if is_open is False:
+            if is_open is False and not show_closed:
                 filtered_out += 1
                 continue
 

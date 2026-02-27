@@ -14,15 +14,7 @@ const STORAGE_KEY = 'flurai_location_filters';
   }
 })();
 
-interface CachedLocation {
-  city_id?: number;
-  district_id?: number;
-  metro_id?: number;
-  delivery_type?: 'delivery' | 'pickup' | 'both';
-  sort_price?: 'asc' | 'desc';
-  sort_mode?: 'all_city' | 'nearby';
-  free_delivery?: boolean;
-  search?: string;
+interface CachedLocation extends SellerFilters {
   timestamp: number;
 }
 

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { PublicSellerListItem, SellerFilters } from '../types';
+import type { PublicSellerListItem, SellerFilters, District, MetroGeoItem } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { useLocationCache } from '../hooks/useLocationCache';
@@ -30,12 +30,27 @@ export function ShopsList() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(() => filters.search ?? '');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [metros, setMetros] = useState<MetroGeoItem[]>([]);
 
   // Hide back button and main button on this page
   useEffect(() => {
     setBackButton(false);
     hideMainButton();
   }, [setBackButton, hideMainButton]);
+
+  // Load districts/metros for filter chip labels
+  useEffect(() => {
+    if (filters.city_id) {
+      api.getDistricts(filters.city_id).then(setDistricts).catch(() => {});
+    }
+  }, [filters.city_id]);
+
+  useEffect(() => {
+    if (filters.metro_id && filters.city_id) {
+      api.getMetroStationsByCity(filters.city_id).then(setMetros).catch(() => {});
+    }
+  }, [filters.metro_id, filters.city_id]);
 
   // Register open-filter callback for desktop (filter button lives in MainLayout)
   useEffect(() => {
@@ -127,6 +142,60 @@ export function ShopsList() {
     ([k, v]) => k !== 'search' && k !== 'delivery_type' && v !== undefined && v !== ''
   ).length;
 
+  // Build filter chips for quick removal
+  const filterChips = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+    const removeFilter = (key: keyof SellerFilters) => {
+      setFilters((prev: SellerFilters) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    };
+
+    if (filters.district_id) {
+      const name = districts.find(d => d.id === filters.district_id)?.name;
+      chips.push({ key: 'district_id', label: name || 'Район', onRemove: () => removeFilter('district_id') });
+    }
+    if (filters.metro_id) {
+      const name = metros.find(m => m.id === filters.metro_id)?.name;
+      chips.push({ key: 'metro_id', label: name || 'Метро', onRemove: () => removeFilter('metro_id') });
+    }
+    if (filters.free_delivery !== undefined) {
+      chips.push({
+        key: 'free_delivery',
+        label: filters.free_delivery ? 'Бесплатная доставка' : 'Платная доставка',
+        onRemove: () => removeFilter('free_delivery'),
+      });
+    }
+    if (filters.sort_price) {
+      chips.push({
+        key: 'sort_price',
+        label: filters.sort_price === 'asc' ? 'Сначала дешевле' : 'Сначала дороже',
+        onRemove: () => removeFilter('sort_price'),
+      });
+    }
+    if (filters.sort_mode === 'nearby') {
+      chips.push({ key: 'sort_mode', label: 'По близости', onRemove: () => removeFilter('sort_mode') });
+    }
+    if (filters.price_min) {
+      chips.push({ key: 'price_min', label: `От ${filters.price_min} ₽`, onRemove: () => removeFilter('price_min') });
+    }
+    if (filters.price_max) {
+      chips.push({ key: 'price_max', label: `До ${filters.price_max} ₽`, onRemove: () => removeFilter('price_max') });
+    }
+    if (filters.only_available) {
+      chips.push({ key: 'only_available', label: 'Только доступные', onRemove: () => removeFilter('only_available') });
+    }
+    if (filters.has_preorder) {
+      chips.push({ key: 'has_preorder', label: 'С предзаказом', onRemove: () => removeFilter('has_preorder') });
+    }
+    if (filters.show_closed) {
+      chips.push({ key: 'show_closed', label: 'Показать закрытые', onRemove: () => removeFilter('show_closed') });
+    }
+    return chips;
+  }, [filters, districts, metros, setFilters]);
+
   return (
     <div className={`shops-list ${isTelegramEnv ? 'shops-list--telegram' : ''}`} data-telegram={isTelegramEnv}>
       {!isDesktop && (
@@ -148,6 +217,21 @@ export function ShopsList() {
         filters={filters}
         onFiltersChange={handleFiltersChange}
       />
+
+      {filterChips.length > 0 && (
+        <div className="shops-list__chips">
+          {filterChips.map((chip) => (
+            <button
+              key={chip.key}
+              className="shops-list__chip"
+              onClick={chip.onRemove}
+            >
+              {chip.label}
+              <span className="shops-list__chip-remove">×</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="shops-list__content">
           {loading && sellers.length === 0 ? (
