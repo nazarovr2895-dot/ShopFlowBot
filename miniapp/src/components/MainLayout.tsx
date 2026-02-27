@@ -7,7 +7,6 @@ import { useDesktopShell } from '../contexts/DesktopShellContext';
 import { useLocationCache } from '../hooks/useLocationCache';
 import { useCatalogFilter } from '../contexts/CatalogFilterContext';
 import type { SellerFilters } from '../types';
-import type { DeliveryTab } from './DeliveryNavBar';
 import './MainLayout.css';
 
 export function MainLayout() {
@@ -28,24 +27,11 @@ export function MainLayout() {
       navigate('/catalog');
     }
   };
-  // Exclude delivery_type from badge count (it has its own nav tabs)
+
   const activeFiltersCount =
-    Object.entries(filters).filter(([k, v]) => k !== 'search' && k !== 'delivery_type' && v !== undefined && v !== '').length;
+    Object.entries(filters).filter(([k, v]) => k !== 'search' && v !== undefined && v !== '').length;
 
   const isCatalog = pathname === '/catalog';
-
-  // Delivery tab — synced with filters.delivery_type
-  const deliveryTab: DeliveryTab =
-    filters.delivery_type === 'delivery' ? 'delivery'
-    : filters.delivery_type === 'pickup' ? 'pickup'
-    : 'all';
-
-  const handleDeliveryTabChange = (tab: DeliveryTab) => {
-    setFilters((prev: SellerFilters) => ({
-      ...prev,
-      delivery_type: tab === 'all' ? undefined : tab,
-    }));
-  };
 
   return (
     <div
@@ -64,8 +50,6 @@ export function MainLayout() {
           {...(isCatalog ? {
             onFilterClick: openFilter,
             activeFiltersCount,
-            deliveryTab,
-            onDeliveryTabChange: handleDeliveryTabChange,
             ...(filters.city_id ? { onMapClick: () => navigate(`/map?city_id=${filters.city_id}`) } : {}),
           } : {})}
         />

@@ -6,9 +6,8 @@ import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { useLocationCache } from '../hooks/useLocationCache';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
 import { useCatalogFilter } from '../contexts/CatalogFilterContext';
-import { isTelegram } from '../utils/environment';
-import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal } from '../components';
-import type { DeliveryTab } from '../components';
+import { isTelegram, isBrowser } from '../utils/environment';
+import { ShopCard, Loader, EmptyState, CatalogNavBar, FilterModal, BrowserFilterPanel } from '../components';
 import './ShopsList.css';
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -18,9 +17,10 @@ export function ShopsList() {
   const { setBackButton, hideMainButton } = useTelegramWebApp();
   const { filters, setFilters, isInitialized } = useLocationCache();
   const isTelegramEnv = isTelegram();
+  const isBrowserEnv = isBrowser();
   const isDesktop = useDesktopLayout();
   const { registerOpenFilter } = useCatalogFilter();
-  
+
   const [sellers, setSellers] = useState<PublicSellerListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,13 +66,13 @@ export function ShopsList() {
 
       try {
         const response = await api.getSellers(filters, pageNum, 20);
-        
+
         if (append) {
           setSellers((prev) => [...prev, ...response.sellers]);
         } else {
           setSellers(response.sellers);
         }
-        
+
         setTotal(response.total);
         setHasMore(response.page * response.per_page < response.total);
       } catch (err) {
@@ -120,26 +120,12 @@ export function ShopsList() {
     loadSellers(nextPage, true);
   };
 
-  const handleFiltersChange = (newFilters: SellerFilters) => {
-    setFilters(newFilters);
+  const handleFiltersApply = (newFilters: SellerFilters) => {
+    setFilters(() => newFilters);
   };
 
-  // Derive delivery tab from filters (sync two-way)
-  const deliveryTab: DeliveryTab =
-    filters.delivery_type === 'delivery' ? 'delivery'
-    : filters.delivery_type === 'pickup' ? 'pickup'
-    : 'all';
-
-  const handleDeliveryTabChange = (tab: DeliveryTab) => {
-    setFilters((prev: SellerFilters) => ({
-      ...prev,
-      delivery_type: tab === 'all' ? undefined : tab,
-    }));
-  };
-
-  // Exclude delivery_type from active filters count (since it has its own nav bar)
   const activeFiltersCount = Object.entries(filters).filter(
-    ([k, v]) => k !== 'search' && k !== 'delivery_type' && v !== undefined && v !== ''
+    ([k, v]) => k !== 'search' && v !== undefined && v !== ''
   ).length;
 
   // Build filter chips for quick removal
@@ -175,23 +161,11 @@ export function ShopsList() {
         onRemove: () => removeFilter('sort_price'),
       });
     }
-    if (filters.sort_mode === 'nearby') {
-      chips.push({ key: 'sort_mode', label: 'По близости', onRemove: () => removeFilter('sort_mode') });
-    }
     if (filters.price_min) {
       chips.push({ key: 'price_min', label: `От ${filters.price_min} ₽`, onRemove: () => removeFilter('price_min') });
     }
     if (filters.price_max) {
       chips.push({ key: 'price_max', label: `До ${filters.price_max} ₽`, onRemove: () => removeFilter('price_max') });
-    }
-    if (filters.only_available) {
-      chips.push({ key: 'only_available', label: 'Только доступные', onRemove: () => removeFilter('only_available') });
-    }
-    if (filters.has_preorder) {
-      chips.push({ key: 'has_preorder', label: 'С предзаказом', onRemove: () => removeFilter('has_preorder') });
-    }
-    if (filters.show_closed) {
-      chips.push({ key: 'show_closed', label: 'Показать закрытые', onRemove: () => removeFilter('show_closed') });
     }
     return chips;
   }, [filters, districts, metros, setFilters]);
@@ -205,18 +179,30 @@ export function ShopsList() {
           onFilterClick={() => setIsFilterModalOpen(true)}
           activeFiltersCount={activeFiltersCount}
           showFilterButton
-          showDeliveryTabsInline
-          deliveryTab={deliveryTab}
-          onDeliveryTabChange={handleDeliveryTabChange}
         />
       )}
 
-      <FilterModal
-        isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-      />
+      {/* Telegram / mobile: modal filters */}
+      {(isTelegramEnv || !isDesktop) && (
+        <FilterModal
+          isOpen={isFilterModalOpen}
+          onClose={() => setIsFilterModalOpen(false)}
+          filters={filters}
+          onApply={handleFiltersApply}
+        />
+      )}
+
+      {/* Browser desktop: inline panel */}
+      {isBrowserEnv && isDesktop && (
+        <BrowserFilterPanel
+          isOpen={isFilterModalOpen}
+          filters={filters}
+          onApply={(newFilters) => {
+            handleFiltersApply(newFilters);
+            setIsFilterModalOpen(false);
+          }}
+        />
+      )}
 
       {filterChips.length > 0 && (
         <div className="shops-list__chips">

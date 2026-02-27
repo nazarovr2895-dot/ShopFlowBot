@@ -6,7 +6,8 @@
   background: transparent;
 }
 
-.filters__mode-toggle {
+/* Delivery cost tabs */
+.filters__delivery-tabs {
   display: flex;
   gap: 0;
   background: var(--app-bg-elevated);
@@ -15,7 +16,7 @@
   border: 1px solid var(--app-border);
 }
 
-.filters__mode-btn {
+.filters__delivery-tab {
   flex: 1;
   padding: 12px 16px;
   border: none;
@@ -28,36 +29,27 @@
   transition: all 0.2s ease;
 }
 
-.filters__mode-btn.active {
+.filters__delivery-tab.active {
   background: var(--app-accent);
   color: var(--app-bg);
   font-weight: 600;
 }
 
-.filters__mode-btn:not(.active):active {
+.filters__delivery-tab:not(.active):active {
   background: var(--app-surface);
 }
 
-[data-theme="dark"] .filters__mode-toggle {
+[data-theme="dark"] .filters__delivery-tabs {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-[data-theme="dark"] .filters__mode-btn.active {
+[data-theme="dark"] .filters__delivery-tab.active {
   background: var(--app-accent);
   color: var(--app-bg);
 }
 
-.filters__hint {
-  padding: 12px 16px;
-  background: var(--app-accent-muted);
-  border-radius: 12px;
-  color: var(--app-accent);
-  font-size: 13px;
-  text-align: center;
-  border: 1px solid var(--app-accent-muted);
-}
-
+/* Form items */
 .filters__item {
   display: block;
   width: 100%;
@@ -114,29 +106,6 @@
   outline: none;
   border-color: var(--app-accent);
   box-shadow: 0 0 0 3px var(--app-accent-muted);
-}
-
-.filters__reset {
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid var(--app-accent);
-  border-radius: 12px;
-  background: transparent;
-  color: var(--app-accent);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-top: 8px;
-}
-
-.filters__reset:hover {
-  background: var(--app-accent-muted);
-}
-
-.filters__reset:active {
-  transform: scale(0.98);
-  background: var(--app-accent-muted);
 }
 
 /* Metro search */
@@ -355,81 +324,156 @@
   box-shadow: 0 0 0 3px var(--app-accent-muted);
 }
 
-/* Toggle filters */
-.filters__toggles {
+/* Action buttons */
+.filters__actions {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-.filters__toggle {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
+.filters__reset-btn {
+  flex: 1;
   padding: 14px 16px;
   border: 1px solid var(--app-border);
   border-radius: 12px;
-  background: var(--app-bg-elevated);
-  color: var(--app-text);
+  background: transparent;
+  color: var(--app-text-secondary);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  text-align: left;
 }
 
-.filters__toggle.active {
+.filters__reset-btn:hover:not(:disabled) {
   border-color: var(--app-accent);
-  background: var(--app-accent-muted);
   color: var(--app-accent);
-  font-weight: 600;
 }
 
-.filters__toggle:not(.active):hover {
-  border-color: var(--app-accent);
-}
-
-.filters__toggle:active {
+.filters__reset-btn:active:not(:disabled) {
   transform: scale(0.98);
 }
 
-[data-theme="dark"] .filters__toggle {
-  background: rgba(255, 255, 255, 0.08);
+.filters__reset-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .filters__reset-btn {
   border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
 }
 
-[data-theme="dark"] .filters__toggle.active {
-  background: rgba(var(--app-accent-rgb, 51, 144, 236), 0.15);
+[data-theme="dark"] .filters__reset-btn:hover:not(:disabled) {
   border-color: var(--app-accent);
+  color: var(--app-accent);
 }
 
-[data-theme="light"] .filters__toggle {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.12);
-}
-
-[data-theme="light"] .filters__toggle.active {
-  background: rgba(var(--app-accent-rgb, 51, 144, 236), 0.08);
-  border-color: var(--app-accent);
-}
-
-.filters__toggle-check {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 2px solid var(--app-border);
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
+.filters__apply-btn {
+  flex: 2;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 12px;
+  background: var(--app-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.filters__toggle.active .filters__toggle-check {
-  background: var(--app-accent);
-  border-color: var(--app-accent);
-  color: #fff;
+.filters__apply-btn:hover {
+  opacity: 0.9;
+}
+
+.filters__apply-btn:active {
+  transform: scale(0.98);
+  opacity: 0.85;
+}
+
+/* ===================== Browser layout ===================== */
+.filters--browser {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.filters--browser .filters__delivery-tabs {
+  padding: 3px;
+  border-radius: 10px;
+  flex: 0 0 auto;
+}
+
+.filters--browser .filters__delivery-tab {
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 7px;
+}
+
+.filters--browser .filters__item {
+  width: auto;
+  flex: 0 1 auto;
+  min-width: 140px;
+}
+
+.filters--browser .filters__select {
+  min-height: 38px;
+  padding: 8px 32px 8px 12px;
+  font-size: 13px;
+  border-radius: 10px;
+  background-position: right 10px center;
+}
+
+.filters--browser .filters__metro-search {
+  min-width: 180px;
+  max-width: 220px;
+}
+
+.filters--browser .filters__metro-input {
+  min-height: 38px;
+  padding: 8px 32px 8px 12px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+.filters--browser .filters__metro-clear {
+  width: 22px;
+  height: 22px;
+  font-size: 16px;
+  right: 8px;
+}
+
+.filters--browser .filters__row {
+  gap: 6px;
+}
+
+.filters--browser .filters__price-input {
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 10px;
+  width: 80px;
+  flex: 0 0 80px;
+}
+
+.filters--browser .filters__actions {
+  margin-top: 0;
+  gap: 8px;
+  align-items: center;
+}
+
+.filters--browser .filters__reset-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+  min-height: 38px;
+  border-radius: 10px;
+  flex: 0 0 auto;
+}
+
+.filters--browser .filters__apply-btn {
+  padding: 8px 20px;
+  font-size: 13px;
+  min-height: 38px;
+  border-radius: 10px;
+  flex: 0 0 auto;
 }

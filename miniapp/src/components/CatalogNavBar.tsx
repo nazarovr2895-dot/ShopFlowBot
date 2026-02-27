@@ -2,7 +2,6 @@ import { useRef } from 'react';
 import { LiquidGlassCard } from './LiquidGlassCard';
 import { useSystemTheme } from '../hooks/useSystemTheme';
 import { isTelegram } from '../utils/environment';
-import type { DeliveryTab } from './DeliveryNavBar';
 import './CatalogNavBar.css';
 
 interface CatalogNavBarProps {
@@ -12,15 +11,10 @@ interface CatalogNavBarProps {
   activeFiltersCount?: number;
   /** When false or omitted, filter button is hidden (e.g. global search bar on non-catalog pages) */
   showFilterButton?: boolean;
-  /** When true, applies desktop position/size (top 90px, left 24px, width 739px, height 50px) */
+  /** When true, applies desktop position/size */
   desktopLayout?: boolean;
   /** Called on Enter in search input (e.g. to navigate to catalog) */
   onSearchSubmit?: () => void;
-  /** Delivery tab props — shown inside the bar on desktop when on catalog page */
-  deliveryTab?: DeliveryTab;
-  onDeliveryTabChange?: (tab: DeliveryTab) => void;
-  /** Show delivery tabs inline (mobile) — replaces the separate DeliveryNavBar */
-  showDeliveryTabsInline?: boolean;
   /** "На карте" button click handler — shown after filter icon on desktop */
   onMapClick?: () => void;
 }
@@ -33,17 +27,12 @@ export function CatalogNavBar({
   showFilterButton = false,
   desktopLayout = false,
   onSearchSubmit,
-  deliveryTab,
-  onDeliveryTabChange,
-  showDeliveryTabsInline = false,
   onMapClick,
 }: CatalogNavBarProps) {
   const systemTheme = useSystemTheme();
   const isTelegramEnv = isTelegram();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate opposite theme based on system theme
-  // System dark → panel light, System light → panel dark
   const oppositeTheme = systemTheme === 'dark' ? 'light' : 'dark';
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -52,12 +41,9 @@ export function CatalogNavBar({
     }
   };
 
-  const showDesktopDeliveryTabs = deliveryTab !== undefined && onDeliveryTabChange !== undefined && !showDeliveryTabsInline;
-  const showInlineTabs = showDeliveryTabsInline && deliveryTab !== undefined && onDeliveryTabChange !== undefined;
-
   return (
     <nav
-      className={`catalog-nav-bar ${isTelegramEnv ? 'catalog-nav-bar--telegram' : ''} ${desktopLayout ? 'catalog-nav-bar--desktop' : ''} ${showInlineTabs ? 'catalog-nav-bar--with-tabs' : ''}`}
+      className={`catalog-nav-bar ${isTelegramEnv ? 'catalog-nav-bar--telegram' : ''} ${desktopLayout ? 'catalog-nav-bar--desktop' : ''}`}
       data-telegram={isTelegramEnv}
       data-theme-opposite={oppositeTheme}
     >
@@ -81,33 +67,6 @@ export function CatalogNavBar({
               autoComplete="off"
             />
           </div>
-
-          {/* Delivery type tabs — desktop only, inside the top row */}
-          {showDesktopDeliveryTabs && (
-            <div className="catalog-nav-bar__delivery-tabs">
-              <button
-                type="button"
-                className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'all' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
-                onClick={() => onDeliveryTabChange('all')}
-              >
-                Все
-              </button>
-              <button
-                type="button"
-                className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'delivery' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
-                onClick={() => onDeliveryTabChange('delivery')}
-              >
-                Доставка
-              </button>
-              <button
-                type="button"
-                className={`catalog-nav-bar__delivery-tab ${deliveryTab === 'pickup' ? 'catalog-nav-bar__delivery-tab--active' : ''}`}
-                onClick={() => onDeliveryTabChange('pickup')}
-              >
-                Самовывоз
-              </button>
-            </div>
-          )}
 
           {showFilterButton && onFilterClick && (
             <button
@@ -144,33 +103,6 @@ export function CatalogNavBar({
             </button>
           )}
         </div>
-
-        {/* Inline delivery tabs — mobile, second row inside the glass bar */}
-        {showInlineTabs && (
-          <div className="catalog-nav-bar__inline-tabs">
-            <button
-              type="button"
-              className={`catalog-nav-bar__inline-tab ${deliveryTab === 'all' ? 'catalog-nav-bar__inline-tab--active' : ''}`}
-              onClick={() => onDeliveryTabChange!('all')}
-            >
-              Все
-            </button>
-            <button
-              type="button"
-              className={`catalog-nav-bar__inline-tab ${deliveryTab === 'delivery' ? 'catalog-nav-bar__inline-tab--active' : ''}`}
-              onClick={() => onDeliveryTabChange!('delivery')}
-            >
-              Доставка
-            </button>
-            <button
-              type="button"
-              className={`catalog-nav-bar__inline-tab ${deliveryTab === 'pickup' ? 'catalog-nav-bar__inline-tab--active' : ''}`}
-              onClick={() => onDeliveryTabChange!('pickup')}
-            >
-              Самовывоз
-            </button>
-          </div>
-        )}
       </LiquidGlassCard>
     </nav>
   );

@@ -9,10 +9,10 @@ interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   filters: SellerFilters;
-  onFiltersChange: (filters: SellerFilters) => void;
+  onApply: (filters: SellerFilters) => void;
 }
 
-export function FilterModal({ isOpen, onClose, filters, onFiltersChange }: FilterModalProps) {
+export function FilterModal({ isOpen, onClose, filters, onApply }: FilterModalProps) {
   const { hapticFeedback } = useTelegramWebApp();
   const isTelegramEnv = isTelegram();
 
@@ -31,7 +31,7 @@ export function FilterModal({ isOpen, onClose, filters, onFiltersChange }: Filte
   // Handle escape key
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         hapticFeedback('light');
@@ -53,7 +53,7 @@ export function FilterModal({ isOpen, onClose, filters, onFiltersChange }: Filte
   };
 
   return (
-    <div 
+    <div
       className={`filter-modal ${isTelegramEnv ? 'filter-modal--telegram' : ''}`}
       data-telegram={isTelegramEnv}
       onClick={handleBackdropClick}
@@ -73,7 +73,7 @@ export function FilterModal({ isOpen, onClose, filters, onFiltersChange }: Filte
           </button>
         </div>
         <div className="filter-modal__body">
-          <Filters filters={filters} onFiltersChange={onFiltersChange} />
+          <Filters filters={filters} onApply={onApply} onClose={onClose} />
         </div>
       </div>
     </div>

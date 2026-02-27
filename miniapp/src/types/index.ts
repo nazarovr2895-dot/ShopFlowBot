@@ -246,20 +246,12 @@ export interface SellerFilters {
   city_id?: number;
   district_id?: number;
   metro_id?: number;
-  delivery_type?: 'delivery' | 'pickup' | 'both';
   free_delivery?: boolean;
   sort_price?: 'asc' | 'desc';
-  sort_mode?: 'all_city' | 'nearby';
   /** Поиск по названию магазина и хештегам */
   search?: string;
   /** Мин. цена товара */
   price_min?: number;
   /** Макс. цена товара */
   price_max?: number;
-  /** Только доступные магазины (есть слоты) */
-  only_available?: boolean;
-  /** Только магазины с предзаказом */
-  has_preorder?: boolean;
-  /** Показывать закрытые магазины */
-  show_closed?: boolean;
 }

@@ -6,12 +6,15 @@ import './Filters.css';
 
 interface FiltersProps {
   filters: SellerFilters;
-  onFiltersChange: (filters: SellerFilters) => void;
+  onApply: (filters: SellerFilters) => void;
+  onClose?: () => void;
+  layout?: 'mobile' | 'browser';
 }
 
-export function Filters({ filters, onFiltersChange }: FiltersProps) {
+export function Filters({ filters, onApply, onClose, layout = 'mobile' }: FiltersProps) {
   const { hapticFeedback } = useTelegramWebApp();
-  
+
+  const [localFilters, setLocalFilters] = useState<SellerFilters>(filters);
   const [cities, setCities] = useState<City[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [loading, setLoading] = useState(false);
@@ -22,41 +25,46 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
   const metroSearchRef = useRef<HTMLDivElement>(null);
   const [priceMinInput, setPriceMinInput] = useState(filters.price_min?.toString() ?? '');
   const [priceMaxInput, setPriceMaxInput] = useState(filters.price_max?.toString() ?? '');
-  const filtersRef = useRef(filters);
-  filtersRef.current = filters;
+
+  // Sync local state when external filters change (e.g. chip removal while modal closed)
+  useEffect(() => {
+    setLocalFilters(filters);
+    setPriceMinInput(filters.price_min?.toString() ?? '');
+    setPriceMaxInput(filters.price_max?.toString() ?? '');
+  }, [filters]);
 
   // Load cities on mount; auto-select first city if none chosen
   useEffect(() => {
     api.getCities().then((data) => {
       setCities(data);
-      if (!filters.city_id && data.length > 0) {
-        onFiltersChange({ ...filters, city_id: data[0].id });
+      if (!localFilters.city_id && data.length > 0) {
+        setLocalFilters(prev => ({ ...prev, city_id: data[0].id }));
       }
     }).catch(console.error);
   }, []);
 
   // Load districts when city changes
   useEffect(() => {
-    if (filters.city_id) {
+    if (localFilters.city_id) {
       setLoading(true);
       api
-        .getDistricts(filters.city_id)
+        .getDistricts(localFilters.city_id)
         .then(setDistricts)
         .catch(console.error)
         .finally(() => setLoading(false));
     } else {
       setDistricts([]);
     }
-  }, [filters.city_id]);
+  }, [localFilters.city_id]);
 
-  // Clear metro search when metro filter is cleared (e.g. reset, district change)
+  // Clear metro search when metro filter is cleared
   useEffect(() => {
-    if (!filters.metro_id) {
+    if (!localFilters.metro_id) {
       setMetroSearchQuery('');
     }
-  }, [filters.metro_id]);
+  }, [localFilters.metro_id]);
 
-  // Debounced metro search (search across all stations)
+  // Debounced metro search
   useEffect(() => {
     if (metroSearchQuery.trim().length < 2) {
       setMetroSearchResults([]);
@@ -77,25 +85,6 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     return () => clearTimeout(timer);
   }, [metroSearchQuery]);
 
-  // Sync price inputs when filters change externally (e.g. reset)
-  useEffect(() => {
-    setPriceMinInput(filters.price_min?.toString() ?? '');
-    setPriceMaxInput(filters.price_max?.toString() ?? '');
-  }, [filters.price_min, filters.price_max]);
-
-  // Debounced price filter application (use ref to avoid stale closure)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const min = priceMinInput ? parseInt(priceMinInput) : undefined;
-      const max = priceMaxInput ? parseInt(priceMaxInput) : undefined;
-      const current = filtersRef.current;
-      if (min !== current.price_min || max !== current.price_max) {
-        onFiltersChange({ ...current, price_min: min, price_max: max });
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [priceMinInput, priceMaxInput, onFiltersChange]);
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -110,22 +99,22 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
   const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     hapticFeedback('light');
     const cityId = e.target.value ? parseInt(e.target.value) : undefined;
-    onFiltersChange({
-      ...filters,
+    setLocalFilters(prev => ({
+      ...prev,
       city_id: cityId,
       district_id: undefined,
       metro_id: undefined,
-    });
+    }));
   };
 
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     hapticFeedback('light');
     const districtId = e.target.value ? parseInt(e.target.value) : undefined;
-    onFiltersChange({
-      ...filters,
+    setLocalFilters(prev => ({
+      ...prev,
       district_id: districtId,
       metro_id: undefined,
-    });
+    }));
   };
 
   const handleMetroSelect = useCallback(
@@ -133,118 +122,92 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
       hapticFeedback('light');
       setMetroSearchQuery(metro.name);
       setMetroDropdownOpen(false);
-      onFiltersChange({
-        ...filters,
+      setLocalFilters(prev => ({
+        ...prev,
         metro_id: metro.id,
-      });
+      }));
     },
-    [filters, hapticFeedback, onFiltersChange]
+    [hapticFeedback]
   );
 
   const handleMetroClear = useCallback(() => {
     hapticFeedback('light');
     setMetroSearchQuery('');
     setMetroDropdownOpen(false);
-    onFiltersChange({
-      ...filters,
+    setLocalFilters(prev => ({
+      ...prev,
       metro_id: undefined,
-    });
-  }, [filters, hapticFeedback, onFiltersChange]);
-
-  const handleDeliveryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    hapticFeedback('light');
-    const deliveryType = e.target.value as SellerFilters['delivery_type'] | '';
-    onFiltersChange({
-      ...filters,
-      delivery_type: deliveryType || undefined,
-    });
-  };
-
-  const handleFreeDeliveryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    hapticFeedback('light');
-    const freeDelivery = e.target.value === '' ? undefined : e.target.value === 'true';
-    onFiltersChange({
-      ...filters,
-      free_delivery: freeDelivery,
-    });
-  };
+    }));
+  }, [hapticFeedback]);
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     hapticFeedback('light');
     const sortPrice = e.target.value as SellerFilters['sort_price'] | '';
-    onFiltersChange({
-      ...filters,
+    setLocalFilters(prev => ({
+      ...prev,
       sort_price: sortPrice || undefined,
-      // Clear sort_mode when using price sorting
-      sort_mode: sortPrice ? undefined : filters.sort_mode,
-    });
+    }));
   };
 
-  const handleSortModeChange = (mode: SellerFilters['sort_mode']) => {
+  const handleFreeDeliveryTab = (value: boolean) => {
     hapticFeedback('light');
-    onFiltersChange({
-      ...filters,
-      sort_mode: mode,
-      // Clear sort_price when changing mode (modes use random sorting)
-      sort_price: undefined,
-    });
-  };
-
-  const handleToggle = (key: 'only_available' | 'has_preorder' | 'show_closed') => {
-    hapticFeedback('light');
-    onFiltersChange({
-      ...filters,
-      [key]: filters[key] ? undefined : true,
-    });
+    setLocalFilters(prev => ({
+      ...prev,
+      free_delivery: prev.free_delivery === value ? undefined : value,
+    }));
   };
 
   const handleReset = () => {
     hapticFeedback('medium');
-    onFiltersChange({});
+    setLocalFilters({});
+    setPriceMinInput('');
+    setPriceMaxInput('');
+  };
+
+  const handleApply = () => {
+    hapticFeedback('medium');
+    const min = priceMinInput ? parseInt(priceMinInput) : undefined;
+    const max = priceMaxInput ? parseInt(priceMaxInput) : undefined;
+    onApply({ ...localFilters, price_min: min, price_max: max });
+    onClose?.();
   };
 
   const hasFilters =
-    filters.city_id ||
-    filters.district_id ||
-    filters.metro_id ||
-    filters.delivery_type ||
-    filters.free_delivery !== undefined ||
-    filters.sort_price ||
-    filters.sort_mode ||
-    filters.price_min ||
-    filters.price_max ||
-    filters.only_available ||
-    filters.has_preorder ||
-    filters.show_closed;
+    localFilters.city_id ||
+    localFilters.district_id ||
+    localFilters.metro_id ||
+    localFilters.free_delivery !== undefined ||
+    localFilters.sort_price ||
+    localFilters.price_min ||
+    localFilters.price_max ||
+    priceMinInput ||
+    priceMaxInput;
+
+  const isBrowser = layout === 'browser';
 
   return (
-    <div className="filters">
-      {/* Sort mode toggle */}
-      <div className="filters__mode-toggle">
+    <div className={`filters ${isBrowser ? 'filters--browser' : ''}`}>
+      {/* Delivery cost tabs */}
+      <div className="filters__delivery-tabs">
         <button
-          className={`filters__mode-btn ${!filters.sort_mode || filters.sort_mode === 'all_city' ? 'active' : ''}`}
-          onClick={() => handleSortModeChange('all_city')}
+          className={`filters__delivery-tab ${localFilters.free_delivery === false ? 'active' : ''}`}
+          onClick={() => handleFreeDeliveryTab(false)}
         >
-          Все магазины
+          Платно
         </button>
         <button
-          className={`filters__mode-btn ${filters.sort_mode === 'nearby' ? 'active' : ''}`}
-          onClick={() => handleSortModeChange('nearby')}
+          className={`filters__delivery-tab ${localFilters.free_delivery === true ? 'active' : ''}`}
+          onClick={() => handleFreeDeliveryTab(true)}
         >
-          По близости
+          Бесплатно
         </button>
       </div>
 
-      {filters.sort_mode === 'nearby' && !filters.district_id && (
-        <div className="filters__hint">
-          Выберите район для отображения ближайших магазинов
-        </div>
-      )}
-
+      {/* City */}
       <div className="filters__item">
         <select
           className="filters__select"
-          value={filters.city_id || ''}
+          value={localFilters.city_id || ''}
           onChange={handleCityChange}
         >
           {cities.map((city) => (
@@ -255,12 +218,13 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         </select>
       </div>
 
+      {/* District */}
       <div className="filters__item">
         <select
           className="filters__select"
-          value={filters.district_id || ''}
+          value={localFilters.district_id || ''}
           onChange={handleDistrictChange}
-          disabled={!filters.city_id || loading}
+          disabled={!localFilters.city_id || loading}
         >
           <option value="">Все районы</option>
           {districts.map((district) => (
@@ -271,6 +235,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         </select>
       </div>
 
+      {/* Metro search */}
       <div className="filters__item filters__metro-search" ref={metroSearchRef}>
         <div className="filters__metro-input-wrap">
           <input
@@ -281,7 +246,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
             onChange={(e) => setMetroSearchQuery(e.target.value)}
             onFocus={() => metroSearchResults.length > 0 && setMetroDropdownOpen(true)}
           />
-          {filters.metro_id && (
+          {localFilters.metro_id && (
             <button
               type="button"
               className="filters__metro-clear"
@@ -305,7 +270,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
                 <button
                   key={metro.id}
                   type="button"
-                  className={`filters__metro-option ${filters.metro_id === metro.id ? 'selected' : ''}`}
+                  className={`filters__metro-option ${localFilters.metro_id === metro.id ? 'selected' : ''}`}
                   onClick={() => handleMetroSelect(metro)}
                 >
                   <span
@@ -321,35 +286,11 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         )}
       </div>
 
+      {/* Sort */}
       <div className="filters__item">
         <select
           className="filters__select"
-          value={filters.delivery_type || ''}
-          onChange={handleDeliveryChange}
-        >
-          <option value="">Любой тип</option>
-          <option value="delivery">Доставка</option>
-          <option value="pickup">Самовывоз</option>
-          <option value="both">Доставка и самовывоз</option>
-        </select>
-      </div>
-
-      <div className="filters__item">
-        <select
-          className="filters__select"
-          value={filters.free_delivery === undefined ? '' : filters.free_delivery.toString()}
-          onChange={handleFreeDeliveryChange}
-        >
-          <option value="">Любая доставка</option>
-          <option value="true">Бесплатная доставка</option>
-          <option value="false">Платная доставка</option>
-        </select>
-      </div>
-
-      <div className="filters__item">
-        <select
-          className="filters__select"
-          value={filters.sort_price || ''}
+          value={localFilters.sort_price || ''}
           onChange={handleSortChange}
         >
           <option value="">По умолчанию</option>
@@ -360,7 +301,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
 
       {/* Price range */}
       <div className="filters__item">
-        <div className="filters__label">Цена</div>
+        {!isBrowser && <div className="filters__label">Цена</div>}
         <div className="filters__row">
           <input
             type="number"
@@ -381,39 +322,22 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
         </div>
       </div>
 
-      {/* Toggle filters */}
-      <div className="filters__toggles">
+      {/* Action buttons */}
+      <div className="filters__actions">
         <button
-          type="button"
-          className={`filters__toggle ${filters.only_available ? 'active' : ''}`}
-          onClick={() => handleToggle('only_available')}
+          className="filters__reset-btn"
+          onClick={handleReset}
+          disabled={!hasFilters}
         >
-          <span className="filters__toggle-check">{filters.only_available ? '✓' : ''}</span>
-          Только доступные
+          Сбросить
         </button>
         <button
-          type="button"
-          className={`filters__toggle ${filters.has_preorder ? 'active' : ''}`}
-          onClick={() => handleToggle('has_preorder')}
+          className="filters__apply-btn"
+          onClick={handleApply}
         >
-          <span className="filters__toggle-check">{filters.has_preorder ? '✓' : ''}</span>
-          С предзаказом
-        </button>
-        <button
-          type="button"
-          className={`filters__toggle ${filters.show_closed ? 'active' : ''}`}
-          onClick={() => handleToggle('show_closed')}
-        >
-          <span className="filters__toggle-check">{filters.show_closed ? '✓' : ''}</span>
-          Показать закрытые
+          Применить
         </button>
       </div>
-
-      {hasFilters && (
-        <button className="filters__reset" onClick={handleReset}>
-          Сбросить фильтры
-        </button>
-      )}
     </div>
   );
 }

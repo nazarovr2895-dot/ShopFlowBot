@@ -1,0 +1,27 @@
+.browser-filter-panel {
+  padding: 16px 24px;
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--app-border);
+  animation: browser-filter-slide-down 0.2s ease-out;
+}
+
+[data-theme="dark"] .browser-filter-panel {
+  background: rgba(20, 20, 20, 0.95);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .browser-filter-panel {
+  background: #ffffff;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+@keyframes browser-filter-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
