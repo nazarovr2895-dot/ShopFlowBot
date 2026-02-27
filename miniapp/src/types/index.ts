@@ -64,6 +64,13 @@ export interface Product {
   quantity?: number;
   is_preorder?: boolean;
   composition?: CompositionItem[] | null;
+  category_id?: number | null;
+}
+
+export interface SellerCategory {
+  id: number;
+  name: string;
+  sort_order: number;
 }
 
 // Cart (backend)
@@ -185,6 +192,7 @@ export interface PublicSellerDetail {
   delivery_availability?: 'available' | 'busy' | null;
   pickup_availability?: 'available' | 'busy' | null;
   subscription_active?: boolean;
+  categories?: SellerCategory[];
   products: Product[];
   preorder_products?: Product[];
   preorder_available_dates?: string[];

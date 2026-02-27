@@ -155,6 +155,7 @@ class ProductCreate(BaseModel):
     cost_price: Optional[float] = Field(default=None, ge=0)
     markup_percent: Optional[float] = Field(default=None, ge=0)
     composition: Optional[List[CompositionItem]] = None
+    category_id: Optional[int] = None
 
     @field_validator("name", "description")
     @classmethod
@@ -183,6 +184,7 @@ class ProductUpdate(BaseModel):
     cost_price: Optional[float] = Field(default=None, ge=0)
     markup_percent: Optional[float] = Field(default=None, ge=0)
     composition: Optional[List[CompositionItem]] = None
+    category_id: Optional[int] = None
 
     @field_validator("name", "description")
     @classmethod
@@ -210,12 +212,47 @@ class ProductResponse(BaseModel):
     cost_price: Optional[float] = None
     markup_percent: Optional[float] = None
     composition: Optional[list] = None
+    category_id: Optional[int] = None
 
     @model_validator(mode="after")
     def fill_photo_ids(self):
         if self.photo_ids is None and self.photo_id:
             self.photo_ids = [self.photo_id]
         return self
+
+
+# --- Категории товаров ---
+class CategoryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    sort_order: int = 0
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
+        return sanitize_user_input(v, max_length=100)
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return sanitize_user_input(v, max_length=100)
+
+
+class CategoryResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: int
+    seller_id: int
+    name: str
+    sort_order: int
+    is_active: bool
 
 
 # --- CRM: Flowers, Receptions ---

@@ -843,6 +843,42 @@
   cursor: pointer;
 }
 
+/* Category chips */
+.shop-details__category-chips {
+  display: flex;
+  gap: 8px;
+  padding: 0 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.shop-details__category-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.shop-details__category-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--app-border, rgba(0, 0, 0, 0.1));
+  background: var(--app-bg-secondary, rgba(0, 0, 0, 0.04));
+  color: var(--app-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.shop-details__category-chip--active {
+  background: var(--app-primary, #6366f1);
+  color: #fff;
+  border-color: var(--app-primary, #6366f1);
+}
+
 .shop-details__products-title {
   margin: 0 0 16px;
   font-size: 18px;

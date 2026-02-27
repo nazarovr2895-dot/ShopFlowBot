@@ -71,6 +71,7 @@ export function ShopDetails() {
   const [error, setError] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
   const [productTab, setProductTab] = useState<ProductTab>('regular');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [preorderDateForProductId, setPreorderDateForProductId] = useState<number | null>(null);
   const [isInFavorites, setIsInFavorites] = useState(false);
   const [togglingFavorite, setTogglingFavorite] = useState(false);
@@ -653,14 +654,14 @@ export function ShopDetails() {
             <button
               type="button"
               className={`shop-details__nav-bar-tab ${productTab === 'regular' ? 'shop-details__nav-bar-tab--active' : ''}`}
-              onClick={() => setProductTab('regular')}
+              onClick={() => { setProductTab('regular'); setSelectedCategoryId(null); }}
             >
               <span className="shop-details__nav-bar-tab-text">Актуальные</span>
             </button>
             <button
               type="button"
               className={`shop-details__nav-bar-tab ${productTab === 'preorder' ? 'shop-details__nav-bar-tab--active' : ''}`}
-              onClick={() => setProductTab('preorder')}
+              onClick={() => { setProductTab('preorder'); setSelectedCategoryId(null); }}
             >
               <span className="shop-details__nav-bar-tab-text">Предзаказ</span>
             </button>
@@ -683,7 +684,15 @@ export function ShopDetails() {
         </div>
       )}
 
-      {(seller.products.length > 0 || (seller.preorder_enabled && (seller.preorder_products?.length ?? 0) > 0)) && (
+      {(seller.products.length > 0 || (seller.preorder_enabled && (seller.preorder_products?.length ?? 0) > 0)) && (() => {
+        const currentProducts = productTab === 'preorder'
+          ? (seller.preorder_products ?? [])
+          : seller.products;
+        const hasCategories = (seller.categories?.length ?? 0) > 0 && productTab === 'regular';
+        const filteredProducts = (hasCategories && selectedCategoryId != null)
+          ? currentProducts.filter((p: Product) => p.category_id === selectedCategoryId)
+          : currentProducts;
+        return (
         <div className="shop-details__products">
           {productTab === 'preorder' && (
             <div className="shop-details__preorder-info">
@@ -699,12 +708,35 @@ export function ShopDetails() {
               )}
             </div>
           )}
+
+          {hasCategories && (
+            <div className="shop-details__category-chips">
+              <button
+                type="button"
+                className={`shop-details__category-chip${selectedCategoryId == null ? ' shop-details__category-chip--active' : ''}`}
+                onClick={() => setSelectedCategoryId(null)}
+              >
+                Все
+              </button>
+              {seller.categories!.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`shop-details__category-chip${selectedCategoryId === cat.id ? ' shop-details__category-chip--active' : ''}`}
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           <h2 className="shop-details__products-title">
             {productTab === 'preorder' ? 'Товары по предзаказу' : 'Товары'}
-            ({productTab === 'preorder' ? (seller.preorder_products?.length ?? 0) : seller.products.length})
+            ({filteredProducts.length})
           </h2>
           <div className="shop-details__products-grid">
-            {(productTab === 'preorder' ? (seller.preorder_products ?? []) : seller.products).map((product: Product) => {
+            {filteredProducts.map((product: Product) => {
               const isPreorder = productTab === 'preorder' || product.is_preorder;
               const inStock = !isPreorder && (product.quantity ?? 0) > 0;
               const isAdding = addingId === product.id;
@@ -824,7 +856,8 @@ export function ShopDetails() {
             })}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Legal Info Modal */}
       {legalModalOpen && seller && (

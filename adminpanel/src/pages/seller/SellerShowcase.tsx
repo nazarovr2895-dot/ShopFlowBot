@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import {
-  Eye, EyeOff, Pencil, Trash2, RefreshCw, ImageIcon,
+  Eye, EyeOff, Pencil, Trash2, RefreshCw, ImageIcon, Plus, X, Tag,
 } from 'lucide-react';
 import {
   getMe,
@@ -12,8 +12,12 @@ import {
   uploadProductPhoto,
   getProductImageUrl,
   recalculateProductPrice,
+  getCategories,
+  createCategory,
+  updateCategory as updateCategoryApi,
+  deleteCategory as deleteCategoryApi,
 } from '../../api/sellerClient';
-import type { SellerMe, SellerProduct, BouquetDetail, CompositionItem } from '../../api/sellerClient';
+import type { SellerMe, SellerProduct, BouquetDetail, CompositionItem, SellerCategory } from '../../api/sellerClient';
 import { useToast, useConfirm, TabBar, FormField, EmptyState } from '../../components/ui';
 import { ImageCropModal } from '../../components/ImageCropModal';
 import { CompositionEditor } from '../../components/CompositionEditor';
@@ -49,6 +53,14 @@ export function SellerShowcase() {
 
   const [editingProduct, setEditingProduct] = useState<SellerProduct | null>(null);
 
+  // Categories
+  const [categories, setCategories] = useState<SellerCategory[]>([]);
+  const [newProductCategoryId, setNewProductCategoryId] = useState<number | null>(null);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
+
   // Crop modal state (for add product form)
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const pendingCropFiles = useRef<File[]>([]);
@@ -57,12 +69,14 @@ export function SellerShowcase() {
     setLoading(true);
     try {
       const isPreorder = activeTab === 'preorder';
-      const [meData, productsData] = await Promise.all([
+      const [meData, productsData, cats] = await Promise.all([
         getMe(),
         getProducts({ preorder: isPreorder }),
+        getCategories().catch(() => []),
       ]);
       setMe(meData);
       setProducts(productsData ?? []);
+      setCategories(cats ?? []);
     } catch {
       setMe(null);
       setProducts([]);
@@ -128,6 +142,9 @@ export function SellerShowcase() {
         payload.cost_price = selectedBouquetCost;
         payload.markup_percent = parseFloat(markupPercent) || 0;
       }
+      if (newProductCategoryId != null) {
+        payload.category_id = newProductCategoryId;
+      }
       await createProduct(payload);
       setNewProduct({ name: '', description: '', price: '', quantity: '1' });
       setNewProductComposition([]);
@@ -138,6 +155,7 @@ export function SellerShowcase() {
       setSelectedBouquetId(null);
       setSelectedBouquetCost(0);
       setMarkupPercent('50');
+      setNewProductCategoryId(null);
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
@@ -265,7 +283,132 @@ export function SellerShowcase() {
         >
           {activeTab === 'preorder' ? 'Добавить товар для предзаказа' : 'Добавить товар'}
         </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => setShowCategoryManager((v) => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <Tag size={16} />
+          Категории{categories.length > 0 ? ` (${categories.length})` : ''}
+        </button>
       </div>
+
+      {showCategoryManager && (
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <h4 style={{ margin: '0 0 12px' }}>Категории товаров</h4>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Новая категория"
+              className="form-input"
+              style={{ flex: 1 }}
+              maxLength={100}
+            />
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!newCategoryName.trim()}
+              onClick={async () => {
+                try {
+                  await createCategory({ name: newCategoryName.trim(), sort_order: categories.length });
+                  setNewCategoryName('');
+                  const cats = await getCategories();
+                  setCategories(cats ?? []);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : 'Ошибка');
+                }
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <Plus size={16} /> Добавить
+            </button>
+          </div>
+          {categories.length === 0 ? (
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Нет категорий. Создайте первую.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {categories.map((cat) => (
+                <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {editingCategoryId === cat.id ? (
+                    <>
+                      <input
+                        type="text"
+                        value={editingCategoryName}
+                        onChange={(e) => setEditingCategoryName(e.target.value)}
+                        className="form-input"
+                        style={{ flex: 1 }}
+                        maxLength={100}
+                        autoFocus
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter' && editingCategoryName.trim()) {
+                            await updateCategoryApi(cat.id, { name: editingCategoryName.trim() });
+                            setEditingCategoryId(null);
+                            const cats = await getCategories();
+                            setCategories(cats ?? []);
+                          }
+                          if (e.key === 'Escape') setEditingCategoryId(null);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={async () => {
+                          if (!editingCategoryName.trim()) return;
+                          await updateCategoryApi(cat.id, { name: editingCategoryName.trim() });
+                          setEditingCategoryId(null);
+                          const cats = await getCategories();
+                          setCategories(cats ?? []);
+                        }}
+                      >
+                        OK
+                      </button>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingCategoryId(null)}>
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ flex: 1, opacity: cat.is_active ? 1 : 0.5 }}>{cat.name}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        {products.filter((p) => p.category_id === cat.id).length} товаров
+                      </span>
+                      <button
+                        type="button"
+                        className="sc-action-btn"
+                        onClick={() => { setEditingCategoryId(cat.id); setEditingCategoryName(cat.name); }}
+                        data-tooltip="Переименовать"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="sc-action-btn sc-action-btn--danger"
+                        onClick={async () => {
+                          if (!await confirm({ message: `Удалить категорию «${cat.name}»? Товары останутся без категории.` })) return;
+                          try {
+                            await deleteCategoryApi(cat.id);
+                            const cats = await getCategories();
+                            setCategories(cats ?? []);
+                            load();
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : 'Ошибка');
+                          }
+                        }}
+                        data-tooltip="Удалить"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {showAddProduct && addProductMode === 'choice' && (
         <div className="seller-showcase-add-choice card">
@@ -326,6 +469,20 @@ export function SellerShowcase() {
             />
           </FormField>
           <CompositionEditor items={newProductComposition} onChange={setNewProductComposition} />
+          {categories.length > 0 && (
+            <FormField label="Категория">
+              <select
+                value={newProductCategoryId ?? ''}
+                onChange={(e) => setNewProductCategoryId(e.target.value ? Number(e.target.value) : null)}
+                className="form-input"
+              >
+                <option value="">Без категории</option>
+                {categories.filter(c => c.is_active).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </FormField>
+          )}
           {selectedBouquetId && (
             <div className="seller-showcase-cost-info">
               <span>Себестоимость букета: <strong>{selectedBouquetCost.toFixed(0)} ₽</strong></span>
@@ -440,6 +597,7 @@ export function SellerShowcase() {
         product={editingProduct}
         onClose={() => setEditingProduct(null)}
         onSaved={() => { setEditingProduct(null); load(); }}
+        categories={categories}
       />
 
       {products.length === 0 ? (
@@ -484,6 +642,14 @@ export function SellerShowcase() {
                   {(costLabel || p.description) && (
                     <span className="sc-product-subtitle">{costLabel || p.description}</span>
                   )}
+                  {p.category_id && (() => {
+                    const cat = categories.find(c => c.id === p.category_id);
+                    return cat ? (
+                      <span style={{ fontSize: 11, color: 'var(--primary)', background: 'var(--primary-bg, rgba(99,102,241,0.1))', borderRadius: 4, padding: '1px 6px', marginTop: 2, display: 'inline-block' }}>
+                        {cat.name}
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
 
                 <div className="sc-product-meta">

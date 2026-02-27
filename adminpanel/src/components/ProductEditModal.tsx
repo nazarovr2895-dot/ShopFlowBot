@@ -5,7 +5,7 @@ import {
   uploadProductPhoto,
   getProductImageUrl,
 } from '../api/sellerClient';
-import type { SellerProduct, CompositionItem } from '../api/sellerClient';
+import type { SellerProduct, CompositionItem, SellerCategory } from '../api/sellerClient';
 import { useToast, useConfirm, Modal, FormField, Toggle } from './ui';
 import { CompositionEditor } from './CompositionEditor';
 import { ImageCropModal } from './ImageCropModal';
@@ -22,9 +22,10 @@ interface ProductEditModalProps {
   product: SellerProduct | null;
   onClose: () => void;
   onSaved: () => void;
+  categories?: SellerCategory[];
 }
 
-export function ProductEditModal({ product, onClose, onSaved }: ProductEditModalProps) {
+export function ProductEditModal({ product, onClose, onSaved, categories = [] }: ProductEditModalProps) {
   const toast = useToast();
   const confirm = useConfirm();
   const formRef = useRef<HTMLFormElement>(null);
@@ -32,6 +33,7 @@ export function ProductEditModal({ product, onClose, onSaved }: ProductEditModal
   // Form state
   const [form, setForm] = useState({ name: '', description: '', price: '', quantity: '' });
   const [composition, setComposition] = useState<CompositionItem[]>([]);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(true);
 
   // Photos — unified list
@@ -64,6 +66,7 @@ export function ProductEditModal({ product, onClose, onSaved }: ProductEditModal
     setForm(initial);
     setIsActive(product.is_active !== false);
     setComposition(product.composition ?? []);
+    setCategoryId(product.category_id ?? null);
     setErrors({});
     setSaving(false);
     setUploadProgress(null);
@@ -151,6 +154,7 @@ export function ProductEditModal({ product, onClose, onSaved }: ProductEditModal
         photo_ids: photo_ids.slice(0, 3),
         is_active: isActive,
         composition: validComposition,
+        category_id: categoryId,
       });
 
       onSaved();
@@ -419,6 +423,20 @@ export function ProductEditModal({ product, onClose, onSaved }: ProductEditModal
                   />
                 </FormField>
                 <CompositionEditor items={composition} onChange={setComposition} />
+                {categories.length > 0 && (
+                  <FormField label="Категория">
+                    <select
+                      value={categoryId ?? ''}
+                      onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
+                      className="form-input"
+                    >
+                      <option value="">Без категории</option>
+                      {categories.filter(c => c.is_active).map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </FormField>
+                )}
               </section>
 
               {/* Section: Price & Availability */}

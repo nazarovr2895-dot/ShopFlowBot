@@ -340,6 +340,106 @@ async def delete_delivery_zone(
     return {"status": "ok"}
 
 
+# --- CATEGORIES ---
+
+@router.get("/categories")
+async def get_categories(
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """List all categories for the current seller."""
+    from backend.app.models.category import Category
+    result = await session.execute(
+        select(Category)
+        .where(Category.seller_id == seller_id)
+        .order_by(Category.sort_order, Category.id)
+    )
+    return [
+        {"id": c.id, "seller_id": c.seller_id, "name": c.name,
+         "sort_order": c.sort_order, "is_active": c.is_active}
+        for c in result.scalars().all()
+    ]
+
+
+class CreateCategoryBody(BaseModel):
+    name: str
+    sort_order: int = 0
+
+
+class UpdateCategoryBody(BaseModel):
+    name: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+@router.post("/categories")
+async def create_category(
+    body: CreateCategoryBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Create a new product category."""
+    from backend.app.models.category import Category
+    cat = Category(seller_id=seller_id, name=body.name.strip(), sort_order=body.sort_order)
+    session.add(cat)
+    await session.commit()
+    await session.refresh(cat)
+    return {"id": cat.id, "seller_id": cat.seller_id, "name": cat.name,
+            "sort_order": cat.sort_order, "is_active": cat.is_active}
+
+
+@router.put("/categories/{category_id}")
+async def update_category(
+    category_id: int,
+    body: UpdateCategoryBody,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update a product category."""
+    from backend.app.models.category import Category
+    result = await session.execute(
+        select(Category).where(Category.id == category_id, Category.seller_id == seller_id)
+    )
+    cat = result.scalar_one_or_none()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Категория не найдена")
+    if body.name is not None:
+        cat.name = body.name.strip()
+    if body.sort_order is not None:
+        cat.sort_order = body.sort_order
+    if body.is_active is not None:
+        cat.is_active = body.is_active
+    await session.commit()
+    await session.refresh(cat)
+    return {"id": cat.id, "seller_id": cat.seller_id, "name": cat.name,
+            "sort_order": cat.sort_order, "is_active": cat.is_active}
+
+
+@router.delete("/categories/{category_id}")
+async def delete_category(
+    category_id: int,
+    seller_id: int = Depends(require_seller_token),
+    session: AsyncSession = Depends(get_session),
+):
+    """Delete a product category. Unlinks all products from it."""
+    from backend.app.models.category import Category
+    from backend.app.models.product import Product
+    result = await session.execute(
+        select(Category).where(Category.id == category_id, Category.seller_id == seller_id)
+    )
+    cat = result.scalar_one_or_none()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Категория не найдена")
+    # Unlink products
+    from sqlalchemy import update
+    await session.execute(
+        update(Product).where(Product.category_id == category_id).values(category_id=None)
+    )
+    await session.delete(cat)
+    await session.commit()
+    return {"status": "ok"}
+
+
 @router.get("/dashboard/alerts")
 async def get_dashboard_alerts(
     seller_id: int = Depends(require_seller_token),
@@ -1055,6 +1155,7 @@ async def get_products(
             "cost_price": p.cost_price,
             "markup_percent": p.markup_percent,
             "composition": p.composition,
+            "category_id": getattr(p, "category_id", None),
         }
         if p.bouquet_id and p.bouquet_id in shortages:
             d["stock_shortage"] = shortages[p.bouquet_id]
@@ -1093,6 +1194,8 @@ async def add_product(
         product_data["markup_percent"] = data.markup_percent
     if data.composition is not None:
         product_data["composition"] = [item.model_dump() for item in data.composition]
+    if data.category_id is not None:
+        product_data["category_id"] = data.category_id
     return await create_product_service(session, product_data)
 
 

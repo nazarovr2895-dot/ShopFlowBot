@@ -58,20 +58,24 @@ async def get_product_by_id_service(session: AsyncSession, product_id: int):
     result = await session.execute(select(Product).where(Product.id == product_id))
     return result.scalar_one_or_none()
 
+# Fields that can be explicitly set to None (nullable FK/optional fields)
+_NULLABLE_FIELDS = {"category_id", "bouquet_id", "cost_price", "markup_percent"}
+
+
 async def update_product_service(session: AsyncSession, product_id: int, update_data: dict):
     """Обновить товар"""
     result = await session.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
-    
+
     if not product:
         return None
-    
+
     if "photo_ids" in update_data or "photo_id" in update_data:
         update_data = _normalize_photo_ids({**{k: getattr(product, k) for k in ("photo_id", "photo_ids")}, **update_data})
     for field, value in update_data.items():
-        if value is not None:
+        if value is not None or field in _NULLABLE_FIELDS:
             setattr(product, field, value)
-    
+
     await session.commit()
     await session.refresh(product)
     return product

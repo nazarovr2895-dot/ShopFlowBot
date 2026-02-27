@@ -47,6 +47,7 @@ from sqlalchemy.pool import StaticPool
 
 from backend.app.core.base import Base
 import backend.app.models.delivery_zone  # noqa: F401 — register DeliveryZone with Base.metadata
+import backend.app.models.category  # noqa: F401 — register Category with Base.metadata
 from backend.app.main import app
 from backend.app.api.deps import get_session, get_cache
 from backend.app.services.cache import CacheService

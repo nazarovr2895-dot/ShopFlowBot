@@ -27,7 +27,7 @@ SYNC_DB_URL = _get_sync_db_url()
 from backend.app.core.base import Base
 
 # Импортируем все модели, чтобы они зарегистрировались в метаданных
-from backend.app.models import user, seller, order, product, referral, settings, crm, loyalty, subscription
+from backend.app.models import user, seller, order, product, referral, settings, crm, loyalty, subscription, category
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

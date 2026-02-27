@@ -104,6 +104,7 @@ class PublicSellerDetail(BaseModel):
     delivery_availability: Optional[str] = None
     pickup_availability: Optional[str] = None
     subscription_active: bool = True
+    categories: List[dict] = []
     products: List[dict]
     preorder_products: List[dict] = []
     preorder_available_dates: List[str] = []
@@ -720,10 +721,23 @@ async def get_public_seller_detail(
             "quantity": max(0, p.quantity - (getattr(p, "reserved_quantity", 0) or 0)),
             "is_preorder": getattr(p, "is_preorder", False),
             "composition": getattr(p, "composition", None),
+            "category_id": getattr(p, "category_id", None),
         }
 
     products_list = [_product_dict(p) for p in products]
     preorder_products_list = [_product_dict(p) for p in preorder_products]
+
+    # Seller categories
+    from backend.app.models.category import Category
+    cat_result = await session.execute(
+        select(Category)
+        .where(Category.seller_id == seller_id, Category.is_active == True)
+        .order_by(Category.sort_order, Category.id)
+    )
+    categories_list = [
+        {"id": c.id, "name": c.name, "sort_order": c.sort_order}
+        for c in cat_result.scalars().all()
+    ]
 
     delivery_type_normalized = _normalize_delivery_type(seller.delivery_type)
 
@@ -740,6 +754,7 @@ async def get_public_seller_detail(
         delivery_type=delivery_type_normalized,
         delivery_price=0.0,  # deprecated: use delivery zones
         min_delivery_price=min_delivery_price,
+        categories=categories_list,
         address_name=getattr(seller, "address_name", None),
         map_url=seller.map_url,
         city_id=seller.city_id,
