@@ -26,7 +26,7 @@ import './SellerShowcase.css';
 
 type AddProductMode = 'choice' | 'manual' | 'bouquet';
 
-type ShowcaseTab = 'regular' | 'preorder';
+type ShowcaseTab = 'regular' | 'preorder' | 'categories';
 
 export function SellerShowcase() {
   const toast = useToast();
@@ -56,7 +56,6 @@ export function SellerShowcase() {
   // Categories
   const [categories, setCategories] = useState<SellerCategory[]>([]);
   const [newProductCategoryId, setNewProductCategoryId] = useState<number | null>(null);
-  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
@@ -68,15 +67,24 @@ export function SellerShowcase() {
   const load = async () => {
     setLoading(true);
     try {
-      const isPreorder = activeTab === 'preorder';
-      const [meData, productsData, cats] = await Promise.all([
-        getMe(),
-        getProducts({ preorder: isPreorder }),
-        getCategories().catch(() => []),
-      ]);
-      setMe(meData);
-      setProducts(productsData ?? []);
-      setCategories(cats ?? []);
+      if (activeTab === 'categories') {
+        const [meData, cats] = await Promise.all([
+          getMe(),
+          getCategories().catch(() => []),
+        ]);
+        setMe(meData);
+        setCategories(cats ?? []);
+      } else {
+        const isPreorder = activeTab === 'preorder';
+        const [meData, productsData, cats] = await Promise.all([
+          getMe(),
+          getProducts({ preorder: isPreorder }),
+          getCategories().catch(() => []),
+        ]);
+        setMe(meData);
+        setProducts(productsData ?? []);
+        setCategories(cats ?? []);
+      }
     } catch {
       setMe(null);
       setProducts([]);
@@ -261,51 +269,40 @@ export function SellerShowcase() {
         tabs={[
           { key: 'regular', label: 'Товары в mini app', count: activeTab === 'regular' ? products.length : undefined },
           { key: 'preorder', label: 'Товары по предзаказу' },
+          { key: 'categories', label: 'Категории', count: categories.length || undefined },
         ]}
         activeTab={activeTab}
         onChange={(key) => setActiveTab(key as ShowcaseTab)}
       />
 
-      {products.length > 0 && (
-        <p className="seller-showcase-stats">
-          В каталоге: {visibleCount} из {products.length}
-        </p>
-      )}
+      {/* ====== Categories Tab ====== */}
+      {activeTab === 'categories' && (
+        <div className="sc-categories-tab">
+          <div className="sc-categories-header">
+            <h3>Управление категориями</h3>
+            <p>Создавайте категории для группировки товаров в каталоге</p>
+          </div>
 
-      <div className="seller-showcase-toolbar">
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => {
-            setShowAddProduct(true);
-            setAddProductMode('choice');
-          }}
-        >
-          {activeTab === 'preorder' ? 'Добавить товар для предзаказа' : 'Добавить товар'}
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setShowCategoryManager((v) => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-        >
-          <Tag size={16} />
-          Категории{categories.length > 0 ? ` (${categories.length})` : ''}
-        </button>
-      </div>
-
-      {showCategoryManager && (
-        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <h4 style={{ margin: '0 0 12px' }}>Категории товаров</h4>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <div className="sc-categories-add-form">
             <input
               type="text"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Новая категория"
+              placeholder="Название новой категории"
               className="form-input"
-              style={{ flex: 1 }}
               maxLength={100}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' && newCategoryName.trim()) {
+                  try {
+                    await createCategory({ name: newCategoryName.trim(), sort_order: categories.length });
+                    setNewCategoryName('');
+                    const cats = await getCategories();
+                    setCategories(cats ?? []);
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Ошибка');
+                  }
+                }
+              }}
             />
             <button
               type="button"
@@ -321,25 +318,28 @@ export function SellerShowcase() {
                   toast.error(e instanceof Error ? e.message : 'Ошибка');
                 }
               }}
-              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
             >
               <Plus size={16} /> Добавить
             </button>
           </div>
+
           {categories.length === 0 ? (
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Нет категорий. Создайте первую.</p>
+            <EmptyState
+              icon={<Tag size={40} />}
+              title="Нет категорий"
+              message="Создайте первую категорию, чтобы группировать товары"
+            />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="sc-category-list">
               {categories.map((cat) => (
-                <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div key={cat.id} className={`sc-category-row${cat.is_active === false ? ' sc-category-row--inactive' : ''}`}>
                   {editingCategoryId === cat.id ? (
-                    <>
+                    <div className="sc-category-edit">
                       <input
                         type="text"
                         value={editingCategoryName}
                         onChange={(e) => setEditingCategoryName(e.target.value)}
                         className="form-input"
-                        style={{ flex: 1 }}
                         maxLength={100}
                         autoFocus
                         onKeyDown={async (e) => {
@@ -368,45 +368,71 @@ export function SellerShowcase() {
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingCategoryId(null)}>
                         <X size={14} />
                       </button>
-                    </>
+                    </div>
                   ) : (
                     <>
-                      <span style={{ flex: 1, opacity: cat.is_active ? 1 : 0.5 }}>{cat.name}</span>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      <div className="sc-category-info">
+                        <Tag size={14} className="sc-category-icon" />
+                        <span className="sc-category-name">{cat.name}</span>
+                      </div>
+                      <span className="sc-category-badge">
                         {products.filter((p) => p.category_id === cat.id).length} товаров
                       </span>
-                      <button
-                        type="button"
-                        className="sc-action-btn"
-                        onClick={() => { setEditingCategoryId(cat.id); setEditingCategoryName(cat.name); }}
-                        data-tooltip="Переименовать"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="sc-action-btn sc-action-btn--danger"
-                        onClick={async () => {
-                          if (!await confirm({ message: `Удалить категорию «${cat.name}»? Товары останутся без категории.` })) return;
-                          try {
-                            await deleteCategoryApi(cat.id);
-                            const cats = await getCategories();
-                            setCategories(cats ?? []);
-                            load();
-                          } catch (e) {
-                            toast.error(e instanceof Error ? e.message : 'Ошибка');
-                          }
-                        }}
-                        data-tooltip="Удалить"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="sc-category-actions">
+                        <button
+                          type="button"
+                          className="sc-action-btn"
+                          onClick={() => { setEditingCategoryId(cat.id); setEditingCategoryName(cat.name); }}
+                          data-tooltip="Переименовать"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="sc-action-btn sc-action-btn--danger"
+                          onClick={async () => {
+                            if (!await confirm({ message: `Удалить категорию «${cat.name}»? Товары останутся без категории.` })) return;
+                            try {
+                              await deleteCategoryApi(cat.id);
+                              const cats = await getCategories();
+                              setCategories(cats ?? []);
+                            } catch (e) {
+                              toast.error(e instanceof Error ? e.message : 'Ошибка');
+                            }
+                          }}
+                          data-tooltip="Удалить"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ====== Products Tab Content ====== */}
+      {activeTab !== 'categories' && products.length > 0 && (
+        <p className="seller-showcase-stats">
+          В каталоге: {visibleCount} из {products.length}
+        </p>
+      )}
+
+      {activeTab !== 'categories' && (
+        <div className="seller-showcase-toolbar">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              setShowAddProduct(true);
+              setAddProductMode('choice');
+            }}
+          >
+            {activeTab === 'preorder' ? 'Добавить товар для предзаказа' : 'Добавить товар'}
+          </button>
         </div>
       )}
 
