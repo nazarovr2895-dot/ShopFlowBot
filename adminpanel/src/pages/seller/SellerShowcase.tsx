@@ -626,7 +626,7 @@ export function SellerShowcase() {
         categories={categories}
       />
 
-      {products.length === 0 ? (
+      {activeTab !== 'categories' && (products.length === 0 ? (
         <EmptyState
           title="Нет товаров"
           message="Нажмите «Добавить товар» чтобы начать"
@@ -750,7 +750,7 @@ export function SellerShowcase() {
             );
           })}
         </div>
-      )}
+      ))}
 
       {cropImageSrc && (
         <ImageCropModal
