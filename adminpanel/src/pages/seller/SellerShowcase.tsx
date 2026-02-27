@@ -59,6 +59,7 @@ export function SellerShowcase() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
 
   // Crop modal state (for add product form)
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export function SellerShowcase() {
   };
 
   useEffect(() => {
+    setFilterCategoryId(null);
     load();
   }, [activeTab]);
 
@@ -626,6 +628,28 @@ export function SellerShowcase() {
         categories={categories}
       />
 
+      {activeTab !== 'categories' && categories.length > 0 && products.length > 0 && (
+        <div className="sc-filter-chips">
+          <button
+            type="button"
+            className={`sc-filter-chip${filterCategoryId == null ? ' sc-filter-chip--active' : ''}`}
+            onClick={() => setFilterCategoryId(null)}
+          >
+            Все
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              className={`sc-filter-chip${filterCategoryId === cat.id ? ' sc-filter-chip--active' : ''}`}
+              onClick={() => setFilterCategoryId(cat.id)}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {activeTab !== 'categories' && (products.length === 0 ? (
         <EmptyState
           title="Нет товаров"
@@ -633,7 +657,7 @@ export function SellerShowcase() {
         />
       ) : (
         <div className="sc-product-list">
-          {products.map((p) => {
+          {products.filter((p) => filterCategoryId == null || p.category_id === filterCategoryId).map((p) => {
             const firstPhotoId = (p.photo_ids && p.photo_ids[0]) || p.photo_id;
             const imageUrl = getProductImageUrl(firstPhotoId ?? null);
             const isActive = p.is_active !== false;
