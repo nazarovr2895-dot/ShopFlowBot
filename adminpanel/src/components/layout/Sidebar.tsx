@@ -148,8 +148,8 @@ export function Sidebar() {
   const { role, isNetwork, logout } = useAuth();
   const navigate = useNavigate();
   const baseNav = role === 'seller' ? sellerNav : adminNav;
-  // Add "Филиалы" link for sellers with multiple branches
-  const nav = role === 'seller' && isNetwork
+  // Add "Филиалы" link for all sellers (so they can add branches)
+  const nav = role === 'seller'
     ? [
         ...baseNav.filter(i => i.to !== '/settings'),
         { to: '/branches', label: 'Филиалы', icon: GitBranch, dividerBefore: true },

@@ -1192,6 +1192,22 @@ export async function getPublicDistricts(cityId: number): Promise<{ id: number; 
   return res.json();
 }
 
+// --- Reference data (public, no auth) ---
+
+export async function getPublicCities(): Promise<{ id: number; name: string }[]> {
+  const url = `${getApiBase()}/public/cities`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function getPublicMetro(districtId: number): Promise<{ id: number; name: string; line_color?: string }[]> {
+  const url = `${getApiBase()}/public/metro/${districtId}`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 // --- Branches ---
 
 export interface BranchInfo {
@@ -1206,10 +1222,12 @@ export interface BranchDetail {
   address_name: string | null;
   city_id: number | null;
   district_id: number | null;
+  metro_id: number | null;
   delivery_type: string | null;
   working_hours: string | null;
   is_blocked: boolean;
-  created_at: string | null;
+  geo_lat: number | null;
+  geo_lon: number | null;
 }
 
 export async function getBranches(): Promise<BranchDetail[]> {
