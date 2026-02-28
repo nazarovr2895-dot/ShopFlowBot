@@ -869,6 +869,12 @@ function SellerDetailsModal({
   const [credentialsLoading, setCredentialsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Conversion credentials (when seller is converted to network)
+  const [conversionCreds, setConversionCreds] = useState<{
+    management_login: string; management_password: string;
+    branch_seller_id: number; branch_login: string;
+  } | null>(null);
+
   // Delete
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -1577,9 +1583,19 @@ function SellerDetailsModal({
                     onClick={async () => {
                       setLoading(true);
                       try {
-                        await updateSellerField(seller.tg_id, 'max_branches', editedFields.max_branches ?? String(seller.max_branches ?? 0));
-                        onUpdate({ ...seller, max_branches: parseInt(editedFields.max_branches ?? '0', 10) || null });
-                        toast.success('Сохранено');
+                        const result = await updateSellerField(seller.tg_id, 'max_branches', editedFields.max_branches ?? String(seller.max_branches ?? 0));
+                        const newVal = parseInt(editedFields.max_branches ?? '0', 10) || null;
+                        onUpdate({ ...seller, max_branches: newVal });
+                        if (result.converted && result.management_login && result.management_password) {
+                          setConversionCreds({
+                            management_login: result.management_login,
+                            management_password: result.management_password,
+                            branch_seller_id: result.branch_seller_id!,
+                            branch_login: result.branch_login!,
+                          });
+                        } else {
+                          toast.success('Сохранено');
+                        }
                         setEditingSection(null);
                       } catch (e) {
                         toast.error(e instanceof Error ? e.message : 'Ошибка');
@@ -1598,6 +1614,32 @@ function SellerDetailsModal({
                 </button>
               )}
             </div>
+
+            {/* Conversion credentials popup */}
+            {conversionCreds && (
+              <div className="sdm-section" style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid var(--primary, #6366f1)', borderRadius: '8px', padding: '1rem' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.75rem' }}>Продавец конвертирован в сеть</h3>
+                <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                  <strong>Управляющий (новые креды):</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <code>{conversionCreds.management_login}</code>
+                    <button className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(conversionCreds.management_login)}>Копировать</button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <code>{conversionCreds.management_password}</code>
+                    <button className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(conversionCreds.management_password)}>Копировать</button>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.8rem' }}>
+                  <strong>Филиал #{conversionCreds.branch_seller_id} (старые креды продавца):</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <code>{conversionCreds.branch_login}</code>
+                    <button className="btn btn-sm btn-secondary" onClick={() => navigator.clipboard.writeText(conversionCreds.branch_login)}>Копировать</button>
+                  </div>
+                </div>
+                <button className="btn btn-sm" style={{ marginTop: '0.75rem' }} onClick={() => setConversionCreds(null)}>Закрыть</button>
+              </div>
+            )}
 
             {/* ═══ Limits ═══ */}
             <div ref={(el) => { sectionRefs.current['limits'] = el; }} className="sdm-section">

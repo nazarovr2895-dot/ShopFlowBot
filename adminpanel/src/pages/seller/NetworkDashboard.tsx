@@ -112,12 +112,12 @@ export function NetworkDashboard() {
                 style={{
                   padding: '0.75rem 1rem',
                   borderRadius: '8px',
-                  border: '1px solid var(--border, #e5e7eb)',
-                  background: b.is_blocked ? 'rgba(239,68,68,0.04)' : 'var(--card-bg, #fff)',
+                  border: '1px solid var(--border)',
+                  background: b.is_blocked ? 'rgba(239,68,68,0.08)' : 'var(--bg-surface)',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{b.shop_name || `Филиал #${b.seller_id}`}</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)' }}>{b.shop_name || `Филиал #${b.seller_id}`}</span>
                   {b.is_blocked && (
                     <span style={{ fontSize: '0.7rem', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <AlertCircle size={12} /> Заблокирован
@@ -129,7 +129,7 @@ export function NetworkDashboard() {
                     <MapPin size={12} /> {b.address_name}
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem 1rem', fontSize: '0.8rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem 1rem', fontSize: '0.8rem', color: 'var(--text)' }}>
                   <div>
                     <span style={{ color: 'var(--text-secondary)' }}>Выручка:</span>{' '}
                     <strong>{fmtCurrency(b.revenue)}</strong>

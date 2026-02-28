@@ -686,6 +686,174 @@ class SellerService:
             if not district:
                 raise SellerServiceError(f"Район с ID {district_id} не найден. Добавьте его через управление покрытием.")
     
+    async def convert_to_network(
+        self,
+        seller_id: int,
+        max_branches: int,
+    ) -> Dict[str, Any]:
+        """Convert a regular seller to a network.
+
+        Creates a management account from the existing seller and turns the
+        original seller into branch #1 with all its data preserved.
+
+        Returns credentials for both management and branch accounts.
+        """
+        from sqlalchemy import update as sa_update
+
+        seller = await self.session.get(Seller, seller_id)
+        if not seller:
+            raise SellerNotFoundError(seller_id)
+        if seller.max_branches is not None:
+            raise SellerServiceError("Продавец уже является сетью")
+
+        # --- Step 1: Create branch (copy of original seller) ---
+        timestamp_ms = int(time.time() * 1000)
+        random_component = secrets.randbelow(1000000)
+        branch_id = (timestamp_ms * 1000 + random_component) % (2**63 - 1)
+
+        # Branch gets the seller's OLD web credentials
+        old_web_login = seller.web_login
+        old_web_password_hash = seller.web_password_hash
+
+        branch = Seller(
+            seller_id=branch_id,
+            owner_id=seller.seller_id,  # points to the management account
+            shop_name=seller.shop_name,
+            inn=seller.inn,
+            ogrn=seller.ogrn,
+            hashtags=seller.hashtags,
+            description=seller.description,
+            city_id=seller.city_id,
+            district_id=seller.district_id,
+            metro_id=seller.metro_id,
+            metro_walk_minutes=seller.metro_walk_minutes,
+            address_name=seller.address_name,
+            map_url=seller.map_url,
+            delivery_type=seller.delivery_type,
+            delivery_price=seller.delivery_price,
+            max_orders=seller.max_orders,
+            default_daily_limit=seller.default_daily_limit,
+            daily_limit_date=seller.daily_limit_date,
+            active_orders=seller.active_orders,
+            pending_requests=seller.pending_requests,
+            max_delivery_orders=seller.max_delivery_orders,
+            max_pickup_orders=seller.max_pickup_orders,
+            active_delivery_orders=seller.active_delivery_orders,
+            active_pickup_orders=seller.active_pickup_orders,
+            pending_delivery_requests=seller.pending_delivery_requests,
+            pending_pickup_requests=seller.pending_pickup_requests,
+            placement_expired_at=seller.placement_expired_at,
+            web_login=old_web_login,
+            web_password_hash=old_web_password_hash,
+            loyalty_points_percent=seller.loyalty_points_percent,
+            max_points_discount_percent=seller.max_points_discount_percent,
+            points_to_ruble_rate=seller.points_to_ruble_rate,
+            preorder_enabled=seller.preorder_enabled,
+            preorder_schedule_type=seller.preorder_schedule_type,
+            preorder_weekday=seller.preorder_weekday,
+            preorder_interval_days=seller.preorder_interval_days,
+            preorder_base_date=seller.preorder_base_date,
+            preorder_custom_dates=seller.preorder_custom_dates,
+            preorder_min_lead_days=seller.preorder_min_lead_days,
+            preorder_max_per_date=seller.preorder_max_per_date,
+            preorder_discount_percent=seller.preorder_discount_percent,
+            preorder_discount_min_days=seller.preorder_discount_min_days,
+            loyalty_tiers_config=seller.loyalty_tiers_config,
+            points_expire_days=seller.points_expire_days,
+            subscription_plan=seller.subscription_plan,
+            commission_percent=seller.commission_percent,
+            yookassa_account_id=seller.yookassa_account_id,
+            weekly_schedule=seller.weekly_schedule,
+            banner_url=seller.banner_url,
+            working_hours=seller.working_hours,
+            use_delivery_zones=seller.use_delivery_zones,
+            deliveries_per_slot=seller.deliveries_per_slot,
+            slot_days_ahead=seller.slot_days_ahead,
+            min_slot_lead_minutes=seller.min_slot_lead_minutes,
+            slot_duration_minutes=seller.slot_duration_minutes,
+            geo_lat=seller.geo_lat,
+            geo_lon=seller.geo_lon,
+            contact_tg_id=seller.contact_tg_id,
+        )
+        self.session.add(branch)
+        await self.session.flush()  # get branch_id assigned
+
+        # --- Step 2: Migrate all data from seller X to new branch ---
+        from backend.app.models.product import Product
+        from backend.app.models.order import Order
+        from backend.app.models.category import Category
+        from backend.app.models.delivery_zone import DeliveryZone
+        from backend.app.models.subscription import Subscription
+        from backend.app.models.cart import CartItem, BuyerFavoriteSeller
+        from backend.app.models.crm import Flower, Reception, Bouquet, WriteOff
+        from backend.app.models.loyalty import SellerCustomer, SellerLoyaltyTransaction, CustomerEvent
+
+        tables_to_migrate = [
+            Product, Order, Category, DeliveryZone, Subscription,
+            CartItem, BuyerFavoriteSeller,
+            Flower, Reception, Bouquet, WriteOff,
+            SellerCustomer, SellerLoyaltyTransaction, CustomerEvent,
+        ]
+        for model in tables_to_migrate:
+            await self.session.execute(
+                sa_update(model)
+                .where(model.seller_id == seller_id)
+                .values(seller_id=branch.seller_id)
+            )
+
+        # --- Step 3: Convert seller X to management-only ---
+        mgmt_web_login = f"Network{seller_id}"
+        mgmt_web_password = ''.join(
+            secrets.choice(string.ascii_letters + string.digits) for _ in range(12)
+        )
+        mgmt_password_hash = hash_password(mgmt_web_password)
+
+        seller.max_branches = max_branches
+        seller.web_login = mgmt_web_login
+        seller.web_password_hash = mgmt_password_hash
+        # Clear shop-specific fields
+        seller.address_name = None
+        seller.city_id = None
+        seller.district_id = None
+        seller.metro_id = None
+        seller.metro_walk_minutes = None
+        seller.delivery_type = None
+        seller.description = None
+        seller.geo_lat = None
+        seller.geo_lon = None
+        seller.map_url = None
+        seller.working_hours = None
+        seller.hashtags = None
+        seller.subscription_plan = "none"
+        seller.banner_url = None
+        # Reset order counters
+        seller.max_orders = 0
+        seller.active_orders = 0
+        seller.pending_requests = 0
+        seller.active_delivery_orders = 0
+        seller.active_pickup_orders = 0
+        seller.pending_delivery_requests = 0
+        seller.pending_pickup_requests = 0
+        # Keep: shop_name (as network name), inn, ogrn, commission_percent
+
+        await self.session.commit()
+
+        logger.info(
+            "Seller converted to network",
+            seller_id=seller_id,
+            branch_id=branch.seller_id,
+            max_branches=max_branches,
+        )
+
+        return {
+            "status": "ok",
+            "converted": True,
+            "management_login": mgmt_web_login,
+            "management_password": mgmt_web_password,
+            "branch_seller_id": branch.seller_id,
+            "branch_login": old_web_login,
+        }
+
     async def update_field(
         self,
         tg_id: int,
@@ -804,6 +972,9 @@ class SellerService:
                     raise SellerServiceError("Макс. филиалов должно быть целым числом >= 1")
                 if val < 1:
                     raise SellerServiceError("Макс. филиалов должно быть >= 1")
+                # Convert regular seller to network when enabling branches for the first time
+                if seller.max_branches is None:
+                    return await self.convert_to_network(tg_id, val)
                 seller.max_branches = val
 
         await self.session.commit()

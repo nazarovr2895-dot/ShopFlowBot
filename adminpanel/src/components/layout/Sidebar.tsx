@@ -164,8 +164,8 @@ export function Sidebar() {
       const baseNav = sellerNav;
       nav = [
         ...baseNav.filter(i => i.to !== '/settings'),
-        ...(isPrimary ? [{ to: '/branches', label: 'Филиалы', icon: GitBranch, dividerBefore: true }] : []),
-        { to: '/settings', label: 'Настройки', icon: Settings, dividerBefore: !isPrimary },
+        ...(isPrimary && isNetwork ? [{ to: '/branches', label: 'Филиалы', icon: GitBranch, dividerBefore: true }] : []),
+        { to: '/settings', label: 'Настройки', icon: Settings, dividerBefore: !(isPrimary && isNetwork) },
       ];
     }
   } else {

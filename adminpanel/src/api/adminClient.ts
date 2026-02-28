@@ -138,7 +138,7 @@ export async function updateSellerField(
   tgId: number,
   field: string,
   value: string
-): Promise<{ status?: string }> {
+): Promise<{ status?: string; converted?: boolean; management_login?: string; management_password?: string; branch_seller_id?: number; branch_login?: string }> {
   return fetchAdmin(`/admin/sellers/${tgId}/update`, {
     method: 'PUT',
     body: JSON.stringify({ field, value }),
