@@ -4,7 +4,7 @@ import { PageHeader, useToast } from '../components/ui';
 import {
   Plus, Store, User, MapPin, Truck, Building2, Percent,
   Gauge, Calendar, Globe, Shield, Trash2, X, Edit3, Save,
-  Copy, Eye, EyeOff, CreditCard, AlertTriangle, GitBranch,
+  Copy, Eye, EyeOff, CreditCard, AlertTriangle, GitBranch, Network,
 } from 'lucide-react';
 import {
   searchSellers,
@@ -407,6 +407,8 @@ function AddSellerModal({
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [commissionPercent, setCommissionPercent] = useState('');
+  const [isNetworkSeller, setIsNetworkSeller] = useState(false);
+  const [maxBranches, setMaxBranches] = useState('3');
   const [credentials, setCredentials] = useState<{ web_login: string; web_password: string } | null>(null);
 
   // Address autocomplete state
@@ -579,6 +581,10 @@ function AddSellerModal({
       if (commissionPercent) {
         const cp = parseInt(commissionPercent, 10);
         if (!isNaN(cp) && cp >= 0 && cp <= 100) payload.commission_percent = cp;
+      }
+      if (isNetworkSeller) {
+        const mb = parseInt(maxBranches, 10);
+        if (!isNaN(mb) && mb >= 1) payload.max_branches = mb;
       }
       const res = await createSeller(payload) as { status?: string; web_login?: string; web_password?: string; delivery_zone_created?: boolean };
       if (res?.status === 'ok' || res?.status === undefined) {
@@ -761,6 +767,29 @@ function AddSellerModal({
           />
           <small className="form-hint">Оставьте пустым для использования глобальной комиссии платформы</small>
         </div>
+        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+            <input
+              type="checkbox"
+              checked={isNetworkSeller}
+              onChange={(e) => setIsNetworkSeller(e.target.checked)}
+            />
+            Сеть (несколько филиалов)
+          </label>
+          {isNetworkSeller && (
+            <input
+              type="number"
+              className="form-input"
+              min={1}
+              max={100}
+              value={maxBranches}
+              onChange={(e) => setMaxBranches(e.target.value)}
+              style={{ width: '100px' }}
+              placeholder="Макс."
+            />
+          )}
+          {isNetworkSeller && <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>макс. филиалов</small>}
+        </div>
         {error && <div className="modal-error">{error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button>
@@ -774,7 +803,7 @@ function AddSellerModal({
   );
 }
 
-type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'branches' | 'limits' | 'commission' | 'payment' | 'placement' | 'web' | 'status' | 'delete';
+type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'branches' | 'network' | 'limits' | 'commission' | 'payment' | 'placement' | 'web' | 'status' | 'delete';
 
 const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: typeof Store; danger?: boolean }[] }[] = [
   {
@@ -785,6 +814,7 @@ const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: ty
       { id: 'delivery', label: 'Доставка', icon: Truck },
       { id: 'org', label: 'Организация', icon: Building2 },
       { id: 'branches', label: 'Филиалы', icon: GitBranch },
+      { id: 'network', label: 'Тип аккаунта', icon: Network },
     ],
   },
   {
@@ -1536,6 +1566,61 @@ function SellerDetailsModal({
                 )}
               </div>
             )}
+
+            {/* ═══ Network Type ═══ */}
+            <div ref={(el) => { sectionRefs.current['network'] = el; }} className="sdm-section">
+              <div className="sdm-section-header">
+                <h3 className="sdm-section-title"><Network size={16} /> Тип аккаунта</h3>
+              </div>
+              <div className="sdm-field-row">
+                <span className="sdm-field-label">Тип</span>
+                <span className="sdm-field-value">
+                  {(seller.max_branches ?? 0) > 0 ? (
+                    <span className="badge badge-info">Сеть (до {seller.max_branches} филиалов)</span>
+                  ) : (
+                    <span className="badge">Одиночный</span>
+                  )}
+                </span>
+              </div>
+              {editingSection === 'network' ? (
+                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>max_branches:</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    min={0}
+                    max={100}
+                    value={editedFields.max_branches ?? String(seller.max_branches ?? 0)}
+                    onChange={(e) => setEditedFields(prev => ({ ...prev, max_branches: e.target.value }))}
+                    style={{ width: '100px' }}
+                  />
+                  <button
+                    className="btn btn-sm btn-primary"
+                    disabled={loading}
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        await updateSellerField(seller.tg_id, 'max_branches', editedFields.max_branches ?? String(seller.max_branches ?? 0));
+                        onUpdate({ ...seller, max_branches: parseInt(editedFields.max_branches ?? '0', 10) || null });
+                        toast.success('Сохранено');
+                        setEditingSection(null);
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : 'Ошибка');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <Save size={13} />
+                  </button>
+                  <button className="btn btn-sm" onClick={() => setEditingSection(null)}>Отмена</button>
+                </div>
+              ) : (
+                <button className="btn btn-sm" style={{ marginTop: '0.5rem' }} onClick={() => { setEditingSection('network'); setEditedFields({ max_branches: String(seller.max_branches ?? 0) }); }}>
+                  <Edit3 size={13} /> Изменить
+                </button>
+              )}
+            </div>
 
             {/* ═══ Limits ═══ */}
             <div ref={(el) => { sectionRefs.current['limits'] = el; }} className="sdm-section">

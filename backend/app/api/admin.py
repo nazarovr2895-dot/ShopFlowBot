@@ -76,7 +76,15 @@ class SellerCreateSchema(BaseModel):
     delivery_type: str
     placement_expired_at: Optional[datetime] = None
     commission_percent: Optional[int] = None
+    max_branches: Optional[int] = None
     auto_create_delivery_zone: bool = False
+
+    @field_validator('max_branches')
+    @classmethod
+    def validate_max_branches(cls, v):
+        if v is not None and v < 1:
+            raise ValueError('Макс. филиалов должно быть >= 1')
+        return v
 
     @field_validator('commission_percent')
     @classmethod
@@ -417,6 +425,7 @@ async def create_seller_api(data: SellerCreateSchema, session: AsyncSession = De
             delivery_type=data.delivery_type,
             placement_expired_at=data.placement_expired_at,
             commission_percent=data.commission_percent,
+            max_branches=data.max_branches,
         )
         created_tg_id = result.get("tg_id") or data.tg_id
         logger.info("Seller created", tg_id=created_tg_id, shop_name=data.shop_name)

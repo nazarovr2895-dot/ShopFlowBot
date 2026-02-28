@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { TabBar, PageHeader } from '../../components/ui';
 import { useTabs } from '../../hooks/useTabs';
+import { useAuth } from '../../contexts/AuthContext';
 import { getMe } from '../../api/sellerClient';
 import type { SellerMe } from '../../api/sellerClient';
 import { ShopSettingsTab } from './settings/ShopSettingsTab';
@@ -14,7 +15,7 @@ import { SubscriptionSettingsTab } from './settings/SubscriptionSettingsTab';
 import { LegalSettingsTab } from './settings/LegalSettingsTab';
 import { DeliveryZonesSettingsTab } from './settings/DeliveryZonesSettingsTab';
 
-const TABS = [
+const ALL_TABS = [
   { key: 'shop', label: 'Магазин' },
   { key: 'delivery', label: 'Доставка' },
   { key: 'hashtags', label: 'Хештеги' },
@@ -27,12 +28,21 @@ const TABS = [
   { key: 'legal', label: 'Документы' },
 ];
 
+const NETWORK_OWNER_TABS = [
+  { key: 'subscription', label: 'Подписка' },
+  { key: 'payment', label: 'ЮКасса' },
+  { key: 'legal', label: 'Документы' },
+  { key: 'account', label: 'Аккаунт' },
+];
+
 /**
- * SellerSettings — unified settings page with 5 tabs.
+ * SellerSettings — unified settings page with tabs.
  * Shared data loading: single getMe() call, passed to all tabs via props.
  */
 export function SellerSettings() {
-  const [tab, setTab] = useTabs('shop');
+  const { isNetworkOwner } = useAuth();
+  const tabs = useMemo(() => isNetworkOwner ? NETWORK_OWNER_TABS : ALL_TABS, [isNetworkOwner]);
+  const [tab, setTab] = useTabs(isNetworkOwner ? 'subscription' : 'shop');
   const [me, setMe] = useState<SellerMe | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -75,7 +85,7 @@ export function SellerSettings() {
   return (
     <div>
       <PageHeader title="Настройки" subtitle="Магазин, хештеги, лимиты, время работы, предзаказы, ЮКасса и аккаунт" />
-      <TabBar tabs={TABS} activeTab={tab} onChange={setTab} />
+      <TabBar tabs={tabs} activeTab={tab} onChange={setTab} />
       {tab === 'shop' && <ShopSettingsTab me={me} reload={reload} />}
       {tab === 'delivery' && <DeliveryZonesSettingsTab me={me} reload={reload} />}
       {tab === 'hashtags' && <HashtagsSettingsTab me={me} reload={reload} />}

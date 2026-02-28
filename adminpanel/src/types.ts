@@ -31,6 +31,7 @@ export interface Seller {
   hashtags?: string
   commission_percent?: number | null
   yookassa_account_id?: string | null
+  max_branches?: number | null
   branch_count?: number
   branches?: AdminBranchInfo[]
 }

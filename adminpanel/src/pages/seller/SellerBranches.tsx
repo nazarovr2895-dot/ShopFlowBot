@@ -133,7 +133,7 @@ function CredentialsModal({ login, password, onClose }: { login: string; passwor
 /* ── Main Component ─────────────────────────────────────── */
 
 export function SellerBranches() {
-  const { sellerId, switchBranch } = useAuth();
+  const { sellerId, switchBranch, maxBranches } = useAuth();
   const toast = useToast();
 
   const [branches, setBranches] = useState<BranchDetail[]>([]);
@@ -307,10 +307,22 @@ export function SellerBranches() {
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
-          <GitBranch size={22} /> Филиалы
-        </h1>
-        <button className="btn btn-primary" onClick={openAddForm} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+            <GitBranch size={22} /> Филиалы
+          </h1>
+          {maxBranches != null && maxBranches > 0 && (
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'var(--bg-secondary, #f3f4f6)', padding: '0.15rem 0.5rem', borderRadius: '999px' }}>
+              {branches.length} / {1 + maxBranches}
+            </span>
+          )}
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={openAddForm}
+          disabled={maxBranches != null && maxBranches > 0 && branches.length >= 1 + maxBranches}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+        >
           <Plus size={16} /> Добавить
         </button>
       </div>

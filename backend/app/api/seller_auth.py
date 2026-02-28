@@ -51,6 +51,7 @@ class SellerLoginResponse(BaseModel):
     owner_id: int
     is_primary: bool = True
     branches: list[BranchInfo] = []
+    max_branches: Optional[int] = None
 
 
 class SwitchBranchRequest(BaseModel):
@@ -189,12 +190,20 @@ async def seller_login(
     # Owner sees all branches; branch employee sees only their branch
     if is_primary:
         branches = await _get_owner_branches(session, seller.owner_id)
+        max_branches_val = seller.max_branches
     else:
         branches = [BranchInfo(
             seller_id=seller.seller_id,
             shop_name=seller.shop_name,
             address_name=seller.address_name,
         )]
+        owner_r = await session.execute(
+            select(Seller.max_branches).where(
+                Seller.seller_id == seller.owner_id,
+                Seller.deleted_at.is_(None),
+            )
+        )
+        max_branches_val = owner_r.scalar_one_or_none()
 
     return SellerLoginResponse(
         token=token,
@@ -202,6 +211,7 @@ async def seller_login(
         owner_id=seller.owner_id,
         is_primary=is_primary,
         branches=branches,
+        max_branches=max_branches_val,
     )
 
 

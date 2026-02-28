@@ -87,6 +87,8 @@ class Seller(Base):
     geo_lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Telegram ID for receiving order notifications (null = use owner_id)
     contact_tg_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    # Network seller: max allowed branches (null = regular seller, >0 = network)
+    max_branches: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

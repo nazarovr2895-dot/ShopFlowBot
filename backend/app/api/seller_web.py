@@ -159,6 +159,14 @@ async def get_me(
             )
         )
         data["branches_count"] = count_result.scalar() or 0
+        # Add max_branches from primary seller record
+        primary_r = await session.execute(
+            select(Seller.max_branches).where(
+                Seller.seller_id == owner_id,
+                Seller.deleted_at.is_(None),
+            )
+        )
+        data["max_branches"] = primary_r.scalar_one_or_none()
         return data
     except (ProgrammingError, OperationalError) as e:
         # If it's a column error (preorder_custom_dates doesn't exist), return error suggesting migration
@@ -2341,13 +2349,21 @@ async def get_subscribers(
 
 @router.get("/subscribers/count")
 async def get_subscriber_count(
-    seller_id: int = Depends(require_seller_token),
+    branch: Optional[str] = Query(None, description="'all' for aggregated or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get subscriber count for the current seller."""
+    """Get subscriber count for the current seller or aggregated across branches."""
+    seller_id, owner_id = auth
     from backend.app.services.cart import FavoriteSellersService
     svc = FavoriteSellersService(session)
-    count = await svc.get_subscriber_count(seller_id)
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
+    if isinstance(target, list):
+        total = 0
+        for sid in target:
+            total += await svc.get_subscriber_count(sid)
+        return {"count": total}
+    count = await svc.get_subscriber_count(target)
     return {"count": count}
 
 
@@ -2550,6 +2566,63 @@ async def list_branches(
     ]
 
 
+@router.get("/branches/stats")
+async def get_branches_stats(
+    period: str = Query("7d", description="Period: 1d, 7d, 30d"),
+    auth: tuple = Depends(require_seller_token_with_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get per-branch statistics for network dashboard."""
+    _seller_id, owner_id = auth
+    from backend.app.models.order import Order
+
+    # Parse period
+    days = {"1d": 1, "7d": 7, "30d": 30}.get(period, 7)
+    moscow_tz = ZoneInfo("Europe/Moscow")
+    now_msk = datetime.now(moscow_tz)
+    period_start = (now_msk - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0).replace(tzinfo=None)
+
+    # Get all branches
+    branches_result = await session.execute(
+        select(Seller).where(
+            Seller.owner_id == owner_id,
+            Seller.deleted_at.is_(None),
+        ).order_by(Seller.seller_id)
+    )
+    branches = branches_result.scalars().all()
+
+    branch_stats = []
+    for b in branches:
+        # Revenue and order count for period
+        stats_q = await session.execute(
+            select(
+                func.count(Order.id),
+                func.coalesce(func.sum(Order.total_price), 0),
+            ).where(
+                Order.seller_id == b.seller_id,
+                Order.status.in_(["completed", "delivered"]),
+                Order.created_at >= period_start,
+            )
+        )
+        row = stats_q.one()
+        orders_count = row[0]
+        revenue = float(row[1])
+
+        branch_stats.append({
+            "seller_id": b.seller_id,
+            "shop_name": b.shop_name,
+            "address_name": b.address_name,
+            "is_primary": b.seller_id == owner_id,
+            "is_blocked": b.is_blocked,
+            "revenue": revenue,
+            "orders": orders_count,
+            "active_orders": b.active_orders or 0,
+            "pending_requests": b.pending_requests or 0,
+        })
+
+    return {"branches": branch_stats, "period": period}
+
+
 @router.post("/branches")
 async def create_branch(
     data: CreateBranchBody,
@@ -2578,6 +2651,11 @@ async def create_branch(
         )
     )
     branch_count = count_result.scalar() or 0
+
+    # Enforce max_branches limit for network sellers
+    max_br = getattr(owner_seller, 'max_branches', None)
+    if max_br is not None and branch_count >= 1 + max_br:
+        raise HTTPException(400, f"Достигнут лимит филиалов ({max_br})")
 
     # Generate unique web_login and password for the new branch
     import secrets

@@ -17,6 +17,7 @@ import { AdminCoverage } from './pages/admin/AdminCoverage';
 
 /* ── Seller pages ────────────────────────────────────────── */
 import { SellerDashboard } from './pages/seller/SellerDashboard';
+import { NetworkDashboard } from './pages/seller/NetworkDashboard';
 import { SellerOrders } from './pages/seller/SellerOrders';
 import { SellerOrderDetail } from './pages/seller/SellerOrderDetail';
 import { SellerCatalog } from './pages/seller/SellerCatalog';
@@ -41,7 +42,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { role, telegramAuthLoading, telegramAuthError } = useAuth();
+  const { role, isNetworkOwner, telegramAuthLoading, telegramAuthError } = useAuth();
   const isAdmin = role === 'admin';
   const isSeller = role === 'seller';
 
@@ -79,7 +80,7 @@ function AppRoutes() {
         }
       >
         {/* ── Dashboard ──────────────────────────────────── */}
-        <Route index element={isSeller ? <SellerDashboard /> : <Dashboard />} />
+        <Route index element={isSeller ? (isNetworkOwner ? <NetworkDashboard /> : <SellerDashboard />) : <Dashboard />} />
 
         {/* ── Admin routes ───────────────────────────────── */}
         {isAdmin && (
@@ -99,10 +100,10 @@ function AppRoutes() {
         {/* ── Seller routes ──────────────────────────────── */}
         {isSeller && (
           <>
-            <Route path="orders" element={<SellerOrders />} />
-            <Route path="orders/:orderId" element={<SellerOrderDetail />} />
-            <Route path="catalog" element={<SellerCatalog />} />
-            <Route path="stock" element={<SellerStock />} />
+            <Route path="orders" element={isNetworkOwner ? <Navigate to="/" replace /> : <SellerOrders />} />
+            <Route path="orders/:orderId" element={isNetworkOwner ? <Navigate to="/" replace /> : <SellerOrderDetail />} />
+            <Route path="catalog" element={isNetworkOwner ? <Navigate to="/" replace /> : <SellerCatalog />} />
+            <Route path="stock" element={isNetworkOwner ? <Navigate to="/" replace /> : <SellerStock />} />
             <Route path="customers" element={<SellerCustomerHub />} />
             <Route path="customers/:id" element={<SellerCustomers />} />
             <Route path="analytics" element={<SellerAnalytics />} />

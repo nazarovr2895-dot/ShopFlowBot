@@ -50,6 +50,14 @@ const adminNav: NavItem[] = [
   { to: '/coverage', label: 'Покрытие', icon: MapPin },
 ];
 
+const networkOwnerNav: NavItem[] = [
+  { to: '/', label: 'Дашборд', icon: LayoutDashboard },
+  { to: '/analytics', label: 'Аналитика', icon: BarChart3 },
+  { to: '/branches', label: 'Филиалы', icon: GitBranch },
+  { to: '/customers', label: 'Клиенты', icon: Users },
+  { to: '/settings', label: 'Настройки', icon: Settings, dividerBefore: true },
+];
+
 /* ── Branch Switcher ─────────────────────────────────────── */
 
 function BranchSwitcher() {
@@ -145,17 +153,24 @@ function BranchSwitcher() {
 /* ── Component ───────────────────────────────────────────── */
 
 export function Sidebar() {
-  const { role, isNetwork, isPrimary, logout } = useAuth();
+  const { role, isNetwork, isNetworkOwner, isPrimary, logout } = useAuth();
   const navigate = useNavigate();
-  const baseNav = role === 'seller' ? sellerNav : adminNav;
-  // Owner sees Филиалы link; branch employees do not
-  const nav = role === 'seller'
-    ? [
+
+  let nav: NavItem[];
+  if (role === 'seller') {
+    if (isNetworkOwner) {
+      nav = networkOwnerNav;
+    } else {
+      const baseNav = sellerNav;
+      nav = [
         ...baseNav.filter(i => i.to !== '/settings'),
         ...(isPrimary ? [{ to: '/branches', label: 'Филиалы', icon: GitBranch, dividerBefore: true }] : []),
         { to: '/settings', label: 'Настройки', icon: Settings, dividerBefore: !isPrimary },
-      ]
-    : baseNav;
+      ];
+    }
+  } else {
+    nav = adminNav;
+  }
 
   const handleLogout = () => {
     logout();
@@ -196,7 +211,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="sidebar-v2-footer">
         <div className="sidebar-v2-divider" />
-        {role === 'seller' && isNetwork && isPrimary && <BranchSwitcher />}
+        {role === 'seller' && isNetwork && isPrimary && !isNetworkOwner && <BranchSwitcher />}
         <button className="sidebar-v2-link sidebar-v2-logout" onClick={handleLogout}>
           <LogOut size={18} className="sidebar-v2-icon" />
           <span className="sidebar-v2-link-text">Выход</span>

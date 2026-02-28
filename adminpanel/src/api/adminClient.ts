@@ -301,6 +301,7 @@ export async function sellerLogin(login: string, password: string): Promise<{
   owner_id: number;
   is_primary: boolean;
   branches: Array<{ seller_id: number; shop_name: string | null; address_name: string | null }>;
+  max_branches: number | null;
 }> {
   const url = `${getApiBase()}/seller-web/login`;
   const res = await fetchWithTimeout(url, {

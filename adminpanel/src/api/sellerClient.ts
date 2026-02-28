@@ -101,6 +101,7 @@ export interface SellerMe {
   // Multi-branch
   owner_id?: number;
   branches_count?: number;
+  max_branches?: number | null;
 }
 
 export interface DeliveryZone {
@@ -1036,8 +1037,26 @@ export async function getSubscribers(): Promise<SubscribersResponse> {
   return fetchSeller<SubscribersResponse>('/seller-web/subscribers');
 }
 
-export async function getSubscriberCount(): Promise<{ count: number }> {
-  return fetchSeller<{ count: number }>('/seller-web/subscribers/count');
+export async function getSubscriberCount(branch?: string): Promise<{ count: number }> {
+  const params = branch ? `?branch=${encodeURIComponent(branch)}` : '';
+  return fetchSeller<{ count: number }>(`/seller-web/subscribers/count${params}`);
+}
+
+export interface BranchStats {
+  seller_id: number;
+  shop_name: string | null;
+  address_name: string | null;
+  is_primary: boolean;
+  is_blocked: boolean;
+  revenue: number;
+  orders: number;
+  active_orders: number;
+  pending_requests: number;
+}
+
+export async function getBranchesStats(period?: string): Promise<{ branches: BranchStats[]; period: string }> {
+  const params = period ? `?period=${encodeURIComponent(period)}` : '';
+  return fetchSeller<{ branches: BranchStats[]; period: string }>(`/seller-web/branches/stats${params}`);
 }
 
 // --- Preorder Summary & Analytics ---

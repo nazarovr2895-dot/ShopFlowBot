@@ -195,7 +195,7 @@ class SellerService:
         "address_name", "map_url", "delivery_type", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
         "commission_percent", "yookassa_account_id", "use_delivery_zones",
-        "geo_lat", "geo_lon",
+        "geo_lat", "geo_lon", "max_branches",
     }
     
     def __init__(self, session: AsyncSession):
@@ -515,6 +515,7 @@ class SellerService:
         delivery_type: str = "pickup",
         placement_expired_at: Optional[datetime] = None,
         commission_percent: Optional[int] = None,
+        max_branches: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Create a new seller with associated user record.
@@ -622,6 +623,7 @@ class SellerService:
             web_login=web_login,
             web_password_hash=password_hash,
             commission_percent=commission_percent,
+            max_branches=max_branches,
         )
         # Auto-geocode address for map display
         if address_name and address_name.strip():
@@ -762,6 +764,18 @@ class SellerService:
                 seller.yookassa_account_id = value_stripped
         elif field == "use_delivery_zones":
             seller.use_delivery_zones = bool(value)
+        elif field == "max_branches":
+            value_stripped = (str(value) if value is not None else "").strip()
+            if not value_stripped or value_stripped.lower() in ("null", "none", "-", "", "0"):
+                seller.max_branches = None
+            else:
+                try:
+                    val = int(value_stripped)
+                except (ValueError, TypeError):
+                    raise SellerServiceError("Макс. филиалов должно быть целым числом >= 1")
+                if val < 1:
+                    raise SellerServiceError("Макс. филиалов должно быть >= 1")
+                seller.max_branches = val
 
         await self.session.commit()
         return {"status": "ok"}
@@ -1189,6 +1203,7 @@ class SellerService:
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
                 "commission_percent": getattr(seller, "commission_percent", None),
                 "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
+                "max_branches": getattr(seller, "max_branches", None),
                 "branch_count": branch_count,
                 "branches": [],
             })
@@ -1278,6 +1293,7 @@ class SellerService:
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
                 "commission_percent": getattr(seller, "commission_percent", None),
                 "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
+                "max_branches": getattr(seller, "max_branches", None),
                 "branch_count": branch_count,
                 "branches": [],
             })

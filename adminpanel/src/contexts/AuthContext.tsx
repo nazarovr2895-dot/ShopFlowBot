@@ -9,6 +9,7 @@ const AUTH_ROLE_KEY = 'auth_role';
 const SELLER_ID_KEY = 'seller_id';
 const BRANCHES_KEY = 'branches';
 const IS_PRIMARY_KEY = 'is_primary';
+const MAX_BRANCHES_KEY = 'max_branches';
 
 export type AuthRole = 'admin' | 'seller' | null;
 
@@ -18,10 +19,12 @@ interface AuthContextType {
   sellerId: number | null;
   branches: BranchInfo[];
   isNetwork: boolean;
+  isNetworkOwner: boolean;
   isPrimary: boolean;
+  maxBranches: number | null;
   telegramAuthLoading: boolean;
   telegramAuthError: string | null;
-  login: (params: { token: string; role: AuthRole; sellerId?: number; branches?: BranchInfo[]; isPrimary?: boolean }) => void;
+  login: (params: { token: string; role: AuthRole; sellerId?: number; branches?: BranchInfo[]; isPrimary?: boolean; maxBranches?: number | null }) => void;
   logout: () => void;
   switchBranch: (sellerId: number) => Promise<void>;
 }
@@ -36,7 +39,7 @@ function getStoredBranches(): BranchInfo[] {
 }
 
 function getInitialAuth() {
-  if (typeof sessionStorage === 'undefined') return { isAuth: false, role: null as AuthRole, sellerId: null as number | null, branches: [] as BranchInfo[], isPrimary: true };
+  if (typeof sessionStorage === 'undefined') return { isAuth: false, role: null as AuthRole, sellerId: null as number | null, branches: [] as BranchInfo[], isPrimary: true, maxBranches: null as number | null };
   const adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
   const sellerToken = sessionStorage.getItem(SELLER_TOKEN_KEY);
   const storedRole = sessionStorage.getItem(AUTH_ROLE_KEY) as AuthRole | '';
@@ -46,7 +49,9 @@ function getInitialAuth() {
   const sellerId = storedSellerId ? parseInt(storedSellerId, 10) : null;
   const branches = getStoredBranches();
   const isPrimary = sessionStorage.getItem(IS_PRIMARY_KEY) !== 'false';
-  return { isAuth: hasAuth, role, sellerId, branches, isPrimary };
+  const storedMaxBranches = sessionStorage.getItem(MAX_BRANCHES_KEY);
+  const maxBranches = storedMaxBranches != null ? parseInt(storedMaxBranches, 10) : null;
+  return { isAuth: hasAuth, role, sellerId, branches, isPrimary, maxBranches: maxBranches != null && !isNaN(maxBranches) ? maxBranches : null };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -56,18 +61,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sellerId, setSellerId] = useState<number | null>(initial.sellerId);
   const [branches, setBranches] = useState<BranchInfo[]>(initial.branches);
   const [isPrimary, setIsPrimary] = useState(initial.isPrimary);
+  const [maxBranches, setMaxBranches] = useState<number | null>(initial.maxBranches);
   const [telegramAuthLoading, setTelegramAuthLoading] = useState(() => isTelegram() && !initial.isAuth);
   const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
 
-  const isNetwork = branches.length > 1;
+  const isNetwork = maxBranches != null && maxBranches > 0;
+  const isNetworkOwner = isPrimary && isNetwork;
 
-  const login = useCallback((params: { token: string; role: AuthRole; sellerId?: number; branches?: BranchInfo[]; isPrimary?: boolean }) => {
+  const login = useCallback((params: { token: string; role: AuthRole; sellerId?: number; branches?: BranchInfo[]; isPrimary?: boolean; maxBranches?: number | null }) => {
     if (params.role === 'admin') {
       sessionStorage.setItem(ADMIN_TOKEN_KEY, params.token);
       sessionStorage.removeItem(SELLER_TOKEN_KEY);
       sessionStorage.removeItem(SELLER_ID_KEY);
       sessionStorage.removeItem(BRANCHES_KEY);
       sessionStorage.removeItem(IS_PRIMARY_KEY);
+      sessionStorage.removeItem(MAX_BRANCHES_KEY);
     } else if (params.role === 'seller') {
       sessionStorage.setItem(SELLER_TOKEN_KEY, params.token);
       if (params.sellerId != null) {
@@ -77,6 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem(BRANCHES_KEY, JSON.stringify(params.branches));
       }
       sessionStorage.setItem(IS_PRIMARY_KEY, String(params.isPrimary ?? true));
+      if (params.maxBranches != null) {
+        sessionStorage.setItem(MAX_BRANCHES_KEY, String(params.maxBranches));
+      } else {
+        sessionStorage.removeItem(MAX_BRANCHES_KEY);
+      }
       sessionStorage.removeItem(ADMIN_TOKEN_KEY);
     }
     sessionStorage.setItem(AUTH_ROLE_KEY, params.role ?? '');
@@ -85,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSellerId(params.sellerId ?? null);
     setBranches(params.branches ?? []);
     setIsPrimary(params.isPrimary ?? true);
+    setMaxBranches(params.maxBranches ?? null);
   }, []);
 
   const logout = useCallback(() => {
@@ -94,11 +108,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem(SELLER_ID_KEY);
     sessionStorage.removeItem(BRANCHES_KEY);
     sessionStorage.removeItem(IS_PRIMARY_KEY);
+    sessionStorage.removeItem(MAX_BRANCHES_KEY);
     setIsAuthenticated(false);
     setRole(null);
     setSellerId(null);
     setBranches([]);
     setIsPrimary(true);
+    setMaxBranches(null);
   }, []);
 
   const switchBranch = useCallback(async (targetSellerId: number) => {
@@ -156,10 +172,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSellerId(storedSellerId ? parseInt(storedSellerId, 10) : null);
     setBranches(getStoredBranches());
     setIsPrimary(sessionStorage.getItem(IS_PRIMARY_KEY) !== 'false');
+    const storedMb = sessionStorage.getItem(MAX_BRANCHES_KEY);
+    setMaxBranches(storedMb != null ? parseInt(storedMb, 10) : null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, role, sellerId, branches, isNetwork, isPrimary, telegramAuthLoading, telegramAuthError, login, logout, switchBranch }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, sellerId, branches, isNetwork, isNetworkOwner, isPrimary, maxBranches, telegramAuthLoading, telegramAuthError, login, logout, switchBranch }}>
       {children}
     </AuthContext.Provider>
   );
