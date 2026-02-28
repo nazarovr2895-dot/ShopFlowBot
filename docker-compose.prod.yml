@@ -143,7 +143,18 @@ services:
   admin:
     build:
       context: ./adminpanel
-      dockerfile: Dockerfile
+      dockerfile: packages/admin-panel/Dockerfile
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL:-https://api.flurai.ru}
+        VITE_YANDEX_MAPS_KEY: ${YANDEX_MAPS_KEY:-}
+    restart: always
+    networks:
+      - app_net
+
+  seller:
+    build:
+      context: ./adminpanel
+      dockerfile: packages/seller-panel/Dockerfile
       args:
         VITE_API_URL: ${PUBLIC_API_URL:-https://api.flurai.ru}
         VITE_YANDEX_MAPS_KEY: ${YANDEX_MAPS_KEY:-}
@@ -177,6 +188,7 @@ services:
     depends_on:
       - backend
       - admin
+      - seller
       - miniapp
 
   bot:
@@ -218,7 +230,7 @@ services:
       - app_net
     environment:
       - ADMIN_BOT_TOKEN=${ADMIN_BOT_TOKEN}
-      - ADMIN_MINI_APP_URL=${ADMIN_MINI_APP_URL:-https://admin.flurai.ru}
+      - SELLER_MINI_APP_URL=${SELLER_MINI_APP_URL:-https://seller.flurai.ru}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=1

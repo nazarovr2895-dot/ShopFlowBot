@@ -10,7 +10,7 @@ ADMIN_BOT_TOKEN = os.getenv("ADMIN_BOT_TOKEN")
 if not ADMIN_BOT_TOKEN:
     print("ADMIN_BOT_TOKEN not found in .env")
 
-ADMIN_MINI_APP_URL = os.getenv("ADMIN_MINI_APP_URL", "https://admin.flurai.ru")
+SELLER_MINI_APP_URL = os.getenv("SELLER_MINI_APP_URL", "https://seller.flurai.ru")
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))

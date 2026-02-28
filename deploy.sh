@@ -91,7 +91,7 @@ cd ~/flurai
 
 # Pull + Build + Up
 git pull
-docker compose -f docker-compose.prod.yml build backend bot admin_bot admin miniapp
+docker compose -f docker-compose.prod.yml build backend bot admin_bot admin seller miniapp
 docker compose -f docker-compose.prod.yml up -d
 
 # Перезагрузить nginx чтобы подхватить новые IP контейнеров
@@ -134,6 +134,13 @@ if [ "$ADMIN_CODE" = "200" ]; then
 else
     echo "⚠️  Admin Panel: status $ADMIN_CODE"
 fi
+
+SELLER_CODE=$(curl -s -o /dev/null -w '%{http_code}' https://seller.flurai.ru 2>/dev/null)
+if [ "$SELLER_CODE" = "200" ]; then
+    echo "✅ Seller Panel: OK"
+else
+    echo "⚠️  Seller Panel: status $SELLER_CODE"
+fi
 REMOTE
 
 echo ""
@@ -142,3 +149,4 @@ echo ""
 echo "🌐 Проверьте сайты:"
 echo "   https://app.flurai.ru"
 echo "   https://admin.flurai.ru"
+echo "   https://seller.flurai.ru"

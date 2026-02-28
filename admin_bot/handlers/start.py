@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram.types import KeyboardButton, WebAppInfo
 
-from admin_bot.config import ADMIN_MINI_APP_URL
+from admin_bot.config import SELLER_MINI_APP_URL
 
 router = Router()
 
@@ -14,7 +14,7 @@ async def cmd_start(message: types.Message):
     builder.row(
         KeyboardButton(
             text="Панель управления",
-            web_app=WebAppInfo(url=ADMIN_MINI_APP_URL),
+            web_app=WebAppInfo(url=SELLER_MINI_APP_URL),
         )
     )
     await message.answer(

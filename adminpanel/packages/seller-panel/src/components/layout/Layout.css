@@ -1,0 +1,21 @@
+.layout-v2 {
+  display: flex;
+  min-height: 100vh;
+}
+
+.layout-v2-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--page-padding);
+  max-width: calc(var(--page-max-width) + var(--page-padding) * 2);
+}
+
+@media (max-width: 768px) {
+  .layout-v2 {
+    flex-direction: column;
+  }
+
+  .layout-v2-main {
+    padding: var(--space-4);
+  }
+}
