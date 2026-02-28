@@ -21,7 +21,7 @@ class Flower(Base):
     """Seller's flower catalog (name, optional default shelf life hint)."""
     __tablename__ = 'flowers'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'))
     name: Mapped[str] = mapped_column(String(255))
     default_shelf_life_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
@@ -32,7 +32,7 @@ class Reception(Base):
     """Reception batch (name + date). Closed receptions are read-only for new items."""
     __tablename__ = 'receptions'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'))
     name: Mapped[str] = mapped_column(String(255))
     reception_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     is_closed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -69,7 +69,7 @@ class Bouquet(Base):
     """Bouquet template: name + packaging cost."""
     __tablename__ = 'bouquets'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'))
     name: Mapped[str] = mapped_column(String(255))
     packaging_cost: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0)
 
@@ -97,7 +97,7 @@ class WriteOff(Base):
     """Write-off record: quick disposal of wilted/broken flowers."""
     __tablename__ = 'write_offs'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'))
     reception_item_id: Mapped[int] = mapped_column(ForeignKey('reception_items.id'))
     quantity: Mapped[int] = mapped_column(Integer)
     reason: Mapped[str] = mapped_column(String(50))  # wilted, broken, defect, other

@@ -6,7 +6,7 @@ from backend.app.core.base import Base
 class Category(Base):
     __tablename__ = 'categories'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id', ondelete='CASCADE'))
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id', ondelete='CASCADE'))
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default='true')

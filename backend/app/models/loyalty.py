@@ -35,7 +35,8 @@ class SellerCustomer(Base):
     """Seller's club card customer: phone + name, card number, points balance."""
     __tablename__ = 'seller_customers'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'), nullable=False)
+    network_owner_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False, index=True)
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
     first_name: Mapped[str] = mapped_column(String(255), nullable=False)
     last_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -48,7 +49,7 @@ class SellerCustomer(Base):
     birthday: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint('seller_id', 'phone', name='uq_seller_customers_seller_phone'),
+        UniqueConstraint('network_owner_id', 'phone', name='uq_seller_customers_network_phone'),
         Index('ix_seller_customers_seller_id', 'seller_id'),
         Index('ix_seller_customers_phone', 'phone'),
         Index('ix_seller_customers_card', 'seller_id', 'card_number'),
@@ -59,7 +60,7 @@ class SellerLoyaltyTransaction(Base):
     """Single loyalty accrual (or future deduction) record."""
     __tablename__ = 'seller_loyalty_transactions'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'), nullable=False)
     customer_id: Mapped[int] = mapped_column(ForeignKey('seller_customers.id'), nullable=False)
     order_id: Mapped[Optional[int]] = mapped_column(ForeignKey('orders.id'), nullable=True)
     amount: Mapped[float] = mapped_column(DECIMAL(12, 2), nullable=False)
@@ -81,7 +82,7 @@ class CustomerEvent(Base):
     __tablename__ = 'customer_events'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey('seller_customers.id'), nullable=False)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     event_date: Mapped[date] = mapped_column(Date, nullable=False)
     remind_days_before: Mapped[int] = mapped_column(Integer, default=3)

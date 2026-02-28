@@ -98,6 +98,9 @@ export interface SellerMe {
   // Geo coordinates
   geo_lat?: number | null;
   geo_lon?: number | null;
+  // Multi-branch
+  owner_id?: number;
+  branches_count?: number;
 }
 
 export interface DeliveryZone {
@@ -1081,6 +1084,7 @@ export interface SubscriptionPricesResponse {
   base_price: number;
   prices: Record<number, number>;
   discounts: Record<number, number>;
+  branches_count: number;
 }
 
 export interface SubscriptionInfo {
@@ -1094,6 +1098,7 @@ export interface SubscriptionInfo {
   auto_renew?: boolean;
   created_at?: string;
   payment_id?: string;
+  branches_count?: number;
 }
 
 export interface SubscriptionStatusResponse {
@@ -1109,7 +1114,7 @@ export interface CreateSubscriptionResponse {
 }
 
 export async function getSubscriptionPrices(): Promise<SubscriptionPricesResponse> {
-  return fetchSeller<SubscriptionPricesResponse>('/subscriptions/prices');
+  return fetchSeller<SubscriptionPricesResponse>('/subscriptions/prices/me');
 }
 
 export async function getSubscriptionStatus(): Promise<SubscriptionStatusResponse> {
@@ -1185,4 +1190,53 @@ export async function getPublicDistricts(cityId: number): Promise<{ id: number; 
   const res = await fetch(url);
   if (!res.ok) return [];
   return res.json();
+}
+
+// --- Branches ---
+
+export interface BranchInfo {
+  seller_id: number;
+  shop_name: string | null;
+  address_name: string | null;
+}
+
+export interface BranchDetail {
+  seller_id: number;
+  shop_name: string | null;
+  address_name: string | null;
+  city_id: number | null;
+  district_id: number | null;
+  delivery_type: string | null;
+  working_hours: string | null;
+  is_blocked: boolean;
+  created_at: string | null;
+}
+
+export async function getBranches(): Promise<BranchDetail[]> {
+  return fetchSeller<BranchDetail[]>('/seller-web/branches');
+}
+
+export async function createBranch(data: Record<string, unknown>): Promise<BranchDetail> {
+  return fetchSeller<BranchDetail>('/seller-web/branches', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateBranch(branchId: number, data: Record<string, unknown>): Promise<BranchDetail> {
+  return fetchSeller<BranchDetail>(`/seller-web/branches/${branchId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteBranch(branchId: number): Promise<void> {
+  await fetchSeller<{ status: string }>(`/seller-web/branches/${branchId}`, { method: 'DELETE' });
+}
+
+export async function switchBranch(sellerId: number): Promise<{ token: string; seller_id: number; owner_id: number; branches: BranchInfo[] }> {
+  return fetchSeller<{ token: string; seller_id: number; owner_id: number; branches: BranchInfo[] }>('/seller-auth/switch-branch', {
+    method: 'POST',
+    body: JSON.stringify({ seller_id: sellerId }),
+  });
 }

@@ -7,7 +7,7 @@ from backend.app.core.base import Base
 class Product(Base):
     __tablename__ = 'products'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'))
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'))
     name: Mapped[str] = mapped_column(String(255))
     price: Mapped[float] = mapped_column(DECIMAL(10, 2))
     description: Mapped[str] = mapped_column(Text, nullable=True)

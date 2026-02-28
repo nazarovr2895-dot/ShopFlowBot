@@ -113,11 +113,11 @@ class DuplicatePhoneError(LoyaltyServiceError):
         super().__init__("Клиент с таким номером телефона уже есть", 409)
 
 
-async def _next_card_number(session: AsyncSession, seller_id: int) -> str:
-    """Generate next card number for seller (FL-00001, FL-00002, ...).
+async def _next_card_number(session: AsyncSession, network_owner_id: int) -> str:
+    """Generate next card number for network (FL-00001, FL-00002, ...).
     Uses MAX(id) instead of COUNT(*) to avoid duplicates when customers are deleted.
     """
-    q = select(func.max(SellerCustomer.id)).where(SellerCustomer.seller_id == seller_id)
+    q = select(func.max(SellerCustomer.id)).where(SellerCustomer.network_owner_id == network_owner_id)
     r = await session.execute(q)
     max_id = r.scalar() or 0
     return f"FL-{max_id + 1:05d}"
@@ -127,22 +127,34 @@ class LoyaltyService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_points_percent(self, seller_id: int) -> float:
-        row = await self.session.get(Seller, seller_id)
-        if not row:
-            return 0.0
-        return float(row.loyalty_points_percent or 0)
-
-    async def set_points_percent(self, seller_id: int, points_percent: float) -> None:
+    async def _get_owner_id(self, seller_id: int) -> int:
+        """Get the network owner_id for a given seller/branch."""
         seller = await self.session.get(Seller, seller_id)
         if not seller:
             raise LoyaltyServiceError("Продавец не найден", 404)
-        seller.loyalty_points_percent = Decimal(str(points_percent))
+        return seller.owner_id
+
+    async def get_points_percent(self, seller_id: int) -> float:
+        """Read loyalty_points_percent from owner's record (network-level setting)."""
+        owner_id = await self._get_owner_id(seller_id)
+        owner_seller = await self.session.get(Seller, owner_id)
+        if not owner_seller:
+            return 0.0
+        return float(owner_seller.loyalty_points_percent or 0)
+
+    async def set_points_percent(self, seller_id: int, points_percent: float) -> None:
+        """Set loyalty_points_percent on owner's record (network-level setting)."""
+        owner_id = await self._get_owner_id(seller_id)
+        owner_seller = await self.session.get(Seller, owner_id)
+        if not owner_seller:
+            raise LoyaltyServiceError("Продавец не найден", 404)
+        owner_seller.loyalty_points_percent = Decimal(str(points_percent))
 
     async def list_customers(self, seller_id: int, tag_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+        owner_id = await self._get_owner_id(seller_id)
         q = (
             select(SellerCustomer)
-            .where(SellerCustomer.seller_id == seller_id)
+            .where(SellerCustomer.network_owner_id == owner_id)
             .order_by(SellerCustomer.created_at.desc())
         )
         # JSON array contains filter (PostgreSQL: tags::jsonb @> '["VIP"]')
@@ -184,13 +196,15 @@ class LoyaltyService:
         first_name = (first_name or "").strip() or "—"
         last_name = (last_name or "").strip() or "—"
 
+        owner_id = await self._get_owner_id(seller_id)
         existing = await self.find_customer_by_phone(seller_id, normalized)
         if existing:
             raise DuplicatePhoneError()
 
-        card_number = await _next_card_number(self.session, seller_id)
+        card_number = await _next_card_number(self.session, owner_id)
         customer = SellerCustomer(
             seller_id=seller_id,
+            network_owner_id=owner_id,
             phone=normalized,
             first_name=first_name,
             last_name=last_name,
@@ -215,8 +229,9 @@ class LoyaltyService:
         }
 
     async def get_customer(self, customer_id: int, seller_id: int) -> Optional[Dict[str, Any]]:
+        owner_id = await self._get_owner_id(seller_id)
         customer = await self.session.get(SellerCustomer, customer_id)
-        if not customer or customer.seller_id != seller_id:
+        if not customer or customer.network_owner_id != owner_id:
             return None
         transactions = await self._get_transactions(customer_id)
         events = await self._get_events(customer_id)
@@ -258,19 +273,21 @@ class LoyaltyService:
         normalized = normalize_phone(phone)
         if not normalized:
             return None
+        owner_id = await self._get_owner_id(seller_id)
         q = select(SellerCustomer).where(
-            SellerCustomer.seller_id == seller_id,
+            SellerCustomer.network_owner_id == owner_id,
             SellerCustomer.phone == normalized,
         )
         result = await self.session.execute(q)
         return result.scalar_one_or_none()
 
     async def get_all_tags(self, seller_id: int) -> List[str]:
-        """Get all unique tags used by seller's customers (for autocomplete)."""
+        """Get all unique tags used by network's customers (for autocomplete)."""
+        owner_id = await self._get_owner_id(seller_id)
         q = (
             select(SellerCustomer.tags)
             .where(
-                SellerCustomer.seller_id == seller_id,
+                SellerCustomer.network_owner_id == owner_id,
                 SellerCustomer.tags.isnot(None),
             )
         )
@@ -289,8 +306,9 @@ class LoyaltyService:
         birthday: Optional[str] = "__unset__",
     ) -> Optional[Dict[str, Any]]:
         """Update customer notes, tags (list of strings), and birthday."""
+        owner_id = await self._get_owner_id(seller_id)
         customer = await self.session.get(SellerCustomer, customer_id)
-        if not customer or customer.seller_id != seller_id:
+        if not customer or customer.network_owner_id != owner_id:
             return None
         if notes is not None:
             customer.notes = notes
@@ -329,8 +347,9 @@ class LoyaltyService:
         amount: float,
         order_id: Optional[int] = None,
     ) -> Dict[str, Any]:
+        owner_id = await self._get_owner_id(seller_id)
         customer = await self.session.get(SellerCustomer, customer_id)
-        if not customer or customer.seller_id != seller_id:
+        if not customer or customer.network_owner_id != owner_id:
             raise CustomerNotFoundError(customer_id)
         # Idempotency: skip if points already accrued for this order
         if order_id is not None:
@@ -349,9 +368,9 @@ class LoyaltyService:
                     "new_balance": float(customer.points_balance or 0),
                     "skipped": True,
                 }
-        # Use tier-specific percent if tiers are configured
-        seller = await self.session.get(Seller, seller_id)
-        tiers_config = getattr(seller, 'loyalty_tiers_config', None) if seller else None
+        # Read loyalty settings from owner's record (network-level)
+        owner_seller = await self.session.get(Seller, owner_id)
+        tiers_config = getattr(owner_seller, 'loyalty_tiers_config', None) if owner_seller else None
         if tiers_config and isinstance(tiers_config, list) and len(tiers_config) > 0:
             total_purchases = await self._get_customer_total_purchases(customer)
             tier = compute_tier(total_purchases, tiers_config)
@@ -366,8 +385,8 @@ class LoyaltyService:
                 "points_accrued": 0,
                 "new_balance": float(customer.points_balance or 0),
             }
-        # Set expiry if configured
-        expire_days = getattr(seller, 'points_expire_days', None) if seller else None
+        # Set expiry if configured (from owner's record)
+        expire_days = getattr(owner_seller, 'points_expire_days', None) if owner_seller else None
         expires_at = None
         if expire_days and expire_days > 0:
             expires_at = datetime.utcnow() + timedelta(days=expire_days)
@@ -410,10 +429,11 @@ class LoyaltyService:
     ) -> Dict[str, Any]:
         """Deduct points from customer. points must be > 0.
         Uses SELECT FOR UPDATE to prevent race conditions with concurrent requests."""
+        owner_id = await self._get_owner_id(seller_id)
         # Lock the customer row to prevent concurrent balance modifications
         result = await self.session.execute(
             select(SellerCustomer)
-            .where(SellerCustomer.id == customer_id, SellerCustomer.seller_id == seller_id)
+            .where(SellerCustomer.id == customer_id, SellerCustomer.network_owner_id == owner_id)
             .with_for_update()
         )
         customer = result.scalar_one_or_none()
@@ -469,8 +489,9 @@ class LoyaltyService:
         title: str, event_date: date,
         remind_days_before: int = 3, notes: Optional[str] = None,
     ) -> Dict[str, Any]:
+        owner_id = await self._get_owner_id(seller_id)
         customer = await self.session.get(SellerCustomer, customer_id)
-        if not customer or customer.seller_id != seller_id:
+        if not customer or customer.network_owner_id != owner_id:
             raise CustomerNotFoundError(customer_id)
         ev = CustomerEvent(
             customer_id=customer_id,
@@ -496,8 +517,13 @@ class LoyaltyService:
         title: Optional[str] = None, event_date: Optional[date] = None,
         remind_days_before: Optional[int] = None, notes: Optional[str] = "__unset__",
     ) -> Optional[Dict[str, Any]]:
+        owner_id = await self._get_owner_id(seller_id)
         ev = await self.session.get(CustomerEvent, event_id)
-        if not ev or ev.seller_id != seller_id:
+        if not ev:
+            return None
+        # Check event belongs to same network
+        ev_seller = await self.session.get(Seller, ev.seller_id)
+        if not ev_seller or ev_seller.owner_id != owner_id:
             return None
         if title is not None:
             ev.title = title
@@ -518,8 +544,13 @@ class LoyaltyService:
         }
 
     async def delete_event(self, seller_id: int, event_id: int) -> bool:
+        owner_id = await self._get_owner_id(seller_id)
         ev = await self.session.get(CustomerEvent, event_id)
-        if not ev or ev.seller_id != seller_id:
+        if not ev:
+            return False
+        # Check event belongs to same network
+        ev_seller = await self.session.get(Seller, ev.seller_id)
+        if not ev_seller or ev_seller.owner_id != owner_id:
             return False
         await self.session.delete(ev)
         await self.session.flush()
@@ -528,16 +559,24 @@ class LoyaltyService:
     async def get_upcoming_events(
         self, seller_id: int, days_ahead: int = 7
     ) -> List[Dict[str, Any]]:
-        """Get upcoming events and birthdays within days_ahead days."""
+        """Get upcoming events and birthdays within days_ahead days (network-wide)."""
+        owner_id = await self._get_owner_id(seller_id)
         today = date.today()
         end_date = today + timedelta(days=days_ahead)
         results: List[Dict[str, Any]] = []
 
-        # 1. Customer events
+        # Get all branch IDs for this network
+        branches_q = select(Seller.seller_id).where(
+            Seller.owner_id == owner_id, Seller.deleted_at.is_(None)
+        )
+        branches_result = await self.session.execute(branches_q)
+        branch_ids = [r[0] for r in branches_result.all()]
+
+        # 1. Customer events — from all network branches
         q = (
             select(CustomerEvent, SellerCustomer.first_name, SellerCustomer.last_name)
             .join(SellerCustomer, CustomerEvent.customer_id == SellerCustomer.id)
-            .where(CustomerEvent.seller_id == seller_id)
+            .where(CustomerEvent.seller_id.in_(branch_ids))
         )
         ev_result = await self.session.execute(q)
         for ev, first_name, last_name in ev_result.all():
@@ -562,11 +601,11 @@ class LoyaltyService:
                     "days_until": days_until,
                 })
 
-        # 2. Birthdays
+        # 2. Birthdays — from network customers
         q_bday = (
             select(SellerCustomer)
             .where(
-                SellerCustomer.seller_id == seller_id,
+                SellerCustomer.network_owner_id == owner_id,
                 SellerCustomer.birthday.isnot(None),
             )
         )
@@ -634,7 +673,16 @@ async def expire_stale_points(session: AsyncSession) -> int:
 
 
 async def get_expiring_points(session: AsyncSession, seller_id: int, days_ahead: int = 30) -> List[Dict[str, Any]]:
-    """Get customers with points expiring within days_ahead days."""
+    """Get customers with points expiring within days_ahead days (network-wide)."""
+    # Get all branch IDs for this network
+    seller = await session.get(Seller, seller_id)
+    owner_id = seller.owner_id if seller else seller_id
+    branches_q = select(Seller.seller_id).where(
+        Seller.owner_id == owner_id, Seller.deleted_at.is_(None)
+    )
+    branches_result = await session.execute(branches_q)
+    branch_ids = [r[0] for r in branches_result.all()]
+
     now = datetime.utcnow()
     deadline = now + timedelta(days=days_ahead)
 
@@ -645,7 +693,7 @@ async def get_expiring_points(session: AsyncSession, seller_id: int, days_ahead:
             func.min(SellerLoyaltyTransaction.expires_at).label("earliest_expiry"),
         )
         .where(
-            SellerLoyaltyTransaction.seller_id == seller_id,
+            SellerLoyaltyTransaction.seller_id.in_(branch_ids),
             SellerLoyaltyTransaction.expires_at.isnot(None),
             SellerLoyaltyTransaction.expires_at <= deadline,
             SellerLoyaltyTransaction.expires_at > now,
@@ -736,20 +784,29 @@ async def get_all_sellers_upcoming_events(session: AsyncSession, days_ahead: int
 async def get_customer_segments(
     session: AsyncSession, seller_id: int
 ) -> Dict[str, Any]:
-    """Compute RFM segments for all seller's customers.
+    """Compute RFM segments for all network's customers.
     Returns: {"segments": {"VIP": 5, "Постоянный": 12, ...}, "customers": [{id, name, segment}, ...]}
     """
     from backend.app.models.order import Order
 
-    # Get all customers
-    q = select(SellerCustomer).where(SellerCustomer.seller_id == seller_id)
+    # Get network owner and all branch IDs
+    seller = await session.get(Seller, seller_id)
+    owner_id = seller.owner_id if seller else seller_id
+    branches_q = select(Seller.seller_id).where(
+        Seller.owner_id == owner_id, Seller.deleted_at.is_(None)
+    )
+    branches_result = await session.execute(branches_q)
+    branch_ids = [r[0] for r in branches_result.all()]
+
+    # Get all network customers
+    q = select(SellerCustomer).where(SellerCustomer.network_owner_id == owner_id)
     result = await session.execute(q)
     customers = result.scalars().all()
 
     if not customers:
         return {"segments": {}, "customers": []}
 
-    # Get completed order stats per phone (buyer_phone → {count, total, last_date})
+    # Get completed order stats per phone across all branches
     COMPLETED = ("done", "completed")
     order_q = (
         select(
@@ -759,7 +816,7 @@ async def get_customer_segments(
             func.max(Order.created_at).label("last_at"),
         )
         .where(
-            Order.seller_id == seller_id,
+            Order.seller_id.in_(branch_ids),
             Order.status.in_(COMPLETED),
         )
         .group_by(Order.buyer_phone)

@@ -519,7 +519,7 @@ async def get_favorite_sellers(
             func.coalesce(subscriber_count_subq.c.subscriber_count, 0).label("subscriber_count"),
             available_slots_expr.label("available_slots"),
         )
-        .outerjoin(User, Seller.seller_id == User.tg_id)
+        .outerjoin(User, Seller.owner_id == User.tg_id)
         .outerjoin(City, Seller.city_id == City.id)
         .outerjoin(District, Seller.district_id == District.id)
         .outerjoin(Metro, Seller.metro_id == Metro.id)

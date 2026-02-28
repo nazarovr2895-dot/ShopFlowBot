@@ -272,6 +272,7 @@ async def test_seller(
     """Create a test seller profile."""
     seller = Seller(
         seller_id=test_seller_user.tg_id,
+        owner_id=test_seller_user.tg_id,
         shop_name="Test Shop",
         description="A test shop for testing",
         city_id=test_city.id,

@@ -9,7 +9,7 @@ import type {
   SubscriptionStatusResponse,
 } from '../../../api/sellerClient';
 import { useToast } from '../../../components/ui';
-import { CheckCircle, XCircle, CreditCard, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, CreditCard, Clock, Store } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 
 const PERIOD_LABELS: Record<number, string> = {
@@ -117,6 +117,33 @@ export function SubscriptionSettingsTab({ me }: SettingsTabProps) {
           </div>
         </div>
       </div>
+
+      {/* Per-branch pricing info */}
+      {prices && prices.branches_count > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            background: 'rgba(99, 102, 241, 0.06)',
+            border: '1px solid rgba(99, 102, 241, 0.15)',
+          }}
+        >
+          <Store size={18} style={{ color: 'var(--primary, #6366f1)', flexShrink: 0 }} />
+          <div style={{ fontSize: '0.85rem' }}>
+            <span style={{ fontWeight: 600 }}>
+              {prices.branches_count} {prices.branches_count >= 5 ? 'филиалов' : prices.branches_count >= 2 ? 'филиала' : 'филиал'}
+            </span>
+            {' × '}
+            <span>{formatPrice(prices.base_price)}/мес</span>
+            {' = '}
+            <span style={{ fontWeight: 600 }}>{formatPrice(prices.base_price * prices.branches_count)}/мес</span>
+          </div>
+        </div>
+      )}
 
       {/* Pricing Cards */}
       <div style={{ marginBottom: '1.5rem' }}>

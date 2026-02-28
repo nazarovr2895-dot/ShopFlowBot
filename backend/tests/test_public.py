@@ -518,6 +518,7 @@ async def test_multiple_sellers_listing(
     for i, user in enumerate(users):
         seller = Seller(
             seller_id=user.tg_id,
+            owner_id=user.tg_id,
             shop_name=f"Shop {i}",
             city_id=test_city.id,
             district_id=test_district.id,

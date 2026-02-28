@@ -25,6 +25,7 @@ import { SellerCustomerHub } from './pages/seller/SellerCustomerHub';
 import { SellerCustomers } from './pages/seller/SellerCustomers';
 import { SellerAnalytics } from './pages/seller/SellerAnalytics';
 import { SellerSettings } from './pages/seller/SellerSettings';
+import { SellerBranches } from './pages/seller/SellerBranches';
 
 import './index.css';
 import './App.css';
@@ -105,6 +106,7 @@ function AppRoutes() {
             <Route path="customers" element={<SellerCustomerHub />} />
             <Route path="customers/:id" element={<SellerCustomers />} />
             <Route path="analytics" element={<SellerAnalytics />} />
+            <Route path="branches" element={<SellerBranches />} />
             <Route path="settings" element={<SellerSettings />} />
             {/* Legacy redirects for old URLs */}
             <Route path="shop" element={<Navigate to="/settings?tab=shop" replace />} />

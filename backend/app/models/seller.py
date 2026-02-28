@@ -7,7 +7,8 @@ from backend.app.core.base import Base
 
 class Seller(Base):
     __tablename__ = 'sellers'
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), primary_key=True)
+    seller_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
     shop_name: Mapped[str] = mapped_column(String(255), nullable=True)
     inn: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)  # ИНН: 10 цифр для юрлиц, 12 для ИП
     ogrn: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)  # ОГРН: 13 цифр для юрлиц, 15 для ИП
@@ -92,6 +93,7 @@ class Seller(Base):
         Index('ix_sellers_deleted_at', 'deleted_at'),
         Index('ix_sellers_inn', 'inn'),
         Index('ix_sellers_ogrn', 'ogrn'),
+        Index('ix_sellers_owner_id', 'owner_id'),
     )
 
 class City(Base):

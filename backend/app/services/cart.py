@@ -798,7 +798,7 @@ class FavoriteSellersService:
             return []
         seller_ids = [f.seller_id for f in favs]
         sellers_result = await self.session.execute(
-            select(Seller, User.fio).outerjoin(User, Seller.seller_id == User.tg_id).where(
+            select(Seller, User.fio).outerjoin(User, Seller.owner_id == User.tg_id).where(
                 Seller.seller_id.in_(seller_ids)
             )
         )

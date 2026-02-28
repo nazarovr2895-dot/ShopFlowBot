@@ -280,7 +280,12 @@ export async function login(login: string, password: string): Promise<{ token: s
 }
 
 // Seller login (for web panel)
-export async function sellerLogin(login: string, password: string): Promise<{ token: string; seller_id: number }> {
+export async function sellerLogin(login: string, password: string): Promise<{
+  token: string;
+  seller_id: number;
+  owner_id: number;
+  branches: Array<{ seller_id: number; shop_name: string | null; address_name: string | null }>;
+}> {
   const url = `${getApiBase()}/seller-web/login`;
   const res = await fetchWithTimeout(url, {
     method: 'POST',
@@ -396,6 +401,8 @@ export async function telegramAdminAuth(initData: string): Promise<{
   token: string;
   role: 'admin' | 'seller';
   seller_id?: number;
+  owner_id?: number;
+  branches?: Array<{ seller_id: number; shop_name: string | null; address_name: string | null }>;
 }> {
   const url = `${getApiBase()}/admin/auth/telegram`;
   const res = await fetch(url, {

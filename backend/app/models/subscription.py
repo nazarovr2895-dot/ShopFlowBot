@@ -9,7 +9,7 @@ class Subscription(Base):
     __tablename__ = 'subscriptions'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'), nullable=False)
     period_months: Mapped[int] = mapped_column(Integer, nullable=False)  # 1, 3, 6, 12
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

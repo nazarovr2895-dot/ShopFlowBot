@@ -2,12 +2,12 @@
 import os
 import sys
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.core.limiter import limiter
 
@@ -38,16 +38,34 @@ class SellerLoginRequest(BaseModel):
     password: str
 
 
+class BranchInfo(BaseModel):
+    seller_id: int
+    shop_name: Optional[str] = None
+    address_name: Optional[str] = None
+
+
 class SellerLoginResponse(BaseModel):
     token: str
     role: str = "seller"
     seller_id: int
+    owner_id: int
+    branches: list[BranchInfo] = []
 
 
-def create_seller_token(seller_id: int) -> str:
+class SwitchBranchRequest(BaseModel):
+    seller_id: int
+
+
+class SwitchBranchResponse(BaseModel):
+    token: str
+    seller_id: int
+
+
+def create_seller_token(seller_id: int, owner_id: int) -> str:
     """Create JWT for seller web session."""
     payload = {
         "sub": str(seller_id),
+        "owner": str(owner_id),
         "role": "seller",
         "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
         "iat": datetime.utcnow(),
@@ -55,13 +73,16 @@ def create_seller_token(seller_id: int) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def decode_seller_token(token: str) -> Optional[int]:
-    """Decode JWT and return seller_id or None."""
+def decode_seller_token(token: str) -> Optional[Tuple[int, int]]:
+    """Decode JWT and return (seller_id, owner_id) or None."""
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("role") != "seller":
             return None
-        return int(payload["sub"])
+        seller_id = int(payload["sub"])
+        # Backwards compat: old tokens without "owner" use seller_id as owner_id
+        owner_id = int(payload.get("owner", payload["sub"]))
+        return seller_id, owner_id
     except (jwt.InvalidTokenError, ValueError, KeyError):
         return None
 
@@ -73,9 +94,10 @@ async def require_seller_token(
     """Dependency: require valid seller token, return seller_id."""
     if not x_seller_token:
         raise HTTPException(status_code=401, detail="Требуется авторизация")
-    seller_id = decode_seller_token(x_seller_token)
-    if not seller_id:
+    decoded = decode_seller_token(x_seller_token)
+    if not decoded:
         raise HTTPException(status_code=401, detail="Недействительный или истекший токен")
+    seller_id, _owner_id = decoded
     # Verify seller exists and is not deleted
     result = await session.execute(
         select(Seller).where(
@@ -91,6 +113,45 @@ async def require_seller_token(
     return seller_id
 
 
+async def require_seller_token_with_owner(
+    x_seller_token: Optional[str] = Header(None, alias="X-Seller-Token"),
+    session: AsyncSession = Depends(get_session),
+) -> Tuple[int, int]:
+    """Dependency: require valid seller token, return (seller_id, owner_id)."""
+    if not x_seller_token:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    decoded = decode_seller_token(x_seller_token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Недействительный или истекший токен")
+    seller_id, owner_id = decoded
+    result = await session.execute(
+        select(Seller).where(
+            Seller.seller_id == seller_id,
+            Seller.deleted_at.is_(None),
+        )
+    )
+    seller = result.scalar_one_or_none()
+    if not seller:
+        raise HTTPException(status_code=401, detail="Продавец не найден")
+    if seller.is_blocked:
+        raise HTTPException(status_code=403, detail="Аккаунт заблокирован")
+    return seller_id, seller.owner_id
+
+
+async def _get_owner_branches(session: AsyncSession, owner_id: int) -> list[BranchInfo]:
+    """Get all branches for an owner."""
+    result = await session.execute(
+        select(Seller.seller_id, Seller.shop_name, Seller.address_name).where(
+            Seller.owner_id == owner_id,
+            Seller.deleted_at.is_(None),
+        ).order_by(Seller.seller_id)
+    )
+    return [
+        BranchInfo(seller_id=row.seller_id, shop_name=row.shop_name, address_name=row.address_name)
+        for row in result.all()
+    ]
+
+
 @router.post("/login", response_model=SellerLoginResponse)
 @limiter.limit("5/minute")
 async def seller_login(
@@ -99,11 +160,11 @@ async def seller_login(
     session: AsyncSession = Depends(get_session),
 ):
     """Seller login for web panel.
-    
+
     Rate limited to 5 attempts per minute per IP address.
     """
     result = await session.execute(
-        select(Seller, User).join(User, User.tg_id == Seller.seller_id).where(
+        select(Seller, User).join(User, User.tg_id == Seller.owner_id).where(
             Seller.web_login == data.login,
             Seller.deleted_at.is_(None),
         )
@@ -116,5 +177,36 @@ async def seller_login(
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     if seller.is_blocked:
         raise HTTPException(status_code=403, detail="Аккаунт заблокирован")
-    token = create_seller_token(seller.seller_id)
-    return SellerLoginResponse(token=token, seller_id=seller.seller_id)
+    token = create_seller_token(seller.seller_id, seller.owner_id)
+    branches = await _get_owner_branches(session, seller.owner_id)
+    return SellerLoginResponse(
+        token=token,
+        seller_id=seller.seller_id,
+        owner_id=seller.owner_id,
+        branches=branches,
+    )
+
+
+@router.post("/switch-branch", response_model=SwitchBranchResponse)
+async def switch_branch(
+    data: SwitchBranchRequest,
+    auth: Tuple[int, int] = Depends(require_seller_token_with_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Switch to a different branch (same owner). Returns a new JWT."""
+    _current_seller_id, owner_id = auth
+    # Verify target branch belongs to same owner
+    result = await session.execute(
+        select(Seller).where(
+            Seller.seller_id == data.seller_id,
+            Seller.owner_id == owner_id,
+            Seller.deleted_at.is_(None),
+        )
+    )
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Филиал не найден")
+    if target.is_blocked:
+        raise HTTPException(status_code=403, detail="Филиал заблокирован")
+    token = create_seller_token(target.seller_id, owner_id)
+    return SwitchBranchResponse(token=token, seller_id=target.seller_id)

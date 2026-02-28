@@ -139,6 +139,7 @@ async def test_get_products_empty(
     # Create seller without products
     seller = Seller(
         seller_id=test_seller_user.tg_id,
+        owner_id=test_seller_user.tg_id,
         shop_name="Empty Shop",
         city_id=test_city.id,
         district_id=test_district.id,

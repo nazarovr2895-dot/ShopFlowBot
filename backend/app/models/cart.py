@@ -11,7 +11,7 @@ class CartItem(Base):
     __tablename__ = 'cart_items'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'), nullable=False)
     product_id: Mapped[int] = mapped_column(ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     # Denormalized for display (snapshot at add time)
@@ -33,7 +33,7 @@ class BuyerFavoriteSeller(Base):
     __tablename__ = 'buyer_favorite_sellers'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
-    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.tg_id'), nullable=False)
+    seller_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('sellers.seller_id'), nullable=False)
     subscribed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

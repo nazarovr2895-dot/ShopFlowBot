@@ -314,7 +314,7 @@ async def get_public_sellers(
                 pickup_slots_expr.label("pickup_slots"),
                 min_dp_subq.c.min_delivery_price,
             )
-            .outerjoin(User, Seller.seller_id == User.tg_id)
+            .outerjoin(User, Seller.owner_id == User.tg_id)
             .outerjoin(City, Seller.city_id == City.id)
             .outerjoin(District, Seller.district_id == District.id)
             .outerjoin(Metro, Seller.metro_id == Metro.id)
@@ -573,7 +573,7 @@ async def get_public_seller_detail(
         .outerjoin(City, Seller.city_id == City.id)
         .outerjoin(District, Seller.district_id == District.id)
         .outerjoin(Metro, Seller.metro_id == Metro.id)
-        .outerjoin(User, Seller.seller_id == User.tg_id)
+        .outerjoin(User, Seller.owner_id == User.tg_id)
         .where(Seller.seller_id == seller_id)
     )
 

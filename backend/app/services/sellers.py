@@ -405,7 +405,7 @@ class SellerService:
         try:
             result = await self.session.execute(
                 select(User, Seller)
-                .join(Seller, User.tg_id == Seller.seller_id)
+                .join(Seller, User.tg_id == Seller.owner_id)
                 .where(Seller.seller_id == seller_id)
             )
         except (ProgrammingError, OperationalError) as e:
@@ -414,7 +414,7 @@ class SellerService:
                 result = await self.session.execute(
                     select(User, Seller)
                     .options(defer(Seller.preorder_custom_dates))
-                    .join(Seller, User.tg_id == Seller.seller_id)
+                    .join(Seller, User.tg_id == Seller.owner_id)
                     .where(Seller.seller_id == seller_id)
                 )
             else:
@@ -602,6 +602,7 @@ class SellerService:
         # Create seller
         new_seller = Seller(
             seller_id=tg_id,
+            owner_id=tg_id,
             shop_name=shop_name,
             inn=inn,
             ogrn=ogrn,
@@ -1137,16 +1138,18 @@ class SellerService:
         conditions = []
         if not include_deleted:
             conditions.append(Seller.deleted_at.is_(None))
-        
-        query = select(User, Seller).join(Seller, User.tg_id == Seller.seller_id)
+
+        query = select(User, Seller).join(Seller, User.tg_id == Seller.owner_id)
         if conditions:
             query = query.where(*conditions)
-        
+
         result = await self.session.execute(query)
-        
+
         return [
             {
                 "tg_id": user.tg_id,
+                "seller_id": seller.seller_id,
+                "owner_id": seller.owner_id,
                 "fio": user.fio,
                 "phone": user.phone,
                 "shop_name": seller.shop_name,
@@ -1185,7 +1188,7 @@ class SellerService:
         
         result = await self.session.execute(
             select(User, Seller)
-            .join(Seller, User.tg_id == Seller.seller_id)
+            .join(Seller, User.tg_id == Seller.owner_id)
             .where(*conditions)
         )
         
