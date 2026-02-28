@@ -296,7 +296,7 @@ export function SellerBranches() {
 
   // For network owners, exclude the owner account from displayed branches
   const displayBranches = isNetworkOwner
-    ? branches.filter(b => b.web_login !== null)
+    ? branches.filter(b => b.seller_id !== sellerId)
     : branches;
 
   // --- Render ---

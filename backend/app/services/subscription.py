@@ -322,7 +322,7 @@ class SubscriptionService:
                 "subscription_plan": getattr(branch, "subscription_plan", "none") or "none",
                 "expires_at": expires_at,
                 "days_remaining": days_remaining,
-                "is_owner": branch.web_login is None,
+                "is_owner": branch.seller_id == owner_id,
             })
 
         return statuses
