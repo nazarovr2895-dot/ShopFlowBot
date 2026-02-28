@@ -292,6 +292,7 @@ class SubscriptionService:
         result = await self.session.execute(
             select(Seller).where(
                 Seller.owner_id == owner_id,
+                Seller.seller_id != owner_id,  # exclude management account
                 Seller.deleted_at.is_(None),
             ).order_by(Seller.seller_id)
         )

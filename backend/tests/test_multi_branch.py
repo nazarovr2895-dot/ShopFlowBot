@@ -123,7 +123,7 @@ class TestJWTAuth:
         token = create_seller_token(primary_branch.seller_id, primary_branch.owner_id)
         result = decode_seller_token(token)
         assert result is not None
-        seller_id, owner_id = result
+        seller_id, owner_id, _is_primary = result
         assert seller_id == primary_branch.seller_id
         assert owner_id == primary_branch.owner_id
 
@@ -131,7 +131,7 @@ class TestJWTAuth:
         token = create_seller_token(second_branch.seller_id, second_branch.owner_id)
         result = decode_seller_token(token)
         assert result is not None
-        seller_id, owner_id = result
+        seller_id, owner_id, _is_primary = result
         assert seller_id == second_branch.seller_id  # 222000222
         assert owner_id == second_branch.owner_id  # 111000111
         assert seller_id != owner_id
@@ -145,7 +145,7 @@ class TestJWTAuth:
         token = jwt.encode(payload, secret, algorithm="HS256")
         result = decode_seller_token(token)
         assert result is not None
-        seller_id, owner_id = result
+        seller_id, owner_id, _is_primary = result
         assert seller_id == 12345
         assert owner_id == 12345  # falls back to seller_id
 
@@ -297,39 +297,18 @@ class TestNetworkLoyalty:
 # ── Subscription Per-Branch Pricing Tests ─────────────────────────────
 
 class TestPerBranchPricing:
-    """Test subscription pricing multiplied by branch count."""
+    """Test per-branch subscription pricing (no branches_count multiplier)."""
 
     @pytest.mark.asyncio
-    async def test_single_branch_prices(self, test_session, primary_branch):
-        """Single branch = base prices."""
+    async def test_prices_are_per_branch(self, test_session, primary_branch):
+        """Prices are always for a single branch (no multiplier)."""
         svc = SubscriptionService(test_session)
-        prices_1 = svc.get_prices(branches_count=1)
-        prices_2 = svc.get_prices(branches_count=2)
-        # Every price at 2 branches should be exactly 2x
+        prices = svc.get_prices()
+        # All periods should have positive prices
         for period in (1, 3, 6, 12):
-            assert prices_2[period] == prices_1[period] * 2
-
-    @pytest.mark.asyncio
-    async def test_count_active_branches(
-        self, test_session, primary_branch, second_branch
-    ):
-        """Count active branches for owner."""
-        svc = SubscriptionService(test_session)
-        count = await svc._count_active_branches(primary_branch.owner_id)
-        assert count == 2
-
-    @pytest.mark.asyncio
-    async def test_count_excludes_deleted(
-        self, test_session, primary_branch, second_branch
-    ):
-        """Deleted branches don't count."""
-        from datetime import datetime
-        second_branch.deleted_at = datetime.utcnow()
-        await test_session.commit()
-
-        svc = SubscriptionService(test_session)
-        count = await svc._count_active_branches(primary_branch.owner_id)
-        assert count == 1
+            assert prices[period] > 0
+        # Longer periods with discounts should be cheaper per-month
+        assert prices[12] / 12 < prices[1]
 
 
 # ── Branch Products Isolation Tests ──────────────────────────────────

@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from datetime import datetime, timezone
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from backend.app.api.deps import get_session, get_cache
 from backend.app.core.logging import get_logger
@@ -63,7 +63,7 @@ class SellerCreateSchema(BaseModel):
     tg_id: int
     fio: str
     phone: str
-    shop_name: str
+    shop_name: Optional[str] = None
     inn: Optional[str] = None
     ogrn: Optional[str] = None
     description: Optional[str] = None
@@ -73,11 +73,21 @@ class SellerCreateSchema(BaseModel):
     map_url: Optional[str] = None
     metro_id: Optional[int] = None
     metro_walk_minutes: Optional[int] = None
-    delivery_type: str
+    delivery_type: Optional[str] = None
     placement_expired_at: Optional[datetime] = None
     commission_percent: Optional[int] = None
     max_branches: Optional[int] = None
     auto_create_delivery_zone: bool = False
+
+    @model_validator(mode='after')
+    def validate_regular_seller_fields(self):
+        """Regular sellers (no branches) require shop_name and delivery_type."""
+        if self.max_branches is None:
+            if not self.shop_name:
+                raise ValueError('Название магазина обязательно для обычного продавца')
+            if not self.delivery_type:
+                raise ValueError('Тип доставки обязателен для обычного продавца')
+        return self
 
     @field_validator('max_branches')
     @classmethod
@@ -132,11 +142,13 @@ class SellerCreateSchema(BaseModel):
     @field_validator('shop_name')
     @classmethod
     def validate_shop_name(cls, v):
-        """Validate shop name length."""
+        """Validate shop name length (optional for network sellers)."""
+        if v is None:
+            return v
         if len(v.strip()) < 2:
-            raise ValueError('Название магазина не менее 2 символов')
+            raise ValueError('Название не менее 2 символов')
         if len(v.strip()) > 255:
-            raise ValueError('Название магазина не более 255 символов')
+            raise ValueError('Название не более 255 символов')
         return v.strip()
     
     @field_validator('placement_expired_at', mode='before')

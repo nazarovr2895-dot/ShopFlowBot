@@ -672,14 +672,20 @@ class SellerService:
         """Update a single seller field."""
         if field not in self.VALID_UPDATE_FIELDS:
             raise InvalidFieldError(field)
-        
-        user = await self.session.get(User, tg_id)
+
         seller = await self.session.get(Seller, tg_id)
-        
-        if not user or not seller:
+        if not seller:
             raise SellerNotFoundError(tg_id)
-        
-        # User fields
+
+        # User fields (only available for sellers with a User record, e.g. owners)
+        if field in ("fio", "phone"):
+            user = await self.session.get(User, tg_id)
+            if not user:
+                # Branches may not have a User record; look up owner's User
+                user = await self.session.get(User, seller.owner_id)
+            if not user:
+                raise SellerNotFoundError(tg_id)
+
         if field == "fio":
             user.fio = value
         elif field == "phone":

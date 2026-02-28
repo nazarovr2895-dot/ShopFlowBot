@@ -562,15 +562,7 @@ function AddSellerModal({
         tg_id: parseInt(tgId.trim(), 10),
         fio,
         phone: phoneDigits,
-        shop_name: shopName,
-        description: description || undefined,
-        city_id: cityId,
-        district_id: districtId,
-        metro_id: metroId || undefined,
-        metro_walk_minutes: metroWalkMinutes || undefined,
-        address_name: selectedAddress || undefined,
-        delivery_type: 'both',
-        auto_create_delivery_zone: coverageResult?.covered && coverageResult?.district_id ? true : false,
+        shop_name: shopName || undefined,
       };
       if (initialInnData?.inn) {
         payload.inn = initialInnData.inn;
@@ -585,10 +577,20 @@ function AddSellerModal({
       if (isNetworkSeller) {
         const mb = parseInt(maxBranches, 10);
         if (!isNaN(mb) && mb >= 1) payload.max_branches = mb;
+      } else {
+        // Shop-specific fields only for regular sellers
+        payload.description = description || undefined;
+        payload.city_id = cityId;
+        payload.district_id = districtId;
+        payload.metro_id = metroId || undefined;
+        payload.metro_walk_minutes = metroWalkMinutes || undefined;
+        payload.address_name = selectedAddress || undefined;
+        payload.delivery_type = 'both';
+        payload.auto_create_delivery_zone = coverageResult?.covered && coverageResult?.district_id ? true : false;
       }
       const res = await createSeller(payload) as { status?: string; web_login?: string; web_password?: string; delivery_zone_created?: boolean };
       if (res?.status === 'ok' || res?.status === undefined) {
-        if (res.delivery_zone_created === false) {
+        if (!isNetworkSeller && res.delivery_zone_created === false) {
           toast.error('Продавец создан, но зона доставки не создалась. Создайте вручную.');
         }
         if (res.web_login && res.web_password) {
@@ -619,7 +621,7 @@ function AddSellerModal({
     <Modal title={credentials ? 'Данные для входа' : 'Добавить продавца'} onClose={credentials ? handleCloseCredentials : onClose}>
       {credentials ? (
         <div className="credentials-block">
-          <p className="credentials-hint">Данные для входа созданы автоматически. Передайте их продавцу для входа в веб-панель.</p>
+          <p className="credentials-hint">{isNetworkSeller ? 'Данные для входа в панель управления сетью. Передайте управляющему.' : 'Данные для входа созданы автоматически. Передайте их продавцу для входа в веб-панель.'}</p>
           <div className="form-group">
             <label className="form-label">Логин</label>
             <div className="credentials-value">
@@ -689,71 +691,75 @@ function AddSellerModal({
           />
           <small className="form-hint">Формат: +7 000 000 00 00</small>
         </div>
-        <FormRow label="Название магазина" value={shopName} onChange={setShopName} required />
-        <FormRow label="Описание" value={description} onChange={setDescription} textarea />
-        <FormRow label="Город" render={
-          <select className="form-input" value={cityId} onChange={(e) => setCityId(parseInt(e.target.value, 10))}>
-            {cities.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        } />
-        <div className="form-group">
-          <label className="form-label">Адрес (DaData)</label>
-          <div ref={addressWrapperRef} style={{ position: 'relative' }}>
-            <input
-              className="form-input"
-              value={addressQuery}
-              onChange={handleAddressInputChange}
-              onFocus={() => { if (addressSuggestions.length > 0) setAddressDropdownOpen(true); }}
-              placeholder="Начните вводить адрес..."
-              autoComplete="off"
-            />
-            {addressDropdownOpen && addressSuggestions.length > 0 && (
-              <div className="cov-district-ac__dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10 }}>
-                {addressSuggestions.map((s, i) => (
-                  <div
-                    key={i}
-                    className="cov-district-ac__option"
-                    onClick={() => handleAddressSelect(s)}
-                  >
-                    {s.value}
-                  </div>
+        <FormRow label={isNetworkSeller ? 'Название сети' : 'Название магазина'} value={shopName} onChange={setShopName} required />
+        {!isNetworkSeller && (
+          <>
+            <FormRow label="Описание" value={description} onChange={setDescription} textarea />
+            <FormRow label="Город" render={
+              <select className="form-input" value={cityId} onChange={(e) => setCityId(parseInt(e.target.value, 10))}>
+                {cities.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
+              </select>
+            } />
+            <div className="form-group">
+              <label className="form-label">Адрес (DaData)</label>
+              <div ref={addressWrapperRef} style={{ position: 'relative' }}>
+                <input
+                  className="form-input"
+                  value={addressQuery}
+                  onChange={handleAddressInputChange}
+                  onFocus={() => { if (addressSuggestions.length > 0) setAddressDropdownOpen(true); }}
+                  placeholder="Начните вводить адрес..."
+                  autoComplete="off"
+                />
+                {addressDropdownOpen && addressSuggestions.length > 0 && (
+                  <div className="cov-district-ac__dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10 }}>
+                    {addressSuggestions.map((s, i) => (
+                      <div
+                        key={i}
+                        className="cov-district-ac__option"
+                        onClick={() => handleAddressSelect(s)}
+                      >
+                        {s.value}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          {checkingCoverage && (
-            <small className="form-hint" style={{ color: 'var(--text-secondary)' }}>Проверка покрытия...</small>
-          )}
-          {coverageResult && !checkingCoverage && (
-            coverageResult.covered ? (
-              <small className="form-hint" style={{ color: 'var(--success)', fontWeight: 500 }}>
-                Доступно — {coverageResult.district_name}
-              </small>
-            ) : (
-              <small className="form-hint" style={{ color: 'var(--danger)', fontWeight: 500 }}>
-                <AlertTriangle size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                Адрес не в зоне покрытия{coverageResult.district_name ? ` (район: ${coverageResult.district_name})` : ''}. Добавьте район в области покрытия.
-              </small>
-            )
-          )}
-        </div>
-        <FormRow label="Район" render={
-          <select className="form-input" value={districtId} onChange={(e) => { setDistrictId(parseInt(e.target.value, 10)); setCoverageResult(null); setSelectedAddress(''); setAddressQuery(''); }}>
-            {districts.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-        } />
-        <MetroSearchField
-          metroId={metroId}
-          metroWalkMinutes={metroWalkMinutes}
-          onMetroChange={(mId, walkMin) => {
-            setMetroId(mId);
-            setMetroWalkMinutes(walkMin);
-          }}
-        />
+              {checkingCoverage && (
+                <small className="form-hint" style={{ color: 'var(--text-secondary)' }}>Проверка покрытия...</small>
+              )}
+              {coverageResult && !checkingCoverage && (
+                coverageResult.covered ? (
+                  <small className="form-hint" style={{ color: 'var(--success)', fontWeight: 500 }}>
+                    Доступно — {coverageResult.district_name}
+                  </small>
+                ) : (
+                  <small className="form-hint" style={{ color: 'var(--danger)', fontWeight: 500 }}>
+                    <AlertTriangle size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                    Адрес не в зоне покрытия{coverageResult.district_name ? ` (район: ${coverageResult.district_name})` : ''}. Добавьте район в области покрытия.
+                  </small>
+                )
+              )}
+            </div>
+            <FormRow label="Район" render={
+              <select className="form-input" value={districtId} onChange={(e) => { setDistrictId(parseInt(e.target.value, 10)); setCoverageResult(null); setSelectedAddress(''); setAddressQuery(''); }}>
+                {districts.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            } />
+            <MetroSearchField
+              metroId={metroId}
+              metroWalkMinutes={metroWalkMinutes}
+              onMetroChange={(mId, walkMin) => {
+                setMetroId(mId);
+                setMetroWalkMinutes(walkMin);
+              }}
+            />
+          </>
+        )}
         <div className="form-group">
           <label className="form-label">Индивидуальная комиссия (%)</label>
           <input
