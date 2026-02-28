@@ -69,7 +69,7 @@ async def _daily_scheduler():
             # Run tasks
             from backend.app.core.database import async_session
             from backend.app.services.loyalty import expire_stale_points, get_all_sellers_upcoming_events
-            from backend.app.services.telegram_notify import notify_seller_upcoming_events
+            from backend.app.services.telegram_notify import notify_seller_upcoming_events, resolve_notification_chat_id
 
             async with async_session() as session:
                 # 1. Expire stale points
@@ -87,7 +87,8 @@ async def _daily_scheduler():
                     events_by_seller = await get_all_sellers_upcoming_events(session, days_ahead=7)
                     for sid, events in events_by_seller.items():
                         try:
-                            await notify_seller_upcoming_events(sid, events)
+                            _chat_id = await resolve_notification_chat_id(session, sid)
+                            await notify_seller_upcoming_events(_chat_id, events)
                         except Exception as e:
                             logger.error("Daily scheduler: notify failed", seller_id=sid, error=str(e))
                     if events_by_seller:

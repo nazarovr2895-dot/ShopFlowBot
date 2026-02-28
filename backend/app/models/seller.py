@@ -85,6 +85,8 @@ class Seller(Base):
     # Geo coordinates for map display (fallback: Metro.geo_lat/geo_lon)
     geo_lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     geo_lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    # Telegram ID for receiving order notifications (null = use owner_id)
+    contact_tg_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

@@ -145,15 +145,15 @@ function BranchSwitcher() {
 /* ── Component ───────────────────────────────────────────── */
 
 export function Sidebar() {
-  const { role, isNetwork, logout } = useAuth();
+  const { role, isNetwork, isPrimary, logout } = useAuth();
   const navigate = useNavigate();
   const baseNav = role === 'seller' ? sellerNav : adminNav;
-  // Add "Филиалы" link for all sellers (so they can add branches)
+  // Owner sees Филиалы link; branch employees do not
   const nav = role === 'seller'
     ? [
         ...baseNav.filter(i => i.to !== '/settings'),
-        { to: '/branches', label: 'Филиалы', icon: GitBranch, dividerBefore: true },
-        { to: '/settings', label: 'Настройки', icon: Settings },
+        ...(isPrimary ? [{ to: '/branches', label: 'Филиалы', icon: GitBranch, dividerBefore: true }] : []),
+        { to: '/settings', label: 'Настройки', icon: Settings, dividerBefore: !isPrimary },
       ]
     : baseNav;
 
@@ -196,7 +196,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="sidebar-v2-footer">
         <div className="sidebar-v2-divider" />
-        {role === 'seller' && isNetwork && <BranchSwitcher />}
+        {role === 'seller' && isNetwork && isPrimary && <BranchSwitcher />}
         <button className="sidebar-v2-link sidebar-v2-logout" onClick={handleLogout}>
           <LogOut size={18} className="sidebar-v2-icon" />
           <span className="sidebar-v2-link-text">Выход</span>

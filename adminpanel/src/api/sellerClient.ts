@@ -332,11 +332,12 @@ export async function updateOrderPrice(orderId: number, newPrice: number): Promi
   return fetchSeller(`/seller-web/orders/${orderId}/price?new_price=${newPrice}`, { method: 'PUT' });
 }
 
-export async function getStats(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<SellerStats> {
+export async function getStats(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string; branch?: string }): Promise<SellerStats> {
   const sp = new URLSearchParams();
   if (params?.period) sp.set('period', params.period);
   if (params?.date_from) sp.set('date_from', params.date_from);
   if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.branch) sp.set('branch', params.branch);
   const query = sp.toString();
   const suffix = query ? `?${query}` : '';
   return fetchSeller<SellerStats>(`/seller-web/stats${suffix}`);
@@ -360,17 +361,18 @@ export interface CustomerStats {
   top_customers: CustomerStatsTopCustomer[];
 }
 
-export async function getCustomerStats(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<CustomerStats> {
+export async function getCustomerStats(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string; branch?: string }): Promise<CustomerStats> {
   const sp = new URLSearchParams();
   if (params?.period) sp.set('period', params.period);
   if (params?.date_from) sp.set('date_from', params.date_from);
   if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.branch) sp.set('branch', params.branch);
   const query = sp.toString();
   const suffix = query ? `?${query}` : '';
   return fetchSeller<CustomerStats>(`/seller-web/stats/customers${suffix}`);
 }
 
-export async function exportStatsCSV(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<Blob> {
+export async function exportStatsCSV(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string; branch?: string }): Promise<Blob> {
   const token = getSellerToken();
   if (!token) throw new Error('Не авторизован');
 
@@ -378,6 +380,7 @@ export async function exportStatsCSV(params?: { period?: '1d' | '7d' | '30d'; da
   if (params?.period) sp.set('period', params.period);
   if (params?.date_from) sp.set('date_from', params.date_from);
   if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.branch) sp.set('branch', params.branch);
   const query = sp.toString();
   const suffix = query ? `?${query}` : '';
 
@@ -1068,11 +1071,12 @@ export interface PreorderAnalytics {
   top_products: Array<{ product_name: string; count: number }>;
 }
 
-export async function getPreorderAnalytics(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string }): Promise<PreorderAnalytics> {
+export async function getPreorderAnalytics(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string; branch?: string }): Promise<PreorderAnalytics> {
   const sp = new URLSearchParams();
   if (params?.period) sp.set('period', params.period);
   if (params?.date_from) sp.set('date_from', params.date_from);
   if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.branch) sp.set('branch', params.branch);
   const query = sp.toString();
   const suffix = query ? `?${query}` : '';
   return fetchSeller<PreorderAnalytics>(`/seller-web/preorder-analytics${suffix}`);
@@ -1228,14 +1232,24 @@ export interface BranchDetail {
   is_blocked: boolean;
   geo_lat: number | null;
   geo_lon: number | null;
+  web_login: string | null;
+  contact_tg_id: number | null;
 }
 
 export async function getBranches(): Promise<BranchDetail[]> {
   return fetchSeller<BranchDetail[]>('/seller-web/branches');
 }
 
-export async function createBranch(data: Record<string, unknown>): Promise<BranchDetail> {
-  return fetchSeller<BranchDetail>('/seller-web/branches', {
+export interface CreateBranchResponse {
+  seller_id: number;
+  shop_name: string | null;
+  web_login: string;
+  web_password: string;
+  branches_count: number;
+}
+
+export async function createBranch(data: Record<string, unknown>): Promise<CreateBranchResponse> {
+  return fetchSeller<CreateBranchResponse>('/seller-web/branches', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -1250,6 +1264,12 @@ export async function updateBranch(branchId: number, data: Record<string, unknow
 
 export async function deleteBranch(branchId: number): Promise<void> {
   await fetchSeller<{ status: string }>(`/seller-web/branches/${branchId}`, { method: 'DELETE' });
+}
+
+export async function resetBranchPassword(branchId: number): Promise<{ web_login: string; web_password: string }> {
+  return fetchSeller<{ web_login: string; web_password: string }>(`/seller-web/branches/${branchId}/reset-password`, {
+    method: 'POST',
+  });
 }
 
 export async function switchBranch(sellerId: number): Promise<{ token: string; seller_id: number; owner_id: number; branches: BranchInfo[] }> {

@@ -908,15 +908,23 @@ class OrderService:
 
     async def get_seller_stats(
         self,
-        seller_id: int,
+        seller_id,  # int | list[int]
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None,
     ) -> Dict[str, Any]:
-        """Get order statistics for a seller with optional period filters."""
+        """Get order statistics for a seller (or multiple branches) with optional period filters."""
         date_field = func.coalesce(Order.completed_at, Order.created_at)
         end_exclusive = date_to + timedelta(days=1) if date_to else None
 
-        base_conditions = [Order.seller_id == seller_id]
+        # Support single seller_id or list of seller_ids (for network aggregation)
+        if isinstance(seller_id, list):
+            _seller_filter = Order.seller_id.in_(seller_id)
+            _commission_seller_id = seller_id[0]
+        else:
+            _seller_filter = (Order.seller_id == seller_id)
+            _commission_seller_id = seller_id
+
+        base_conditions = [_seller_filter]
         if date_from:
             base_conditions.append(date_field >= date_from)
         if end_exclusive:
@@ -937,7 +945,7 @@ class OrderService:
         total_revenue = float(totals_row.total_revenue or 0)
         # Read commission rate: per-seller override > GlobalSettings > default (3%)
         from backend.app.services.commissions import get_effective_commission_rate
-        _eff_pct = await get_effective_commission_rate(self.session, seller_id)
+        _eff_pct = await get_effective_commission_rate(self.session, _commission_seller_id)
         commission_rate = _eff_pct / 100
         commission = float(Decimal(str(total_revenue * commission_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
@@ -1048,7 +1056,7 @@ class OrderService:
             prev_end = date_from - timedelta(days=1)
             prev_start = prev_end - timedelta(days=period_days - 1)
             prev_conditions = [
-                Order.seller_id == seller_id,
+                _seller_filter,
                 Order.status.in_(self.COMPLETED_ORDER_STATUSES),
                 date_field >= prev_start,
                 date_field < prev_end + timedelta(days=1),
@@ -1087,9 +1095,10 @@ class OrderService:
                 product_agg[pid]["order_count"] += 1
         if product_agg:
             product_ids = list(product_agg.keys())
+            _prod_filter = Product.seller_id.in_(seller_id) if isinstance(seller_id, list) else (Product.seller_id == seller_id)
             products_result = await self.session.execute(
                 select(Product.id, Product.bouquet_id).where(
-                    Product.seller_id == seller_id, Product.id.in_(product_ids)
+                    _prod_filter, Product.id.in_(product_ids)
                 )
             )
             product_to_bouquet: Dict[int, Optional[int]] = {row[0]: row[1] for row in products_result.all()}
@@ -1112,9 +1121,10 @@ class OrderService:
                     bouquet_agg[bid] = bouquet_agg.get(bid, 0) + pdata["quantity_sold"]
             if bouquet_agg:
                 bouquet_ids = list(bouquet_agg.keys())
+                _bouq_filter = Bouquet.seller_id.in_(seller_id) if isinstance(seller_id, list) else (Bouquet.seller_id == seller_id)
                 bouquets_result = await self.session.execute(
                     select(Bouquet.id, Bouquet.name).where(
-                        Bouquet.seller_id == seller_id, Bouquet.id.in_(bouquet_ids)
+                        _bouq_filter, Bouquet.id.in_(bouquet_ids)
                     )
                 )
                 bouquet_names = {row[0]: row[1] for row in bouquets_result.all()}
@@ -1152,15 +1162,16 @@ class OrderService:
 
     async def get_customer_stats(
         self,
-        seller_id: int,
+        seller_id,  # int | list[int]
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None,
     ) -> Dict[str, Any]:
-        """Customer metrics for a seller within a date range."""
+        """Customer metrics for a seller (or multiple branches) within a date range."""
         date_field = func.coalesce(Order.completed_at, Order.created_at)
         end_exclusive = date_to + timedelta(days=1) if date_to else None
 
-        base = [Order.seller_id == seller_id, Order.status.in_(self.COMPLETED_ORDER_STATUSES), Order.buyer_id.isnot(None)]
+        _seller_filter = Order.seller_id.in_(seller_id) if isinstance(seller_id, list) else (Order.seller_id == seller_id)
+        base = [_seller_filter, Order.status.in_(self.COMPLETED_ORDER_STATUSES), Order.buyer_id.isnot(None)]
         period_conds = list(base)
         if date_from:
             period_conds.append(date_field >= date_from)
@@ -1180,7 +1191,7 @@ class OrderService:
         # -- new vs returning: buyers whose FIRST completed order falls in the period --
         first_order_subq = (
             select(Order.buyer_id, func.min(date_field).label("first_date"))
-            .where(Order.seller_id == seller_id, Order.status.in_(self.COMPLETED_ORDER_STATUSES))
+            .where(_seller_filter, Order.status.in_(self.COMPLETED_ORDER_STATUSES))
             .group_by(Order.buyer_id)
             .subquery()
         )
@@ -1217,7 +1228,7 @@ class OrderService:
             prev_end = date_from - timedelta(days=1)
             prev_start = prev_end - timedelta(days=period_days - 1)
             prev_conds = [
-                Order.seller_id == seller_id,
+                _seller_filter,
                 Order.status.in_(self.COMPLETED_ORDER_STATUSES),
                 date_field >= prev_start,
                 date_field < prev_end + timedelta(days=1),
@@ -1237,7 +1248,7 @@ class OrderService:
                 Order.buyer_id,
                 func.sum(Order.total_price).label("buyer_total"),
             )
-            .where(Order.seller_id == seller_id, Order.status.in_(self.COMPLETED_ORDER_STATUSES))
+            .where(_seller_filter, Order.status.in_(self.COMPLETED_ORDER_STATUSES))
             .group_by(Order.buyer_id)
             .subquery()
         )
@@ -1405,13 +1416,14 @@ class OrderService:
 
     async def get_preorder_analytics(
         self,
-        seller_id: int,
+        seller_id,  # int | list[int]
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None,
     ) -> Dict[str, Any]:
-        """Get preorder-specific analytics for seller stats dashboard."""
+        """Get preorder-specific analytics for seller (or multiple branches) stats dashboard."""
+        _seller_filter = Order.seller_id.in_(seller_id) if isinstance(seller_id, list) else (Order.seller_id == seller_id)
         base = select(Order).where(
-            Order.seller_id == seller_id,
+            _seller_filter,
             Order.is_preorder.is_(True),
         )
         if date_from:

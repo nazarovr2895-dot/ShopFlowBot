@@ -735,15 +735,16 @@ async def reject_order(
                 await pay_svc.refund_payment(order_id)
                 await session.commit()
                 from backend.app.services.telegram_notify import (
-                    notify_buyer_payment_refunded, notify_seller_payment_refunded,
+                    notify_buyer_payment_refunded, notify_seller_payment_refunded, resolve_notification_chat_id,
                 )
                 refund_amt = result.get("total_price", 0)
                 if order_obj.buyer_id:
                     await notify_buyer_payment_refunded(
                         order_obj.buyer_id, order_id, order_obj.seller_id, refund_amt,
                     )
+                _chat_id = await resolve_notification_chat_id(session, order_obj.seller_id)
                 await notify_seller_payment_refunded(
-                    order_obj.seller_id, order_id, refund_amt,
+                    _chat_id, order_id, refund_amt,
                 )
             except Exception as refund_err:
                 logger.warning(
@@ -792,9 +793,10 @@ async def update_order_status(
             total_price=result.get("total_price"),
         )
         if result["new_status"] == "completed":
-            from backend.app.services.telegram_notify import notify_seller_order_completed
+            from backend.app.services.telegram_notify import notify_seller_order_completed, resolve_notification_chat_id
+            _chat_id = await resolve_notification_chat_id(session, result["seller_id"])
             await notify_seller_order_completed(
-                seller_id=result["seller_id"],
+                seller_id=_chat_id,
                 order_id=order_id,
             )
         return result
@@ -901,10 +903,13 @@ async def get_preorder_analytics(
     period: Optional[str] = Query(None, description="Predefined range: 7d, 30d, 90d"),
     date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    seller_id: int = Depends(require_seller_token),
+    branch: Optional[str] = Query(None, description="'all' for aggregated or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
     """Preorder-specific analytics (completion rate, avg lead time, revenue)."""
+    seller_id, owner_id = auth
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
     dt_from, dt_to = None, None
     if period:
         days_map = {"7d": 7, "30d": 30, "90d": 90}
@@ -922,19 +927,63 @@ async def get_preorder_analytics(
         except (ValueError, TypeError):
             pass
     service = OrderService(session)
-    return await service.get_preorder_analytics(seller_id, dt_from, dt_to)
+    return await service.get_preorder_analytics(target, dt_from, dt_to)
 
 
 # --- STATS ---
+
+async def _resolve_branch_target(
+    branch: Optional[str],
+    seller_id: int,
+    owner_id: int,
+    session: AsyncSession,
+):
+    """Resolve branch query param to seller_id or list of seller_ids.
+
+    - branch='all' → list of all seller_ids for this owner
+    - branch='<id>' → specific branch (verified belongs to owner)
+    - branch=None → current seller_id from token
+    """
+    if branch == "all":
+        result = await session.execute(
+            select(Seller.seller_id).where(
+                Seller.owner_id == owner_id,
+                Seller.deleted_at.is_(None),
+            )
+        )
+        ids = [r[0] for r in result.all()]
+        return ids if len(ids) > 1 else (ids[0] if ids else seller_id)
+    elif branch:
+        try:
+            target_id = int(branch)
+        except ValueError:
+            return seller_id
+        # Verify target belongs to owner
+        result = await session.execute(
+            select(Seller.seller_id).where(
+                Seller.seller_id == target_id,
+                Seller.owner_id == owner_id,
+                Seller.deleted_at.is_(None),
+            )
+        )
+        if result.scalar_one_or_none():
+            return target_id
+        return seller_id
+    return seller_id
+
+
 @router.get("/stats")
 async def get_stats(
     period: Optional[str] = Query(None, description="Predefined range: 1d, 7d, 30d"),
     date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    seller_id: int = Depends(require_seller_token),
+    branch: Optional[str] = Query(None, description="'all' for aggregated or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get order stats for current seller."""
+    """Get order stats for current seller or aggregated across branches."""
+    seller_id, owner_id = auth
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
 
     def _parse_date(value: Optional[str]) -> Optional[datetime]:
         if not value:
@@ -978,7 +1027,7 @@ async def get_stats(
 
     service = OrderService(session)
     stats = await service.get_seller_stats(
-        seller_id,
+        target,
         date_from=start_date,
         date_to=end_date,
     )
@@ -992,11 +1041,13 @@ async def export_stats_csv(
     period: Optional[str] = Query(None, description="Predefined range: 1d, 7d, 30d"),
     date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    seller_id: int = Depends(require_seller_token),
+    branch: Optional[str] = Query(None, description="'all' for aggregated or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
     """Export statistics to CSV file."""
-    # Reuse date calculation logic from get_stats
+    seller_id, owner_id = auth
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
     def _parse_date(value: Optional[str]) -> Optional[datetime]:
         if not value:
             return None
@@ -1033,7 +1084,7 @@ async def export_stats_csv(
 
     # Get stats
     service = OrderService(session)
-    stats = await service.get_seller_stats(seller_id, date_from=start_date, date_to=end_date)
+    stats = await service.get_seller_stats(target, date_from=start_date, date_to=end_date)
 
     # Build CSV
     output = io.StringIO()
@@ -1079,10 +1130,13 @@ async def get_customer_stats(
     period: Optional[str] = Query(None, description="Predefined range: 1d, 7d, 30d"),
     date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    seller_id: int = Depends(require_seller_token),
+    branch: Optional[str] = Query(None, description="'all' for aggregated or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
     """Customer metrics: new vs returning, retention, LTV, top customers."""
+    seller_id, owner_id = auth
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
 
     def _parse_date(value: Optional[str]) -> Optional[datetime]:
         if not value:
@@ -1119,9 +1173,9 @@ async def get_customer_stats(
 
     service = OrderService(session)
     try:
-        return await service.get_customer_stats(seller_id, date_from=start_date, date_to=end_date)
+        return await service.get_customer_stats(target, date_from=start_date, date_to=end_date)
     except Exception:
-        logger.exception("get_customer_stats failed", seller_id=seller_id)
+        logger.exception("get_customer_stats failed", seller_id=seller_id, branch=branch)
         return {
             "total_customers": 0,
             "new_customers": 0,
@@ -2444,6 +2498,7 @@ class CreateBranchBody(BaseModel):
     delivery_type: Optional[str] = None
     working_hours: Optional[dict] = None
     clone_products_from: Optional[int] = None  # seller_id to copy products from
+    contact_tg_id: Optional[int] = None  # Telegram ID for order notifications
 
 
 class UpdateBranchBody(BaseModel):
@@ -2458,6 +2513,7 @@ class UpdateBranchBody(BaseModel):
     geo_lon: Optional[float] = None
     delivery_type: Optional[str] = None
     working_hours: Optional[dict] = None
+    contact_tg_id: Optional[int] = None  # Telegram ID for order notifications
 
 
 @router.get("/branches")
@@ -2487,6 +2543,8 @@ async def list_branches(
             "geo_lat": b.geo_lat,
             "geo_lon": b.geo_lon,
             "working_hours": b.working_hours,
+            "web_login": b.web_login,
+            "contact_tg_id": b.contact_tg_id,
         }
         for b in branches
     ]
@@ -2521,10 +2579,12 @@ async def create_branch(
     )
     branch_count = count_result.scalar() or 0
 
-    # Generate unique web_login for the new branch
+    # Generate unique web_login and password for the new branch
     import secrets
+    from backend.app.core.password_utils import hash_password
     suffix = secrets.token_hex(3)
     web_login = f"branch_{owner_id}_{suffix}"
+    raw_password = secrets.token_urlsafe(12)
 
     # Create new branch
     new_branch = Seller(
@@ -2541,6 +2601,8 @@ async def create_branch(
         delivery_type=data.delivery_type,
         working_hours=data.working_hours,
         web_login=web_login,
+        web_password_hash=hash_password(raw_password),
+        contact_tg_id=data.contact_tg_id,
         # Network-level fields inherited from owner
         subscription_plan=owner_seller.subscription_plan,
         yookassa_account_id=owner_seller.yookassa_account_id,
@@ -2589,6 +2651,7 @@ async def create_branch(
         "seller_id": new_branch.seller_id,
         "shop_name": new_branch.shop_name,
         "web_login": web_login,
+        "web_password": raw_password,
         "branches_count": branch_count + 1,
     }
 
@@ -2655,6 +2718,37 @@ async def delete_branch(
     branch.deleted_at = datetime.utcnow()
     await session.commit()
     return {"status": "deleted", "seller_id": branch_id}
+
+
+@router.post("/branches/{branch_id}/reset-password")
+async def reset_branch_password(
+    branch_id: int,
+    auth: tuple = Depends(require_seller_token_with_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Generate a new password for a branch. Returns plaintext once."""
+    _seller_id, owner_id = auth
+    result = await session.execute(
+        select(Seller).where(
+            Seller.seller_id == branch_id,
+            Seller.owner_id == owner_id,
+            Seller.deleted_at.is_(None),
+        )
+    )
+    branch = result.scalar_one_or_none()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Филиал не найден")
+
+    import secrets
+    from backend.app.core.password_utils import hash_password
+    raw_password = secrets.token_urlsafe(12)
+    branch.web_password_hash = hash_password(raw_password)
+    await session.commit()
+
+    return {
+        "web_login": branch.web_login,
+        "web_password": raw_password,
+    }
 
 
 # --- NETWORK SETTINGS ---

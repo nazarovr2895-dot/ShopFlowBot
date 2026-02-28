@@ -421,7 +421,7 @@ async def checkout_cart(
         await session.commit()
 
         # Send Telegram notification to seller for each created order
-        from backend.app.services.telegram_notify import notify_seller_new_order
+        from backend.app.services.telegram_notify import notify_seller_new_order, resolve_notification_chat_id
         for o in orders:
             preorder_date_str = o.get("preorder_delivery_date")
             if preorder_date_str:
@@ -432,8 +432,9 @@ async def checkout_cart(
                     preorder_date_str = d.strftime("%d.%m.%Y")
                 except (ValueError, TypeError):
                     pass
+            _chat_id = await resolve_notification_chat_id(session, o["seller_id"])
             await notify_seller_new_order(
-                seller_id=o["seller_id"],
+                seller_id=_chat_id,
                 order_id=o["order_id"],
                 items_info=o.get("items_info", ""),
                 total_price=o.get("total_price"),
@@ -724,15 +725,16 @@ async def cancel_order(
                 await pay_svc.refund_payment(order_id)
                 await session.commit()
                 from backend.app.services.telegram_notify import (
-                    notify_buyer_payment_refunded, notify_seller_payment_refunded,
+                    notify_buyer_payment_refunded, notify_seller_payment_refunded, resolve_notification_chat_id,
                 )
                 refund_amt = result.get("total_price", 0)
                 if order_obj.buyer_id:
                     await notify_buyer_payment_refunded(
                         order_obj.buyer_id, order_id, order_obj.seller_id, refund_amt,
                     )
+                _chat_id = await resolve_notification_chat_id(session, order_obj.seller_id)
                 await notify_seller_payment_refunded(
-                    order_obj.seller_id, order_id, refund_amt,
+                    _chat_id, order_id, refund_amt,
                 )
             except Exception as refund_err:
                 logger.warning(
@@ -742,6 +744,8 @@ async def cancel_order(
                 )
 
         # Notify seller about cancellation
+        from backend.app.services.telegram_notify import resolve_notification_chat_id as _resolve_chat
+        _chat_id = await _resolve_chat(session, result["seller_id"])
         is_preorder = result.get("is_preorder", False)
         if is_preorder:
             from backend.app.services.telegram_notify import notify_seller_preorder_cancelled
@@ -750,7 +754,7 @@ async def cancel_order(
             if order_obj and getattr(order_obj, "preorder_delivery_date", None):
                 preorder_date = order_obj.preorder_delivery_date.strftime("%d.%m.%Y")
             await notify_seller_preorder_cancelled(
-                seller_id=result["seller_id"],
+                seller_id=_chat_id,
                 order_id=order_id,
                 items_info=result.get("items_info", ""),
                 preorder_delivery_date=preorder_date,
@@ -758,7 +762,7 @@ async def cancel_order(
         else:
             from backend.app.services.telegram_notify import notify_seller_order_cancelled
             await notify_seller_order_cancelled(
-                seller_id=result["seller_id"],
+                seller_id=_chat_id,
                 order_id=order_id,
                 items_info=result.get("items_info", ""),
             )

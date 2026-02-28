@@ -49,6 +49,7 @@ class SellerLoginResponse(BaseModel):
     role: str = "seller"
     seller_id: int
     owner_id: int
+    is_primary: bool = True
     branches: list[BranchInfo] = []
 
 
@@ -61,20 +62,21 @@ class SwitchBranchResponse(BaseModel):
     seller_id: int
 
 
-def create_seller_token(seller_id: int, owner_id: int) -> str:
+def create_seller_token(seller_id: int, owner_id: int, is_primary: bool = True) -> str:
     """Create JWT for seller web session."""
     payload = {
         "sub": str(seller_id),
         "owner": str(owner_id),
         "role": "seller",
+        "is_primary": is_primary,
         "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
         "iat": datetime.utcnow(),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def decode_seller_token(token: str) -> Optional[Tuple[int, int]]:
-    """Decode JWT and return (seller_id, owner_id) or None."""
+def decode_seller_token(token: str) -> Optional[Tuple[int, int, bool]]:
+    """Decode JWT and return (seller_id, owner_id, is_primary) or None."""
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("role") != "seller":
@@ -82,7 +84,9 @@ def decode_seller_token(token: str) -> Optional[Tuple[int, int]]:
         seller_id = int(payload["sub"])
         # Backwards compat: old tokens without "owner" use seller_id as owner_id
         owner_id = int(payload.get("owner", payload["sub"]))
-        return seller_id, owner_id
+        # Backwards compat: old tokens without "is_primary" default to True
+        is_primary = payload.get("is_primary", True)
+        return seller_id, owner_id, is_primary
     except (jwt.InvalidTokenError, ValueError, KeyError):
         return None
 
@@ -97,7 +101,7 @@ async def require_seller_token(
     decoded = decode_seller_token(x_seller_token)
     if not decoded:
         raise HTTPException(status_code=401, detail="Недействительный или истекший токен")
-    seller_id, _owner_id = decoded
+    seller_id, _owner_id, _is_primary = decoded
     # Verify seller exists and is not deleted
     result = await session.execute(
         select(Seller).where(
@@ -123,7 +127,7 @@ async def require_seller_token_with_owner(
     decoded = decode_seller_token(x_seller_token)
     if not decoded:
         raise HTTPException(status_code=401, detail="Недействительный или истекший токен")
-    seller_id, owner_id = decoded
+    seller_id, owner_id, _is_primary = decoded
     result = await session.execute(
         select(Seller).where(
             Seller.seller_id == seller_id,
@@ -177,12 +181,26 @@ async def seller_login(
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     if seller.is_blocked:
         raise HTTPException(status_code=403, detail="Аккаунт заблокирован")
-    token = create_seller_token(seller.seller_id, seller.owner_id)
-    branches = await _get_owner_branches(session, seller.owner_id)
+
+    # Determine if this is an owner login (primary) or branch employee login
+    is_primary = (seller.seller_id == seller.owner_id)
+    token = create_seller_token(seller.seller_id, seller.owner_id, is_primary=is_primary)
+
+    # Owner sees all branches; branch employee sees only their branch
+    if is_primary:
+        branches = await _get_owner_branches(session, seller.owner_id)
+    else:
+        branches = [BranchInfo(
+            seller_id=seller.seller_id,
+            shop_name=seller.shop_name,
+            address_name=seller.address_name,
+        )]
+
     return SellerLoginResponse(
         token=token,
         seller_id=seller.seller_id,
         owner_id=seller.owner_id,
+        is_primary=is_primary,
         branches=branches,
     )
 
@@ -192,9 +210,18 @@ async def switch_branch(
     data: SwitchBranchRequest,
     auth: Tuple[int, int] = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
+    x_seller_token: Optional[str] = Header(None, alias="X-Seller-Token"),
 ):
-    """Switch to a different branch (same owner). Returns a new JWT."""
+    """Switch to a different branch (same owner). Returns a new JWT.
+    Only primary (owner) accounts can switch branches.
+    """
     _current_seller_id, owner_id = auth
+
+    # Only owners can switch branches
+    decoded = decode_seller_token(x_seller_token) if x_seller_token else None
+    if decoded and not decoded[2]:  # is_primary == False
+        raise HTTPException(status_code=403, detail="Только владелец сети может переключать филиалы")
+
     # Verify target branch belongs to same owner
     result = await session.execute(
         select(Seller).where(
@@ -208,5 +235,6 @@ async def switch_branch(
         raise HTTPException(status_code=404, detail="Филиал не найден")
     if target.is_blocked:
         raise HTTPException(status_code=403, detail="Филиал заблокирован")
-    token = create_seller_token(target.seller_id, owner_id)
+    # Owner retains is_primary=True even when switching to a branch
+    token = create_seller_token(target.seller_id, owner_id, is_primary=True)
     return SwitchBranchResponse(token=token, seller_id=target.seller_id)

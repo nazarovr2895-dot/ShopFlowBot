@@ -32,8 +32,8 @@ export function Login() {
       }
 
       // Try seller login
-      const { token, seller_id, branches } = await sellerLogin(loginValue, password);
-      login({ token, role: 'seller', sellerId: seller_id, branches });
+      const { token, seller_id, branches, is_primary } = await sellerLogin(loginValue, password);
+      login({ token, role: 'seller', sellerId: seller_id, branches, isPrimary: is_primary });
       navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка входа');

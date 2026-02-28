@@ -503,6 +503,7 @@ class PaymentService:
                 from backend.app.services.telegram_notify import (
                     notify_buyer_payment_succeeded,
                     notify_seller_payment_received,
+                    resolve_notification_chat_id,
                 )
                 if order.buyer_id:
                     await notify_buyer_payment_succeeded(
@@ -510,8 +511,9 @@ class PaymentService:
                         order_id=order_id,
                         seller_id=order.seller_id,
                     )
+                _chat_id = await resolve_notification_chat_id(self.session, order.seller_id)
                 await notify_seller_payment_received(
-                    seller_id=order.seller_id,
+                    seller_id=_chat_id,
                     order_id=order_id,
                     total_price=float(order.total_price) if order.total_price else 0,
                 )

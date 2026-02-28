@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, Package, Users, Store, ClipboardCheck, ShoppingBag, Settings as SettingsIcon, BarChart3, XCircle, CreditCard, Calendar, CheckCircle2 } from 'lucide-react';
 import { getMe, getStats, getOrders, getDashboardAlerts, getSubscriberCount, getUpcomingEvents, getDashboardOrderEvents } from '../../api/sellerClient';
 import type { SellerMe, SellerStats, DashboardAlerts, UpcomingEvent, OrderEvent } from '../../api/sellerClient';
+import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader, StatCard, StatusBadge, Card, ActionCard } from '../../components/ui';
 import { MiniSparkline } from '../../components/MiniSparkline';
 import '../Dashboard.css';
@@ -24,6 +25,7 @@ function TrendBadge({ current, previous }: { current: number; previous: number |
 }
 
 export function SellerDashboard() {
+  const { isPrimary, isNetwork, branches } = useAuth();
   const [me, setMe] = useState<SellerMe | null>(null);
   const [stats, setStats] = useState<SellerStats | null>(null);
   const [weekStats, setWeekStats] = useState<SellerStats | null>(null);
@@ -34,15 +36,19 @@ export function SellerDashboard() {
   const [subscriberCount, setSubscriberCount] = useState(0);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [branch, setBranch] = useState<string>('all');
   const lastPendingCountRef = useRef<number | null>(null);
 
+  const showBranchFilter = isPrimary && isNetwork;
+
   useEffect(() => {
+    const branchParam = showBranchFilter ? branch : undefined;
     const load = async () => {
       try {
         const [meData, statsData, weekStatsData, pendingOrders, activeOrders, alertsData, subCount, eventsData, orderEventsData] = await Promise.all([
           getMe(),
-          getStats(),
-          getStats({ period: '7d' }),
+          getStats({ branch: branchParam }),
+          getStats({ period: '7d', branch: branchParam }),
           getOrders({ status: 'pending' }),
           getOrders({ status: 'accepted,assembling,in_transit,ready_for_pickup' }),
           getDashboardAlerts(),
@@ -71,7 +77,7 @@ export function SellerDashboard() {
       }
     };
     load();
-  }, []);
+  }, [branch, showBranchFilter]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -123,6 +129,21 @@ export function SellerDashboard() {
       <PageHeader
         title="Дашборд"
         subtitle={me?.shop_name || 'Мой магазин'}
+        actions={showBranchFilter ? (
+          <select
+            className="form-input form-input-sm"
+            value={branch}
+            onChange={(e) => { setBranch(e.target.value); setLoading(true); }}
+            style={{ minWidth: 160 }}
+          >
+            <option value="all">Все филиалы</option>
+            {branches.map((b) => (
+              <option key={b.seller_id} value={String(b.seller_id)}>
+                {b.shop_name || `Филиал #${b.seller_id}`}
+              </option>
+            ))}
+          </select>
+        ) : undefined}
       />
 
       {/* ── Hero Row ──────────────────────────── */}

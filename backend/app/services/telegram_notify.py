@@ -14,6 +14,24 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 TELEGRAM_API = "https://api.telegram.org"
 MINI_APP_URL = (os.getenv("MINI_APP_URL") or "").rstrip("/")
 
+
+async def resolve_notification_chat_id(session, seller_id: int) -> int:
+    """Resolve seller_id to the actual Telegram chat_id for notifications.
+
+    Lookup chain: seller.contact_tg_id → seller.owner_id → seller_id (fallback).
+    """
+    from sqlalchemy import select
+    from backend.app.models.seller import Seller
+    result = await session.execute(
+        select(Seller.contact_tg_id, Seller.owner_id).where(
+            Seller.seller_id == seller_id
+        )
+    )
+    row = result.first()
+    if not row:
+        return seller_id  # backward compat: assume seller_id is tg_id
+    return row.contact_tg_id or row.owner_id
+
 STATUS_LABELS = {
     "pending": "⏳ Ожидает подтверждения продавцом",
     "accepted": "✅ Заказ принят продавцом",

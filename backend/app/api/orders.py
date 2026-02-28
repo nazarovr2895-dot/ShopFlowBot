@@ -86,9 +86,10 @@ async def create_order(
         )
         await session.commit()
         logger.info("Order created successfully", order_id=order.id, buyer_id=data.buyer_id)
-        from backend.app.services.telegram_notify import notify_seller_new_order
+        from backend.app.services.telegram_notify import notify_seller_new_order, resolve_notification_chat_id
+        _chat_id = await resolve_notification_chat_id(session, data.seller_id)
         await notify_seller_new_order(
-            seller_id=data.seller_id,
+            seller_id=_chat_id,
             order_id=order.id,
             items_info=data.items_info,
             total_price=float(order.total_price) if order.total_price is not None else None,
@@ -203,15 +204,16 @@ async def reject_order(
                 await pay_svc.refund_payment(order_id)
                 await session.commit()
                 from backend.app.services.telegram_notify import (
-                    notify_buyer_payment_refunded, notify_seller_payment_refunded,
+                    notify_buyer_payment_refunded, notify_seller_payment_refunded, resolve_notification_chat_id,
                 )
                 refund_amt = result.get("total_price", 0)
                 if order_obj.buyer_id:
                     await notify_buyer_payment_refunded(
                         order_obj.buyer_id, order_id, order_obj.seller_id, refund_amt,
                     )
+                _chat_id = await resolve_notification_chat_id(session, order_obj.seller_id)
                 await notify_seller_payment_refunded(
-                    order_obj.seller_id, order_id, refund_amt,
+                    _chat_id, order_id, refund_amt,
                 )
             except Exception as refund_err:
                 logger.warning(
@@ -329,6 +331,7 @@ async def update_order_status(
         from backend.app.services.telegram_notify import (
             notify_buyer_order_status,
             notify_seller_order_completed,
+            resolve_notification_chat_id,
         )
         await notify_buyer_order_status(
             buyer_id=result["buyer_id"],
@@ -339,8 +342,9 @@ async def update_order_status(
             total_price=result.get("total_price"),
         )
         if result["new_status"] == "completed":
+            _chat_id = await resolve_notification_chat_id(session, result["seller_id"])
             await notify_seller_order_completed(
-                seller_id=result["seller_id"],
+                seller_id=_chat_id,
                 order_id=order_id,
             )
         return {
@@ -569,10 +573,11 @@ async def guest_checkout(
         await session.commit()
 
         # Send seller notifications (no buyer notification — guest has no Telegram)
-        from backend.app.services.telegram_notify import notify_seller_new_order_guest
+        from backend.app.services.telegram_notify import notify_seller_new_order_guest, resolve_notification_chat_id
         for o in created:
+            _chat_id = await resolve_notification_chat_id(session, o["seller_id"])
             await notify_seller_new_order_guest(
-                seller_id=o["seller_id"],
+                seller_id=_chat_id,
                 order_id=o["order_id"],
                 items_info=o["items_info"],
                 total_price=o["total_price"],

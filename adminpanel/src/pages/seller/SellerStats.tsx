@@ -9,6 +9,7 @@ import {
   CustomerStats,
   PreorderAnalytics,
 } from '../../api/sellerClient';
+import { useAuth } from '../../contexts/AuthContext';
 import { SalesChart } from '../../components/SalesChart';
 import { PageHeader, TabBar, EmptyState, useToast } from '../../components/ui';
 import '../Stats.css';
@@ -86,6 +87,7 @@ function formatDateRange(from?: string | null, to?: string | null): string | nul
 
 export function SellerStats() {
   const toast = useToast();
+  const { isPrimary, isNetwork, branches } = useAuth();
   const [stats, setStats] = useState<SellerStatsType | null>(null);
   const [customerData, setCustomerData] = useState<CustomerStats | null>(null);
   const [preorderData, setPreorderData] = useState<PreorderAnalytics | null>(null);
@@ -97,20 +99,25 @@ export function SellerStats() {
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [activeTab, setActiveTab] = useState<StatsTab>('sales');
+  const [branch, setBranch] = useState<string>('all');
+
+  const showBranchFilter = isPrimary && isNetwork;
 
   const loadStats = useCallback(async (params?: { period?: Exclude<RangePreset, 'custom'>; date_from?: string; date_to?: string }) => {
+    const branchParam = showBranchFilter ? branch : undefined;
+    const fullParams = { ...params, branch: branchParam };
     setLoading(true);
     setCustLoading(true);
     setPreorderLoading(true);
     setError(null);
     try {
       const [data, custData, preorderAnalytics] = await Promise.all([
-        getStats(params),
-        getCustomerStats(params).catch((err) => {
+        getStats(fullParams),
+        getCustomerStats(fullParams).catch((err) => {
           console.warn('Customer stats load failed:', err);
           return null;
         }),
-        getPreorderAnalytics(params).catch((err) => {
+        getPreorderAnalytics(fullParams).catch((err) => {
           console.warn('Preorder analytics load failed:', err);
           return null;
         }),
@@ -134,14 +141,14 @@ export function SellerStats() {
       setCustLoading(false);
       setPreorderLoading(false);
     }
-  }, []);
+  }, [branch, showBranchFilter]);
 
   useEffect(() => {
     if (rangePreset === 'custom') {
       return;
     }
     loadStats({ period: rangePreset });
-  }, [rangePreset, loadStats]);
+  }, [rangePreset, loadStats, branch]);
 
   const handlePresetChange = (preset: RangePreset) => {
     setRangePreset(preset);
@@ -159,9 +166,10 @@ export function SellerStats() {
 
   const handleExportStats = async () => {
     try {
+      const branchParam = showBranchFilter ? branch : undefined;
       const params = rangePreset === 'custom'
-        ? { date_from: customFrom, date_to: customTo }
-        : { period: rangePreset };
+        ? { date_from: customFrom, date_to: customTo, branch: branchParam }
+        : { period: rangePreset, branch: branchParam };
       const blob = await exportStatsCSV(params);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -202,13 +210,30 @@ export function SellerStats() {
       <PageHeader
         title="Статистика"
         actions={
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleExportStats}
-          >
-            Экспорт CSV
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {showBranchFilter && (
+              <select
+                className="form-input form-input-sm"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                style={{ minWidth: 160 }}
+              >
+                <option value="all">Все филиалы</option>
+                {branches.map((b) => (
+                  <option key={b.seller_id} value={String(b.seller_id)}>
+                    {b.shop_name || `Филиал #${b.seller_id}`}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleExportStats}
+            >
+              Экспорт CSV
+            </button>
+          </div>
         }
       />
 

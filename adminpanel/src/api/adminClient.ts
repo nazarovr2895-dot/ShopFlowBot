@@ -284,6 +284,7 @@ export async function sellerLogin(login: string, password: string): Promise<{
   token: string;
   seller_id: number;
   owner_id: number;
+  is_primary: boolean;
   branches: Array<{ seller_id: number; shop_name: string | null; address_name: string | null }>;
 }> {
   const url = `${getApiBase()}/seller-web/login`;

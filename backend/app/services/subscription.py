@@ -370,11 +370,12 @@ class SubscriptionService:
             expires_at=sub.expires_at.isoformat(),
         )
 
-        # Send notification (uses owner_id to find tg_id)
+        # Send notification (resolve to actual Telegram chat_id)
         try:
-            from backend.app.services.telegram_notify import notify_seller_subscription_activated
+            from backend.app.services.telegram_notify import notify_seller_subscription_activated, resolve_notification_chat_id
+            _chat_id = await resolve_notification_chat_id(self.session, owner_id)
             await notify_seller_subscription_activated(
-                seller_id=owner_id,
+                seller_id=_chat_id,
                 period_months=sub.period_months,
                 expires_at=sub.expires_at,
             )
@@ -413,8 +414,9 @@ class SubscriptionService:
 
                 # Send expiry notification
                 try:
-                    from backend.app.services.telegram_notify import notify_seller_subscription_expired
-                    await notify_seller_subscription_expired(owner_id)
+                    from backend.app.services.telegram_notify import notify_seller_subscription_expired, resolve_notification_chat_id
+                    _chat_id = await resolve_notification_chat_id(self.session, owner_id)
+                    await notify_seller_subscription_expired(_chat_id)
                 except Exception as e:
                     logger.warning("Subscription expiry notification failed", seller_id=owner_id, error=str(e))
 
@@ -442,9 +444,10 @@ class SubscriptionService:
             )
             for sub in result.scalars().all():
                 try:
-                    from backend.app.services.telegram_notify import notify_seller_subscription_expiring
+                    from backend.app.services.telegram_notify import notify_seller_subscription_expiring, resolve_notification_chat_id
+                    _chat_id = await resolve_notification_chat_id(self.session, sub.seller_id)
                     await notify_seller_subscription_expiring(
-                        seller_id=sub.seller_id,
+                        seller_id=_chat_id,
                         days_label=label,
                         expires_at=sub.expires_at,
                     )

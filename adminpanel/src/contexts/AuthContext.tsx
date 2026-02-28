@@ -8,6 +8,7 @@ const SELLER_TOKEN_KEY = 'seller_token';
 const AUTH_ROLE_KEY = 'auth_role';
 const SELLER_ID_KEY = 'seller_id';
 const BRANCHES_KEY = 'branches';
+const IS_PRIMARY_KEY = 'is_primary';
 
 export type AuthRole = 'admin' | 'seller' | null;
 
@@ -17,9 +18,10 @@ interface AuthContextType {
   sellerId: number | null;
   branches: BranchInfo[];
   isNetwork: boolean;
+  isPrimary: boolean;
   telegramAuthLoading: boolean;
   telegramAuthError: string | null;
-  login: (params: { token: string; role: AuthRole; sellerId?: number; branches?: BranchInfo[] }) => void;
+  login: (params: { token: string; role: AuthRole; sellerId?: number; branches?: BranchInfo[]; isPrimary?: boolean }) => void;
   logout: () => void;
   switchBranch: (sellerId: number) => Promise<void>;
 }
@@ -34,7 +36,7 @@ function getStoredBranches(): BranchInfo[] {
 }
 
 function getInitialAuth() {
-  if (typeof sessionStorage === 'undefined') return { isAuth: false, role: null as AuthRole, sellerId: null as number | null, branches: [] as BranchInfo[] };
+  if (typeof sessionStorage === 'undefined') return { isAuth: false, role: null as AuthRole, sellerId: null as number | null, branches: [] as BranchInfo[], isPrimary: true };
   const adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
   const sellerToken = sessionStorage.getItem(SELLER_TOKEN_KEY);
   const storedRole = sessionStorage.getItem(AUTH_ROLE_KEY) as AuthRole | '';
@@ -43,7 +45,8 @@ function getInitialAuth() {
   const role = storedRole === 'admin' || storedRole === 'seller' ? storedRole : null;
   const sellerId = storedSellerId ? parseInt(storedSellerId, 10) : null;
   const branches = getStoredBranches();
-  return { isAuth: hasAuth, role, sellerId, branches };
+  const isPrimary = sessionStorage.getItem(IS_PRIMARY_KEY) !== 'false';
+  return { isAuth: hasAuth, role, sellerId, branches, isPrimary };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -52,17 +55,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AuthRole>(initial.role);
   const [sellerId, setSellerId] = useState<number | null>(initial.sellerId);
   const [branches, setBranches] = useState<BranchInfo[]>(initial.branches);
+  const [isPrimary, setIsPrimary] = useState(initial.isPrimary);
   const [telegramAuthLoading, setTelegramAuthLoading] = useState(() => isTelegram() && !initial.isAuth);
   const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
 
   const isNetwork = branches.length > 1;
 
-  const login = useCallback((params: { token: string; role: AuthRole; sellerId?: number; branches?: BranchInfo[] }) => {
+  const login = useCallback((params: { token: string; role: AuthRole; sellerId?: number; branches?: BranchInfo[]; isPrimary?: boolean }) => {
     if (params.role === 'admin') {
       sessionStorage.setItem(ADMIN_TOKEN_KEY, params.token);
       sessionStorage.removeItem(SELLER_TOKEN_KEY);
       sessionStorage.removeItem(SELLER_ID_KEY);
       sessionStorage.removeItem(BRANCHES_KEY);
+      sessionStorage.removeItem(IS_PRIMARY_KEY);
     } else if (params.role === 'seller') {
       sessionStorage.setItem(SELLER_TOKEN_KEY, params.token);
       if (params.sellerId != null) {
@@ -71,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (params.branches) {
         sessionStorage.setItem(BRANCHES_KEY, JSON.stringify(params.branches));
       }
+      sessionStorage.setItem(IS_PRIMARY_KEY, String(params.isPrimary ?? true));
       sessionStorage.removeItem(ADMIN_TOKEN_KEY);
     }
     sessionStorage.setItem(AUTH_ROLE_KEY, params.role ?? '');
@@ -78,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(params.role);
     setSellerId(params.sellerId ?? null);
     setBranches(params.branches ?? []);
+    setIsPrimary(params.isPrimary ?? true);
   }, []);
 
   const logout = useCallback(() => {
@@ -86,10 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem(AUTH_ROLE_KEY);
     sessionStorage.removeItem(SELLER_ID_KEY);
     sessionStorage.removeItem(BRANCHES_KEY);
+    sessionStorage.removeItem(IS_PRIMARY_KEY);
     setIsAuthenticated(false);
     setRole(null);
     setSellerId(null);
     setBranches([]);
+    setIsPrimary(true);
   }, []);
 
   const switchBranch = useCallback(async (targetSellerId: number) => {
@@ -123,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     telegramAdminAuth(initData)
       .then(({ token, role: authRole, seller_id, branches: authBranches }) => {
-        login({ token, role: authRole, sellerId: seller_id, branches: authBranches });
+        login({ token, role: authRole, sellerId: seller_id, branches: authBranches, isPrimary: true });
       })
       .catch((err) => {
         console.error('[TG Auth] Failed:', err);
@@ -146,10 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(storedRole === 'admin' || storedRole === 'seller' ? storedRole : null);
     setSellerId(storedSellerId ? parseInt(storedSellerId, 10) : null);
     setBranches(getStoredBranches());
+    setIsPrimary(sessionStorage.getItem(IS_PRIMARY_KEY) !== 'false');
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, role, sellerId, branches, isNetwork, telegramAuthLoading, telegramAuthError, login, logout, switchBranch }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, sellerId, branches, isNetwork, isPrimary, telegramAuthLoading, telegramAuthError, login, logout, switchBranch }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  getBranches, createBranch, updateBranch, deleteBranch,
+  getBranches, createBranch, updateBranch, deleteBranch, resetBranchPassword,
   getPublicCities, getPublicDistricts, getPublicMetro,
 } from '../../api/sellerClient';
 import type { BranchDetail } from '../../api/sellerClient';
 import { useToast } from '../../components/ui';
-import { GitBranch, Plus, Trash2, MapPin, Pencil, Truck, X } from 'lucide-react';
+import { GitBranch, Plus, Trash2, MapPin, Pencil, Truck, X, KeyRound, Copy, Check, MessageCircle } from 'lucide-react';
 
 const DELIVERY_OPTIONS = [
   { value: '', label: 'Не указано' },
@@ -30,6 +30,7 @@ interface FormData {
   address_name: string;
   delivery_type: string;
   clone_products_from: number | null;
+  contact_tg_id: string;
 }
 
 const emptyForm: FormData = {
@@ -41,9 +42,93 @@ const emptyForm: FormData = {
   address_name: '',
   delivery_type: '',
   clone_products_from: null,
+  contact_tg_id: '',
 };
 
 type RefOption = { id: number; name: string; line_color?: string };
+
+/* ── Credentials Modal ──────────────────────────────────── */
+
+function CredentialsModal({ login, password, onClose }: { login: string; password: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    const text = `Логин: ${login}\nПароль: ${password}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1100,
+        background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem',
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="card"
+        style={{ width: '100%', maxWidth: 420, padding: '1.5rem', position: 'relative' }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute', top: '0.75rem', right: '0.75rem',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--text-secondary)', padding: '0.25rem',
+          }}
+        >
+          <X size={18} />
+        </button>
+
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <KeyRound size={18} /> Данные для входа
+        </h2>
+
+        <div style={{
+          background: 'var(--bg-secondary, #f3f4f6)', borderRadius: 8, padding: '1rem',
+          fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '0.75rem',
+        }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Логин: </span>
+            <span style={{ fontWeight: 600 }}>{login}</span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Пароль: </span>
+            <span style={{ fontWeight: 600 }}>{password}</span>
+          </div>
+        </div>
+
+        <p style={{ fontSize: '0.75rem', color: 'var(--danger, #ef4444)', marginBottom: '1rem', fontWeight: 500 }}>
+          Пароль показывается только один раз. Сохраните его сейчас.
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn btn-primary" onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {copied ? <><Check size={14} /> Скопировано</> : <><Copy size={14} /> Скопировать</>}
+          </button>
+          <button className="btn btn-ghost" onClick={onClose}>Закрыть</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Component ─────────────────────────────────────── */
 
 export function SellerBranches() {
   const { sellerId, switchBranch } = useAuth();
@@ -57,6 +142,9 @@ export function SellerBranches() {
   const [editingBranch, setEditingBranch] = useState<BranchDetail | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [saving, setSaving] = useState(false);
+
+  // Credentials modal
+  const [credentials, setCredentials] = useState<{ login: string; password: string } | null>(null);
 
   // Reference data
   const [cities, setCities] = useState<RefOption[]>([]);
@@ -134,6 +222,7 @@ export function SellerBranches() {
       address_name: branch.address_name || '',
       delivery_type: branch.delivery_type || '',
       clone_products_from: null,
+      contact_tg_id: branch.contact_tg_id != null ? String(branch.contact_tg_id) : '',
     });
     setShowForm(true);
   };
@@ -158,6 +247,7 @@ export function SellerBranches() {
         metro_id: form.metro_id,
         metro_walk_minutes: form.metro_id ? form.metro_walk_minutes : null,
         delivery_type: form.delivery_type || null,
+        contact_tg_id: form.contact_tg_id ? Number(form.contact_tg_id) : null,
       };
       if (editingBranch) {
         await updateBranch(editingBranch.seller_id, payload);
@@ -166,8 +256,8 @@ export function SellerBranches() {
         if (form.clone_products_from) {
           payload.clone_products_from = form.clone_products_from;
         }
-        await createBranch(payload);
-        toast.success('Филиал создан');
+        const result = await createBranch(payload);
+        setCredentials({ login: result.web_login, password: result.web_password });
       }
       closeForm();
       await loadBranches();
@@ -186,6 +276,16 @@ export function SellerBranches() {
       await loadBranches();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка удаления');
+    }
+  };
+
+  const handleResetPassword = async (branchId: number) => {
+    if (!confirm('Сбросить пароль? Старый пароль перестанет работать.')) return;
+    try {
+      const result = await resetBranchPassword(branchId);
+      setCredentials({ login: result.web_login, password: result.web_password });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка сброса пароля');
     }
   };
 
@@ -217,6 +317,7 @@ export function SellerBranches() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {branches.map(b => {
           const isCurrent = b.seller_id === sellerId;
+          const isOwnerBranch = b.seller_id === (branches.find(br => br.web_login === null)?.seller_id ?? sellerId);
           return (
             <div
               key={b.seller_id}
@@ -245,6 +346,16 @@ export function SellerBranches() {
                   >
                     <Pencil size={13} />
                   </button>
+                  {b.web_login && (
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => handleResetPassword(b.seller_id)}
+                      style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                      title="Сбросить пароль"
+                    >
+                      <KeyRound size={13} />
+                    </button>
+                  )}
                   {!isCurrent && (
                     <button
                       className="btn btn-sm"
@@ -254,7 +365,7 @@ export function SellerBranches() {
                       Перейти
                     </button>
                   )}
-                  {branches.length > 1 && (
+                  {branches.length > 1 && !isOwnerBranch && (
                     <button
                       className="btn btn-sm"
                       onClick={() => handleDelete(b.seller_id)}
@@ -280,6 +391,16 @@ export function SellerBranches() {
                 {b.delivery_type && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                     <Truck size={12} /> {DELIVERY_LABELS[b.delivery_type] || b.delivery_type}
+                  </span>
+                )}
+                {b.web_login && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <KeyRound size={12} /> {b.web_login}
+                  </span>
+                )}
+                {b.contact_tg_id && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <MessageCircle size={12} /> TG: {b.contact_tg_id}
                   </span>
                 )}
               </div>
@@ -443,6 +564,23 @@ export function SellerBranches() {
                 </select>
               </div>
 
+              {/* Contact Telegram ID */}
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', display: 'block' }}>
+                  Telegram ID для уведомлений
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Числовой Telegram ID (необязательно)"
+                  value={form.contact_tg_id}
+                  onChange={e => updateField('contact_tg_id', e.target.value.replace(/\D/g, ''))}
+                />
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  Уведомления о заказах будут приходить на этот Telegram. Если не указано — на аккаунт владельца.
+                </p>
+              </div>
+
               {/* Clone products (only when creating) */}
               {!editingBranch && branches.length > 0 && (
                 <div>
@@ -474,6 +612,15 @@ export function SellerBranches() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Credentials modal */}
+      {credentials && (
+        <CredentialsModal
+          login={credentials.login}
+          password={credentials.password}
+          onClose={() => setCredentials(null)}
+        />
       )}
     </div>
   );
