@@ -6,7 +6,7 @@
 - Create sequence for new branch seller_ids
 
 Revision ID: add_multi_branch
-Revises: fix_cart_uq_preorder_date
+Revises: add_categories
 Create Date: 2026-02-28
 
 """
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_multi_branch'
-down_revision: Union[str, None] = 'fix_cart_uq_preorder_date'
+down_revision: Union[str, None] = 'add_categories'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
