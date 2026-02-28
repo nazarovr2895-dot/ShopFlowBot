@@ -32,6 +32,7 @@ from backend.app.schemas import (
 )
 from backend.app.services.orders import OrderService, OrderServiceError
 from backend.app.services.sellers import SellerService, SellerServiceError
+from backend.app.models.seller import Seller
 from backend.app.services.products import (
     create_product_service,
     get_products_by_seller_service,
