@@ -100,8 +100,10 @@ function CredentialsModal({ login, password, onClose }: { login: string; passwor
         </h2>
 
         <div style={{
-          background: 'var(--bg-secondary, #f3f4f6)', borderRadius: 8, padding: '1rem',
+          background: 'var(--card-bg, #fff)', border: '1px solid var(--border, #e5e7eb)',
+          borderRadius: 8, padding: '1rem',
           fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '0.75rem',
+          color: 'var(--text-primary, #111)',
         }}>
           <div style={{ marginBottom: '0.5rem' }}>
             <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Логин: </span>
