@@ -188,9 +188,8 @@ export function SellerBranches() {
     }
   };
 
-  // --- Find city/district name ---
+  // --- Find city name ---
   const getCityName = (cityId: number | null) => cities.find(c => c.id === cityId)?.name;
-  const getDistrictName = (districtId: number | null) => districts.find(d => d.id === districtId)?.name;
 
   // --- Render ---
   if (loading) {
