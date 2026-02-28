@@ -133,7 +133,7 @@ function CredentialsModal({ login, password, onClose }: { login: string; passwor
 /* ── Main Component ─────────────────────────────────────── */
 
 export function SellerBranches() {
-  const { sellerId, switchBranch, maxBranches } = useAuth();
+  const { sellerId, switchBranch, maxBranches, isNetworkOwner } = useAuth();
   const toast = useToast();
 
   const [branches, setBranches] = useState<BranchDetail[]>([]);
@@ -294,6 +294,11 @@ export function SellerBranches() {
   // --- Find city name ---
   const getCityName = (cityId: number | null) => cities.find(c => c.id === cityId)?.name;
 
+  // For network owners, exclude the owner account from displayed branches
+  const displayBranches = isNetworkOwner
+    ? branches.filter(b => b.web_login !== null)
+    : branches;
+
   // --- Render ---
   if (loading) {
     return (
@@ -313,14 +318,14 @@ export function SellerBranches() {
           </h1>
           {maxBranches != null && maxBranches > 0 && (
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'var(--bg-secondary, #f3f4f6)', padding: '0.15rem 0.5rem', borderRadius: '999px' }}>
-              {branches.length} / {1 + maxBranches}
+              {displayBranches.length} / {maxBranches}
             </span>
           )}
         </div>
         <button
           className="btn btn-primary"
           onClick={openAddForm}
-          disabled={maxBranches != null && maxBranches > 0 && branches.length >= 1 + maxBranches}
+          disabled={maxBranches != null && maxBranches > 0 && displayBranches.length >= maxBranches}
           style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
         >
           <Plus size={16} /> Добавить
@@ -329,7 +334,7 @@ export function SellerBranches() {
 
       {/* Branches list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {branches.map(b => {
+        {displayBranches.map(b => {
           const isCurrent = b.seller_id === sellerId;
           const isOwnerBranch = b.seller_id === (branches.find(br => br.web_login === null)?.seller_id ?? sellerId);
           return (
@@ -423,7 +428,7 @@ export function SellerBranches() {
         })}
       </div>
 
-      {branches.length === 0 && (
+      {displayBranches.length === 0 && (
         <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
           Нет филиалов
         </div>

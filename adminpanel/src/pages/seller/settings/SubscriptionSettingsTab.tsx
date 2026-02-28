@@ -3,13 +3,16 @@ import {
   getSubscriptionPrices,
   getSubscriptionStatus,
   createSubscription,
+  getBranchesSubscriptionStatus,
 } from '../../../api/sellerClient';
 import type {
   SubscriptionPricesResponse,
   SubscriptionStatusResponse,
+  BranchSubscriptionInfo,
 } from '../../../api/sellerClient';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../components/ui';
-import { CheckCircle, XCircle, CreditCard, Clock, Store } from 'lucide-react';
+import { CheckCircle, XCircle, CreditCard, Clock, Store, MapPin } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 
 const PERIOD_LABELS: Record<number, string> = {
@@ -36,7 +39,162 @@ function formatPrice(amount: number): string {
   return amount.toLocaleString('ru-RU') + ' \u20BD';
 }
 
-export function SubscriptionSettingsTab({ me }: SettingsTabProps) {
+/* ── Network Owner: per-branch subscription management ─────── */
+
+function NetworkSubscriptionView(_props: SettingsTabProps) {
+  const toast = useToast();
+  const [branches, setBranches] = useState<BranchSubscriptionInfo[]>([]);
+  const [prices, setPrices] = useState<SubscriptionPricesResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [payingFor, setPayingFor] = useState<number | null>(null); // seller_id being paid for
+  const [selectedPeriods, setSelectedPeriods] = useState<Record<number, number>>({}); // seller_id -> period
+
+  useEffect(() => {
+    Promise.all([getBranchesSubscriptionStatus(), getSubscriptionPrices()])
+      .then(([b, p]) => {
+        setBranches(b);
+        setPrices(p);
+      })
+      .catch(() => toast.error('Не удалось загрузить данные подписок'))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const getPeriod = (sellerId: number) => selectedPeriods[sellerId] ?? 1;
+
+  const handlePay = async (sellerId: number) => {
+    setPayingFor(sellerId);
+    try {
+      const result = await createSubscription(getPeriod(sellerId), sellerId);
+      if (result.confirmation_url) {
+        window.open(result.confirmation_url, '_blank');
+        toast.success('Перенаправление на страницу оплаты...');
+      } else {
+        toast.error('Не удалось получить ссылку на оплату');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка создания подписки');
+    } finally {
+      setPayingFor(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
+        <div className="loader" />
+      </div>
+    );
+  }
+
+  const activeCount = branches.filter(b => b.subscription_plan === 'active').length;
+
+  return (
+    <div>
+      {/* Summary */}
+      <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Store size={20} style={{ color: 'var(--primary, #6366f1)', flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+              Подписки филиалов: {activeCount} / {branches.length} активны
+            </div>
+            {prices && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                {formatPrice(prices.base_price)}/мес за филиал
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Branch cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {branches.map(branch => {
+          const isActive = branch.subscription_plan === 'active';
+          const period = getPeriod(branch.seller_id);
+          const price = prices?.prices[period] ?? 0;
+
+          return (
+            <div key={branch.seller_id} className="card" style={{ padding: '1.25rem' }}>
+              {/* Branch info + status */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                    {branch.shop_name || `#${branch.seller_id}`}
+                    {branch.is_owner && (
+                      <span style={{ fontSize: '0.7rem', color: 'var(--primary, #6366f1)', marginLeft: '0.5rem', fontWeight: 500 }}>
+                        (основной)
+                      </span>
+                    )}
+                  </div>
+                  {branch.address_name && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <MapPin size={12} /> {branch.address_name}
+                    </div>
+                  )}
+                </div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.35rem',
+                  padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600,
+                  background: isActive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.08)',
+                  color: isActive ? '#22c55e' : '#ef4444',
+                }}>
+                  {isActive ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                  {isActive ? 'Активна' : 'Не активна'}
+                </div>
+              </div>
+
+              {/* Expiry info */}
+              {isActive && branch.expires_at && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                  Действует до {formatDate(branch.expires_at)} ({branch.days_remaining} дн.)
+                </div>
+              )}
+
+              {/* Period selector + pay button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <select
+                  className="form-input"
+                  style={{ width: 'auto', fontSize: '0.85rem', padding: '0.35rem 0.5rem' }}
+                  value={period}
+                  onChange={e => setSelectedPeriods(prev => ({ ...prev, [branch.seller_id]: Number(e.target.value) }))}
+                >
+                  {([1, 3, 6, 12] as number[]).map(p => {
+                    const pPrice = prices?.prices[p] ?? 0;
+                    const disc = prices?.discounts[p] ?? 0;
+                    return (
+                      <option key={p} value={p}>
+                        {PERIOD_LABELS[p]} — {formatPrice(pPrice)}{disc > 0 ? ` (-${disc}%)` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => handlePay(branch.seller_id)}
+                  disabled={payingFor === branch.seller_id}
+                  style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                >
+                  {payingFor === branch.seller_id
+                    ? 'Оплата...'
+                    : isActive
+                      ? `Продлить ${formatPrice(price)}`
+                      : `Оплатить ${formatPrice(price)}`
+                  }
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Regular Seller: single subscription management ────────── */
+
+function RegularSubscriptionView({ me }: SettingsTabProps) {
   const toast = useToast();
   const [prices, setPrices] = useState<SubscriptionPricesResponse | null>(null);
   const [subStatus, setSubStatus] = useState<SubscriptionStatusResponse | null>(null);
@@ -117,33 +275,6 @@ export function SubscriptionSettingsTab({ me }: SettingsTabProps) {
           </div>
         </div>
       </div>
-
-      {/* Per-branch pricing info */}
-      {prices && prices.branches_count > 1 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            padding: '0.75rem 1rem',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            background: 'rgba(99, 102, 241, 0.06)',
-            border: '1px solid rgba(99, 102, 241, 0.15)',
-          }}
-        >
-          <Store size={18} style={{ color: 'var(--primary, #6366f1)', flexShrink: 0 }} />
-          <div style={{ fontSize: '0.85rem' }}>
-            <span style={{ fontWeight: 600 }}>
-              {prices.branches_count} {prices.branches_count >= 5 ? 'филиалов' : prices.branches_count >= 2 ? 'филиала' : 'филиал'}
-            </span>
-            {' × '}
-            <span>{formatPrice(prices.base_price)}/мес</span>
-            {' = '}
-            <span style={{ fontWeight: 600 }}>{formatPrice(prices.base_price * prices.branches_count)}/мес</span>
-          </div>
-        </div>
-      )}
 
       {/* Pricing Cards */}
       <div style={{ marginBottom: '1.5rem' }}>
@@ -244,4 +375,16 @@ export function SubscriptionSettingsTab({ me }: SettingsTabProps) {
       )}
     </div>
   );
+}
+
+/* ── Main export ───────────────────────────────────────────── */
+
+export function SubscriptionSettingsTab({ me, reload }: SettingsTabProps) {
+  const { isNetworkOwner } = useAuth();
+
+  if (isNetworkOwner) {
+    return <NetworkSubscriptionView me={me} reload={reload} />;
+  }
+
+  return <RegularSubscriptionView me={me} reload={reload} />;
 }

@@ -1,6 +1,7 @@
 """
 Subscription service — seller subscription management via YooKassa.
 
+Per-branch subscriptions: each seller/branch has its own independent subscription.
 Platform-level payments (no split/transfers): the full subscription amount
 goes to the main YOOKASSA_SHOP_ID account.
 """
@@ -85,25 +86,13 @@ class SubscriptionService:
             raise SubscriptionServiceError("Продавец не найден", 404)
         return seller.owner_id
 
-    async def _count_active_branches(self, owner_id: int) -> int:
-        """Count active (non-deleted) branches for an owner."""
-        result = await self.session.execute(
-            select(sa_func.count(Seller.seller_id)).where(
-                Seller.owner_id == owner_id,
-                Seller.deleted_at.is_(None),
-            )
-        )
-        return result.scalar() or 1
-
     # -- Pricing ----------------------------------------------------------------
 
-    def get_prices(self, branches_count: int = 1) -> Dict[int, int]:
-        """Return price table: {period_months: total_price_in_rubles}.
-        Per-branch pricing: base_price × period × discount × branches_count.
-        """
+    def get_prices(self) -> Dict[int, int]:
+        """Return price table per single branch: {period_months: price_in_rubles}."""
         base = get_settings().SUBSCRIPTION_BASE_PRICE
         return {
-            period: round(base * period * multiplier * branches_count)
+            period: round(base * period * multiplier)
             for period, multiplier in PERIOD_MULTIPLIERS.items()
         }
 
@@ -113,10 +102,14 @@ class SubscriptionService:
         self,
         seller_id: int,
         period_months: int,
+        target_seller_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Create a pending subscription record and a YooKassa payment.
-        Uses owner_id for subscription (network-level) and per-branch pricing.
+
+        Per-branch: subscription is for a specific seller/branch.
+        - target_seller_id: if set, create subscription for this branch (network owner paying for a branch)
+        - if not set: create subscription for seller_id directly (regular seller or self)
 
         Returns dict with subscription_id, confirmation_url, status.
         """
@@ -127,17 +120,26 @@ class SubscriptionService:
                 f"Invalid period. Must be one of: {VALID_PERIODS}"
             )
 
-        # Subscription is network-level: tied to owner's primary record
-        owner_id = await self._get_owner_id(seller_id)
-        branches_count = await self._count_active_branches(owner_id)
+        # Determine the actual seller to subscribe
+        if target_seller_id is not None:
+            # Network owner paying for a specific branch
+            caller_owner_id = await self._get_owner_id(seller_id)
+            target_seller = await self.session.get(Seller, target_seller_id)
+            if not target_seller or target_seller.deleted_at is not None:
+                raise SubscriptionServiceError("Филиал не найден", 404)
+            if target_seller.owner_id != caller_owner_id:
+                raise SubscriptionServiceError("Филиал не принадлежит вашей сети", 403)
+            sub_seller_id = target_seller_id
+        else:
+            sub_seller_id = seller_id
 
-        prices = self.get_prices(branches_count)
+        prices = self.get_prices()
         amount = prices[period_months]
         amount_decimal = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        # Create subscription record (seller_id = owner_id for network-level sub)
+        # Create subscription record for the specific branch/seller
         sub = Subscription(
-            seller_id=owner_id,
+            seller_id=sub_seller_id,
             period_months=period_months,
             status="pending",
             amount_paid=amount_decimal,
@@ -149,12 +151,15 @@ class SubscriptionService:
         return_url = settings.YOOKASSA_RETURN_URL or "https://app.flurai.ru/?tab=settings"
 
         # Build receipt (54-ФЗ)
-        desc = f"Подписка Flurai ({period_months} мес., {branches_count} фил.)"
+        # Get shop name for description
+        target = await self.session.get(Seller, sub_seller_id)
+        shop_label = target.shop_name if target and target.shop_name else f"#{sub_seller_id}"
+        desc = f"Подписка Flurai ({period_months} мес.) — {shop_label}"
         receipt = {
             "customer": {"email": "subscription@flurai.ru"},
             "items": [
                 {
-                    "description": desc,
+                    "description": desc[:128],  # YooKassa limit
                     "quantity": "1",
                     "amount": {
                         "value": str(amount_decimal),
@@ -177,13 +182,12 @@ class SubscriptionService:
                 "return_url": return_url,
             },
             "capture": True,
-            "description": desc,
+            "description": desc[:128],
             "receipt": receipt,
             "metadata": {
                 "type": "subscription",
                 "subscription_id": str(sub.id),
-                "seller_id": str(owner_id),
-                "branches_count": str(branches_count),
+                "seller_id": str(sub_seller_id),
             },
         }
 
@@ -194,7 +198,7 @@ class SubscriptionService:
         except Exception as exc:
             logger.error(
                 "Subscription payment creation failed",
-                seller_id=owner_id,
+                seller_id=sub_seller_id,
                 subscription_id=sub.id,
                 error=str(exc),
             )
@@ -209,11 +213,10 @@ class SubscriptionService:
 
         logger.info(
             "Subscription payment created",
-            seller_id=owner_id,
+            seller_id=sub_seller_id,
             subscription_id=sub.id,
             payment_id=payment.id,
             period_months=period_months,
-            branches_count=branches_count,
             amount=str(amount_decimal),
         )
 
@@ -225,23 +228,19 @@ class SubscriptionService:
         }
 
     async def check_subscription(self, seller_id: int) -> bool:
-        """Check if seller/branch has an active subscription (via owner's subscription_plan flag)."""
-        owner_id = await self._get_owner_id(seller_id)
+        """Check if a specific seller/branch has an active subscription."""
         result = await self.session.execute(
-            select(Seller.subscription_plan).where(Seller.seller_id == owner_id)
+            select(Seller.subscription_plan).where(Seller.seller_id == seller_id)
         )
         plan = result.scalar_one_or_none()
         return plan == "active"
 
     async def get_active_subscription(self, seller_id: int) -> Optional[Dict[str, Any]]:
-        """Return current active subscription info for display, or None.
-        Subscription is network-level (tied to owner_id)."""
-        owner_id = await self._get_owner_id(seller_id)
-        branches_count = await self._count_active_branches(owner_id)
+        """Return current active subscription info for a specific seller/branch, or None."""
         now = datetime.utcnow()
         result = await self.session.execute(
             select(Subscription).where(
-                Subscription.seller_id == owner_id,
+                Subscription.seller_id == seller_id,
                 Subscription.status == "active",
                 Subscription.expires_at > now,
             ).order_by(Subscription.expires_at.desc()).limit(1)
@@ -260,15 +259,13 @@ class SubscriptionService:
             "amount_paid": float(sub.amount_paid) if sub.amount_paid else 0,
             "days_remaining": max(days_remaining, 0),
             "auto_renew": sub.auto_renew,
-            "branches_count": branches_count,
         }
 
     async def get_subscription_history(self, seller_id: int) -> List[Dict[str, Any]]:
-        """Return all subscriptions for network, newest first."""
-        owner_id = await self._get_owner_id(seller_id)
+        """Return all subscriptions for a specific seller/branch, newest first."""
         result = await self.session.execute(
             select(Subscription).where(
-                Subscription.seller_id == owner_id,
+                Subscription.seller_id == seller_id,
             ).order_by(Subscription.created_at.desc()).limit(50)
         )
         subs = result.scalars().all()
@@ -285,6 +282,50 @@ class SubscriptionService:
             }
             for s in subs
         ]
+
+    async def get_branches_subscription_status(self, seller_id: int) -> List[Dict[str, Any]]:
+        """Return subscription status for all branches of the caller's network.
+        Used by network owners to see per-branch subscription info."""
+        owner_id = await self._get_owner_id(seller_id)
+        now = datetime.utcnow()
+
+        result = await self.session.execute(
+            select(Seller).where(
+                Seller.owner_id == owner_id,
+                Seller.deleted_at.is_(None),
+            ).order_by(Seller.seller_id)
+        )
+        branches = result.scalars().all()
+
+        statuses = []
+        for branch in branches:
+            # Get active subscription for this branch
+            sub_result = await self.session.execute(
+                select(Subscription).where(
+                    Subscription.seller_id == branch.seller_id,
+                    Subscription.status == "active",
+                    Subscription.expires_at > now,
+                ).order_by(Subscription.expires_at.desc()).limit(1)
+            )
+            active_sub = sub_result.scalar_one_or_none()
+
+            days_remaining = 0
+            expires_at = None
+            if active_sub and active_sub.expires_at:
+                days_remaining = max((active_sub.expires_at - now).days, 0)
+                expires_at = active_sub.expires_at.isoformat()
+
+            statuses.append({
+                "seller_id": branch.seller_id,
+                "shop_name": branch.shop_name,
+                "address_name": branch.address_name,
+                "subscription_plan": getattr(branch, "subscription_plan", "none") or "none",
+                "expires_at": expires_at,
+                "days_remaining": days_remaining,
+                "is_owner": branch.web_login is None,
+            })
+
+        return statuses
 
     # -- Webhook handling -------------------------------------------------------
 
@@ -333,14 +374,14 @@ class SubscriptionService:
 
     async def _activate_subscription(self, sub: Subscription) -> None:
         """Activate a subscription after successful payment.
-        sub.seller_id is the owner_id (network-level subscription)."""
+        sub.seller_id is the specific seller/branch being subscribed."""
         now = datetime.utcnow()
-        owner_id = sub.seller_id  # subscription is tied to owner's primary record
+        target_seller_id = sub.seller_id
 
-        # If owner already has an active subscription, extend from its end
+        # If this seller already has an active subscription, extend from its end
         result = await self.session.execute(
             select(Subscription).where(
-                Subscription.seller_id == owner_id,
+                Subscription.seller_id == target_seller_id,
                 Subscription.status == "active",
                 Subscription.expires_at > now,
                 Subscription.id != sub.id,
@@ -356,15 +397,15 @@ class SubscriptionService:
         sub.expires_at = sub.started_at + relativedelta(months=sub.period_months)
         sub.status = "active"
 
-        # Update subscription_plan on owner's primary record
-        seller = await self.session.get(Seller, owner_id)
+        # Update subscription_plan on the specific seller/branch
+        seller = await self.session.get(Seller, target_seller_id)
         if seller:
             seller.subscription_plan = "active"
 
         logger.info(
             "Subscription activated",
             subscription_id=sub.id,
-            owner_id=owner_id,
+            seller_id=target_seller_id,
             period_months=sub.period_months,
             started_at=sub.started_at.isoformat(),
             expires_at=sub.expires_at.isoformat(),
@@ -373,7 +414,7 @@ class SubscriptionService:
         # Send notification (resolve to actual Telegram chat_id)
         try:
             from backend.app.services.telegram_notify import notify_seller_subscription_activated, resolve_notification_chat_id
-            _chat_id = await resolve_notification_chat_id(self.session, owner_id)
+            _chat_id = await resolve_notification_chat_id(self.session, target_seller_id)
             await notify_seller_subscription_activated(
                 seller_id=_chat_id,
                 period_months=sub.period_months,
@@ -397,28 +438,28 @@ class SubscriptionService:
         for sub in result.scalars().all():
             sub.status = "expired"
 
-            # Check if owner has any other active subscription
-            owner_id = sub.seller_id  # subscription seller_id is owner_id
+            # Check if this seller has any other active subscription
+            target_seller_id = sub.seller_id
             other = await self.session.execute(
                 select(Subscription.id).where(
-                    Subscription.seller_id == owner_id,
+                    Subscription.seller_id == target_seller_id,
                     Subscription.status == "active",
                     Subscription.id != sub.id,
                     Subscription.expires_at > now,
                 ).limit(1)
             )
             if not other.scalar_one_or_none():
-                seller = await self.session.get(Seller, owner_id)
+                seller = await self.session.get(Seller, target_seller_id)
                 if seller:
                     seller.subscription_plan = "none"
 
                 # Send expiry notification
                 try:
                     from backend.app.services.telegram_notify import notify_seller_subscription_expired, resolve_notification_chat_id
-                    _chat_id = await resolve_notification_chat_id(self.session, owner_id)
+                    _chat_id = await resolve_notification_chat_id(self.session, target_seller_id)
                     await notify_seller_subscription_expired(_chat_id)
                 except Exception as e:
-                    logger.warning("Subscription expiry notification failed", seller_id=owner_id, error=str(e))
+                    logger.warning("Subscription expiry notification failed", seller_id=target_seller_id, error=str(e))
 
             expired += 1
 

@@ -1107,7 +1107,6 @@ export interface SubscriptionPricesResponse {
   base_price: number;
   prices: Record<number, number>;
   discounts: Record<number, number>;
-  branches_count: number;
 }
 
 export interface SubscriptionInfo {
@@ -1121,7 +1120,6 @@ export interface SubscriptionInfo {
   auto_renew?: boolean;
   created_at?: string;
   payment_id?: string;
-  branches_count?: number;
 }
 
 export interface SubscriptionStatusResponse {
@@ -1136,6 +1134,16 @@ export interface CreateSubscriptionResponse {
   status: string;
 }
 
+export interface BranchSubscriptionInfo {
+  seller_id: number;
+  shop_name: string | null;
+  address_name: string | null;
+  subscription_plan: string;
+  expires_at: string | null;
+  days_remaining: number;
+  is_owner: boolean;
+}
+
 export async function getSubscriptionPrices(): Promise<SubscriptionPricesResponse> {
   return fetchSeller<SubscriptionPricesResponse>('/subscriptions/prices/me');
 }
@@ -1144,11 +1152,18 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatusRespons
   return fetchSeller<SubscriptionStatusResponse>('/subscriptions/status');
 }
 
-export async function createSubscription(periodMonths: number): Promise<CreateSubscriptionResponse> {
+export async function createSubscription(periodMonths: number, targetSellerId?: number): Promise<CreateSubscriptionResponse> {
+  const body: Record<string, unknown> = { period_months: periodMonths };
+  if (targetSellerId != null) body.target_seller_id = targetSellerId;
   return fetchSeller<CreateSubscriptionResponse>('/subscriptions/create', {
     method: 'POST',
-    body: JSON.stringify({ period_months: periodMonths }),
+    body: JSON.stringify(body),
   });
+}
+
+export async function getBranchesSubscriptionStatus(): Promise<BranchSubscriptionInfo[]> {
+  const resp = await fetchSeller<{ branches: BranchSubscriptionInfo[] }>('/subscriptions/branches-status');
+  return resp.branches;
 }
 
 // --- Delivery Zones ---

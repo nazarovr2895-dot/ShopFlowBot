@@ -40,8 +40,13 @@ const NETWORK_OWNER_TABS = [
  * Shared data loading: single getMe() call, passed to all tabs via props.
  */
 export function SellerSettings() {
-  const { isNetworkOwner } = useAuth();
-  const tabs = useMemo(() => isNetworkOwner ? NETWORK_OWNER_TABS : ALL_TABS, [isNetworkOwner]);
+  const { isNetworkOwner, isNetwork, isPrimary } = useAuth();
+  const tabs = useMemo(() => {
+    if (isNetworkOwner) return NETWORK_OWNER_TABS;
+    // Branch accounts in a network — hide subscription (owner manages it)
+    if (isNetwork && !isPrimary) return ALL_TABS.filter(t => t.key !== 'subscription');
+    return ALL_TABS;
+  }, [isNetworkOwner, isNetwork, isPrimary]);
   const [tab, setTab] = useTabs(isNetworkOwner ? 'subscription' : 'shop');
   const [me, setMe] = useState<SellerMe | null>(null);
   const [loading, setLoading] = useState(true);
