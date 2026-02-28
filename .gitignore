@@ -14,3 +14,7 @@ venv/
 
 # Игнорируем SSL сертификаты (содержат приватные ключи)
 nginx/ssl/
+
+# Node.js
+node_modules/
+dist/
