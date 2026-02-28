@@ -28,6 +28,8 @@ import {
   type InnData,
   type AddressSuggestion,
   type CoverageCheckResult,
+  getSellerSubscription,
+  type SellerSubscriptionInfo,
 } from '../api/adminClient';
 import type { Seller, MetroStation, City, District, AdminBranchInfo } from '../types';
 import { OrgDataDisplay } from '../components/OrgDataDisplay';
@@ -66,18 +68,6 @@ function isPlacementExpired(iso: string | undefined): boolean {
   }
 }
 
-function placementExpiredToISO(value: string): string | undefined {
-  const s = (value || '').trim();
-  if (!s) return undefined;
-  const parts = s.split('.');
-  if (parts.length !== 3) return undefined;
-  const d = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  const y = parseInt(parts[2], 10);
-  if (Number.isNaN(d) || Number.isNaN(m) || Number.isNaN(y)) return undefined;
-  const date = new Date(y, m - 1, d);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString().slice(0, 10);
-}
 
 /** Форматирование телефона: "+7 000 000 00 00" */
 function formatPhoneInput(raw: string): string {
@@ -829,7 +819,7 @@ const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: ty
       { id: 'limits', label: 'Лимиты и тариф', icon: Gauge },
       { id: 'commission', label: 'Комиссия', icon: Percent },
       { id: 'payment', label: 'ЮКасса', icon: CreditCard },
-      { id: 'placement', label: 'Размещение', icon: Calendar },
+      { id: 'placement', label: 'Подписка', icon: Calendar },
       { id: 'web', label: 'Веб-панель', icon: Globe },
     ],
   },
@@ -869,8 +859,9 @@ function SellerDetailsModal({
   const [defaultLimit, setDefaultLimit] = useState(String(seller.default_daily_limit ?? ''));
   const [subscriptionPlan, setSubscriptionPlan] = useState(seller.subscription_plan ?? 'free');
 
-  // Placement
-  const [manageExpiryDate, setManageExpiryDate] = useState(formatPlacementExpired(seller.placement_expired_at));
+  // Subscription
+  const [subscriptionInfo, setSubscriptionInfo] = useState<SellerSubscriptionInfo | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   // Credentials
   const [webCredentials, setWebCredentials] = useState<{ web_login: string; web_password: string } | null>(null);
@@ -944,6 +935,15 @@ function SellerDetailsModal({
     }
   }, [seller.inn, seller.ogrn]);
 
+  // Load subscription info
+  useEffect(() => {
+    setSubscriptionLoading(true);
+    getSellerSubscription(seller.tg_id)
+      .then(setSubscriptionInfo)
+      .catch(() => setSubscriptionInfo(null))
+      .finally(() => setSubscriptionLoading(false));
+  }, [seller.tg_id]);
+
   // Load branches
   useEffect(() => {
     if ((seller.branch_count ?? 1) > 1) {
@@ -975,10 +975,6 @@ function SellerDetailsModal({
       .finally(() => { if (!cancelled) setMetroSearching(false); });
     return () => { cancelled = true; };
   }, [editingSection, metroQuery]);
-
-  useEffect(() => {
-    setManageExpiryDate(formatPlacementExpired(seller.placement_expired_at));
-  }, [seller.placement_expired_at]);
 
   // ── Edit helpers ──
   const startEdit = (section: SdmSection) => {
@@ -1173,26 +1169,6 @@ function SellerDetailsModal({
     }
   };
 
-  const handleSaveExpiryDate = async () => {
-    setLoading(true);
-    try {
-      const valueToSend = manageExpiryDate.trim() || '';
-      const res = await updateSellerField(seller.tg_id, 'placement_expired_at', valueToSend);
-      if (res?.status === 'ok') {
-        toast.success('Дата окончания обновлена');
-        const newISO = valueToSend ? placementExpiredToISO(manageExpiryDate) : undefined;
-        onUpdate({ ...seller, placement_expired_at: newISO });
-        onSuccess();
-      } else {
-        toast.error('Ошибка обновления даты');
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDelete = async () => {
     setLoading(true);
     try {
@@ -1234,19 +1210,14 @@ function SellerDetailsModal({
     return 'Free';
   };
 
-  const getExpiryStatus = () => {
-    if (!seller.placement_expired_at) return { dot: 'ok' as const, text: 'Бессрочно', sub: '' };
-    try {
-      const d = new Date(seller.placement_expired_at);
-      if (Number.isNaN(d.getTime())) return { dot: 'ok' as const, text: '—', sub: '' };
-      const now = new Date();
-      const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays < 0) return { dot: 'expired' as const, text: formatPlacementExpired(seller.placement_expired_at), sub: `Истёк ${Math.abs(diffDays)} дн. назад` };
-      if (diffDays <= 7) return { dot: 'warning' as const, text: formatPlacementExpired(seller.placement_expired_at), sub: `Осталось ${diffDays} дн.` };
-      return { dot: 'ok' as const, text: formatPlacementExpired(seller.placement_expired_at), sub: `Осталось ${diffDays} дн.` };
-    } catch {
-      return { dot: 'ok' as const, text: '—', sub: '' };
-    }
+  const getSubscriptionStatus = () => {
+    const active = subscriptionInfo?.active;
+    if (!active) return { dot: 'expired' as const, text: 'Нет активной подписки', sub: '' };
+    const days = active.days_remaining;
+    const expiresAt = active.expires_at ? new Date(active.expires_at).toLocaleDateString('ru-RU') : '';
+    if (days <= 0) return { dot: 'expired' as const, text: `Истекла ${expiresAt}`, sub: '' };
+    if (days <= 7) return { dot: 'warning' as const, text: `Активна до ${expiresAt}`, sub: `Осталось ${days} дн.` };
+    return { dot: 'ok' as const, text: `Активна до ${expiresAt}`, sub: `Осталось ${days} дн.` };
   };
 
   const getSellerStatus = () => {
@@ -1256,7 +1227,7 @@ function SellerDetailsModal({
     return { indicator: 'active' as const, text: 'Активен', sub: '' };
   };
 
-  const expiry = getExpiryStatus();
+  const subStatus = getSubscriptionStatus();
   const status = getSellerStatus();
 
   return (
@@ -1831,47 +1802,77 @@ function SellerDetailsModal({
               </div>
             </div>
 
-            {/* ═══ Placement ═══ */}
+            {/* ═══ Subscription ═══ */}
             <div ref={(el) => { sectionRefs.current['placement'] = el; }} className="sdm-section">
               <div className="sdm-section-header">
-                <h3 className="sdm-section-title"><Calendar size={16} /> Размещение</h3>
+                <h3 className="sdm-section-title"><Calendar size={16} /> Подписка</h3>
               </div>
 
-              <div className="sdm-expiry">
-                <span className={`sdm-expiry-dot sdm-expiry-dot--${expiry.dot}`} />
-                <span className="sdm-expiry-text">{expiry.text}</span>
-                {expiry.sub && <span className="sdm-expiry-sub">{expiry.sub}</span>}
-              </div>
+              {subscriptionLoading ? (
+                <p className="sdm-hint">Загрузка...</p>
+              ) : (
+                <>
+                  <div className="sdm-expiry">
+                    <span className={`sdm-expiry-dot sdm-expiry-dot--${subStatus.dot}`} />
+                    <span className="sdm-expiry-text">{subStatus.text}</span>
+                    {subStatus.sub && <span className="sdm-expiry-sub">{subStatus.sub}</span>}
+                  </div>
 
-              <div className="sdm-divider" />
+                  {subscriptionInfo?.active && (
+                    <div className="sdm-stat-row" style={{ marginTop: '0.75rem' }}>
+                      <div className="sdm-stat-item">
+                        <span className="sdm-stat-label">Период</span>
+                        <span className="sdm-stat-value">{subscriptionInfo.active.period_months} мес.</span>
+                      </div>
+                      <div className="sdm-stat-item">
+                        <span className="sdm-stat-label">Оплачено</span>
+                        <span className="sdm-stat-value">{subscriptionInfo.active.amount_paid} ₽</span>
+                      </div>
+                      <div className="sdm-stat-item">
+                        <span className="sdm-stat-label">Автопродление</span>
+                        <span className="sdm-stat-value">{subscriptionInfo.active.auto_renew ? 'Да' : 'Нет'}</span>
+                      </div>
+                    </div>
+                  )}
 
-              <div className="sdm-edit-field">
-                <label className="sdm-edit-label">Изменить дату окончания</label>
-                <p className="sdm-hint">ДД.ММ.ГГГГ или пусто — бессрочно</p>
-                <div className="sdm-inline-row">
-                  <input
-                    className="sdm-edit-input"
-                    placeholder="ДД.ММ.ГГГГ"
-                    value={manageExpiryDate === '—' ? '' : manageExpiryDate}
-                    onChange={(e) => setManageExpiryDate(e.target.value)}
-                  />
-                  <input
-                    type="date"
-                    className="sdm-edit-input"
-                    style={{ maxWidth: 180 }}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        const date = new Date(e.target.value);
-                        const day = String(date.getDate()).padStart(2, '0');
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const year = date.getFullYear();
-                        setManageExpiryDate(`${day}.${month}.${year}`);
-                      }
-                    }}
-                  />
-                  <button className="sdm-btn sdm-btn--primary" onClick={handleSaveExpiryDate} disabled={loading}>Сохранить</button>
-                </div>
-              </div>
+                  {subscriptionInfo?.history && subscriptionInfo.history.length > 0 && (
+                    <>
+                      <div className="sdm-divider" />
+                      <label className="sdm-edit-label">История подписок</label>
+                      <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: '0.5rem' }}>
+                        {subscriptionInfo.history.map((h) => (
+                          <div key={h.id} className="sdm-stat-row" style={{ marginBottom: '0.5rem', padding: '0.5rem', borderRadius: 8, background: 'var(--bg-elevated, rgba(255,255,255,0.03))' }}>
+                            <div className="sdm-stat-item">
+                              <span className="sdm-stat-label">Период</span>
+                              <span className="sdm-stat-value">{h.period_months} мес.</span>
+                            </div>
+                            <div className="sdm-stat-item">
+                              <span className="sdm-stat-label">Статус</span>
+                              <span className="sdm-stat-value">
+                                <span className={`badge badge-${h.status === 'active' ? 'success' : h.status === 'expired' ? 'warning' : 'info'}`}>
+                                  {h.status === 'active' ? 'Активна' : h.status === 'expired' ? 'Истекла' : h.status === 'pending' ? 'Ожидание' : h.status === 'cancelled' ? 'Отменена' : h.status}
+                                </span>
+                              </span>
+                            </div>
+                            <div className="sdm-stat-item">
+                              <span className="sdm-stat-label">Сумма</span>
+                              <span className="sdm-stat-value">{h.amount_paid} ₽</span>
+                            </div>
+                            <div className="sdm-stat-item">
+                              <span className="sdm-stat-label">Срок</span>
+                              <span className="sdm-stat-value" style={{ fontSize: '0.75rem' }}>
+                                {h.started_at ? new Date(h.started_at).toLocaleDateString('ru-RU') : '—'}
+                                {' → '}
+                                {h.expires_at ? new Date(h.expires_at).toLocaleDateString('ru-RU') : '—'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
 
             {/* ═══ Web Panel ═══ */}

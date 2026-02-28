@@ -598,6 +598,16 @@ async def set_seller_limit(tg_id: int, max_orders: int, session: AsyncSession = 
         return {"status": "error", "message": e.message}
 
 
+@router.get("/sellers/{tg_id}/subscription")
+async def get_seller_subscription(tg_id: int, session: AsyncSession = Depends(get_session)):
+    """Получить текущую подписку и историю для продавца."""
+    from backend.app.services.subscription import SubscriptionService
+    sub_service = SubscriptionService(session)
+    active = await sub_service.get_active_subscription(tg_id)
+    history = await sub_service.get_subscription_history(tg_id)
+    return {"active": active, "history": history}
+
+
 @router.put("/sellers/{tg_id}/subscription_plan")
 async def set_subscription_plan(tg_id: int, plan: str, session: AsyncSession = Depends(get_session)):
     """Изменить тарифный план продавца (free/pro/premium)."""

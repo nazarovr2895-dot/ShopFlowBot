@@ -184,6 +184,33 @@ export async function setSellerLimit(tgId: number, maxOrders: number): Promise<{
   });
 }
 
+export interface SellerSubscriptionInfo {
+  active: {
+    id: number;
+    period_months: number;
+    status: string;
+    started_at: string | null;
+    expires_at: string | null;
+    amount_paid: number;
+    days_remaining: number;
+    auto_renew: boolean;
+  } | null;
+  history: {
+    id: number;
+    period_months: number;
+    status: string;
+    started_at: string | null;
+    expires_at: string | null;
+    amount_paid: number;
+    created_at: string | null;
+    payment_id: string | null;
+  }[];
+}
+
+export async function getSellerSubscription(tgId: number): Promise<SellerSubscriptionInfo> {
+  return fetchAdmin<SellerSubscriptionInfo>(`/admin/sellers/${tgId}/subscription`);
+}
+
 export async function setSellerSubscriptionPlan(tgId: number, plan: string): Promise<{ status?: string }> {
   return fetchAdmin(`/admin/sellers/${tgId}/subscription_plan?plan=${plan}`, {
     method: 'PUT',
