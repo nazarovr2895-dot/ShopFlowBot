@@ -29,7 +29,6 @@ interface FormData {
   metro_walk_minutes: number | null;
   address_name: string;
   delivery_type: string;
-  clone_products_from: number | null;
   contact_tg_id: string;
 }
 
@@ -41,7 +40,6 @@ const emptyForm: FormData = {
   metro_walk_minutes: null,
   address_name: '',
   delivery_type: '',
-  clone_products_from: null,
   contact_tg_id: '',
 };
 
@@ -223,7 +221,6 @@ export function SellerBranches() {
       metro_walk_minutes: null,
       address_name: branch.address_name || '',
       delivery_type: branch.delivery_type || '',
-      clone_products_from: null,
       contact_tg_id: branch.contact_tg_id != null ? String(branch.contact_tg_id) : '',
     });
     setShowForm(true);
@@ -255,9 +252,6 @@ export function SellerBranches() {
         await updateBranch(editingBranch.seller_id, payload);
         toast.success('Филиал обновлён');
       } else {
-        if (form.clone_products_from) {
-          payload.clone_products_from = form.clone_products_from;
-        }
         const result = await createBranch(payload);
         setCredentials({ login: result.web_login, password: result.web_password });
       }
@@ -599,27 +593,6 @@ export function SellerBranches() {
                   Уведомления о заказах будут приходить на этот Telegram. Если не указано — на аккаунт владельца.
                 </p>
               </div>
-
-              {/* Clone products (only when creating) */}
-              {!editingBranch && branches.length > 0 && (
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', display: 'block' }}>
-                    Скопировать товары из
-                  </label>
-                  <select
-                    className="form-input"
-                    value={form.clone_products_from ?? ''}
-                    onChange={e => updateField('clone_products_from', e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">Не копировать</option>
-                    {branches.map(b => (
-                      <option key={b.seller_id} value={b.seller_id}>
-                        {b.shop_name || `Филиал #${b.seller_id}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               {/* Actions */}
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>

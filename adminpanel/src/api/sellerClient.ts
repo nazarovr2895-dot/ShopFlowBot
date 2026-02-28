@@ -73,6 +73,9 @@ export interface SellerMe {
   district_name?: string;
   metro_id?: number;
   metro_walk_minutes?: number;
+  metro_name?: string | null;
+  metro_line_color?: string | null;
+  has_metro?: boolean;
   address_name?: string;
   map_url?: string;
   placement_expired_at?: string;
@@ -290,6 +293,8 @@ export async function updateMe(payload: {
   slot_duration_minutes?: number;
   geo_lat?: number | null;
   geo_lon?: number | null;
+  metro_id?: number | null;
+  metro_walk_minutes?: number | null;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',

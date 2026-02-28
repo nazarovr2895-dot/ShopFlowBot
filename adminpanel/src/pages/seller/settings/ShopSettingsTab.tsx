@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { updateMe, getBannerImageUrl, uploadBannerPhoto } from '../../../api/sellerClient';
 import { FormField, useToast } from '../../../components/ui';
 import { useEditMode } from '../../../hooks/useEditMode';
 import { LocationPicker } from '../../../components/LocationPicker';
+import { MetroSearchField } from '../../../components/MetroSearchField';
 import { Store, Image, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, Upload, Trash2 } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './ShopSettingsTab.css';
@@ -36,6 +37,15 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
   const [bannerRemoving, setBannerRemoving] = useState(false);
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Metro state
+  const [metroId, setMetroId] = useState<number | null>(me.metro_id ?? null);
+  const [metroWalkMinutes, setMetroWalkMinutes] = useState<number | null>(me.metro_walk_minutes ?? null);
+
+  useEffect(() => {
+    setMetroId(me.metro_id ?? null);
+    setMetroWalkMinutes(me.metro_walk_minutes ?? null);
+  }, [me.metro_id, me.metro_walk_minutes]);
+
   const handleSaveShopSettings = async () => {
     shopEdit.setSaving(true);
     try {
@@ -45,6 +55,11 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
         delivery_type: shopEdit.draft.deliveryType.trim() || undefined,
         address_name: shopEdit.draft.addressName.trim() || undefined,
       };
+      // Metro fields (0 = clear)
+      if (me.has_metro) {
+        payload.metro_id = metroId ?? 0;
+        payload.metro_walk_minutes = metroWalkMinutes ?? 0;
+      }
       // If seller already has geo coordinates and address changed, keep existing coords
       // (they'll be auto-geocoded by backend, but seller can re-pick on map)
       await updateMe(payload);
@@ -201,6 +216,19 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
               </FormField>
             </div>
 
+            {/* Row 5: Metro (only if city has metro) */}
+            {me.has_metro && (
+              <MetroSearchField
+                metroId={metroId}
+                metroWalkMinutes={metroWalkMinutes}
+                onMetroChange={(mId, walkMin) => {
+                  setMetroId(mId);
+                  setMetroWalkMinutes(walkMin);
+                }}
+                initialStationName={me.metro_name || ''}
+              />
+            )}
+
             {/* Actions */}
             <div className="shop-form__actions">
               <button
@@ -291,6 +319,36 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
                   )}
                 </span>
               </div>
+
+              {/* Metro (only if city has metro) */}
+              {me.has_metro && (
+                <div className="shop-view__item shop-view__item--wide">
+                  <span className="shop-view__label">Метро</span>
+                  <span className="shop-view__value">
+                    {me.metro_name ? (
+                      <>
+                        {me.metro_line_color && (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              width: 10,
+                              height: 10,
+                              borderRadius: '50%',
+                              background: me.metro_line_color,
+                              marginRight: 6,
+                              verticalAlign: 'middle',
+                            }}
+                          />
+                        )}
+                        {me.metro_name}
+                        {me.metro_walk_minutes ? ` (${me.metro_walk_minutes} мин пешком)` : ''}
+                      </>
+                    ) : (
+                      <span style={{ color: 'var(--text-tertiary)' }}>Не указано</span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}

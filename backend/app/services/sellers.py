@@ -14,7 +14,7 @@ import time
 import secrets
 import string
 
-from backend.app.models.seller import Seller, City, District
+from backend.app.models.seller import Seller, City, District, Metro
 from backend.app.models.user import User
 from backend.app.models.order import Order
 from backend.app.core.password_utils import hash_password, verify_password
@@ -439,6 +439,26 @@ class SellerService:
             preorder_custom_dates,
             min_lead_days=getattr(seller, "preorder_min_lead_days", 2) or 0,
         )
+        # Metro name/color lookup
+        metro_name = None
+        metro_line_color = None
+        if seller.metro_id:
+            metro_result = await self.session.execute(
+                select(Metro.name, Metro.line_color).where(Metro.id == seller.metro_id)
+            )
+            metro_row = metro_result.first()
+            if metro_row:
+                metro_name = metro_row.name
+                metro_line_color = metro_row.line_color
+
+        # Check if seller's city has metro stations
+        has_metro = False
+        if seller.city_id:
+            mc = await self.session.execute(
+                select(func.count()).select_from(Metro).where(Metro.city_id == seller.city_id)
+            )
+            has_metro = (mc.scalar() or 0) > 0
+
         return {
             "seller_id": seller.seller_id,
             "fio": user.fio,
@@ -471,6 +491,9 @@ class SellerService:
             "district_name": await self._get_district_name(seller.district_id),
             "metro_id": seller.metro_id,
             "metro_walk_minutes": seller.metro_walk_minutes,
+            "metro_name": metro_name,
+            "metro_line_color": metro_line_color,
+            "has_metro": has_metro,
             "address_name": getattr(seller, "address_name", None),
             "map_url": seller.map_url,
             "placement_expired_at": seller.placement_expired_at.isoformat() if seller.placement_expired_at else None,
