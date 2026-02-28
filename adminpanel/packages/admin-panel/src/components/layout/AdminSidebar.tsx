@@ -6,7 +6,7 @@ import {
   DollarSign, BarChart3, MapPin, LogOut,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import '@shared/styles/app.css';
+import './Sidebar.css';
 
 interface NavItem { to: string; label: string; icon: LucideIcon; }
 

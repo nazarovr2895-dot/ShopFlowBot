@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
+import './Layout.css';
 
 export function AdminLayout() {
   return (
