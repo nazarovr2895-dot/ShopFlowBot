@@ -657,6 +657,100 @@ async def set_seller_web_credentials(tg_id: int, session: AsyncSession = Depends
         raise HTTPException(status_code=500, detail=err_msg)
 
 
+@router.get("/sellers/{owner_id}/branches")
+async def get_seller_branches(
+    owner_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Список всех филиалов продавца (включая основной)."""
+    from backend.app.models.seller import Seller
+    result = await session.execute(
+        select(Seller).where(
+            Seller.owner_id == owner_id,
+            Seller.deleted_at.is_(None),
+        ).order_by(Seller.seller_id)
+    )
+    return [
+        {
+            "seller_id": s.seller_id,
+            "shop_name": s.shop_name,
+            "address_name": getattr(s, "address_name", None),
+            "is_owner": s.seller_id == s.owner_id,
+            "is_blocked": s.is_blocked,
+        }
+        for s in result.scalars().all()
+    ]
+
+
+@router.get("/finance/seller/{owner_id}/branches")
+async def get_finance_by_branches(
+    owner_id: int,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+    _token: None = Depends(require_admin_token),
+):
+    """Финансовая разбивка по филиалам одного продавца."""
+    from datetime import datetime as dt, time as time_t, timedelta, date as date_type
+    from decimal import Decimal
+    from sqlalchemy import desc
+    from backend.app.models.order import Order
+    from backend.app.models.seller import Seller
+    from backend.app.models.settings import GlobalSettings as _GS
+
+    _gs_r = await session.execute(select(_GS).order_by(_GS.id))
+    _gs = _gs_r.scalar_one_or_none()
+    _global_pct = _gs.commission_percent if _gs else 3
+
+    if date_from:
+        d_from = dt.combine(dt.fromisoformat(date_from[:10]).date(), time_t.min)
+    else:
+        d_from = dt.combine(date_type.today() - timedelta(days=30), time_t.min)
+    if date_to:
+        d_to = dt.combine(dt.fromisoformat(date_to[:10]).date(), time_t.max)
+    else:
+        d_to = dt.combine(date_type.today(), time_t.max)
+
+    completed_statuses = ["done", "completed"]
+
+    q = (
+        select(
+            Seller.seller_id,
+            Seller.shop_name,
+            Seller.address_name,
+            Seller.commission_percent,
+            func.count(Order.id).label("orders"),
+            func.coalesce(func.sum(Order.total_price), 0).label("revenue"),
+        )
+        .join(Order, Order.seller_id == Seller.seller_id)
+        .where(
+            Seller.owner_id == owner_id,
+            Seller.deleted_at.is_(None),
+            Order.status.in_(completed_statuses),
+            Order.created_at >= d_from,
+            Order.created_at <= d_to,
+        )
+        .group_by(Seller.seller_id, Seller.shop_name, Seller.address_name, Seller.commission_percent)
+        .order_by(desc("revenue"))
+    )
+    rows = (await session.execute(q)).all()
+
+    result = []
+    for r in rows:
+        eff_pct = r.commission_percent if r.commission_percent is not None else _global_pct
+        eff_rate = Decimal(str(eff_pct / 100))
+        result.append({
+            "seller_id": r.seller_id,
+            "shop_name": r.shop_name or f"#{r.seller_id}",
+            "address_name": r.address_name,
+            "orders": r.orders,
+            "revenue": round(float(r.revenue)),
+            "commission": round(float(r.revenue) * float(eff_rate)),
+        })
+
+    return result
+
+
 # ============================================
 # СТАТИСТИКА
 # ============================================
@@ -1434,19 +1528,22 @@ async def get_finance_summary(
             for r in series_rows
         ]
 
-    # By seller
+    # By seller (grouped by owner_id so branches are aggregated)
+    from sqlalchemy.orm import aliased
+    OwnerSeller = aliased(Seller)
     q_sellers = (
         select(
-            Seller.seller_id,
-            Seller.shop_name,
-            Seller.subscription_plan,
-            Seller.commission_percent,
+            Seller.owner_id.label("owner_id"),
+            OwnerSeller.shop_name,
+            OwnerSeller.subscription_plan,
+            OwnerSeller.commission_percent,
             func.count(Order.id).label("orders"),
             func.coalesce(func.sum(Order.total_price), 0).label("revenue"),
         )
         .join(Order, Order.seller_id == Seller.seller_id)
+        .join(OwnerSeller, OwnerSeller.seller_id == Seller.owner_id)
         .where(where_current)
-        .group_by(Seller.seller_id, Seller.shop_name, Seller.subscription_plan, Seller.commission_percent)
+        .group_by(Seller.owner_id, OwnerSeller.shop_name, OwnerSeller.subscription_plan, OwnerSeller.commission_percent)
         .order_by(desc("revenue"))
     )
     seller_rows = (await session.execute(q_sellers)).all()
@@ -1458,8 +1555,8 @@ async def get_finance_summary(
         eff_pct = r.commission_percent if r.commission_percent is not None else _global_pct
         eff_rate = Decimal(str(eff_pct / 100))
         sellers.append({
-            "seller_id": r.seller_id,
-            "shop_name": r.shop_name or f"#{r.seller_id}",
+            "seller_id": r.owner_id,
+            "shop_name": r.shop_name or f"#{r.owner_id}",
             "plan": r.subscription_plan or "free",
             "orders": r.orders,
             "revenue": round(float(r.revenue)),

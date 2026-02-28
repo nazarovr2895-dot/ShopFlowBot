@@ -163,6 +163,21 @@ export async function deleteSeller(tgId: number): Promise<{ status?: string }> {
   return fetchAdmin(`/admin/sellers/${tgId}`, { method: 'DELETE' });
 }
 
+export async function getSellerBranches(ownerId: number): Promise<import('../types').AdminBranchInfo[]> {
+  return fetchAdmin(`/admin/sellers/${ownerId}/branches`);
+}
+
+export async function getFinanceBranchBreakdown(
+  ownerId: number,
+  params?: { date_from?: string; date_to?: string }
+): Promise<import('../types').FinanceBranchRow[]> {
+  const sp = new URLSearchParams();
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  const q = sp.toString() ? `?${sp}` : '';
+  return fetchAdmin(`/admin/finance/seller/${ownerId}/branches${q}`);
+}
+
 export async function setSellerLimit(tgId: number, maxOrders: number): Promise<{ status?: string }> {
   return fetchAdmin(`/admin/sellers/${tgId}/set_limit?max_orders=${maxOrders}`, {
     method: 'PUT',

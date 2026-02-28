@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal } from './ui';
-import { getAdminOrders } from '../api/adminClient';
-import type { Seller, AdminOrdersResponse, FinanceSellerRow, FinancePeriodMetrics } from '../types';
+import { getAdminOrders, getFinanceBranchBreakdown } from '../api/adminClient';
+import type { Seller, AdminOrdersResponse, FinanceSellerRow, FinancePeriodMetrics, FinanceBranchRow } from '../types';
 import './SellerAnalyticsModal.css';
 
 interface SellerAnalyticsModalProps {
@@ -65,6 +65,10 @@ export function SellerAnalyticsModal({
 }: SellerAnalyticsModalProps) {
   const [ordersData, setOrdersData] = useState<AdminOrdersResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [branchRows, setBranchRows] = useState<FinanceBranchRow[]>([]);
+  const [showBranches, setShowBranches] = useState(false);
+
+  const hasBranches = (seller?.branch_count ?? 1) > 1;
 
   useEffect(() => {
     setLoading(true);
@@ -73,6 +77,14 @@ export function SellerAnalyticsModal({
       .catch(() => setOrdersData(null))
       .finally(() => setLoading(false));
   }, [sellerId, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (hasBranches) {
+      getFinanceBranchBreakdown(sellerId, { date_from: dateFrom, date_to: dateTo })
+        .then(setBranchRows)
+        .catch(() => setBranchRows([]));
+    }
+  }, [sellerId, dateFrom, dateTo, hasBranches]);
 
   const shopName = seller?.shop_name || financeRow?.shop_name || `Продавец #${sellerId}`;
   const orders = financeRow?.orders ?? 0;
@@ -175,6 +187,52 @@ export function SellerAnalyticsModal({
           </div>
         </div>
       </div>
+
+      {/* ── Branch Breakdown ── */}
+      {hasBranches && (
+        <div className="sam-section">
+          <div className="sam-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>По филиалам ({seller?.branch_count})</span>
+            <button
+              className="sam-toggle-btn"
+              onClick={() => setShowBranches(!showBranches)}
+            >
+              {showBranches ? 'Скрыть' : 'Показать'}
+            </button>
+          </div>
+          {showBranches && (
+            branchRows.length > 0 ? (
+              <table className="sam-orders-table">
+                <thead>
+                  <tr>
+                    <th>Филиал</th>
+                    <th className="text-right">Заказов</th>
+                    <th className="text-right">Выручка</th>
+                    <th className="text-right">Комиссия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {branchRows.map((b) => (
+                    <tr key={b.seller_id}>
+                      <td>
+                        {b.shop_name}
+                        {b.address_name && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{b.address_name}</div>}
+                      </td>
+                      <td className="text-right">{b.orders}</td>
+                      <td className="text-right">{fmtCurrency(b.revenue)}</td>
+                      <td className="text-right">{fmtCurrency(b.commission)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', padding: '8px 0' }}>
+                Нет данных за выбранный период
+              </div>
+            )
+          )}
+        </div>
+      )}
 
       {/* ── Section 3: Comparison ── */}
       <div className="sam-section">

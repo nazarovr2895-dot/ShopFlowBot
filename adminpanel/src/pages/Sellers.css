@@ -1090,6 +1090,39 @@
   margin-bottom: var(--space-3, 0.75rem);
 }
 
+/* ── Branches ── */
+
+.sdm-branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sdm-branch-item {
+  padding: 10px 12px;
+  background: var(--bg-secondary, #f8fafc);
+  border-radius: var(--radius, 8px);
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.sdm-branch-item--blocked {
+  opacity: 0.6;
+}
+
+.sdm-branch-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.sdm-branch-address {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #64748b);
+  margin-top: 2px;
+}
+
 /* ── Metro search within SDM ── */
 
 .sdm-metro-wrap {

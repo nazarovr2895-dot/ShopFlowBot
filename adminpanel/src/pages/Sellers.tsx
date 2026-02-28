@@ -4,7 +4,7 @@ import { PageHeader, useToast } from '../components/ui';
 import {
   Plus, Store, User, MapPin, Truck, Building2, Percent,
   Gauge, Calendar, Globe, Shield, Trash2, X, Edit3, Save,
-  Copy, Eye, EyeOff, CreditCard, AlertTriangle,
+  Copy, Eye, EyeOff, CreditCard, AlertTriangle, GitBranch,
 } from 'lucide-react';
 import {
   searchSellers,
@@ -19,6 +19,7 @@ import {
   searchMetro,
   getSellerWebCredentials,
   setSellerWebCredentials,
+  getSellerBranches,
   getOrgData,
   getCities,
   getDistricts,
@@ -28,7 +29,7 @@ import {
   type AddressSuggestion,
   type CoverageCheckResult,
 } from '../api/adminClient';
-import type { Seller, MetroStation, City, District } from '../types';
+import type { Seller, MetroStation, City, District, AdminBranchInfo } from '../types';
 import { OrgDataDisplay } from '../components/OrgDataDisplay';
 import { MetroSearchField } from '../components/MetroSearchField';
 import './Sellers.css';
@@ -178,6 +179,7 @@ export function Sellers() {
                 <th>ФИО</th>
                 <th>Магазин</th>
                 <th>ID</th>
+                <th>Филиалы</th>
                 <th>Дата окончания</th>
                 <th>Статус</th>
                 <th></th>
@@ -189,6 +191,11 @@ export function Sellers() {
                   <td>{s.fio}</td>
                   <td>{s.shop_name}</td>
                   <td><code>{s.tg_id}</code></td>
+                  <td>
+                    {(s.branch_count ?? 1) > 1
+                      ? <span className="badge badge-info">{s.branch_count}</span>
+                      : '—'}
+                  </td>
                   <td>{formatPlacementExpired(s.placement_expired_at)}</td>
                   <td>
                     {s.is_deleted ? (
@@ -767,7 +774,7 @@ function AddSellerModal({
   );
 }
 
-type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'limits' | 'commission' | 'payment' | 'placement' | 'web' | 'status' | 'delete';
+type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'branches' | 'limits' | 'commission' | 'payment' | 'placement' | 'web' | 'status' | 'delete';
 
 const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: typeof Store; danger?: boolean }[] }[] = [
   {
@@ -777,6 +784,7 @@ const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: ty
       { id: 'address', label: 'Адрес', icon: MapPin },
       { id: 'delivery', label: 'Доставка', icon: Truck },
       { id: 'org', label: 'Организация', icon: Building2 },
+      { id: 'branches', label: 'Филиалы', icon: GitBranch },
     ],
   },
   {
@@ -844,6 +852,10 @@ function SellerDetailsModal({
   const [innData, setInnData] = useState<InnData | null>(null);
   const [loadingInnData, setLoadingInnData] = useState(false);
 
+  // Branches
+  const [branchList, setBranchList] = useState<AdminBranchInfo[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+
   // Metro search
   const [metroQuery, setMetroQuery] = useState('');
   const [metroResults, setMetroResults] = useState<MetroStation[]>([]);
@@ -895,6 +907,17 @@ function SellerDetailsModal({
         .finally(() => setLoadingInnData(false));
     }
   }, [seller.inn, seller.ogrn]);
+
+  // Load branches
+  useEffect(() => {
+    if ((seller.branch_count ?? 1) > 1) {
+      setBranchesLoading(true);
+      getSellerBranches(seller.tg_id)
+        .then(setBranchList)
+        .catch(() => setBranchList([]))
+        .finally(() => setBranchesLoading(false));
+    }
+  }, [seller.tg_id, seller.branch_count]);
 
   // Load web credentials
   useEffect(() => {
@@ -1228,21 +1251,27 @@ function SellerDetailsModal({
 
           {/* ── Sidebar Nav ── */}
           <nav className="sdm-sidebar">
-            {SDM_NAV.map((group) => (
-              <div key={group.group} className="sdm-nav-group">
-                <div className="sdm-nav-group-label">{group.group}</div>
-                {group.items.map((item) => (
-                  <button
-                    key={item.id}
-                    className={`sdm-nav-item ${activeSection === item.id ? 'sdm-nav-item--active' : ''} ${item.danger ? 'sdm-nav-item--danger' : ''}`}
-                    onClick={() => scrollToSection(item.id)}
-                  >
-                    <item.icon size={16} className="sdm-nav-icon" />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            ))}
+            {SDM_NAV.map((group) => {
+              const items = group.items.filter((item) =>
+                item.id !== 'branches' || (seller.branch_count ?? 1) > 1
+              );
+              if (items.length === 0) return null;
+              return (
+                <div key={group.group} className="sdm-nav-group">
+                  <div className="sdm-nav-group-label">{group.group}</div>
+                  {items.map((item) => (
+                    <button
+                      key={item.id}
+                      className={`sdm-nav-item ${activeSection === item.id ? 'sdm-nav-item--active' : ''} ${item.danger ? 'sdm-nav-item--danger' : ''}`}
+                      onClick={() => scrollToSection(item.id)}
+                    >
+                      <item.icon size={16} className="sdm-nav-icon" />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </nav>
 
           {/* ── Content ── */}
@@ -1480,6 +1509,33 @@ function SellerDetailsModal({
                 <p className="sdm-hint">ИНН и ОГРН не указаны</p>
               )}
             </div>
+
+            {/* ═══ Branches ═══ */}
+            {(seller.branch_count ?? 1) > 1 && (
+              <div ref={(el) => { sectionRefs.current['branches'] = el; }} className="sdm-section">
+                <div className="sdm-section-header">
+                  <h3 className="sdm-section-title"><GitBranch size={16} /> Филиалы ({seller.branch_count})</h3>
+                </div>
+                {branchesLoading ? (
+                  <div className="sdm-loading"><div className="loader" /></div>
+                ) : branchList.length > 0 ? (
+                  <div className="sdm-branch-list">
+                    {branchList.map((b) => (
+                      <div key={b.seller_id} className={`sdm-branch-item ${b.is_blocked ? 'sdm-branch-item--blocked' : ''}`}>
+                        <div className="sdm-branch-name">
+                          {b.shop_name || `#${b.seller_id}`}
+                          {b.is_owner && <span className="badge badge-info" style={{ marginLeft: 6 }}>Основной</span>}
+                          {b.is_blocked && <span className="badge badge-danger" style={{ marginLeft: 6 }}>Заблокирован</span>}
+                        </div>
+                        {b.address_name && <div className="sdm-branch-address">{b.address_name}</div>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="sdm-hint">Нет филиалов</p>
+                )}
+              </div>
+            )}
 
             {/* ═══ Limits ═══ */}
             <div ref={(el) => { sectionRefs.current['limits'] = el; }} className="sdm-section">

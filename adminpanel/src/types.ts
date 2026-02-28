@@ -1,5 +1,7 @@
 export interface Seller {
   tg_id: number
+  seller_id?: number
+  owner_id?: number
   fio: string
   phone?: string
   shop_name: string
@@ -29,6 +31,25 @@ export interface Seller {
   hashtags?: string
   commission_percent?: number | null
   yookassa_account_id?: string | null
+  branch_count?: number
+  branches?: AdminBranchInfo[]
+}
+
+export interface AdminBranchInfo {
+  seller_id: number
+  shop_name: string | null
+  address_name: string | null
+  is_owner?: boolean
+  is_blocked?: boolean
+}
+
+export interface FinanceBranchRow {
+  seller_id: number
+  shop_name: string
+  address_name: string | null
+  orders: number
+  revenue: number
+  commission: number
 }
 
 export interface SellerStats {

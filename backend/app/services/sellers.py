@@ -1134,19 +1134,37 @@ class SellerService:
         return fixed
 
     async def list_all(self, include_deleted: bool = False) -> List[Dict[str, Any]]:
-        """List all sellers with optional deleted filter."""
-        conditions = []
+        """List all sellers (owners only) with branch metadata."""
+        conditions = [Seller.seller_id == Seller.owner_id]  # owners only
         if not include_deleted:
             conditions.append(Seller.deleted_at.is_(None))
 
-        query = select(User, Seller).join(Seller, User.tg_id == Seller.owner_id)
-        if conditions:
-            query = query.where(*conditions)
+        # Subquery: count branches per owner (including owner itself)
+        from sqlalchemy.orm import aliased
+        BranchSeller = aliased(Seller, flat=True)
+        branch_count_sq = (
+            select(func.count())
+            .select_from(BranchSeller)
+            .where(
+                BranchSeller.owner_id == Seller.owner_id,
+                BranchSeller.deleted_at.is_(None),
+            )
+            .correlate(Seller)
+            .scalar_subquery()
+            .label("branch_count")
+        )
+
+        query = (
+            select(User, Seller, branch_count_sq)
+            .join(Seller, User.tg_id == Seller.owner_id)
+            .where(*conditions)
+        )
 
         result = await self.session.execute(query)
 
-        return [
-            {
+        sellers_list = []
+        for user, seller, branch_count in result.all():
+            sellers_list.append({
                 "tg_id": user.tg_id,
                 "seller_id": seller.seller_id,
                 "owner_id": seller.owner_id,
@@ -1171,30 +1189,74 @@ class SellerService:
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
                 "commission_percent": getattr(seller, "commission_percent", None),
                 "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
-            }
-            for user, seller in result.all()
-        ]
+                "branch_count": branch_count,
+                "branches": [],
+            })
+
+        # Batch-fetch branch names for owners with multiple branches
+        owner_ids_with_branches = [s["owner_id"] for s in sellers_list if s["branch_count"] > 1]
+        if owner_ids_with_branches:
+            branch_q = (
+                select(Seller.owner_id, Seller.seller_id, Seller.shop_name, Seller.address_name)
+                .where(
+                    Seller.owner_id.in_(owner_ids_with_branches),
+                    Seller.deleted_at.is_(None),
+                    Seller.seller_id != Seller.owner_id,
+                )
+            )
+            branch_rows = (await self.session.execute(branch_q)).all()
+            branches_by_owner: Dict[int, list] = {}
+            for row in branch_rows:
+                branches_by_owner.setdefault(row.owner_id, []).append({
+                    "seller_id": row.seller_id,
+                    "shop_name": row.shop_name,
+                    "address_name": row.address_name,
+                })
+            for s in sellers_list:
+                s["branches"] = branches_by_owner.get(s["owner_id"], [])
+
+        return sellers_list
 
     async def search(
-        self, 
-        fio: str, 
+        self,
+        fio: str,
         include_deleted: bool = False
     ) -> List[Dict[str, Any]]:
-        """Search sellers by name."""
-        conditions = [User.fio.ilike(f"%{fio}%")]
-        
+        """Search sellers by name (owners only, with branch metadata)."""
+        conditions = [
+            User.fio.ilike(f"%{fio}%"),
+            Seller.seller_id == Seller.owner_id,  # owners only
+        ]
+
         if not include_deleted:
             conditions.append(Seller.deleted_at.is_(None))
-        
+
+        from sqlalchemy.orm import aliased
+        BranchSeller = aliased(Seller, flat=True)
+        branch_count_sq = (
+            select(func.count())
+            .select_from(BranchSeller)
+            .where(
+                BranchSeller.owner_id == Seller.owner_id,
+                BranchSeller.deleted_at.is_(None),
+            )
+            .correlate(Seller)
+            .scalar_subquery()
+            .label("branch_count")
+        )
+
         result = await self.session.execute(
-            select(User, Seller)
+            select(User, Seller, branch_count_sq)
             .join(Seller, User.tg_id == Seller.owner_id)
             .where(*conditions)
         )
-        
-        return [
-            {
+
+        sellers_list = []
+        for user, seller, branch_count in result.all():
+            sellers_list.append({
                 "tg_id": user.tg_id,
+                "seller_id": seller.seller_id,
+                "owner_id": seller.owner_id,
                 "fio": user.fio,
                 "phone": user.phone,
                 "shop_name": seller.shop_name,
@@ -1216,9 +1278,33 @@ class SellerService:
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
                 "commission_percent": getattr(seller, "commission_percent", None),
                 "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
-            }
-            for user, seller in result.all()
-        ]
+                "branch_count": branch_count,
+                "branches": [],
+            })
+
+        # Batch-fetch branch names for owners with multiple branches
+        owner_ids_with_branches = [s["owner_id"] for s in sellers_list if s["branch_count"] > 1]
+        if owner_ids_with_branches:
+            branch_q = (
+                select(Seller.owner_id, Seller.seller_id, Seller.shop_name, Seller.address_name)
+                .where(
+                    Seller.owner_id.in_(owner_ids_with_branches),
+                    Seller.deleted_at.is_(None),
+                    Seller.seller_id != Seller.owner_id,
+                )
+            )
+            branch_rows = (await self.session.execute(branch_q)).all()
+            branches_by_owner: Dict[int, list] = {}
+            for row in branch_rows:
+                branches_by_owner.setdefault(row.owner_id, []).append({
+                    "seller_id": row.seller_id,
+                    "shop_name": row.shop_name,
+                    "address_name": row.address_name,
+                })
+            for s in sellers_list:
+                s["branches"] = branches_by_owner.get(s["owner_id"], [])
+
+        return sellers_list
 
     async def get_cities(self) -> List[Dict[str, Any]]:
         """Get list of all cities."""
