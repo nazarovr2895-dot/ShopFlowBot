@@ -222,10 +222,18 @@ export function OrderInfoModal({
                       )}
                     </div>
                     <div className="oim__product-info">
-                      <span className="oim__product-name">{item.name}</span>
+                      <span className="oim__product-name">{product?.name || item.name}</span>
+                      {product?.description && (
+                        <span className="oim__product-desc">{product.description}</span>
+                      )}
                       <span className="oim__product-meta">
-                        {product ? `${product.price} ₽` : ''}
-                        {product ? ` · ${product.quantity} шт` : ''}
+                        {product && (
+                          <>
+                            <span className="oim__product-meta-price">{product.price} ₽</span>
+                            <span className="oim__product-meta-dot">·</span>
+                            <span className="oim__product-meta-stock">на складе: {product.quantity} шт</span>
+                          </>
+                        )}
                       </span>
                     </div>
                     <span className="oim__product-qty">× {item.qty}</span>

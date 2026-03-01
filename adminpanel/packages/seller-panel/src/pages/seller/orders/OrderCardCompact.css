@@ -127,8 +127,8 @@
 
 .occ__phone {
   font-size: 0.8125rem;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
 }
 
 /* ── Row 4: tags ─────────────────────────── */
