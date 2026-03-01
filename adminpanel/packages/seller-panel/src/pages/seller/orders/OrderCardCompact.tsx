@@ -81,8 +81,9 @@ export function OrderCardCompact({
   return (
     <>
       <div className={`occ ${pickup ? 'occ--pickup' : 'occ--delivery'}`}>
-        {/* Row 1: Status badge + timer + date */}
+        {/* Row 1: #ID + status + timer + date */}
         <div className="occ__header">
+          <span className="occ__id">#{order.id}</span>
           <span
             className="occ__status"
             style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}
@@ -99,24 +100,25 @@ export function OrderCardCompact({
           </div>
         </div>
 
-        {/* Row 2: ID + price + paid badge */}
-        <div className="occ__main">
-          <span className="occ__id">#{order.id}</span>
+        {/* Row 2: Customer name */}
+        {order.buyer_fio && (
+          <div className="occ__name">{order.buyer_fio}</div>
+        )}
+
+        {/* Row 3: Phone */}
+        {order.buyer_phone && (
+          <div className="occ__phone">{formatPhone(order.buyer_phone)}</div>
+        )}
+
+        {/* Row 4: Price + paid badge */}
+        <div className="occ__price-row">
           <span className="occ__price">{order.total_price} ₽</span>
           {order.payment_status === 'succeeded' && (
             <span className="occ__paid">Оплачено</span>
           )}
         </div>
 
-        {/* Row 3: Customer */}
-        {(order.buyer_fio || order.buyer_phone) && (
-          <div className="occ__customer">
-            {order.buyer_fio && <span className="occ__name">{order.buyer_fio}</span>}
-            {order.buyer_phone && <span className="occ__phone">{formatPhone(order.buyer_phone)}</span>}
-          </div>
-        )}
-
-        {/* Row 4: Tags */}
+        {/* Row 5: Tags */}
         <div className="occ__tags">
           <span className={`occ__pill ${pickup ? 'occ__pill--pickup' : 'occ__pill--delivery'}`}>
             {pickup ? 'Самовывоз' : 'Доставка'}
