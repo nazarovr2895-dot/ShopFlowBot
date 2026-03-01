@@ -81,3 +81,8 @@
     width: 100%;
   }
 }
+
+/* ── Telegram fullscreen: сдвигаем панель ниже статус-бара ── */
+.tg-fullscreen .slide-panel {
+  top: var(--tg-header-offset, 0px);
+}

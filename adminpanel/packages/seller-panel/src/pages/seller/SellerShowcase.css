@@ -280,6 +280,10 @@
     padding-top: var(--space-2);
     margin-top: var(--space-1);
   }
+
+  .sc-product-row:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ============================================

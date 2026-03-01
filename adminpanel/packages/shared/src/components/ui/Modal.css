@@ -93,7 +93,7 @@
   .ui-modal {
     max-width: none;
     max-height: none;
-    height: 100vh;
+    height: 100%;
     border-radius: 0;
     border: none;
   }
@@ -115,4 +115,9 @@
     padding: var(--space-4);
     padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
   }
+}
+
+/* ── Telegram fullscreen: сдвигаем модалку ниже статус-бара ── */
+.tg-fullscreen .ui-modal-overlay {
+  top: var(--tg-header-offset, 0px);
 }
