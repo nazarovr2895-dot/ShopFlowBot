@@ -4,7 +4,6 @@ import { ToastProvider, ConfirmProvider } from '@shared/components/ui';
 import { SellerLayout } from './components/layout/SellerLayout';
 import { SellerLogin } from './pages/SellerLogin';
 import { useTelegramWebApp } from '@shared/hooks/useTelegramWebApp';
-import { isTelegram } from '@shared/utils/environment';
 
 import { SellerDashboard } from './pages/seller/SellerDashboard';
 import { NetworkDashboard } from './pages/seller/NetworkDashboard';
@@ -30,7 +29,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { isNetworkOwner, telegramAuthLoading, telegramAuthError } = useSellerAuth();
+  const { isNetworkOwner, telegramAuthLoading } = useSellerAuth();
   useTelegramWebApp();
 
   if (telegramAuthLoading) {
@@ -38,14 +37,6 @@ function AppRoutes() {
       <div className="tg-auth-loading">
         <div className="tg-auth-loading__spinner" />
         <p>Авторизация...</p>
-      </div>
-    );
-  }
-
-  if (isTelegram() && telegramAuthError) {
-    return (
-      <div className="tg-auth-loading">
-        <p className="tg-auth-loading__error">{telegramAuthError}</p>
       </div>
     );
   }

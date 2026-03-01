@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSellerAuth } from '../contexts/SellerAuthContext';
 import { sellerLogin } from '../api/sellerClient';
@@ -6,13 +6,19 @@ import { Eye, EyeOff, LogIn } from 'lucide-react';
 import './SellerLogin.css';
 
 export function SellerLogin() {
-  const { login } = useSellerAuth();
+  const { login, isAuthenticated } = useSellerAuth();
   const navigate = useNavigate();
   const [loginValue, setLoginValue] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
