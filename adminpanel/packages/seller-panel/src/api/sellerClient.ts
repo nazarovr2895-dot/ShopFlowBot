@@ -48,7 +48,6 @@ export interface SellerMe {
   fio?: string;
   phone?: string;
   shop_name: string;
-  hashtags?: string;
   description?: string;
   max_orders: number;
   default_daily_limit: number;
@@ -267,7 +266,6 @@ export async function getDashboardOrderEvents(): Promise<{ events: OrderEvent[] 
 }
 
 export async function updateMe(payload: {
-  hashtags?: string;
   preorder_enabled?: boolean;
   preorder_schedule_type?: string;
   preorder_weekday?: number;

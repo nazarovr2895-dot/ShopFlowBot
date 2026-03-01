@@ -74,7 +74,7 @@ export function CatalogNavBar({
               ref={searchInputRef}
               type="search"
               className="catalog-nav-bar__search-input"
-              placeholder="Поиск"
+              placeholder="Поиск товаров и магазинов"
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
               onKeyDown={handleKeyDown}

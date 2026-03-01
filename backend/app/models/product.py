@@ -1,7 +1,11 @@
 from sqlalchemy import BigInteger, String, ForeignKey, DECIMAL, Text, Boolean, Index, Integer, JSON
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Optional, List
 from backend.app.core.base import Base
+
+# TSVECTOR with SQLite fallback for tests
+_TSVector = TSVECTOR().with_variant(Text(), "sqlite")
 
 
 class Product(Base):
@@ -22,6 +26,7 @@ class Product(Base):
     markup_percent: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 2), nullable=True)
     composition: Mapped[Optional[list]] = mapped_column(JSON(), nullable=True)
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey('categories.id', ondelete='SET NULL'), nullable=True)
+    search_vector = mapped_column(_TSVector, nullable=True)
 
     __table_args__ = (
         Index('ix_products_seller_id', 'seller_id'),

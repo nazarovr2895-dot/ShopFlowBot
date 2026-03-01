@@ -151,7 +151,7 @@ def _normalize_delivery_type(value: Optional[str]) -> Optional[str]:
 async def get_public_sellers(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    search: Optional[str] = Query(None, min_length=1, description="Поиск по названию магазина и хештегам"),
+    search: Optional[str] = Query(None, min_length=1, description="Полнотекстовый поиск по товарам, категориям и магазинам"),
     city_id: Optional[int] = Query(None, description="Фильтр по городу"),
     district_id: Optional[int] = Query(None, description="Фильтр по району"),
     metro_id: Optional[int] = Query(None, description="Фильтр по станции метро"),
@@ -254,10 +254,42 @@ async def get_public_sellers(
         if search:
             q = search.strip()
             if q:
+                from backend.app.models.category import Category
+                tsquery = func.plainto_tsquery('russian', q)
+
+                # Products matching by FTS or trigram similarity
+                product_match_subq = (
+                    select(Product.seller_id)
+                    .where(
+                        Product.is_active == True,
+                        Product.quantity > 0,
+                        or_(
+                            Product.search_vector.op('@@')(tsquery),
+                            func.similarity(Product.name, q) > 0.3,
+                        ),
+                    )
+                    .distinct()
+                    .subquery()
+                )
+
+                # Categories matching by trigram similarity
+                category_match_subq = (
+                    select(Category.seller_id)
+                    .where(
+                        Category.is_active == True,
+                        func.similarity(Category.name, q) > 0.3,
+                    )
+                    .distinct()
+                    .subquery()
+                )
+
+                # Seller matches if: name/description FTS match OR product match OR category match
                 base_conditions.append(
                     or_(
-                        Seller.shop_name.ilike(f"%{q}%"),
-                        func.coalesce(Seller.hashtags, "").ilike(f"%{q}%"),
+                        Seller.search_vector.op('@@')(tsquery),
+                        func.similarity(func.coalesce(Seller.shop_name, ''), q) > 0.3,
+                        Seller.seller_id.in_(select(product_match_subq.c.seller_id)),
+                        Seller.seller_id.in_(select(category_match_subq.c.seller_id)),
                     )
                 )
 

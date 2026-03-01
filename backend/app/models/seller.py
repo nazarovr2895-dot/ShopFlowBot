@@ -1,8 +1,12 @@
 from sqlalchemy import BigInteger, String, ForeignKey, Text, Boolean, Integer, DateTime, Date, Float, Index, DECIMAL, JSON
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, date
 from typing import Optional, List
 from backend.app.core.base import Base
+
+# TSVECTOR with SQLite fallback for tests
+_TSVector = TSVECTOR().with_variant(Text(), "sqlite")
 
 
 class Seller(Base):
@@ -12,7 +16,6 @@ class Seller(Base):
     shop_name: Mapped[str] = mapped_column(String(255), nullable=True)
     inn: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)  # ИНН: 10 цифр для юрлиц, 12 для ИП
     ogrn: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)  # ОГРН: 13 цифр для юрлиц, 15 для ИП
-    hashtags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # comma-separated, e.g. "101 роза, тюльпаны, гвоздики"
     description: Mapped[str] = mapped_column(Text, nullable=True)
     city_id: Mapped[int] = mapped_column(ForeignKey('cities.id'), nullable=True)
     district_id: Mapped[int] = mapped_column(ForeignKey('districts.id'), nullable=True)
@@ -89,6 +92,7 @@ class Seller(Base):
     contact_tg_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     # Network seller: max allowed branches (null = regular seller, >0 = network)
     max_branches: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
+    search_vector = mapped_column(_TSVector, nullable=True)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

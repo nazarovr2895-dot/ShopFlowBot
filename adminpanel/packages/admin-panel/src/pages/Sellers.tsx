@@ -992,7 +992,6 @@ function SellerDetailsModal({
         phone: seller.phone || '',
         shop_name: seller.shop_name || '',
         description: seller.description || '',
-        hashtags: seller.hashtags || '',
       };
     } else if (section === 'address') {
       fields = {
@@ -1032,7 +1031,6 @@ function SellerDetailsModal({
           : field === 'phone' ? seller.phone
           : field === 'shop_name' ? seller.shop_name
           : field === 'description' ? seller.description
-          : field === 'hashtags' ? seller.hashtags
           : field === 'district_id' ? seller.district_id
           : field === 'address_name' ? seller.address_name
           : field === 'metro_id' ? seller.metro_id
@@ -1320,10 +1318,6 @@ function SellerDetailsModal({
                     <label className="sdm-edit-label">Описание</label>
                     <textarea className="sdm-edit-input sdm-edit-input--textarea" value={editedFields.description || ''} onChange={(e) => handleFieldChange('description', e.target.value)} rows={3} />
                   </div>
-                  <div className="sdm-edit-field">
-                    <label className="sdm-edit-label">Хештеги</label>
-                    <input className="sdm-edit-input" value={editedFields.hashtags || ''} onChange={(e) => handleFieldChange('hashtags', e.target.value)} placeholder="#розы #букеты" />
-                  </div>
                   <div className="sdm-section-actions">
                     <button className="sdm-btn sdm-btn--secondary" onClick={cancelEdit} disabled={loading}>Отмена</button>
                     <button className="sdm-btn sdm-btn--primary" onClick={handleSaveSection} disabled={loading}>
@@ -1353,12 +1347,6 @@ function SellerDetailsModal({
                     <div className="sdm-field-label">Описание</div>
                     <div className="sdm-field-value">{seller.description || <span className="sdm-field-value--muted">Нет описания</span>}</div>
                   </div>
-                  {seller.hashtags && (
-                    <div className="sdm-field sdm-field--full">
-                      <div className="sdm-field-label">Хештеги</div>
-                      <div className="sdm-field-value">{seller.hashtags}</div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>

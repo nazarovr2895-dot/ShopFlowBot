@@ -218,7 +218,6 @@ async def test_update_seller_me(client: AsyncClient, test_seller: Seller):
         json={
             "shop_name": "Updated Shop Name",
             "description": "New description",
-            "hashtags": "розы, тюльпаны",
         },
         headers=seller_headers(test_seller.seller_id),
     )

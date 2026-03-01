@@ -191,7 +191,7 @@ class SellerService:
     """Service class for seller operations."""
     
     VALID_UPDATE_FIELDS = {
-        "fio", "phone", "shop_name", "hashtags", "description",
+        "fio", "phone", "shop_name", "description",
         "address_name", "map_url", "delivery_type", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
         "commission_percent", "yookassa_account_id", "use_delivery_zones",
@@ -464,7 +464,6 @@ class SellerService:
             "fio": user.fio,
             "phone": user.phone,
             "shop_name": seller.shop_name or "My Shop",
-            "hashtags": seller.hashtags or "",
             "description": seller.description,
             "max_orders": effective_limit,
             "default_daily_limit": getattr(seller, "default_daily_limit", None) or 0,
@@ -721,7 +720,6 @@ class SellerService:
             shop_name=seller.shop_name,
             inn=seller.inn,
             ogrn=seller.ogrn,
-            hashtags=seller.hashtags,
             description=seller.description,
             city_id=seller.city_id,
             district_id=seller.district_id,
@@ -823,7 +821,6 @@ class SellerService:
         seller.geo_lon = None
         seller.map_url = None
         seller.working_hours = None
-        seller.hashtags = None
         seller.subscription_plan = "none"
         seller.banner_url = None
         # Reset order counters
@@ -884,8 +881,6 @@ class SellerService:
         # Seller fields
         elif field == "shop_name":
             seller.shop_name = value
-        elif field == "hashtags":
-            seller.hashtags = (value or "").strip() or None
         elif field == "description":
             seller.description = value
         elif field == "address_name":
@@ -1385,7 +1380,6 @@ class SellerService:
                 "fio": user.fio,
                 "phone": user.phone,
                 "shop_name": seller.shop_name,
-                "hashtags": seller.hashtags,
                 "description": seller.description,
                 "city_id": seller.city_id,
                 "district_id": seller.district_id,
@@ -1475,7 +1469,6 @@ class SellerService:
                 "fio": user.fio,
                 "phone": user.phone,
                 "shop_name": seller.shop_name,
-                "hashtags": seller.hashtags,
                 "description": seller.description,
                 "city_id": seller.city_id,
                 "district_id": seller.district_id,

@@ -100,8 +100,7 @@ def _get_seller_id(seller_id: int = Depends(require_seller_token)) -> int:
 
 # --- SELLER INFO ---
 class UpdateMeBody(BaseModel):
-    """Optional profile fields for seller (e.g. hashtags, preorder schedule, shop settings)."""
-    hashtags: Optional[str] = None
+    """Optional profile fields for seller (e.g. preorder schedule, shop settings)."""
     preorder_enabled: Optional[bool] = None
     preorder_schedule_type: Optional[str] = None  # 'weekly' | 'interval_days' | 'custom_dates'
     preorder_weekday: Optional[int] = None  # 0=Mon, 6=Sun
@@ -140,7 +139,7 @@ async def get_me(
     auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get current seller info including shop link, hashtags, and branch info."""
+    """Get current seller info including shop link and branch info."""
     seller_id, owner_id = auth
     try:
         service = SellerService(session)
@@ -191,11 +190,9 @@ async def update_me(
     seller_id: int = Depends(require_seller_token),
     session: AsyncSession = Depends(get_session),
 ):
-    """Update current seller profile (e.g. hashtags, preorder schedule, shop settings)."""
+    """Update current seller profile (e.g. preorder schedule, shop settings)."""
     from backend.app.models.seller import Seller
     service = SellerService(session)
-    if body.hashtags is not None:
-        await service.update_field(seller_id, "hashtags", body.hashtags)
     # Shop settings
     if body.shop_name is not None:
         await service.update_field(seller_id, "shop_name", body.shop_name)

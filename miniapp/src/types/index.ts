@@ -249,7 +249,7 @@ export interface SellerFilters {
   delivery_type?: 'delivery' | 'pickup' | 'both';
   free_delivery?: boolean;
   sort_price?: 'asc' | 'desc';
-  /** Поиск по названию магазина и хештегам */
+  /** Полнотекстовый поиск по товарам, категориям и магазинам */
   search?: string;
   /** Мин. цена товара */
   price_min?: number;

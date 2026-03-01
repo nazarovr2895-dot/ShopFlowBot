@@ -31,7 +31,6 @@ export interface Seller {
   subscription_plan?: string
   plan_limit_cap?: number
   weekly_schedule?: Record<string, number> | null
-  hashtags?: string
   commission_percent?: number | null
   yookassa_account_id?: string | null
   max_branches?: number | null
