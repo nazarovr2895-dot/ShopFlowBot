@@ -1,5 +1,5 @@
 /* ============================================
-   OrderInfoModal — order details modal
+   OrderInfoModal v2 — premium dark styling
    ============================================ */
 
 .oim {
@@ -11,8 +11,8 @@
 /* ── Section ─────────────────────────────── */
 
 .oim__section {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.06);
 }
 
 .oim__section:first-child {
@@ -28,9 +28,9 @@
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--text-tertiary);
-  margin: 0 0 12px;
+  margin: 0 0 14px;
 }
 
 /* ── Key-value rows ──────────────────────── */
@@ -38,7 +38,7 @@
 .oim__rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .oim__row {
@@ -67,7 +67,7 @@
 
 .oim__value--price {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.125rem;
 }
 
 .oim__value--old {
@@ -84,7 +84,7 @@
   color: var(--accent);
   text-decoration: none;
   font-weight: 500;
-  transition: color var(--transition-fast);
+  transition: color 0.15s ease;
 }
 
 .oim__value--link:hover {
@@ -92,26 +92,38 @@
   text-decoration: underline;
 }
 
-/* ── Delivery type pills ─────────────────── */
+/* ── Status / delivery badges ────────────── */
+
+.oim__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 
 .oim__pill {
   display: inline-flex;
   align-items: center;
   font-weight: 600;
   font-size: 0.75rem;
-  padding: 2px 10px;
-  border-radius: 10px;
+  padding: 3px 10px;
+  border-radius: 8px;
   letter-spacing: 0.02em;
 }
 
 .oim__pill--delivery {
   background: rgba(59, 130, 246, 0.12);
-  color: #3b82f6;
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .oim__pill--pickup {
   background: rgba(34, 197, 94, 0.12);
-  color: #22c55e;
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 /* ── Address copy ────────────────────────── */
@@ -133,13 +145,12 @@
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-color: rgba(99, 102, 241, 0.4);
-  transition: color var(--transition-fast);
+  transition: color 0.15s ease;
   align-self: flex-start;
 }
 
 .oim__copy-btn:hover {
   color: var(--accent-hover);
-  text-decoration-color: var(--accent-hover);
 }
 
 /* ── Price edit ──────────────────────────── */
@@ -155,12 +166,11 @@
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-color: rgba(99, 102, 241, 0.4);
-  transition: color var(--transition-fast);
+  transition: color 0.15s ease;
 }
 
 .oim__edit-price-btn:hover {
   color: var(--accent-hover);
-  text-decoration-color: var(--accent-hover);
 }
 
 .oim__price-edit {
@@ -175,41 +185,85 @@
   padding: 4px 8px !important;
 }
 
-/* ── Items list ──────────────────────────── */
+/* ── Product mini-cards ──────────────────── */
 
-.oim__items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.oim__products {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.oim__item {
+.oim__products-loading {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  padding: 8px 0;
+}
+
+.oim__product-card {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.06);
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+
+.oim__product-card:hover {
+  background: rgba(51, 65, 85, 0.5);
+}
+
+.oim__product-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oim__product-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.oim__product-placeholder {
+  font-size: 1.25rem;
+  opacity: 0.5;
+}
+
+.oim__product-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.oim__product-name {
   font-size: 0.875rem;
+  font-weight: 600;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.oim__item-link {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
-
-.oim__item-link:hover {
-  color: var(--accent-hover);
-  text-decoration: underline;
-}
-
-.oim__item-qty {
+.oim__product-meta {
+  font-size: 0.75rem;
   color: var(--text-tertiary);
-  font-size: 0.8125rem;
+}
+
+.oim__product-qty {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 /* ── Gift note ───────────────────────────── */
@@ -226,10 +280,10 @@
 
 .oim__quote {
   margin: 0;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-left: 3px solid var(--accent);
   background: rgba(99, 102, 241, 0.06);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: 0 10px 10px 0;
   font-size: 0.875rem;
   font-style: italic;
   color: var(--text-secondary);
@@ -243,14 +297,14 @@
   color: var(--text-tertiary);
   font-size: 0.8125rem;
   text-decoration: none;
-  transition: color var(--transition-fast);
+  transition: color 0.15s ease;
 }
 
 .oim__full-link:hover {
   color: var(--accent);
 }
 
-/* ── Waiting countdown (reuse from card) ── */
+/* ── Waiting countdown ───────────────────── */
 .waiting-countdown { font-weight: 500; font-size: 0.75rem; color: var(--text-muted); }
 .waiting-countdown--today { color: #22c55e; font-weight: 600; }
 .waiting-countdown--tomorrow { color: #f59e0b; font-weight: 600; }

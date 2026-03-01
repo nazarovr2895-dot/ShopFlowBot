@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { OrderCardCompact } from './OrderCardCompact';
 import { KANBAN_COLUMNS } from './constants';
-import type { SellerOrder } from '../../../api/sellerClient';
+import type { SellerOrder, SellerProduct } from '../../../api/sellerClient';
 import './KanbanBoard.css';
 
 interface KanbanBoardProps {
@@ -15,7 +15,7 @@ interface KanbanBoardProps {
   onSavePrice: (orderId: number) => void;
   onCancelPrice: () => void;
   onPriceChange: (value: string) => void;
-  onProductClick?: (productId: number) => void;
+  loadProducts?: () => Promise<SellerProduct[]>;
 }
 
 function sortOrders(orders: SellerOrder[]): SellerOrder[] {
@@ -42,7 +42,7 @@ export function KanbanBoard({
   onSavePrice,
   onCancelPrice,
   onPriceChange,
-  onProductClick,
+  loadProducts,
 }: KanbanBoardProps) {
   const columns = useMemo(() => {
     return KANBAN_COLUMNS.map((col) => {
@@ -78,7 +78,7 @@ export function KanbanBoard({
                   onSavePrice={onSavePrice}
                   onCancelPrice={onCancelPrice}
                   onPriceChange={onPriceChange}
-                  onProductClick={onProductClick}
+                  loadProducts={loadProducts}
                 />
               ))
             )}

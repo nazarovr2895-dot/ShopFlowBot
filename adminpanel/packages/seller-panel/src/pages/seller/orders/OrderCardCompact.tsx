@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { StatusBadge } from '@shared/components/ui';
 import { formatPhone } from '@shared/utils/formatters';
-import { STATUS_LABELS, getStatusVariant, isPickup } from './constants';
+import { STATUS_LABELS, getStatusColor, isPickup } from './constants';
 import type { CardContext } from './constants';
 import { OrderInfoModal } from './OrderInfoModal';
-import type { SellerOrder } from '../../../api/sellerClient';
+import type { SellerOrder, SellerProduct } from '../../../api/sellerClient';
 import './OrderCardCompact.css';
 
 export type { CardContext };
@@ -21,8 +20,15 @@ interface OrderCardCompactProps {
   onSavePrice: (orderId: number) => void;
   onCancelPrice: () => void;
   onPriceChange: (value: string) => void;
-  onProductClick?: (productId: number) => void;
+  loadProducts?: () => Promise<SellerProduct[]>;
 }
+
+const fmtDate = (iso?: string) => {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit' });
+  } catch { return ''; }
+};
 
 export function OrderCardCompact({
   order,
@@ -36,29 +42,36 @@ export function OrderCardCompact({
   onSavePrice,
   onCancelPrice,
   onPriceChange,
-  onProductClick,
+  loadProducts,
 }: OrderCardCompactProps) {
   const [infoOpen, setInfoOpen] = useState(false);
   const pickup = isPickup(order.delivery_type);
+  const sc = getStatusColor(order.status);
 
   return (
     <>
       <div className={`occ ${pickup ? 'occ--pickup' : 'occ--delivery'}`}>
-        {/* Row 1: ID + Price + Status + Payment */}
-        <div className="occ__top">
-          <span className="occ__id">#{order.id}</span>
-          <span className="occ__price">{order.total_price} ₽</span>
-          <div className="occ__badges">
-            <StatusBadge variant={getStatusVariant(order.status)} size="sm">
-              {STATUS_LABELS[order.status] || order.status}
-            </StatusBadge>
-            {order.payment_status === 'succeeded' && (
-              <StatusBadge variant="success" size="sm">Оплачено</StatusBadge>
-            )}
-          </div>
+        {/* Row 1: Status badge + date */}
+        <div className="occ__header">
+          <span
+            className="occ__status"
+            style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}
+          >
+            {STATUS_LABELS[order.status] || order.status}
+          </span>
+          <span className="occ__date">{fmtDate(order.created_at)}</span>
         </div>
 
-        {/* Row 2: Customer name + phone */}
+        {/* Row 2: ID + price + paid badge */}
+        <div className="occ__main">
+          <span className="occ__id">#{order.id}</span>
+          <span className="occ__price">{order.total_price} ₽</span>
+          {order.payment_status === 'succeeded' && (
+            <span className="occ__paid">Оплачено</span>
+          )}
+        </div>
+
+        {/* Row 3: Customer */}
         {(order.buyer_fio || order.buyer_phone) && (
           <div className="occ__customer">
             {order.buyer_fio && <span className="occ__name">{order.buyer_fio}</span>}
@@ -66,24 +79,23 @@ export function OrderCardCompact({
           </div>
         )}
 
-        {/* Row 3: Delivery type + payment method */}
+        {/* Row 4: Tags */}
         <div className="occ__tags">
-          <span className={`occ__type ${pickup ? 'occ__type--pickup' : 'occ__type--delivery'}`}>
+          <span className={`occ__pill ${pickup ? 'occ__pill--pickup' : 'occ__pill--delivery'}`}>
             {pickup ? 'Самовывоз' : 'Доставка'}
           </span>
           {order.payment_method === 'on_pickup' && (
-            <span className="occ__type occ__type--cash">Наличные</span>
+            <span className="occ__pill occ__pill--cash">Наличные</span>
           )}
         </div>
 
-        {/* Row 4: Info button + action buttons */}
+        {/* Footer: Info + actions */}
         <div className="occ__footer">
-          <button className="occ__info-btn" onClick={() => setInfoOpen(true)}>Инфо</button>
+          <button className="occ__btn occ__btn--info" onClick={() => setInfoOpen(true)}>Инфо</button>
           {renderActions(order, context, pickup, onAccept, onReject, onStatusChange)}
         </div>
       </div>
 
-      {/* Info modal */}
       {infoOpen && (
         <OrderInfoModal
           order={order}
@@ -94,7 +106,7 @@ export function OrderCardCompact({
           onSavePrice={onSavePrice}
           onCancelPrice={onCancelPrice}
           onPriceChange={onPriceChange}
-          onProductClick={onProductClick}
+          loadProducts={loadProducts}
           onClose={() => setInfoOpen(false)}
         />
       )}
@@ -131,31 +143,18 @@ function renderActions(
 
   if (context === 'active') {
     if (order.status === 'accepted') {
-      buttons.push(
-        <button key="assembling" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'assembling')}>Сборка</button>,
-      );
+      buttons.push(<button key="assembling" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'assembling')}>Сборка</button>);
     } else if (order.status === 'assembling') {
-      if (!pickup) {
-        buttons.push(
-          <button key="in_transit" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'in_transit')}>В пути</button>,
-        );
-      } else {
-        buttons.push(
-          <button key="ready" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>К выдаче</button>,
-        );
-      }
-    } else if (order.status === 'in_transit') {
       buttons.push(
-        <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
+        !pickup
+          ? <button key="in_transit" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'in_transit')}>В пути</button>
+          : <button key="ready" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'ready_for_pickup')}>К выдаче</button>,
       );
-    } else if (order.status === 'ready_for_pickup') {
-      buttons.push(
-        <button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>,
-      );
+    } else if (order.status === 'in_transit' || order.status === 'ready_for_pickup') {
+      buttons.push(<button key="done" className="occ__btn occ__btn--primary" onClick={() => onStatusChange?.(order.id, 'done')}>Готово</button>);
     }
   }
 
   if (buttons.length === 0) return null;
-
   return <div className="occ__actions">{buttons}</div>;
 }

@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Modal, StatusBadge } from '@shared/components/ui';
+import { Modal } from '@shared/components/ui';
 import { parseItemsInfo, formatPhone, formatAddress, getDaysUntil } from '@shared/utils/formatters';
-import { STATUS_LABELS, getStatusVariant, isPickup } from './constants';
+import { STATUS_LABELS, getStatusColor, isPickup } from './constants';
 import type { CardContext } from './constants';
-import type { SellerOrder } from '../../../api/sellerClient';
+import type { SellerOrder, SellerProduct } from '../../../api/sellerClient';
+import { getProductImageUrl } from '../../../api/sellerClient';
 import './OrderInfoModal.css';
 
 interface OrderInfoModalProps {
-  order: SellerOrder | null;
+  order: SellerOrder;
   context: CardContext;
   editingPrice: number | null;
   newPrice: string;
@@ -16,7 +17,7 @@ interface OrderInfoModalProps {
   onSavePrice: (orderId: number) => void;
   onCancelPrice: () => void;
   onPriceChange: (value: string) => void;
-  onProductClick?: (productId: number) => void;
+  loadProducts?: () => Promise<SellerProduct[]>;
   onClose: () => void;
 }
 
@@ -24,15 +25,10 @@ function formatDate(iso?: string | null): string {
   if (!iso) return '—';
   try {
     return new Date(iso).toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     });
-  } catch {
-    return '—';
-  }
+  } catch { return '—'; }
 }
 
 export function OrderInfoModal({
@@ -44,16 +40,27 @@ export function OrderInfoModal({
   onSavePrice,
   onCancelPrice,
   onPriceChange,
-  onProductClick,
+  loadProducts,
   onClose,
 }: OrderInfoModalProps) {
   const [copiedAddr, setCopiedAddr] = useState(false);
+  const [products, setProducts] = useState<SellerProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
 
-  if (!order) return null;
+  // Load products on mount for inline cards
+  useEffect(() => {
+    if (!loadProducts) return;
+    setProductsLoading(true);
+    loadProducts()
+      .then(setProducts)
+      .catch(() => setProducts([]))
+      .finally(() => setProductsLoading(false));
+  }, [loadProducts]);
 
   const pickup = isPickup(order.delivery_type);
   const items = parseItemsInfo(order.items_info);
   const showPriceEdit = context === 'pending' || context === 'preorder_requests';
+  const sc = getStatusColor(order.status);
   const hasOriginalPrice =
     order.original_price != null &&
     Math.abs((order.original_price ?? 0) - (order.total_price ?? 0)) > 0.01;
@@ -68,20 +75,15 @@ export function OrderInfoModal({
   };
 
   const handleBeforeClose = () => {
-    if (editingPrice === order.id) {
-      onCancelPrice();
-    }
+    if (editingPrice === order.id) onCancelPrice();
     return true;
   };
 
   const paymentLabel = order.payment_method === 'on_pickup' ? 'При получении (наличные)' : 'Онлайн';
   const paymentStatusLabel =
-    order.payment_status === 'succeeded'
-      ? 'Оплачено'
-      : order.payment_status === 'pending'
-        ? 'Ожидает оплаты'
-        : order.payment_status === 'cancelled'
-          ? 'Отменён'
+    order.payment_status === 'succeeded' ? 'Оплачено'
+      : order.payment_status === 'pending' ? 'Ожидает оплаты'
+        : order.payment_status === 'cancelled' ? 'Отменён'
           : order.payment_status || '—';
 
   return (
@@ -98,15 +100,18 @@ export function OrderInfoModal({
       }
     >
       <div className="oim">
-        {/* ── Секция: Заказ ──────────────────────── */}
+        {/* ── Секция: Заказ ──────────────── */}
         <section className="oim__section">
           <h3 className="oim__section-title">Заказ</h3>
           <div className="oim__rows">
             <div className="oim__row">
               <span className="oim__label">Статус</span>
-              <StatusBadge variant={getStatusVariant(order.status)}>
+              <span
+                className="oim__badge"
+                style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}
+              >
                 {STATUS_LABELS[order.status] || order.status}
-              </StatusBadge>
+              </span>
             </div>
             <div className="oim__row">
               <span className="oim__label">Дата</span>
@@ -134,15 +139,10 @@ export function OrderInfoModal({
                 <span className="oim__value oim__value--bonus">−{order.points_discount} ₽</span>
               </div>
             )}
-
-            {/* Price edit */}
             {showPriceEdit && editingPrice !== order.id && (
               <div className="oim__row">
                 <span className="oim__label" />
-                <button
-                  className="oim__edit-price-btn"
-                  onClick={() => onEditPrice(order.id, order.total_price ?? 0)}
-                >
+                <button className="oim__edit-price-btn" onClick={() => onEditPrice(order.id, order.total_price ?? 0)}>
                   Изменить цену
                 </button>
               </div>
@@ -151,18 +151,12 @@ export function OrderInfoModal({
               <div className="oim__row">
                 <span className="oim__label">Новая цена</span>
                 <div className="oim__price-edit">
-                  <input
-                    type="number"
-                    value={newPrice}
-                    onChange={(e) => onPriceChange(e.target.value)}
-                    className="form-input oim__price-input"
-                  />
+                  <input type="number" value={newPrice} onChange={(e) => onPriceChange(e.target.value)} className="form-input oim__price-input" />
                   <button className="btn btn-sm btn-primary" onClick={() => onSavePrice(order.id)}>OK</button>
                   <button className="btn btn-sm btn-secondary" onClick={onCancelPrice}>✕</button>
                 </div>
               </div>
             )}
-
             <div className="oim__row">
               <span className="oim__label">Доставка</span>
               <span className={`oim__pill ${pickup ? 'oim__pill--pickup' : 'oim__pill--delivery'}`}>
@@ -208,26 +202,41 @@ export function OrderInfoModal({
           </div>
         </section>
 
-        {/* ── Секция: Состав ─────────────────────── */}
+        {/* ── Секция: Состав — product mini-cards ── */}
         <section className="oim__section">
           <h3 className="oim__section-title">Состав</h3>
-          <ul className="oim__items">
-            {items.map((item, i) => (
-              <li key={i} className="oim__item">
-                {item.id && onProductClick ? (
-                  <span className="oim__item-link" onClick={() => onProductClick(item.id!)}>
-                    {item.name}
-                  </span>
-                ) : (
-                  <span>{item.name}</span>
-                )}
-                <span className="oim__item-qty">× {item.qty}</span>
-              </li>
-            ))}
-          </ul>
+          {productsLoading ? (
+            <div className="oim__products-loading">Загрузка товаров...</div>
+          ) : (
+            <div className="oim__products">
+              {items.map((item, i) => {
+                const product = item.id ? products.find(p => p.id === item.id) : null;
+                const photoUrl = product ? getProductImageUrl(product.photo_id ?? (product.photo_ids?.[0] ?? null)) : null;
+                return (
+                  <div key={i} className="oim__product-card">
+                    <div className="oim__product-thumb">
+                      {photoUrl ? (
+                        <img src={photoUrl} alt={item.name} className="oim__product-img" />
+                      ) : (
+                        <span className="oim__product-placeholder">🌸</span>
+                      )}
+                    </div>
+                    <div className="oim__product-info">
+                      <span className="oim__product-name">{item.name}</span>
+                      <span className="oim__product-meta">
+                        {product ? `${product.price} ₽` : ''}
+                        {product ? ` · ${product.quantity} шт` : ''}
+                      </span>
+                    </div>
+                    <span className="oim__product-qty">× {item.qty}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
-        {/* ── Секция: Покупатель ─────────────────── */}
+        {/* ── Секция: Покупатель ─────────── */}
         <section className="oim__section">
           <h3 className="oim__section-title">Покупатель</h3>
           <div className="oim__rows">
