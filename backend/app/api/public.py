@@ -188,7 +188,7 @@ async def get_public_sellers(
         # Эффективный лимит: ручной (если задан на сегодня) или default_daily_limit
         effective_limit_expr = case(
             (and_(Seller.daily_limit_date == today, Seller.max_orders > 0), Seller.max_orders),
-            else_=func.coalesce(Seller.default_daily_limit, 0),
+            else_=func.coalesce(Seller.default_daily_limit, 30),
         )
 
         # Базовые условия: не заблокирован, не удалён, размещение не истекло, есть лимит, подписка активна

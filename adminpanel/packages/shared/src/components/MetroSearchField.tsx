@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { MetroStation } from '../types/common';
+import './MetroSearchField.css';
 
 interface MetroSearchFieldProps {
   metroId: number | null;

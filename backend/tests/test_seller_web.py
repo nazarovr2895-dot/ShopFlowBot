@@ -568,12 +568,3 @@ async def test_seller_dashboard_alerts(client: AsyncClient, test_seller: Seller)
 # LIMITS
 # ============================================
 
-@pytest.mark.asyncio
-async def test_seller_update_limits(client: AsyncClient, test_seller: Seller):
-    """Test updating seller order limits."""
-    response = await client.put(
-        "/seller-web/limits",
-        params={"max_orders": 8},
-        headers=seller_headers(test_seller.seller_id),
-    )
-    assert response.status_code == 200

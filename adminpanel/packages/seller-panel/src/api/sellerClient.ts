@@ -469,38 +469,6 @@ export async function recalculateProductPrice(productId: number): Promise<{ id: 
   return fetchSeller(`/seller-web/products/${productId}/recalculate`, { method: 'POST' });
 }
 
-export async function updateLimits(params: {
-  maxDeliveryOrders: number;
-  maxPickupOrders: number;
-}): Promise<{ status: string }> {
-  const sp = new URLSearchParams();
-  sp.set('max_delivery_orders', String(params.maxDeliveryOrders));
-  sp.set('max_pickup_orders', String(params.maxPickupOrders));
-  return fetchSeller(`/seller-web/limits?${sp.toString()}`, { method: 'PUT' });
-}
-
-export async function updateDefaultLimit(params: {
-  maxDeliveryOrders: number;
-  maxPickupOrders: number;
-}): Promise<{ status: string }> {
-  const sp = new URLSearchParams();
-  sp.set('max_delivery_orders', String(params.maxDeliveryOrders));
-  sp.set('max_pickup_orders', String(params.maxPickupOrders));
-  return fetchSeller(`/seller-web/default-limit?${sp.toString()}`, { method: 'PUT' });
-}
-
-export async function closeForToday(): Promise<{ status: string; message?: string }> {
-  return fetchSeller('/seller-web/close-for-today', { method: 'POST' });
-}
-
-export async function updateWeeklySchedule(
-  schedule: Record<string, { delivery: number; pickup: number }>
-): Promise<{ status: string }> {
-  return fetchSeller('/seller-web/weekly-schedule', {
-    method: 'PUT',
-    body: JSON.stringify({ schedule }),
-  });
-}
 
 export async function updateWorkingHours(
   working_hours: Record<string, { open: string; close: string } | null> | null

@@ -25,6 +25,8 @@ export interface Seller {
   deleted_at?: string
   max_orders?: number
   default_daily_limit?: number
+  max_delivery_orders?: number
+  max_pickup_orders?: number
   daily_limit_date?: string
   active_orders?: number
   pending_requests?: number

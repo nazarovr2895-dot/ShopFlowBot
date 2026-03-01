@@ -5,7 +5,6 @@ import { useSellerAuth } from '../../contexts/SellerAuthContext';
 import { getMe } from '../../api/sellerClient';
 import type { SellerMe } from '../../api/sellerClient';
 import { ShopSettingsTab } from './settings/ShopSettingsTab';
-import { LimitsSettingsTab } from './settings/LimitsSettingsTab';
 import { WorkingHoursSettingsTab } from './settings/WorkingHoursSettingsTab';
 import { PreordersSettingsTab } from './settings/PreordersSettingsTab';
 import { AccountSettingsTab } from './settings/AccountSettingsTab';
@@ -17,7 +16,6 @@ import { DeliveryZonesSettingsTab } from './settings/DeliveryZonesSettingsTab';
 const ALL_TABS = [
   { key: 'shop', label: 'Магазин' },
   { key: 'delivery', label: 'Доставка' },
-  { key: 'limits', label: 'Лимиты' },
   { key: 'hours', label: 'Время работы' },
   { key: 'preorders', label: 'Предзаказы' },
   { key: 'subscription', label: 'Подписка' },
@@ -66,7 +64,7 @@ export function SellerSettings() {
   if (loading) {
     return (
       <div>
-        <PageHeader title="Настройки" subtitle="Магазин, лимиты, время работы, предзаказы, ЮКасса и аккаунт" />
+        <PageHeader title="Настройки" subtitle="Магазин, время работы, предзаказы, ЮКасса и аккаунт" />
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
           <div className="loader" />
         </div>
@@ -77,7 +75,7 @@ export function SellerSettings() {
   if (!me) {
     return (
       <div>
-        <PageHeader title="Настройки" subtitle="Магазин, лимиты, время работы, предзаказы, ЮКасса и аккаунт" />
+        <PageHeader title="Настройки" subtitle="Магазин, время работы, предзаказы, ЮКасса и аккаунт" />
         <div className="card">
           <p className="empty-text">Не удалось загрузить данные. Попробуйте обновить страницу.</p>
         </div>
@@ -87,11 +85,10 @@ export function SellerSettings() {
 
   return (
     <div>
-      <PageHeader title="Настройки" subtitle="Магазин, лимиты, время работы, предзаказы, ЮКасса и аккаунт" />
+      <PageHeader title="Настройки" subtitle="Магазин, время работы, предзаказы, ЮКасса и аккаунт" />
       <TabBar tabs={tabs} activeTab={tab} onChange={setTab} />
       {tab === 'shop' && <ShopSettingsTab me={me} reload={reload} />}
       {tab === 'delivery' && <DeliveryZonesSettingsTab me={me} reload={reload} />}
-      {tab === 'limits' && <LimitsSettingsTab me={me} reload={reload} />}
       {tab === 'hours' && <WorkingHoursSettingsTab me={me} reload={reload} />}
       {tab === 'preorders' && <PreordersSettingsTab me={me} reload={reload} />}
       {tab === 'subscription' && <SubscriptionSettingsTab me={me} reload={reload} />}

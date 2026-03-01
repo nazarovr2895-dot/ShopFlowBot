@@ -480,7 +480,7 @@ async def get_favorite_sellers(
 
     effective_limit_expr = case(
         (and_(Seller.daily_limit_date == today, Seller.max_orders > 0), Seller.max_orders),
-        else_=func.coalesce(Seller.default_daily_limit, 0),
+        else_=func.coalesce(Seller.default_daily_limit, 30),
     )
 
     product_stats = (

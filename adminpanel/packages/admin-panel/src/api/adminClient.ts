@@ -217,8 +217,12 @@ export async function setSellerSubscriptionPlan(tgId: number, plan: string): Pro
   });
 }
 
-export async function setSellerDefaultLimit(tgId: number, defaultDailyLimit: number): Promise<{ status?: string }> {
-  return fetchAdmin(`/admin/sellers/${tgId}/default_limit?default_daily_limit=${defaultDailyLimit}`, {
+export async function setSellerDefaultLimit(
+  tgId: number,
+  maxDeliveryOrders: number,
+  maxPickupOrders: number,
+): Promise<{ status?: string }> {
+  return fetchAdmin(`/admin/sellers/${tgId}/default_limit?max_delivery_orders=${maxDeliveryOrders}&max_pickup_orders=${maxPickupOrders}`, {
     method: 'PUT',
   });
 }

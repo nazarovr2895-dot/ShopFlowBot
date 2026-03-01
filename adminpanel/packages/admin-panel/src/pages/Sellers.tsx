@@ -857,7 +857,8 @@ function SellerDetailsModal({
 
   // Limits & plan
   const [limit, setLimit] = useState(String(seller.max_orders ?? ''));
-  const [defaultLimit, setDefaultLimit] = useState(String(seller.default_daily_limit ?? ''));
+  const [deliveryLimit, setDeliveryLimit] = useState(String(seller.max_delivery_orders ?? 10));
+  const [pickupLimit, setPickupLimit] = useState(String(seller.max_pickup_orders ?? 20));
   const [subscriptionPlan, setSubscriptionPlan] = useState(seller.subscription_plan ?? 'free');
 
   // Subscription
@@ -1137,14 +1138,16 @@ function SellerDetailsModal({
   };
 
   const handleSaveDefaultLimit = async () => {
-    const num = defaultLimit.trim() === '' ? 0 : parseInt(defaultLimit, 10);
-    if (isNaN(num) || num < 0) { toast.error('Введите число >= 0'); return; }
+    const dNum = deliveryLimit.trim() === '' ? 10 : parseInt(deliveryLimit, 10);
+    const pNum = pickupLimit.trim() === '' ? 20 : parseInt(pickupLimit, 10);
+    if (isNaN(dNum) || dNum < 0) { toast.error('Лимит доставки должен быть >= 0'); return; }
+    if (isNaN(pNum) || pNum < 0) { toast.error('Лимит самовывоза должен быть >= 0'); return; }
     setLoading(true);
     try {
-      const res = await setSellerDefaultLimit(seller.tg_id, num);
+      const res = await setSellerDefaultLimit(seller.tg_id, dNum, pNum);
       if (res?.status === 'ok') {
-        toast.success('Стандартный лимит обновлён');
-        onUpdate({ ...seller, default_daily_limit: num || undefined });
+        toast.success('Лимиты обновлены');
+        onUpdate({ ...seller, max_delivery_orders: dNum, max_pickup_orders: pNum, default_daily_limit: dNum + pNum });
         onSuccess();
       } else {
         toast.error((res as { message?: string })?.message || 'Ошибка');
@@ -1667,12 +1670,17 @@ function SellerDetailsModal({
 
               <div className="sdm-divider" />
 
-              {/* Default daily limit */}
+              {/* Delivery / Pickup limits */}
               <div className="sdm-edit-field">
-                <label className="sdm-edit-label">Стандартный дневной лимит</label>
-                <p className="sdm-hint">Авто-применяется каждый день. 0 или пусто = без лимита.</p>
+                <label className="sdm-edit-label">Лимит доставки (заказов/день)</label>
                 <div className="sdm-inline-row">
-                  <input className="sdm-edit-input" type="number" min={0} value={defaultLimit} onChange={(e) => setDefaultLimit(e.target.value)} placeholder="Не задан" />
+                  <input className="sdm-edit-input" type="number" min={0} value={deliveryLimit} onChange={(e) => setDeliveryLimit(e.target.value)} placeholder="10" />
+                </div>
+              </div>
+              <div className="sdm-edit-field">
+                <label className="sdm-edit-label">Лимит самовывоза (заказов/день)</label>
+                <div className="sdm-inline-row">
+                  <input className="sdm-edit-input" type="number" min={0} value={pickupLimit} onChange={(e) => setPickupLimit(e.target.value)} placeholder="20" />
                   <button className="sdm-btn sdm-btn--primary" onClick={handleSaveDefaultLimit} disabled={loading}>Сохранить</button>
                 </div>
               </div>

@@ -621,11 +621,23 @@ async def set_subscription_plan(tg_id: int, plan: str, session: AsyncSession = D
 
 
 @router.put("/sellers/{tg_id}/default_limit")
-async def set_default_limit(tg_id: int, default_daily_limit: int, session: AsyncSession = Depends(get_session)):
-    """Установить стандартный дневной лимит продавца (админ)."""
+async def set_default_limit(
+    tg_id: int,
+    max_delivery_orders: Optional[int] = Query(None, ge=0),
+    max_pickup_orders: Optional[int] = Query(None, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    """Установить лимиты доставки/самовывоза продавца (админ). default_daily_limit = сумма."""
     service = SellerService(session)
     try:
-        return await service.update_default_limit(tg_id, default_daily_limit)
+        delivery = max_delivery_orders if max_delivery_orders is not None else 10
+        pickup = max_pickup_orders if max_pickup_orders is not None else 20
+        return await service.update_default_limit(
+            tg_id,
+            default_daily_limit=delivery + pickup,
+            max_delivery_orders=max_delivery_orders,
+            max_pickup_orders=max_pickup_orders,
+        )
     except SellerNotFoundError:
         return {"status": "not_found"}
     except SellerServiceError as e:
