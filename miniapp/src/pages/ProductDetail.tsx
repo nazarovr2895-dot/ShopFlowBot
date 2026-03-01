@@ -7,6 +7,7 @@ import { isBrowser } from '../utils/environment';
 import { addToGuestCart } from '../utils/guestCart';
 import { Loader, EmptyState, ProductImage, HeartIcon, DesktopBackNav } from '../components';
 import { ProductComposition } from '../components/ProductComposition';
+import { formatPrice } from '../utils/formatters';
 import './ProductDetail.css';
 
 export function ProductDetail() {
@@ -172,8 +173,6 @@ export function ProductDetail() {
   const isPreorder = product.is_preorder === true;
   const inStock = !isPreorder && (product.quantity ?? 0) > 0;
   const availableDates = sellerDetail?.preorder_available_dates ?? [];
-  const formatPrice = (n: number) =>
-    new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
   const handleScroll = () => {
     const el = scrollTrackRef.current;

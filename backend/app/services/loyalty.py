@@ -8,6 +8,7 @@ from sqlalchemy import select, func, delete as sa_delete, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
 
+from backend.app.core.exceptions import ServiceError
 from backend.app.models.loyalty import (
     SellerCustomer,
     SellerLoyaltyTransaction,
@@ -96,11 +97,9 @@ def compute_rfm_segment(
     return "Случайный"
 
 
-class LoyaltyServiceError(Exception):
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
+class LoyaltyServiceError(ServiceError):
+    """Base exception for loyalty service errors."""
+    pass
 
 
 class CustomerNotFoundError(LoyaltyServiceError):

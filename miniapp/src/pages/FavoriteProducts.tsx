@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { Loader, EmptyState, ProductImage, HeartIcon } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
+import { formatPrice } from '../utils/formatters';
 import './FavoriteProducts.css';
 
 export function FavoriteProducts() {
@@ -79,14 +80,6 @@ export function FavoriteProducts() {
       </div>
     );
   }
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
 
   return (
     <div className="favorite-products-page">

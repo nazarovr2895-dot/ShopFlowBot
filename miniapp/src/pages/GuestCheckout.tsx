@@ -2,19 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
-import { EmptyState, ProductImage, LoyaltyLoginBanner, DesktopBackNav, AddressAutocomplete } from '../components';
+import { EmptyState, LoyaltyLoginBanner, DesktopBackNav, AddressAutocomplete } from '../components';
 import { DeliverySlotPicker } from '../components/DeliverySlotPicker';
 import type { DeliverySlot } from '../components/DeliverySlotPicker';
+import { DeliveryTypeToggle } from '../components/checkout/DeliveryTypeToggle';
+import { OrderItemsSection } from '../components/checkout/OrderItemsSection';
 import { getGuestCart, guestCartToGroups, clearGuestCart } from '../utils/guestCart';
+import { formatPrice } from '../utils/formatters';
+import { normalizePhone } from '../utils/phone';
 import './Checkout.css';
-
-function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 0) return '';
-  let normalized = digits.startsWith('8') ? '7' + digits.slice(1) : digits.startsWith('7') ? digits : '7' + digits;
-  normalized = normalized.slice(0, 11);
-  return normalized;
-}
 
 export function GuestCheckout() {
   const navigate = useNavigate();
@@ -81,9 +77,6 @@ export function GuestCheckout() {
       setDistrictNameToId(nameMap);
     }).catch(() => { /* not critical */ });
   }, [cart]);
-
-  const formatPrice = (n: number) =>
-    new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
   const totalGoods = cart.reduce((sum, g) => sum + g.total, 0);
   // Prefer zone price from delivery check over flat cart price
@@ -240,32 +233,17 @@ export function GuestCheckout() {
               <div className="checkout-seller__name">{group.shop_name}</div>
 
               {/* Delivery type toggle */}
-              <div className="checkout-toggle">
-                <span className="checkout-toggle__label">Способ получения</span>
-                <div className="checkout-toggle__pills">
-                  {supportsPickup && (
-                    <button
-                      type="button"
-                      className={`checkout-toggle__pill ${sellerDt === 'Самовывоз' ? 'checkout-toggle__pill--active' : ''}`}
-                      onClick={() => setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Самовывоз' }))}
-                    >
-                      Самовывоз
-                    </button>
-                  )}
-                  {supportsDelivery && (
-                    <button
-                      type="button"
-                      className={`checkout-toggle__pill ${sellerDt === 'Доставка' ? 'checkout-toggle__pill--active' : ''}`}
-                      onClick={() => {
-                        setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Доставка' }));
-                        setPaymentMethodBySeller((prev) => ({ ...prev, [group.seller_id]: 'online' }));
-                      }}
-                    >
-                      Курьером
-                    </button>
-                  )}
-                </div>
-              </div>
+              <DeliveryTypeToggle
+                supportsDelivery={supportsDelivery}
+                supportsPickup={supportsPickup}
+                selected={sellerDt}
+                onChange={(type) => {
+                  setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: type as 'Доставка' | 'Самовывоз' }));
+                  if (type === 'Доставка') {
+                    setPaymentMethodBySeller((prev) => ({ ...prev, [group.seller_id]: 'online' }));
+                  }
+                }}
+              />
 
               {/* Pickup address */}
               {sellerDt === 'Самовывоз' && ((group.address_name && group.address_name.trim()) || (group.map_url && group.map_url.trim())) && (
@@ -319,41 +297,16 @@ export function GuestCheckout() {
                 />
               )}
 
-              {/* Items */}
-              <ul className="checkout-items">
-                {group.items.map((item) => (
-                  <li key={item.product_id} className="checkout-item">
-                    <div className="checkout-item__image-wrap">
-                      <ProductImage
-                        src={api.getProductImageUrl(item.photo_id ?? null)}
-                        alt={item.name}
-                        className="checkout-item__image"
-                        placeholderClassName="checkout-item__image-placeholder"
-                        placeholderIconClassName="checkout-item__image-placeholder-icon"
-                      />
-                    </div>
-                    <div className="checkout-item__body">
-                      <span className="checkout-item__name">{item.name}</span>
-                      <div className="checkout-item__meta">
-                        <span className="checkout-item__qty">{item.quantity} шт</span>
-                        <span className="checkout-item__price">{formatPrice(item.price * item.quantity)}</span>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Subtotal */}
-              <div className="checkout-seller__subtotal">
-                Итого: {formatPrice(group.total)}
-                {sellerDt === 'Доставка' && (() => {
+              {/* Items + Subtotal */}
+              <OrderItemsSection
+                items={group.items}
+                groupTotal={group.total}
+                deliveryType={sellerDt}
+                deliveryPrice={(() => {
                   const checkResult = deliveryCheckResults[group.seller_id];
-                  const dp = checkResult?.delivers ? checkResult.delivery_price : (group.delivery_price ?? null);
-                  if (dp !== null && dp > 0) return <span> + доставка {formatPrice(dp)}</span>;
-                  if (dp === null) return <span className="checkout-seller__subtotal-delivery"> + доставка уточняется</span>;
-                  return null;
+                  return checkResult?.delivers ? checkResult.delivery_price : (group.delivery_price ?? null);
                 })()}
-              </div>
+              />
 
               {/* Gift note (per seller) */}
               {group.gift_note_enabled && (

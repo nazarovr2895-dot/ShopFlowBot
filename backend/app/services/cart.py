@@ -6,6 +6,7 @@ from sqlalchemy import select, delete, and_, func
 from typing import List, Dict, Any, Optional
 from decimal import Decimal, ROUND_HALF_UP
 
+from backend.app.core.exceptions import ServiceError
 from backend.app.models.cart import CartItem, BuyerFavoriteSeller, BuyerFavoriteProduct
 from backend.app.models.order import Order
 from backend.app.models.product import Product
@@ -16,11 +17,9 @@ from backend.app.services.sellers import get_preorder_available_dates, normalize
 from backend.app.services.reservations import ReservationService
 
 
-class CartServiceError(Exception):
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
+class CartServiceError(ServiceError):
+    """Base exception for cart service errors."""
+    pass
 
 
 class CartService:

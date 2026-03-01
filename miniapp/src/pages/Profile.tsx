@@ -5,31 +5,8 @@ import { Loader, TelegramAuth } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import { REQUIRE_AUTH_FROM_CHECKOUT, REQUIRE_AUTH_FROM_ORDERS } from '../components/ProtectedRoute';
+import { normalizePhone, formatPhoneForDisplay } from '../utils/phone';
 import './Profile.css';
-
-const PHONE_PREFIX = '+7 ';
-
-function formatPhoneForDisplay(phone: string | undefined): string {
-  if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 0) return '';
-  const rest = digits.startsWith('7') ? digits.slice(1) : digits;
-  const part1 = rest.slice(0, 3);
-  const part2 = rest.slice(3, 6);
-  const part3 = rest.slice(6, 8);
-  const part4 = rest.slice(8, 10);
-  return [part1, part2, part3, part4].filter(Boolean).join(' ').trim()
-    ? PHONE_PREFIX + [part1, part2, part3, part4].filter(Boolean).join(' ')
-    : '';
-}
-
-function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 0) return '';
-  let normalized = digits.startsWith('8') ? '7' + digits.slice(1) : digits.startsWith('7') ? digits : '7' + digits;
-  normalized = normalized.slice(0, 11);
-  return normalized;
-}
 
 export function Profile() {
   const navigate = useNavigate();

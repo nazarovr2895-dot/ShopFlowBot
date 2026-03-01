@@ -1,5 +1,6 @@
 import { useShopCart } from '../contexts/ShopCartContext';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
+import { formatPrice } from '../utils/formatters';
 import './FloatingCartBar.css';
 
 const CartIcon = () => (
@@ -9,9 +10,6 @@ const CartIcon = () => (
     <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
   </svg>
 );
-
-const formatPrice = (n: number) =>
-  new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
 const itemCountLabel = (n: number) => {
   const lastTwo = n % 100;

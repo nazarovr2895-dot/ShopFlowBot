@@ -19,6 +19,8 @@ from backend.app.models.user import User
 from backend.app.models.order import Order
 from backend.app.core.password_utils import hash_password, verify_password
 from backend.app.core.logging import get_logger
+from backend.app.core.exceptions import ServiceError
+from backend.app.core.constants import MAX_PREORDER_LOOKAHEAD_DAYS, MAX_INTERVAL_ITERATIONS
 from backend.app.services.dadata import validate_inn
 
 logger = get_logger(__name__)
@@ -150,7 +152,7 @@ def get_preorder_available_dates(
             if current.weekday() == preorder_weekday:
                 result.append(current.isoformat())
             current += timedelta(days=1)
-            if (current - today).days > 365:
+            if (current - today).days > MAX_PREORDER_LOOKAHEAD_DAYS:
                 break
     elif preorder_schedule_type == "interval_days" and preorder_interval_days and preorder_base_date:
         k = 0
@@ -159,17 +161,14 @@ def get_preorder_available_dates(
             if d >= earliest:
                 result.append(d.isoformat())
             k += 1
-            if k > 52:
+            if k > MAX_INTERVAL_ITERATIONS:
                 break
     return result[:count]
 
 
-class SellerServiceError(Exception):
+class SellerServiceError(ServiceError):
     """Base exception for seller service errors."""
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
+    pass
 
 
 class SellerNotFoundError(SellerServiceError):

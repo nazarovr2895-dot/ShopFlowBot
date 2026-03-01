@@ -4,40 +4,11 @@ import type { BuyerOrder } from '../types';
 import { api } from '../api/client';
 import { Loader, EmptyState, ProductImage } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
-import { parseItemsDisplay } from '../utils/formatters';
+import { parseItemsDisplay, formatPrice } from '../utils/formatters';
+import { ACTIVE_STATUSES, COMPLETED_STATUSES, STATUS_LABELS, STATUS_COLORS } from '../utils/orderConstants';
 import './OrdersList.css';
 
 type OrderTab = 'active' | 'completed';
-
-const ACTIVE_STATUSES = new Set(['pending', 'accepted', 'assembling', 'in_transit', 'ready_for_pickup', 'done']);
-const COMPLETED_STATUSES = new Set(['completed', 'rejected', 'cancelled']);
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Ожидает',
-  accepted: 'Принят',
-  assembling: 'Собирается',
-  in_transit: 'В пути',
-  ready_for_pickup: 'Готов к выдаче',
-  done: 'Выполнен',
-  completed: 'Получен',
-  rejected: 'Отклонён',
-  cancelled: 'Отменён',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: '#f39c12',
-  accepted: '#27ae60',
-  assembling: '#3498db',
-  in_transit: '#9b59b6',
-  ready_for_pickup: '#9b59b6',
-  done: '#2ecc71',
-  completed: '#95a5a6',
-  rejected: '#e74c3c',
-  cancelled: '#95a5a6',
-};
-
-const formatPrice = (n: number) =>
-  new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
 /**
  * Orders tab content — renders inside the home page (MyFlowers).

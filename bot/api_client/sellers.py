@@ -1,4 +1,5 @@
 from bot.api_client.base import make_request
+from bot.api_client.models import SellerObj, OrderObj, DictObj, is_success
 from typing import List, Tuple, Optional
 from datetime import datetime
 
@@ -30,26 +31,6 @@ async def api_validate_seller_availability(seller_id: int) -> Tuple[bool, Option
 async def api_get_seller(tg_id: int):
     data = await make_request("GET", f"/sellers/{tg_id}")
     if not data: return None
-    
-    class SellerObj:
-        def __init__(self, d):
-            self.seller_id = d.get("seller_id")
-            self.shop_name = d.get("shop_name", "Shop")
-            self.description = d.get("description")
-            self.max_orders = d.get("max_orders", 0)
-            self.daily_limit_date = d.get("daily_limit_date")
-            self.limit_set_for_today = d.get("limit_set_for_today", False)
-            self.orders_used_today = d.get("orders_used_today", 0)
-            self.active_orders = d.get("active_orders", 0)
-            self.pending_requests = d.get("pending_requests", 0)
-            self.is_blocked = d.get("is_blocked", False)
-            self.delivery_type = d.get("delivery_type")
-            self.delivery_price = d.get("delivery_price", 0.0)
-            self.map_url = d.get("map_url")
-            self.placement_expired_at = d.get("placement_expired_at")
-            self.deleted_at = d.get("deleted_at")
-            self.is_deleted = d.get("is_deleted", False)
-            
     return SellerObj(data)
 
 # --- ТОВАРЫ ---
@@ -98,13 +79,7 @@ async def api_get_my_products(seller_id: int):
     if not data or not isinstance(data, list):
         return []
     
-    # Превращаем JSON словари в объекты
-    products = []
-    for item in data:
-        class ProductObj:
-            def __init__(self, d): self.__dict__ = d
-        products.append(ProductObj(item))
-    return products
+    return [DictObj(item) for item in data]
 
 # Алиас для удобства (используется в buyer.py)
 api_get_products = api_get_my_products
@@ -118,10 +93,7 @@ async def api_get_product(product_id: int):
     data = await make_request("GET", f"/sellers/products/{product_id}")
     if not data:
         return None
-    
-    class ProductObj:
-        def __init__(self, d): self.__dict__ = d
-    return ProductObj(data)
+    return DictObj(data)
 
 
 async def api_update_product(
@@ -208,29 +180,29 @@ async def api_update_seller_field(tg_id: int, field: str, value: str):
     """Обновить поле продавца"""
     payload = {"field": field, "value": value}
     resp = await make_request("PUT", f"/admin/sellers/{tg_id}/update", data=payload)
-    return resp and resp.get("status") == "ok"
+    return is_success(resp)
 
 async def api_block_seller(tg_id: int, is_blocked: bool):
     """Заблокировать/разблокировать продавца"""
     resp = await make_request("PUT", f"/admin/sellers/{tg_id}/block", params={"is_blocked": str(is_blocked).lower()})
-    return resp and resp.get("status") == "ok"
+    return is_success(resp)
 
 async def api_soft_delete_seller(tg_id: int):
     """Soft Delete продавца (скрыть, сохраняя данные и историю заказов)"""
     resp = await make_request("PUT", f"/admin/sellers/{tg_id}/soft-delete")
-    return resp and resp.get("status") == "ok"
+    return is_success(resp)
 
 
 async def api_restore_seller(tg_id: int):
     """Восстановить soft-deleted продавца"""
     resp = await make_request("PUT", f"/admin/sellers/{tg_id}/restore")
-    return resp and resp.get("status") == "ok"
+    return is_success(resp)
 
 
 async def api_delete_seller(tg_id: int):
     """Удалить продавца (Hard Delete - полное удаление из БД)"""
     resp = await make_request("DELETE", f"/admin/sellers/{tg_id}")
-    return resp and resp.get("status") == "ok"
+    return is_success(resp)
 
 async def api_get_all_stats():
     """Получить общую статистику"""
@@ -258,24 +230,7 @@ async def api_get_seller_orders(seller_id: int, status: str = None):
     
     if not data or not isinstance(data, list):
         return []
-    
-    # Превращаем в объекты
-    orders = []
-    for item in data:
-        class OrderObj:
-            def __init__(self, d): 
-                self.id = d.get("id")
-                self.buyer_id = d.get("buyer_id")
-                self.seller_id = d.get("seller_id")
-                self.items_info = d.get("items_info", "")
-                self.total_price = d.get("total_price", 0)
-                self.original_price = d.get("original_price")
-                self.status = d.get("status", "pending")
-                self.delivery_type = d.get("delivery_type")
-                self.address = d.get("address")
-                self.created_at = d.get("created_at")
-        orders.append(OrderObj(item))
-    return orders
+    return [OrderObj(item) for item in data]
 
 
 async def api_accept_order(order_id: int):
@@ -309,23 +264,7 @@ async def api_get_buyer_orders(buyer_id: int):
     
     if not data or not isinstance(data, list):
         return []
-    
-    orders = []
-    for item in data:
-        class OrderObj:
-            def __init__(self, d): 
-                self.id = d.get("id")
-                self.buyer_id = d.get("buyer_id")
-                self.seller_id = d.get("seller_id")
-                self.items_info = d.get("items_info", "")
-                self.total_price = d.get("total_price", 0)
-                self.original_price = d.get("original_price")
-                self.status = d.get("status", "pending")
-                self.delivery_type = d.get("delivery_type")
-                self.address = d.get("address")
-                self.created_at = d.get("created_at")
-        orders.append(OrderObj(item))
-    return orders
+    return [OrderObj(item) for item in data]
 
 
 async def api_update_order_status(order_id: int, status: str):

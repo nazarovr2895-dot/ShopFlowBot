@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { PublicSellerListItem } from '../types';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
+import { formatPrice } from '../utils/formatters';
 import './ShopCard.css';
 
 interface ShopCardProps {
@@ -47,15 +48,6 @@ export function ShopCard({ seller }: ShopCardProps) {
   const handleClick = () => {
     hapticFeedback('light');
     navigate(`/shop/${seller.seller_id}`);
-  };
-
-  const formatPrice = (price: number | null) => {
-    if (price === null) return '—';
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-      maximumFractionDigits: 0,
-    }).format(price);
   };
 
   const priceRange =

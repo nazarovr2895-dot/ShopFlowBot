@@ -2,6 +2,17 @@
  * Shared formatting utilities for miniapp.
  */
 
+const priceFormatter = new Intl.NumberFormat('ru-RU', {
+  style: 'currency',
+  currency: 'RUB',
+  maximumFractionDigits: 0,
+});
+
+/** Format a number as Russian Ruble price. */
+export function formatPrice(n: number): string {
+  return priceFormatter.format(n);
+}
+
 /** Strip product IDs and @price from items_info: "123:Розы@8000.0 x 2" → "Розы x 2" */
 export function parseItemsDisplay(itemsInfo: string): string {
   return itemsInfo.replace(/\d+:/g, '').replace(/@[\d.]+/g, '');

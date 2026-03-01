@@ -1,4 +1,9 @@
+import logging
 from bot.api_client.base import make_request
+from bot.api_client.models import OrderObj
+
+logger = logging.getLogger(__name__)
+
 
 async def api_create_order(order_data: dict):
     """
@@ -6,20 +11,15 @@ async def api_create_order(order_data: dict):
     Возвращает объект заказа или None, если лимит исчерпан.
     """
     response = await make_request("POST", "/orders/create", data=order_data)
-    
-    # Если сервер вернул ошибку (например, 409 Conflict - лимит), response будет содержать "status" или быть None
+
     if not response or "id" not in response:
-        # Можно добавить логику проверки типа ошибки, но пока просто вернем None
-        print(f"❌ Не удалось создать заказ. Ответ API: {response}")
+        logger.error("Failed to create order. API response: %s", response)
         return None
 
-    class OrderObj:
-        id = response.get("id")
-        status = response.get("status")
-        
-    return OrderObj()
+    return OrderObj(response)
 
-# --- Новые методы управления статусами ---
+
+# --- Методы управления статусами ---
 
 async def api_accept_order(order_id: int):
     return await make_request("POST", f"/orders/{order_id}/accept")

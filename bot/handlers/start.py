@@ -40,7 +40,7 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
         if args.startswith("seller_"):
             try:
                 target_seller_id = int(args.replace("seller_", ""))
-            except:
+            except ValueError:
                 pass
 
     # 2. Регистрация

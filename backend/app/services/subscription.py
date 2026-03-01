@@ -23,6 +23,7 @@ from backend.app.models.subscription import Subscription
 from backend.app.models.seller import Seller
 from backend.app.core.settings import get_settings
 from backend.app.core.logging import get_logger
+from backend.app.core.exceptions import ServiceError
 
 logger = get_logger(__name__)
 
@@ -41,11 +42,9 @@ PERIOD_MULTIPLIERS = {
 # Exceptions
 # ---------------------------------------------------------------------------
 
-class SubscriptionServiceError(Exception):
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
+class SubscriptionServiceError(ServiceError):
+    """Base exception for subscription service errors."""
+    pass
 
 
 class SubscriptionNotConfiguredError(SubscriptionServiceError):

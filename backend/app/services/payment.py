@@ -11,7 +11,6 @@ Commission rates are determined by the existing commission system
 (get_effective_commission_rate from commissions.py).
 """
 import asyncio
-import re
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
@@ -29,6 +28,8 @@ from backend.app.models.user import User
 from backend.app.services.commissions import get_effective_commission_rate
 from backend.app.core.settings import get_settings
 from backend.app.core.logging import get_logger
+from backend.app.core.exceptions import ServiceError
+from backend.app.core.item_parsing import parse_items_info
 
 logger = get_logger(__name__)
 
@@ -37,13 +38,9 @@ logger = get_logger(__name__)
 # Exceptions
 # ---------------------------------------------------------------------------
 
-class PaymentServiceError(Exception):
+class PaymentServiceError(ServiceError):
     """Base exception for payment service errors."""
-
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
+    pass
 
 
 class PaymentNotConfiguredError(PaymentServiceError):
@@ -91,39 +88,10 @@ class PaymentService:
 
     # -- Receipt helpers ----------------------------------------------------
 
-    def _parse_items_info(self, items_info: str) -> List[Dict[str, Any]]:
-        """
-        Parse ``items_info`` string into a list of dicts.
-
-        Supported formats:
-        - New: ``"123:Розы@150.00 x 2, 456:Тюльпаны@200.00 x 3"``
-        - Legacy: ``"123:Розы x 2, 456:Тюльпаны x 3"``
-        Returns: ``[{product_id, name, quantity, price (optional)}, ...]``.
-        """
-        # Try new format with embedded price first
-        pattern_with_price = r'(\d+):(.+?)@(\d+(?:\.\d+)?)\s*[x×]\s*(\d+)'
-        matches = re.findall(pattern_with_price, items_info or "")
-        if matches:
-            return [
-                {
-                    "product_id": int(pid),
-                    "name": name.strip(),
-                    "quantity": int(qty),
-                    "price": Decimal(price),
-                }
-                for pid, name, price, qty in matches
-            ]
-        # Fallback: legacy format without price
-        pattern = r'(\d+):(.+?)\s*[x×]\s*(\d+)'
-        matches = re.findall(pattern, items_info or "")
-        return [
-            {
-                "product_id": int(pid),
-                "name": name.strip(),
-                "quantity": int(qty),
-            }
-            for pid, name, qty in matches
-        ]
+    @staticmethod
+    def _parse_items_info(items_info: str) -> List[Dict[str, Any]]:
+        """Delegate to shared parser in core.item_parsing."""
+        return parse_items_info(items_info)
 
     async def _build_receipt(
         self,

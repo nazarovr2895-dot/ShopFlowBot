@@ -7,15 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional, Dict, Any
 
+from backend.app.core.exceptions import ServiceError
 from backend.app.models.user import User
 
 
-class BuyerServiceError(Exception):
+class BuyerServiceError(ServiceError):
     """Base exception for buyer service errors."""
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
+    pass
 
 
 class UserNotFoundError(BuyerServiceError):

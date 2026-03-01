@@ -5,32 +5,9 @@ import { api } from '../api/client';
 import { Loader, EmptyState, DesktopBackNav } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isTelegram } from '../utils/environment';
-import { parseItemsDisplay, formatDeliveryAddress } from '../utils/formatters';
+import { parseItemsDisplay, formatDeliveryAddress, formatPrice } from '../utils/formatters';
+import { STATUS_LABELS_DETAIL as STATUS_LABELS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS } from '../utils/orderConstants';
 import './OrderDetail.css';
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Ожидает подтверждения',
-  accepted: 'Принят продавцом',
-  assembling: 'Собирается',
-  in_transit: 'В пути',
-  ready_for_pickup: 'Готов к выдаче',
-  done: 'Выполнен',
-  completed: 'Получен',
-  rejected: 'Отклонён',
-  cancelled: 'Отменён',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: '#f39c12',
-  accepted: '#27ae60',
-  assembling: '#3498db',
-  in_transit: '#9b59b6',
-  ready_for_pickup: '#9b59b6',
-  done: '#2ecc71',
-  completed: '#95a5a6',
-  rejected: '#e74c3c',
-  cancelled: '#95a5a6',
-};
 
 const CAN_CONFIRM = ['done', 'in_transit', 'ready_for_pickup', 'assembling', 'accepted'];
 const CAN_CANCEL = ['pending', 'accepted', 'assembling'];
@@ -67,23 +44,6 @@ function getStepIndex(status: string, deliveryType: string): number {
   const idx = steps.findIndex((s) => s.key === status);
   return idx >= 0 ? idx : -1;
 }
-
-const formatPrice = (n: number) =>
-  new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
-
-const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: 'Ожидает оплаты',
-  waiting_for_capture: 'Обработка оплаты',
-  succeeded: 'Оплачено',
-  canceled: 'Оплата отменена',
-};
-
-const PAYMENT_STATUS_COLORS: Record<string, string> = {
-  pending: '#f39c12',
-  waiting_for_capture: '#3498db',
-  succeeded: '#27ae60',
-  canceled: '#e74c3c',
-};
 
 export function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();

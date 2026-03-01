@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DesktopBackNav } from '../components';
+import { formatPrice } from '../utils/formatters';
 import './Checkout.css';
 
 interface OrderInfo {
@@ -15,9 +16,6 @@ export function GuestOrderConfirmation() {
 
   const orders = state?.orders ?? [];
   const guestPhone = state?.guest_phone ?? '';
-
-  const formatPrice = (n: number) =>
-    new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
   if (orders.length === 0) {
     return (

@@ -8,12 +8,10 @@ import { isTelegram, isBrowser } from '../utils/environment';
 import { api } from '../api/client';
 import { ProductImage } from './ProductImage';
 import { ReservationBadge } from './ReservationBadge';
+import { formatPrice } from '../utils/formatters';
 import './ShopCartPanel.css';
 
 const SWIPE_THRESHOLD = 120;
-
-const formatPrice = (n: number) =>
-  new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 
 const itemCountLabel = (n: number) => {
   const lastTwo = n % 100;

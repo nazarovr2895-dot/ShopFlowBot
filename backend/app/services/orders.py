@@ -8,9 +8,13 @@ from sqlalchemy import select, func
 from typing import Optional, List, Dict, Any
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta, date
-import re
-
 from backend.app.core.logging import get_logger
+from backend.app.core.exceptions import ServiceError
+from backend.app.core.item_parsing import parse_items_info
+from backend.app.core.constants import (
+    VALID_ORDER_STATUSES, COMPLETED_ORDER_STATUSES,
+    STATUSES_REQUIRING_PAYMENT, ZERO, ONE_CENT, PERCENT_BASE,
+)
 from backend.app.models.order import Order
 from backend.app.models.seller import Seller
 
@@ -32,12 +36,9 @@ except ImportError:
     orders_completed_total = None
 
 
-class OrderServiceError(Exception):
+class OrderServiceError(ServiceError):
     """Base exception for order service errors."""
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
+    pass
 
 
 class SellerNotFoundError(OrderServiceError):
@@ -76,7 +77,7 @@ class OrderAccessDeniedError(OrderServiceError):
 class OrderService:
     """Service class for order operations."""
     
-    VALID_STATUSES = ["pending", "accepted", "assembling", "in_transit", "ready_for_pickup", "done", "completed", "rejected", "cancelled"]
+    VALID_STATUSES = VALID_ORDER_STATUSES
     
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -308,14 +309,12 @@ class OrderService:
         # Уменьшаем количество товаров при принятии заказа (для предзаказов не списываем — выполнение на дату поставки)
         is_preorder = getattr(order, "is_preorder", False)
         if not is_preorder:
-            items_info_str = order.items_info or ""
-            items_pattern = r'(\d+):(.+?)\s*[x×]\s*(\d+)'
-            items_matches = re.findall(items_pattern, items_info_str)
+            parsed_items = parse_items_info(order.items_info)
 
-            if items_matches:
-                for product_id_str, product_name, quantity_str in items_matches:
-                    product_id = int(product_id_str)
-                    quantity_to_reduce = int(quantity_str)
+            if parsed_items:
+                for item in parsed_items:
+                    product_id = item["product_id"]
+                    quantity_to_reduce = item["quantity"]
 
                     # Получаем товар с блокировкой для атомарного обновления
                     product_result = await self.session.execute(
@@ -452,10 +451,10 @@ class OrderService:
 
         # Restore product quantities for accepted/assembling orders (stock was deducted at accept)
         if old_status in ("accepted", "assembling"):
-            items_matches = re.findall(r'(\d+):(.+?)\s*[x\u00d7]\s*(\d+)', order.items_info or "")
-            for product_id_str, _, quantity_str in items_matches:
-                product_id = int(product_id_str)
-                quantity = int(quantity_str)
+            parsed_items = parse_items_info(order.items_info)
+            for item in parsed_items:
+                product_id = item["product_id"]
+                quantity = item["quantity"]
                 product_result = await self.session.execute(
                     select(Product).where(
                         Product.id == product_id,
@@ -576,7 +575,7 @@ class OrderService:
         old_status = order.status
 
         # Block status progression if payment is required but not completed
-        if new_status in ("assembling", "in_transit", "ready_for_pickup", "done"):
+        if new_status in STATUSES_REQUIRING_PAYMENT:
             if getattr(order, "payment_id", None) and getattr(order, "payment_status", None) != "succeeded":
                 raise OrderServiceError(
                     "Невозможно изменить статус: заказ ещё не оплачен покупателем",
@@ -826,18 +825,16 @@ class OrderService:
         rows = result.all()
 
         # Parse items_info to extract first product_id per order for photo lookup
-        items_pattern = re.compile(r'(\d+):(.+?)\s*[x\u00d7]\s*(\d+)')
         order_first_pid: Dict[int, int] = {}
         all_product_ids: set = set()
 
         for row in rows:
             o = row[0]
-            matches = items_pattern.findall(o.items_info or "")
-            if matches:
-                first_pid = int(matches[0][0])
-                order_first_pid[o.id] = first_pid
-                for m in matches:
-                    all_product_ids.add(int(m[0]))
+            parsed = parse_items_info(o.items_info)
+            if parsed:
+                order_first_pid[o.id] = parsed[0]["product_id"]
+                for item in parsed:
+                    all_product_ids.add(item["product_id"])
 
         # Batch fetch product photos
         product_photos: Dict[int, Optional[str]] = {}
@@ -923,35 +920,15 @@ class OrderService:
             "items_info": order.items_info or "",
         }
 
-    COMPLETED_ORDER_STATUSES = ("done", "completed")
+    # Use module-level COMPLETED_ORDER_STATUSES from core.constants
 
-    async def get_seller_stats(
-        self,
-        seller_id,  # int | list[int]
-        date_from: Optional[datetime] = None,
-        date_to: Optional[datetime] = None,
+    # -- Stats helper methods --------------------------------------------------
+
+    async def _calculate_revenue_metrics(
+        self, seller_id, completed_conditions: list,  # seller_id: int | list[int]
     ) -> Dict[str, Any]:
-        """Get order statistics for a seller (or multiple branches) with optional period filters."""
-        date_field = func.coalesce(Order.completed_at, Order.created_at)
-        end_exclusive = date_to + timedelta(days=1) if date_to else None
-
-        # Support single seller_id or list of seller_ids (for network aggregation)
-        if isinstance(seller_id, list):
-            _seller_filter = Order.seller_id.in_(seller_id)
-            _commission_seller_id = seller_id[0]
-        else:
-            _seller_filter = (Order.seller_id == seller_id)
-            _commission_seller_id = seller_id
-
-        base_conditions = [_seller_filter]
-        if date_from:
-            base_conditions.append(date_field >= date_from)
-        if end_exclusive:
-            base_conditions.append(date_field < end_exclusive)
-
-        completed_conditions = base_conditions + [Order.status.in_(self.COMPLETED_ORDER_STATUSES)]
-
-        # Revenue from completed orders
+        """Calculate revenue, commission, and average check."""
+        _commission_seller_id = seller_id[0] if isinstance(seller_id, list) else seller_id
         totals_stmt = (
             select(
                 func.count(Order.id).label("total_orders"),
@@ -962,24 +939,29 @@ class OrderService:
         totals_row = (await self.session.execute(totals_stmt)).one()
         total_orders = totals_row.total_orders or 0
         total_revenue = float(totals_row.total_revenue or 0)
-        # Read commission rate: per-seller override > GlobalSettings > default (3%)
+
         from backend.app.services.commissions import get_effective_commission_rate
         _eff_pct = await get_effective_commission_rate(self.session, _commission_seller_id)
         commission_rate = _eff_pct / 100
-        commission = float(Decimal(str(total_revenue * commission_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        commission = float(Decimal(str(total_revenue * commission_rate)).quantize(ONE_CENT, rounding=ROUND_HALF_UP))
+        average_check = round(total_revenue / total_orders, 2) if total_orders else 0
 
-        # Orders by status (any status)
-        status_stmt = (
-            select(Order.status, func.count(Order.id).label("count"))
-            .where(*base_conditions)
-            .group_by(Order.status)
-        )
-        status_counts = {
-            row.status: row.count
-            for row in (await self.session.execute(status_stmt)).all()
+        return {
+            "total_orders": total_orders,
+            "total_revenue": total_revenue,
+            "commission_rate": commission_rate,
+            "commission": commission,
+            "average_check": average_check,
         }
 
-        # Daily sales for chart
+    async def _build_daily_series(
+        self,
+        date_field,
+        completed_conditions: list,
+        date_from: Optional[datetime],
+        date_to: Optional[datetime],
+    ) -> List[Dict[str, Any]]:
+        """Build daily sales series with date gap filling."""
         daily_stmt = (
             select(
                 func.date(date_field).label("day"),
@@ -1001,7 +983,6 @@ class OrderService:
                 "revenue": float(row.revenue_sum or 0),
             }
 
-        # Fill missing days within the selected range
         daily_series: List[Dict[str, Any]] = []
         if daily_map:
             start_day = date_from.date() if date_from else min(daily_map.keys())
@@ -1009,28 +990,25 @@ class OrderService:
             current = start_day
             while current <= end_day:
                 point = daily_map.get(current, {"orders": 0, "revenue": 0.0})
-                daily_series.append(
-                    {
-                        "date": current.isoformat(),
-                        "orders": point["orders"],
-                        "revenue": round(point["revenue"], 2),
-                    },
-                )
+                daily_series.append({
+                    "date": current.isoformat(),
+                    "orders": point["orders"],
+                    "revenue": round(point["revenue"], 2),
+                })
                 current += timedelta(days=1)
         elif date_from and date_to:
             current = date_from.date()
             end_day = date_to.date()
             while current <= end_day:
-                daily_series.append(
-                    {
-                        "date": current.isoformat(),
-                        "orders": 0,
-                        "revenue": 0.0,
-                    }
-                )
+                daily_series.append({"date": current.isoformat(), "orders": 0, "revenue": 0.0})
                 current += timedelta(days=1)
 
-        # Delivery vs pickup breakdown
+        return daily_series
+
+    async def _compute_delivery_breakdown(
+        self, completed_conditions: list,
+    ) -> Dict[str, Dict[str, float]]:
+        """Compute delivery vs pickup breakdown."""
         delivery_stmt = (
             select(
                 Order.delivery_type,
@@ -1042,7 +1020,7 @@ class OrderService:
         )
         delivery_rows = (await self.session.execute(delivery_stmt)).all()
 
-        def _normalize_delivery_type(value: Optional[str]) -> str:
+        def _normalize(value: Optional[str]) -> str:
             if not value:
                 return "unknown"
             normalized = value.strip().lower()
@@ -1052,66 +1030,45 @@ class OrderService:
                 return "pickup"
             return "other"
 
-        delivery_breakdown: Dict[str, Dict[str, float]] = {
+        breakdown: Dict[str, Dict[str, float]] = {
             "delivery": {"orders": 0, "revenue": 0.0},
             "pickup": {"orders": 0, "revenue": 0.0},
             "other": {"orders": 0, "revenue": 0.0},
             "unknown": {"orders": 0, "revenue": 0.0},
         }
         for row in delivery_rows:
-            bucket = _normalize_delivery_type(row.delivery_type)
-            delivery_breakdown[bucket]["orders"] += row.orders_count or 0
-            delivery_breakdown[bucket]["revenue"] += float(row.revenue_sum or 0)
-
-        for bucket in delivery_breakdown.values():
+            bucket = _normalize(row.delivery_type)
+            breakdown[bucket]["orders"] += row.orders_count or 0
+            breakdown[bucket]["revenue"] += float(row.revenue_sum or 0)
+        for bucket in breakdown.values():
             bucket["revenue"] = round(bucket["revenue"], 2)
+        return breakdown
 
-        average_check = round(total_revenue / total_orders, 2) if total_orders else 0
-
-        previous_period_orders = 0
-        previous_period_revenue = 0.0
-        if date_from and date_to:
-            period_days = (date_to.date() - date_from.date()).days + 1
-            prev_end = date_from - timedelta(days=1)
-            prev_start = prev_end - timedelta(days=period_days - 1)
-            prev_conditions = [
-                _seller_filter,
-                Order.status.in_(self.COMPLETED_ORDER_STATUSES),
-                date_field >= prev_start,
-                date_field < prev_end + timedelta(days=1),
-            ]
-            prev_stmt = (
-                select(
-                    func.count(Order.id).label("total_orders"),
-                    func.coalesce(func.sum(Order.total_price), 0).label("total_revenue"),
-                )
-                .where(*prev_conditions)
-            )
-            prev_row = (await self.session.execute(prev_stmt)).one()
-            previous_period_orders = prev_row.total_orders or 0
-            previous_period_revenue = float(prev_row.total_revenue or 0)
-
-        # Top products and bouquets from items_info (completed orders in period)
-        top_products: List[Dict[str, Any]] = []
-        top_bouquets: List[Dict[str, Any]] = []
-        items_pattern = re.compile(r"(\d+):(.+?)\s*[x×]\s*(\d+)")
+    async def _extract_top_products(
+        self, seller_id, completed_conditions: list,  # seller_id: int | list[int]
+    ) -> tuple:
+        """Extract top products and bouquets from items_info."""
         orders_items_stmt = select(Order.items_info).where(*completed_conditions)
         orders_items_result = await self.session.execute(orders_items_stmt)
         product_agg: Dict[int, Dict[str, Any]] = {}
         for (items_info_str,) in orders_items_result.all():
             if not items_info_str:
                 continue
+            parsed = parse_items_info(items_info_str)
             products_in_order: set = set()
-            for m in items_pattern.finditer(items_info_str):
-                product_id = int(m.group(1))
-                product_name = (m.group(2) or "").strip()
-                qty = int(m.group(3) or 0)
+            for item in parsed:
+                product_id = item["product_id"]
+                product_name = item["name"]
+                qty = item["quantity"]
                 if product_id not in product_agg:
                     product_agg[product_id] = {"product_id": product_id, "product_name": product_name, "quantity_sold": 0, "order_count": 0}
                 product_agg[product_id]["quantity_sold"] += qty
                 products_in_order.add(product_id)
             for pid in products_in_order:
                 product_agg[pid]["order_count"] += 1
+
+        top_products: List[Dict[str, Any]] = []
+        top_bouquets: List[Dict[str, Any]] = []
         if product_agg:
             product_ids = list(product_agg.keys())
             _prod_filter = Product.seller_id.in_(seller_id) if isinstance(seller_id, list) else (Product.seller_id == seller_id)
@@ -1158,14 +1115,90 @@ class OrderService:
                     ],
                     key=lambda x: -x["quantity_sold"],
                 )[:10]
+        return top_products, top_bouquets
+
+    async def get_seller_stats(
+        self,
+        seller_id,  # int | list[int]
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Get order statistics for a seller (or multiple branches) with optional period filters."""
+        date_field = func.coalesce(Order.completed_at, Order.created_at)
+        end_exclusive = date_to + timedelta(days=1) if date_to else None
+
+        # Support single seller_id or list of seller_ids (for network aggregation)
+        if isinstance(seller_id, list):
+            _seller_filter = Order.seller_id.in_(seller_id)
+        else:
+            _seller_filter = (Order.seller_id == seller_id)
+
+        base_conditions = [_seller_filter]
+        if date_from:
+            base_conditions.append(date_field >= date_from)
+        if end_exclusive:
+            base_conditions.append(date_field < end_exclusive)
+
+        completed_conditions = base_conditions + [Order.status.in_(COMPLETED_ORDER_STATUSES)]
+
+        # Revenue & commission
+        revenue = await self._calculate_revenue_metrics(seller_id, completed_conditions)
+
+        # Orders by status
+        status_stmt = (
+            select(Order.status, func.count(Order.id).label("count"))
+            .where(*base_conditions)
+            .group_by(Order.status)
+        )
+        status_counts = {
+            row.status: row.count
+            for row in (await self.session.execute(status_stmt)).all()
+        }
+
+        # Daily sales
+        daily_series = await self._build_daily_series(date_field, completed_conditions, date_from, date_to)
+
+        # Delivery breakdown
+        delivery_breakdown = await self._compute_delivery_breakdown(completed_conditions)
+
+        # Previous period comparison
+        previous_period_orders = 0
+        previous_period_revenue = 0.0
+        if date_from and date_to:
+            period_days = (date_to.date() - date_from.date()).days + 1
+            prev_end = date_from - timedelta(days=1)
+            prev_start = prev_end - timedelta(days=period_days - 1)
+            prev_conditions = [
+                _seller_filter,
+                Order.status.in_(COMPLETED_ORDER_STATUSES),
+                date_field >= prev_start,
+                date_field < prev_end + timedelta(days=1),
+            ]
+            prev_stmt = (
+                select(
+                    func.count(Order.id).label("total_orders"),
+                    func.coalesce(func.sum(Order.total_price), 0).label("total_revenue"),
+                )
+                .where(*prev_conditions)
+            )
+            prev_row = (await self.session.execute(prev_stmt)).one()
+            previous_period_orders = prev_row.total_orders or 0
+            previous_period_revenue = float(prev_row.total_revenue or 0)
+
+        # Top products & bouquets
+        top_products, top_bouquets = await self._extract_top_products(seller_id, completed_conditions)
+
+        total_revenue = revenue["total_revenue"]
+        commission = revenue["commission"]
+        commission_rate = revenue["commission_rate"]
 
         return {
-            "total_completed_orders": total_orders,
+            "total_completed_orders": revenue["total_orders"],
             "total_revenue": round(total_revenue, 2),
             "commission_rate": round(commission_rate * 100),
             "commission_amount": commission,
             "net_revenue": round(total_revenue - commission, 2),
-            "average_check": average_check,
+            "average_check": revenue["average_check"],
             "orders_by_status": status_counts,
             "daily_sales": daily_series,
             "delivery_breakdown": delivery_breakdown,
@@ -1190,7 +1223,7 @@ class OrderService:
         end_exclusive = date_to + timedelta(days=1) if date_to else None
 
         _seller_filter = Order.seller_id.in_(seller_id) if isinstance(seller_id, list) else (Order.seller_id == seller_id)
-        base = [_seller_filter, Order.status.in_(self.COMPLETED_ORDER_STATUSES), Order.buyer_id.isnot(None)]
+        base = [_seller_filter, Order.status.in_(COMPLETED_ORDER_STATUSES), Order.buyer_id.isnot(None)]
         period_conds = list(base)
         if date_from:
             period_conds.append(date_field >= date_from)
@@ -1210,7 +1243,7 @@ class OrderService:
         # -- new vs returning: buyers whose FIRST completed order falls in the period --
         first_order_subq = (
             select(Order.buyer_id, func.min(date_field).label("first_date"))
-            .where(_seller_filter, Order.status.in_(self.COMPLETED_ORDER_STATUSES))
+            .where(_seller_filter, Order.status.in_(COMPLETED_ORDER_STATUSES))
             .group_by(Order.buyer_id)
             .subquery()
         )
@@ -1248,7 +1281,7 @@ class OrderService:
             prev_start = prev_end - timedelta(days=period_days - 1)
             prev_conds = [
                 _seller_filter,
-                Order.status.in_(self.COMPLETED_ORDER_STATUSES),
+                Order.status.in_(COMPLETED_ORDER_STATUSES),
                 date_field >= prev_start,
                 date_field < prev_end + timedelta(days=1),
             ]
@@ -1267,7 +1300,7 @@ class OrderService:
                 Order.buyer_id,
                 func.sum(Order.total_price).label("buyer_total"),
             )
-            .where(_seller_filter, Order.status.in_(self.COMPLETED_ORDER_STATUSES))
+            .where(_seller_filter, Order.status.in_(COMPLETED_ORDER_STATUSES))
             .group_by(Order.buyer_id)
             .subquery()
         )
@@ -1323,7 +1356,7 @@ class OrderService:
         date_field = func.coalesce(Order.completed_at, Order.created_at)
         end_exclusive = date_to + timedelta(days=1) if date_to else None
 
-        conditions = [Order.status.in_(self.COMPLETED_ORDER_STATUSES)]
+        conditions = [Order.status.in_(COMPLETED_ORDER_STATUSES)]
         if date_from:
             conditions.append(date_field >= date_from)
         if end_exclusive:
@@ -1399,16 +1432,15 @@ class OrderService:
             }
 
         total_amount = sum(float(o.total_price or 0) for o in orders)
-        items_pattern = re.compile(r'(\d+):(.+?)\s*[x×]\s*(\d+)')
 
         # Aggregate products
         product_totals: Dict[int, Dict[str, Any]] = {}
         for order in orders:
-            for pid_str, pname, qty_str in items_pattern.findall(order.items_info or ""):
-                pid = int(pid_str)
-                qty = int(qty_str)
+            for item in parse_items_info(order.items_info):
+                pid = item["product_id"]
+                qty = item["quantity"]
                 if pid not in product_totals:
-                    product_totals[pid] = {"product_id": pid, "name": pname.strip(), "total_quantity": 0, "order_count": 0}
+                    product_totals[pid] = {"product_id": pid, "name": item["name"], "total_quantity": 0, "order_count": 0}
                 product_totals[pid]["total_quantity"] += qty
                 product_totals[pid]["order_count"] += 1
 

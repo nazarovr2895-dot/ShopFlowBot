@@ -9,6 +9,7 @@ import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal, LiquidGlassC
 import { FloatingCartBar } from '../components/FloatingCartBar';
 import { ShopCartPanel } from '../components/ShopCartPanel';
 import { getYmapsApiKey } from '../api/ymapsConfig';
+import { formatPrice } from '../utils/formatters';
 import './ShopDetails.css';
 
 const MiniMap = lazy(() => import('../components/map/MiniMap').then(m => ({ default: m.MiniMap })));
@@ -334,14 +335,6 @@ export function ShopDetails() {
 
   const confirmPreorderDate = (productId: number, dateStr: string) => {
     addToCart(productId, dateStr);
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-      maximumFractionDigits: 0,
-    }).format(price);
   };
 
   const shareProduct = (product: Product, e: React.MouseEvent) => {
