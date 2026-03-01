@@ -132,6 +132,13 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
+.checkout-toggle__info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color, #333);
+  padding: 8px 0 0;
+}
+
 /* ===== Pickup Info ===== */
 .checkout-pickup {
   display: flex;

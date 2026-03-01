@@ -89,6 +89,7 @@ class GuestGiftNotePerSeller(BaseModel):
 class GuestDeliveryPerSeller(BaseModel):
     seller_id: int
     delivery_type: str  # "Доставка" | "Самовывоз"
+    payment_method: str = "online"  # "online" | "on_pickup"
 
 
 class GuestDeliverySlotPerSeller(BaseModel):

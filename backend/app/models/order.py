@@ -35,6 +35,7 @@ class Order(Base):
     delivery_zone_id: Mapped[Optional[int]] = mapped_column(ForeignKey('delivery_zones.id'), nullable=True)
     delivery_fee: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True)
     # Payment fields (YuKassa split payments)
+    payment_method: Mapped[Optional[str]] = mapped_column(String(20), default='online')  # "online" | "on_pickup"
     payment_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     payment_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     # Delivery time slot

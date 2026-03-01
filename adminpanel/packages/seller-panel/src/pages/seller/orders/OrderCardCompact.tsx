@@ -141,11 +141,14 @@ export function OrderCardCompact({
         ))}
       </div>
 
-      {/* Row 4: Meta line — delivery type + slot/address + time */}
+      {/* Row 4: Meta line — delivery type + payment method + slot/address + time */}
       <div className="occ__meta">
         <span className={`occ__type ${pickup ? 'occ__type--pickup' : 'occ__type--delivery'}`}>
           {pickup ? 'Самовывоз' : 'Доставка'}
         </span>
+        {order.payment_method === 'on_pickup' && (
+          <span className="occ__type occ__type--cash">Наличные</span>
+        )}
         {order.delivery_slot_date && order.delivery_slot_start && (
           <span className="occ__slot">
             {new Date(order.delivery_slot_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} {order.delivery_slot_start}–{order.delivery_slot_end}

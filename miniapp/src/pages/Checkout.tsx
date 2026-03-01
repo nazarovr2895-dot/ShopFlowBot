@@ -56,6 +56,7 @@ export function Checkout() {
   const [deliveryCheckResults, setDeliveryCheckResults] = useState<Record<number, { delivers: boolean; delivery_price: number; district_id?: number | null; message: string }>>({});
   const [districtNameToId, setDistrictNameToId] = useState<Record<string, number>>({});
   const [slotsBySeller, setSlotsBySeller] = useState<Record<number, DeliverySlot | null>>({});
+  const [paymentMethodBySeller, setPaymentMethodBySeller] = useState<Record<number, 'online' | 'on_pickup'>>({});
   useEffect(() => {
     const backPath = filterSellerId ? `/shop/${filterSellerId}` : '/';
     setBackButton(true, () => navigate(backPath));
@@ -264,6 +265,9 @@ export function Checkout() {
       const deliveryArr = cart.map((g) => ({
         seller_id: g.seller_id,
         delivery_type: deliveryBySeller[g.seller_id] ?? 'Самовывоз',
+        payment_method: (deliveryBySeller[g.seller_id] ?? 'Самовывоз') === 'Доставка'
+          ? 'online'
+          : (paymentMethodBySeller[g.seller_id] ?? 'online'),
       }));
 
       // Build delivery slots array from selected slots
@@ -417,7 +421,10 @@ export function Checkout() {
                     <button
                       type="button"
                       className={`checkout-toggle__pill ${sellerDt === 'Доставка' ? 'checkout-toggle__pill--active' : ''}`}
-                      onClick={() => setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Доставка' }))}
+                      onClick={() => {
+                        setDeliveryBySeller((prev) => ({ ...prev, [group.seller_id]: 'Доставка' }));
+                        setPaymentMethodBySeller((prev) => ({ ...prev, [group.seller_id]: 'online' }));
+                      }}
                     >
                       Курьером
                     </button>
@@ -436,6 +443,35 @@ export function Checkout() {
                       Показать на карте
                     </a>
                   )}
+                </div>
+              )}
+
+              {/* Payment method toggle (pickup = choose, delivery = info only) */}
+              {sellerDt === 'Самовывоз' && (
+                <div className="checkout-toggle">
+                  <span className="checkout-toggle__label">Способ оплаты</span>
+                  <div className="checkout-toggle__pills">
+                    <button
+                      type="button"
+                      className={`checkout-toggle__pill ${(paymentMethodBySeller[group.seller_id] ?? 'online') === 'on_pickup' ? 'checkout-toggle__pill--active' : ''}`}
+                      onClick={() => setPaymentMethodBySeller((prev) => ({ ...prev, [group.seller_id]: 'on_pickup' }))}
+                    >
+                      При получении
+                    </button>
+                    <button
+                      type="button"
+                      className={`checkout-toggle__pill ${(paymentMethodBySeller[group.seller_id] ?? 'online') === 'online' ? 'checkout-toggle__pill--active' : ''}`}
+                      onClick={() => setPaymentMethodBySeller((prev) => ({ ...prev, [group.seller_id]: 'online' }))}
+                    >
+                      Картой онлайн
+                    </button>
+                  </div>
+                </div>
+              )}
+              {sellerDt === 'Доставка' && (
+                <div className="checkout-toggle">
+                  <span className="checkout-toggle__label">Способ оплаты</span>
+                  <span className="checkout-toggle__info">Картой онлайн</span>
                 </div>
               )}
 

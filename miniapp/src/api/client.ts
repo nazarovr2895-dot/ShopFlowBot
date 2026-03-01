@@ -437,7 +437,7 @@ class ApiClient {
     address: string;
     comment?: string;
     points_usage?: Array<{ seller_id: number; points_to_use: number }>;
-    delivery_by_seller?: Array<{ seller_id: number; delivery_type: string }>;
+    delivery_by_seller?: Array<{ seller_id: number; delivery_type: string; payment_method?: string }>;
     delivery_slots?: Array<{ seller_id: number; date: string; start: string; end: string }>;
     buyer_district_id?: number | null;
     buyer_district_name?: string | null;
@@ -465,7 +465,7 @@ class ApiClient {
       name: string;
       price: number;
     }>;
-    delivery_by_seller?: Array<{ seller_id: number; delivery_type: string }>;
+    delivery_by_seller?: Array<{ seller_id: number; delivery_type: string; payment_method?: string }>;
     delivery_slots?: Array<{ seller_id: number; date: string; start: string; end: string }>;
     buyer_district_id?: number | null;
     buyer_district_name?: string | null;

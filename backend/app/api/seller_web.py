@@ -673,30 +673,33 @@ async def accept_order(
         except Exception:
             logger.exception("sync_bouquet_product_quantities failed after accept_order")
 
-        # --- Try to create YuKassa payment if configured ---
+        # --- Try to create YuKassa payment if configured (skip for on_pickup) ---
         confirmation_url = None
         buyer_id = result["buyer_id"]
         seller_id_val = result["seller_id"]
         total_price = result.get("total_price")
-        try:
-            from backend.app.services.payment import PaymentService, PaymentNotConfiguredError
-            pay_svc = PaymentService(session)
-            pay_result = await pay_svc.create_payment(order_id=order_id)
-            await session.commit()
-            confirmation_url = pay_result.get("confirmation_url")
-            logger.info(
-                "Payment created on accept (seller_web)",
-                order_id=order_id,
-                payment_id=pay_result.get("payment_id"),
-            )
-        except PaymentNotConfiguredError:
-            pass  # YuKassa not configured — skip silently
-        except Exception as pay_err:
-            logger.warning(
-                "Payment creation on accept failed (non-critical)",
-                order_id=order_id,
-                error=str(pay_err),
-            )
+        payment_method = result.get("payment_method", "online")
+
+        if payment_method != "on_pickup":
+            try:
+                from backend.app.services.payment import PaymentService, PaymentNotConfiguredError
+                pay_svc = PaymentService(session)
+                pay_result = await pay_svc.create_payment(order_id=order_id)
+                await session.commit()
+                confirmation_url = pay_result.get("confirmation_url")
+                logger.info(
+                    "Payment created on accept (seller_web)",
+                    order_id=order_id,
+                    payment_id=pay_result.get("payment_id"),
+                )
+            except PaymentNotConfiguredError:
+                pass  # YuKassa not configured — skip silently
+            except Exception as pay_err:
+                logger.warning(
+                    "Payment creation on accept failed (non-critical)",
+                    order_id=order_id,
+                    error=str(pay_err),
+                )
 
         # --- Send buyer notification ---
         if confirmation_url and buyer_id:
@@ -718,6 +721,7 @@ async def accept_order(
                 seller_id=seller_id_val,
                 items_info=result.get("items_info"),
                 total_price=total_price,
+                payment_method=payment_method,
             )
 
         result["confirmation_url"] = confirmation_url

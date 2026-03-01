@@ -163,7 +163,8 @@ export interface BuyerOrder {
   first_product_photo?: string | null;
   seller_address_name?: string | null;
   seller_map_url?: string | null;
-  // Payment (YuKassa)
+  // Payment
+  payment_method?: string | null;  // "online" | "on_pickup"
   payment_id?: string | null;
   payment_status?: string | null;
   // Recipient ("Получатель не я")

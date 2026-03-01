@@ -236,6 +236,7 @@ async def notify_buyer_order_status(
     seller_id: int,
     items_info: str = "",
     total_price: Optional[float] = None,
+    payment_method: Optional[str] = None,
 ) -> bool:
     """
     Send a Telegram message to the buyer about order status change.
@@ -248,6 +249,8 @@ async def notify_buyer_order_status(
         text += f"\n\n🛒 {display_items}"
     if total_price is not None:
         text += f"\n💰 Сумма: {total_price:.0f} руб."
+    if new_status == "accepted" and payment_method == "on_pickup":
+        text += "\n\n💵 Оплата при получении"
     # Show "I received order" button only when order is delivered
     reply_markup = _order_notification_keyboard(
         order_id, seller_id, show_confirm_button=(new_status == "done"),

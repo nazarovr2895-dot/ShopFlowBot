@@ -320,12 +320,14 @@ class CartService:
         recipient_name: Optional[str] = None,
         recipient_phone: Optional[str] = None,
         gift_notes_by_seller: Optional[Dict[int, str]] = None,
+        payment_method_by_seller: Optional[Dict[int, str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Create one order per (seller, is_preorder) from cart, then clear cart.
         Regular and preorder items for the same seller become separate orders.
         points_by_seller: {seller_id: points_to_use} — optional loyalty points discount.
         delivery_by_seller: {seller_id: delivery_type} — per-seller delivery type override.
+        payment_method_by_seller: {seller_id: "online"|"on_pickup"} — per-seller payment method.
         Returns list of { order_id, seller_id, total_price }.
         """
         from backend.app.services.loyalty import LoyaltyService
@@ -350,6 +352,10 @@ class CartService:
             seller = await self.session.get(Seller, seller_id)
             # Resolve delivery type for this seller
             seller_delivery = (delivery_by_seller or {}).get(seller_id, delivery_type)
+            # Resolve payment method: "on_pickup" only allowed for pickup
+            seller_payment_method = (payment_method_by_seller or {}).get(seller_id, "online")
+            if seller_delivery != "Самовывоз":
+                seller_payment_method = "online"
             addr = address
             if seller_delivery == "Самовывоз" and seller and getattr(seller, "map_url", None):
                 addr = (seller.map_url or "") + f"\n📞 {phone}\n👤 {fio}"
@@ -465,6 +471,7 @@ class CartService:
                         delivery_slot_end=slot_end,
                         guest_name=fio,
                         guest_phone=phone,
+                        payment_method=seller_payment_method,
                     )
                     # Save delivery zone info on order
                     if zone_match:

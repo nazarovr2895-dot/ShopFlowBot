@@ -111,10 +111,11 @@ class OrderService:
         delivery_slot_end: Optional[str] = None,
         guest_name: Optional[str] = None,
         guest_phone: Optional[str] = None,
+        payment_method: str = "online",
     ) -> Order:
         """
         Create a new order with limit checks and seller lock.
-        
+
         Args:
             buyer_id: Telegram ID of the buyer
             seller_id: Telegram ID of the seller
@@ -122,10 +123,11 @@ class OrderService:
             total_price: Total order price
             delivery_type: Delivery method
             address: Delivery address (optional)
-            
+            payment_method: "online" or "on_pickup"
+
         Returns:
             Created Order object
-            
+
         Raises:
             SellerNotFoundError: If seller doesn't exist
             SellerBlockedError: If seller is blocked
@@ -189,6 +191,7 @@ class OrderService:
             delivery_slot_end=delivery_slot_end,
             guest_name=guest_name,
             guest_phone=guest_phone,
+            payment_method=payment_method,
         )
         self.session.add(order)
         await self.session.flush()
@@ -216,6 +219,7 @@ class OrderService:
         delivery_slot_date: Optional[date] = None,
         delivery_slot_start: Optional[str] = None,
         delivery_slot_end: Optional[str] = None,
+        payment_method: str = "online",
     ) -> Order:
         """
         Create a new order for a guest (no Telegram account).
@@ -271,6 +275,7 @@ class OrderService:
             delivery_slot_date=delivery_slot_date,
             delivery_slot_start=delivery_slot_start,
             delivery_slot_end=delivery_slot_end,
+            payment_method=payment_method,
         )
         self.session.add(order)
         await self.session.flush()
@@ -365,7 +370,8 @@ class OrderService:
             "seller_id": order.seller_id,
             "items_info": order.items_info,
             "total_price": float(order.total_price) if order.total_price is not None else 0.0,
-            "new_status": "accepted"
+            "new_status": "accepted",
+            "payment_method": getattr(order, "payment_method", "online"),
         }
     
     async def reject_order(self, order_id: int, verify_seller_id: Optional[int] = None) -> Dict[str, Any]:
@@ -699,6 +705,7 @@ class OrderService:
                 "points_used": float(o.points_used) if getattr(o, "points_used", None) else 0,
                 "points_discount": float(o.points_discount) if getattr(o, "points_discount", None) else 0,
                 "is_guest": o.buyer_id is None,
+                "payment_method": getattr(o, "payment_method", "online"),
                 "payment_id": getattr(o, "payment_id", None),
                 "payment_status": getattr(o, "payment_status", None),
                 "delivery_slot_date": o.delivery_slot_date.isoformat() if getattr(o, "delivery_slot_date", None) else None,
@@ -792,6 +799,9 @@ class OrderService:
             "points_used": float(order.points_used) if getattr(order, "points_used", None) else 0,
             "points_discount": float(order.points_discount) if getattr(order, "points_discount", None) else 0,
             "is_guest": order.buyer_id is None,
+            "payment_method": getattr(order, "payment_method", "online"),
+            "payment_id": getattr(order, "payment_id", None),
+            "payment_status": getattr(order, "payment_status", None),
             "delivery_fee": float(order.delivery_fee) if getattr(order, "delivery_fee", None) else None,
             "delivery_zone_id": getattr(order, "delivery_zone_id", None),
             "delivery_slot_date": order.delivery_slot_date.isoformat() if getattr(order, "delivery_slot_date", None) else None,
@@ -860,6 +870,7 @@ class OrderService:
                 "first_product_photo": product_photos.get(order_first_pid.get(row[0].id)),
                 "seller_address_name": row.address_name,
                 "seller_map_url": row.map_url,
+                "payment_method": getattr(row[0], "payment_method", "online"),
                 "payment_id": getattr(row[0], "payment_id", None),
                 "payment_status": getattr(row[0], "payment_status", None),
                 "recipient_name": getattr(row[0], "recipient_name", None),

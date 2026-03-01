@@ -396,8 +396,15 @@ export function OrderDetail() {
         )}
       </div>
 
-      {/* Payment status */}
-      {order.payment_id && order.payment_status && (
+      {/* Payment status / method */}
+      {order.payment_method === 'on_pickup' ? (
+        <div className="order-detail__row" style={{ marginTop: 8, marginBottom: 4 }}>
+          <span className="order-detail__label">Оплата</span>
+          <span className="order-detail__value" style={{ fontWeight: 600, color: '#f39c12' }}>
+            При получении
+          </span>
+        </div>
+      ) : order.payment_id && order.payment_status ? (
         <div className="order-detail__row" style={{ marginTop: 8, marginBottom: 4 }}>
           <span className="order-detail__label">Оплата</span>
           <span
@@ -410,12 +417,13 @@ export function OrderDetail() {
             {PAYMENT_STATUS_LABELS[order.payment_status] ?? order.payment_status}
           </span>
         </div>
-      )}
+      ) : null}
 
       {/* Action buttons */}
       <div className="order-detail__actions">
-        {/* Pay button — show for accepted orders that are not yet paid */}
+        {/* Pay button — show for accepted orders with online payment that are not yet paid */}
         {order.status === 'accepted' &&
+          order.payment_method !== 'on_pickup' &&
           order.payment_status !== 'succeeded' &&
           order.payment_status !== 'waiting_for_capture' && (
             <button
@@ -429,7 +437,7 @@ export function OrderDetail() {
             </button>
           )}
 
-        {canConfirm && (!order.payment_id || order.payment_status === 'succeeded') && (
+        {canConfirm && (order.payment_method === 'on_pickup' || !order.payment_id || order.payment_status === 'succeeded') && (
           <button
             type="button"
             className="order-detail__action-btn order-detail__action-btn--primary"

@@ -454,11 +454,13 @@ async def guest_checkout(
     order_service = OrderService(session)
     created = []
 
-    # Build per-seller delivery type map
+    # Build per-seller delivery type map and payment method map
     delivery_map: dict = {}
+    payment_method_map: dict = {}
     if data.delivery_by_seller:
         for dbs in data.delivery_by_seller:
             delivery_map[dbs.seller_id] = dbs.delivery_type
+            payment_method_map[dbs.seller_id] = getattr(dbs, "payment_method", "online")
 
     # Build per-seller delivery slots map
     slots_map: dict = {}
@@ -547,6 +549,11 @@ async def guest_checkout(
                 slot_start_val = slot_data.get("start")
                 slot_end_val = slot_data.get("end")
 
+            # Resolve payment method (on_pickup only for pickup)
+            seller_pm = payment_method_map.get(seller_id, "online")
+            if seller_delivery != "Самовывоз":
+                seller_pm = "online"
+
             order = await order_service.create_guest_order(
                 seller_id=seller_id,
                 items_info=items_info,
@@ -560,6 +567,7 @@ async def guest_checkout(
                 delivery_slot_date=slot_date_val,
                 delivery_slot_start=slot_start_val,
                 delivery_slot_end=slot_end_val,
+                payment_method=seller_pm,
             )
             # Save delivery zone info on order
             if zone_match:

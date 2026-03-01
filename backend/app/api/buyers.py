@@ -252,6 +252,7 @@ class PointsUsagePerSeller(BaseModel):
 class DeliveryPerSeller(BaseModel):
     seller_id: int
     delivery_type: str  # "Доставка" | "Самовывоз"
+    payment_method: str = "online"  # "online" | "on_pickup"
 
 
 class DeliverySlotPerSeller(BaseModel):
@@ -403,11 +404,13 @@ async def checkout_cart(
                 if pu.points_to_use > 0:
                     points_by_seller[pu.seller_id] = pu.points_to_use
 
-        # Build per-seller delivery type map
+        # Build per-seller delivery type map and payment method map
         delivery_map: dict = {}
+        payment_method_map: dict = {}
         if data.delivery_by_seller:
             for item in data.delivery_by_seller:
                 delivery_map[item.seller_id] = item.delivery_type
+                payment_method_map[item.seller_id] = item.payment_method
 
         # Build per-seller delivery slots map
         slots_map: dict = {}
@@ -437,6 +440,7 @@ async def checkout_cart(
             recipient_name=data.recipient_name,
             recipient_phone=data.recipient_phone,
             gift_notes_by_seller=gift_notes_map or None,
+            payment_method_by_seller=payment_method_map or None,
         )
         await session.commit()
 

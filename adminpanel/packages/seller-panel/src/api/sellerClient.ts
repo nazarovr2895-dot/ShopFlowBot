@@ -149,6 +149,7 @@ export interface SellerOrder {
   customer_id?: number | null;
   points_used?: number;
   points_discount?: number;
+  payment_method?: string | null;
   payment_id?: string | null;
   payment_status?: string | null;
   delivery_slot_date?: string | null;
