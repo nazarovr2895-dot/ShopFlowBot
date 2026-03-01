@@ -255,43 +255,94 @@ async def get_public_sellers(
             q = search.strip()
             if q:
                 from backend.app.models.category import Category
-                tsquery = func.plainto_tsquery('russian', q)
+                ilike_pattern = f"%{q}%"
 
-                # Products matching by FTS or trigram similarity
-                product_match_subq = (
-                    select(Product.seller_id)
-                    .where(
-                        Product.is_active == True,
-                        Product.quantity > 0,
+                # Check if FTS extensions are available
+                fts_available = False
+                try:
+                    await session.execute(select(func.plainto_tsquery('russian', 'test')))
+                    fts_available = True
+                except Exception:
+                    logger.warning("FTS not available, falling back to ILIKE search")
+                    await session.rollback()
+
+                if fts_available:
+                    tsquery = func.plainto_tsquery('russian', q)
+
+                    # Products matching by FTS, trigram similarity, or substring
+                    product_match_subq = (
+                        select(Product.seller_id)
+                        .where(
+                            Product.is_active == True,
+                            Product.quantity > 0,
+                            or_(
+                                Product.search_vector.op('@@')(tsquery),
+                                func.similarity(Product.name, q) > 0.3,
+                                Product.name.ilike(ilike_pattern),
+                                func.coalesce(Product.description, '').ilike(ilike_pattern),
+                            ),
+                        )
+                        .distinct()
+                        .subquery()
+                    )
+
+                    # Categories matching by trigram similarity or substring
+                    category_match_subq = (
+                        select(Category.seller_id)
+                        .where(
+                            Category.is_active == True,
+                            or_(
+                                func.similarity(Category.name, q) > 0.3,
+                                Category.name.ilike(ilike_pattern),
+                            ),
+                        )
+                        .distinct()
+                        .subquery()
+                    )
+
+                    # Seller matches if: FTS OR trigram OR ILIKE OR product match OR category match
+                    base_conditions.append(
                         or_(
-                            Product.search_vector.op('@@')(tsquery),
-                            func.similarity(Product.name, q) > 0.3,
-                        ),
+                            Seller.search_vector.op('@@')(tsquery),
+                            func.similarity(func.coalesce(Seller.shop_name, ''), q) > 0.3,
+                            func.coalesce(Seller.shop_name, '').ilike(ilike_pattern),
+                            Seller.seller_id.in_(select(product_match_subq.c.seller_id)),
+                            Seller.seller_id.in_(select(category_match_subq.c.seller_id)),
+                        )
                     )
-                    .distinct()
-                    .subquery()
-                )
+                else:
+                    # Fallback: ILIKE-only search (no FTS/trigram)
+                    product_match_subq = (
+                        select(Product.seller_id)
+                        .where(
+                            Product.is_active == True,
+                            Product.quantity > 0,
+                            or_(
+                                Product.name.ilike(ilike_pattern),
+                                func.coalesce(Product.description, '').ilike(ilike_pattern),
+                            ),
+                        )
+                        .distinct()
+                        .subquery()
+                    )
 
-                # Categories matching by trigram similarity
-                category_match_subq = (
-                    select(Category.seller_id)
-                    .where(
-                        Category.is_active == True,
-                        func.similarity(Category.name, q) > 0.3,
+                    category_match_subq = (
+                        select(Category.seller_id)
+                        .where(
+                            Category.is_active == True,
+                            Category.name.ilike(ilike_pattern),
+                        )
+                        .distinct()
+                        .subquery()
                     )
-                    .distinct()
-                    .subquery()
-                )
 
-                # Seller matches if: name/description FTS match OR product match OR category match
-                base_conditions.append(
-                    or_(
-                        Seller.search_vector.op('@@')(tsquery),
-                        func.similarity(func.coalesce(Seller.shop_name, ''), q) > 0.3,
-                        Seller.seller_id.in_(select(product_match_subq.c.seller_id)),
-                        Seller.seller_id.in_(select(category_match_subq.c.seller_id)),
+                    base_conditions.append(
+                        or_(
+                            func.coalesce(Seller.shop_name, '').ilike(ilike_pattern),
+                            Seller.seller_id.in_(select(product_match_subq.c.seller_id)),
+                            Seller.seller_id.in_(select(category_match_subq.c.seller_id)),
+                        )
                     )
-                )
 
         if has_preorder:
             base_conditions.append(Seller.preorder_enabled == True)
