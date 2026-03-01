@@ -300,6 +300,7 @@ export function ShopDetails() {
         sellerName: seller?.shop_name || undefined,
         sellerDeliveryType: seller?.delivery_type ?? null,
         sellerCityId: seller?.city_id ?? null,
+        sellerGiftNoteEnabled: seller?.gift_note_enabled ?? false,
       });
 
       if (!preorderDeliveryDate && result.reserved_at) {

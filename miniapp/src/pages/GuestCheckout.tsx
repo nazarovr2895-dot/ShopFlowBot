@@ -26,6 +26,10 @@ export function GuestCheckout() {
   const [deliveryBySeller, setDeliveryBySeller] = useState<Record<number, 'Доставка' | 'Самовывоз'>>({});
   const [address, setAddress] = useState('');
   const [comment, setComment] = useState('');
+  const [recipientNotMe, setRecipientNotMe] = useState(false);
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
+  const [giftNotesBySeller, setGiftNotesBySeller] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [cart, setCart] = useState<CartSellerGroup[]>([]);
   const [buyerDistrictId, setBuyerDistrictId] = useState<number | null>(null);
@@ -102,7 +106,8 @@ export function GuestCheckout() {
   const canSubmit = guestPhone.trim().length > 0 &&
     guestName.trim().length > 0 &&
     (!hasAnyDelivery || address.trim().length > 0) &&
-    !hasDeliveryFailure;
+    !hasDeliveryFailure &&
+    (!recipientNotMe || recipientName.trim().length > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +115,10 @@ export function GuestCheckout() {
     const normalized = normalizePhone(guestPhone);
     if (normalized.length !== 11 || normalized[0] !== '7') {
       alert('Неверный формат телефона. Введите номер в формате +7...');
+      return;
+    }
+    if (recipientNotMe && !recipientName.trim()) {
+      alert('Укажите имя получателя');
       return;
     }
     if (hasAnyDelivery && !address.trim()) {
@@ -150,6 +159,11 @@ export function GuestCheckout() {
           end: slot!.end,
         }));
 
+      // Build gift notes array from non-empty entries
+      const giftNotesArr = Object.entries(giftNotesBySeller)
+        .filter(([, note]) => note.trim())
+        .map(([sid, note]) => ({ seller_id: Number(sid), gift_note: note.trim() }));
+
       const { orders } = await api.guestCheckout({
         guest_name: guestName.trim() || 'Покупатель',
         guest_phone: normalized,
@@ -161,6 +175,11 @@ export function GuestCheckout() {
         ...(deliverySlotsArr.length > 0 ? { delivery_slots: deliverySlotsArr } : {}),
         buyer_district_id: buyerDistrictId,
         buyer_district_name: buyerDistrictName,
+        ...(recipientNotMe && recipientName.trim() ? {
+          recipient_name: recipientName.trim(),
+          recipient_phone: recipientPhone.trim() || undefined,
+        } : {}),
+        ...(giftNotesArr.length > 0 ? { gift_notes_by_seller: giftNotesArr } : {}),
       });
 
       clearGuestCart();
@@ -299,6 +318,24 @@ export function GuestCheckout() {
                   return null;
                 })()}
               </div>
+
+              {/* Gift note (per seller) */}
+              {group.gift_note_enabled && (
+                <div className="checkout-gift-note">
+                  <span className="checkout-gift-note__label">Записка к цветам</span>
+                  <textarea
+                    className="checkout-field__input checkout-field__textarea"
+                    value={giftNotesBySeller[group.seller_id] || ''}
+                    onChange={(e) => setGiftNotesBySeller(prev => ({
+                      ...prev,
+                      [group.seller_id]: e.target.value,
+                    }))}
+                    placeholder="Текст записки к букету"
+                    rows={2}
+                    maxLength={500}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -335,6 +372,40 @@ export function GuestCheckout() {
               required
             />
           </div>
+
+          {/* Recipient not me */}
+          <label className="checkout-checkbox" style={{ marginTop: 16 }}>
+            <input
+              type="checkbox"
+              checked={recipientNotMe}
+              onChange={(e) => setRecipientNotMe(e.target.checked)}
+            />
+            <span>Получатель не я</span>
+          </label>
+          {recipientNotMe && (
+            <div className="checkout-recipient">
+              <div className="checkout-field">
+                <span className="checkout-field__label checkout-field__label--required">Имя получателя</span>
+                <input
+                  type="text"
+                  className="checkout-field__input"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  placeholder="ФИО или имя"
+                />
+              </div>
+              <div className="checkout-field" style={{ marginTop: 8 }}>
+                <span className="checkout-field__label">Телефон получателя</span>
+                <input
+                  type="tel"
+                  className="checkout-field__input"
+                  value={recipientPhone}
+                  onChange={(e) => setRecipientPhone(e.target.value)}
+                  placeholder="7 000 000 00 00"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ===== Section: Delivery Address ===== */}

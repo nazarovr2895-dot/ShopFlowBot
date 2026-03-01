@@ -102,6 +102,8 @@ export interface CartSellerGroup {
   delivery_type?: 'delivery' | 'pickup' | 'both' | null;
   /** Seller's city ID (for loading districts). */
   city_id?: number | null;
+  /** Whether seller allows gift notes with orders. */
+  gift_note_enabled?: boolean;
 }
 
 // Visited / Subscribed sellers (rich data, same shape as PublicSellerListItem)
@@ -164,6 +166,9 @@ export interface BuyerOrder {
   // Payment (YuKassa)
   payment_id?: string | null;
   payment_status?: string | null;
+  // Recipient ("Получатель не я")
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
 }
 
 export interface PublicSellerDetail {
@@ -209,6 +214,7 @@ export interface PublicSellerDetail {
   owner_fio?: string | null;
   inn?: string | null;
   ogrn?: string | null;
+  gift_note_enabled?: boolean;
 }
 
 export interface PublicSellersResponse {

@@ -4,7 +4,8 @@ import { FormField, useToast } from '@shared/components/ui';
 import { useEditMode } from '@shared/hooks/useEditMode';
 import { LocationPicker } from '../../../components/LocationPicker';
 import { MetroSearchField } from '@shared/components/MetroSearchField';
-import { Store, Image, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, Upload, Trash2 } from 'lucide-react';
+import { Toggle } from '@shared/components/ui';
+import { Store, Image, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, Upload, Trash2, MessageSquare } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './ShopSettingsTab.css';
 
@@ -447,6 +448,36 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
         ) : (
           <p className="shop-card__muted">Ссылка генерируется автоматически. Обратитесь к администратору.</p>
         )}
+      </div>
+
+      {/* ── Section 4: Gift note toggle ────────────── */}
+      <div className="shop-card">
+        <div className="shop-card__header">
+          <div className="shop-card__header-left">
+            <div className="shop-card__icon-badge shop-card__icon-badge--pink">
+              <MessageSquare size={18} />
+            </div>
+            <div>
+              <h3 className="shop-card__title">Записка к цветам</h3>
+              <p className="shop-card__subtitle">Покупатели смогут приложить записку к букету</p>
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: '0 20px 20px' }}>
+          <Toggle
+            checked={me.gift_note_enabled ?? false}
+            onChange={async (checked) => {
+              try {
+                await updateMe({ gift_note_enabled: checked });
+                await reload();
+                toast.success(checked ? 'Записки включены' : 'Записки отключены');
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : 'Ошибка');
+              }
+            }}
+            label="Разрешить записки к заказам"
+          />
+        </div>
       </div>
 
       {/* ── Map Picker Modal ──────────────────────── */}

@@ -53,6 +53,11 @@
   color: #f59e0b;
 }
 
+.shop-card__icon-badge--pink {
+  background: rgba(236, 72, 153, 0.1);
+  color: #ec4899;
+}
+
 .shop-card__title {
   margin: 0;
   font-size: var(--text-base);

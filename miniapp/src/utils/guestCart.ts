@@ -12,6 +12,8 @@ export interface GuestCartItem {
   delivery_type?: 'delivery' | 'pickup' | 'both' | null;
   /** Seller's city ID (for delivery zone district matching). */
   city_id?: number | null;
+  /** Whether seller allows gift notes with orders. */
+  gift_note_enabled?: boolean;
 }
 
 const GUEST_CART_KEY = 'flurai_guest_cart';
@@ -99,5 +101,6 @@ export function guestCartToGroups(items: GuestCartItem[]): CartSellerGroup[] {
     map_url: null,
     delivery_type: sellerItems[0].delivery_type ?? null,
     city_id: sellerItems[0].city_id ?? null,
+    gift_note_enabled: sellerItems[0].gift_note_enabled ?? false,
   }));
 }

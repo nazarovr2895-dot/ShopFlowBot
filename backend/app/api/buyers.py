@@ -261,6 +261,11 @@ class DeliverySlotPerSeller(BaseModel):
     end: str        # HH:MM
 
 
+class GiftNotePerSeller(BaseModel):
+    seller_id: int
+    gift_note: str
+
+
 class CheckoutBody(BaseModel):
     fio: Optional[str] = None
     phone: str
@@ -272,6 +277,11 @@ class CheckoutBody(BaseModel):
     delivery_slots: Optional[List[DeliverySlotPerSeller]] = None
     buyer_district_id: Optional[int] = None  # district for delivery zone matching
     buyer_district_name: Optional[str] = None  # district name from DaData (e.g. "Арбат")
+    # Recipient fields ("Получатель не я")
+    recipient_name: Optional[str] = None
+    recipient_phone: Optional[str] = None
+    # Gift notes per seller ("Записка к цветам")
+    gift_notes_by_seller: Optional[List[GiftNotePerSeller]] = None
 
 
 class VisitedSellerRecord(BaseModel):
@@ -405,6 +415,13 @@ async def checkout_cart(
             for slot in data.delivery_slots:
                 slots_map[slot.seller_id] = {"date": slot.date, "start": slot.start, "end": slot.end}
 
+        # Build gift notes map: {seller_id: note_text}
+        gift_notes_map: dict = {}
+        if data.gift_notes_by_seller:
+            for gn in data.gift_notes_by_seller:
+                if gn.gift_note.strip():
+                    gift_notes_map[gn.seller_id] = gn.gift_note.strip()
+
         orders = await service.checkout(
             current_user.user.id,
             fio=fio,
@@ -417,6 +434,9 @@ async def checkout_cart(
             buyer_district_id=data.buyer_district_id,
             buyer_district_name=data.buyer_district_name,
             delivery_slots_by_seller=slots_map or None,
+            recipient_name=data.recipient_name,
+            recipient_phone=data.recipient_phone,
+            gift_notes_by_seller=gift_notes_map or None,
         )
         await session.commit()
 
@@ -443,6 +463,9 @@ async def checkout_cart(
                 delivery_type=o.get("delivery_type"),
                 delivery_fee=o.get("delivery_fee"),
                 delivery_zone_name=o.get("delivery_zone_name"),
+                recipient_name=data.recipient_name,
+                recipient_phone=data.recipient_phone,
+                gift_note=gift_notes_map.get(o["seller_id"]),
             )
 
         return {"orders": orders}

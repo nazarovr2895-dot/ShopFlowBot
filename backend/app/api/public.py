@@ -121,6 +121,7 @@ class PublicSellerDetail(BaseModel):
     owner_fio: Optional[str] = None
     inn: Optional[str] = None
     ogrn: Optional[str] = None
+    gift_note_enabled: bool = False
 
 
 class PublicSellersResponse(BaseModel):
@@ -871,6 +872,7 @@ async def get_public_seller_detail(
         owner_fio=row.owner_fio,
         inn=seller.inn,
         ogrn=seller.ogrn,
+        gift_note_enabled=getattr(seller, "gift_note_enabled", False),
     )
 
 

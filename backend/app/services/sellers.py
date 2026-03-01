@@ -517,6 +517,7 @@ class SellerService:
             "slot_duration_minutes": getattr(seller, "slot_duration_minutes", 120),
             "geo_lat": getattr(seller, "geo_lat", None),
             "geo_lon": getattr(seller, "geo_lon", None),
+            "gift_note_enabled": getattr(seller, "gift_note_enabled", False),
         }
 
     async def create_seller(

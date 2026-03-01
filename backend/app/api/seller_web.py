@@ -132,6 +132,8 @@ class UpdateMeBody(BaseModel):
     # Metro
     metro_id: Optional[int] = None
     metro_walk_minutes: Optional[int] = None
+    # Gift note toggle
+    gift_note_enabled: Optional[bool] = None
 
 
 @router.get("/me")
@@ -220,6 +222,9 @@ async def update_me(
         await service.update_field(seller_id, "metro_id", str(body.metro_id) if body.metro_id > 0 else "")
     if body.metro_walk_minutes is not None:
         await service.update_field(seller_id, "metro_walk_minutes", str(body.metro_walk_minutes) if body.metro_walk_minutes > 0 else "")
+    # Gift note toggle
+    if body.gift_note_enabled is not None:
+        await service.update_field(seller_id, "gift_note_enabled", body.gift_note_enabled)
     result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
     seller = result.scalar_one_or_none()
     if seller:

@@ -26,6 +26,11 @@ class Order(Base):
     guest_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     guest_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     guest_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Recipient fields ("Получатель не я")
+    recipient_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    recipient_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Gift note ("Записка к цветам")
+    gift_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Delivery zone tracking
     delivery_zone_id: Mapped[Optional[int]] = mapped_column(ForeignKey('delivery_zones.id'), nullable=True)
     delivery_fee: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2), nullable=True)

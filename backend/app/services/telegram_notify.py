@@ -168,6 +168,9 @@ async def notify_seller_new_order(
     delivery_type: Optional[str] = None,
     delivery_fee: Optional[float] = None,
     delivery_zone_name: Optional[str] = None,
+    recipient_name: Optional[str] = None,
+    recipient_phone: Optional[str] = None,
+    gift_note: Optional[str] = None,
 ) -> bool:
     """
     Notify seller about new order. Принять/отклонить — в админ-панели.
@@ -189,6 +192,12 @@ async def notify_seller_new_order(
     display_items = _format_items_for_display(items_info)
     if display_items:
         text += f"\n\n🛒 {display_items}"
+    if recipient_name:
+        text += f"\n\n🎁 Получатель: {recipient_name}"
+        if recipient_phone:
+            text += f" ({recipient_phone})"
+    if gift_note:
+        text += f"\n💌 Записка: {gift_note}"
     text += "\n\nПринять или отклонить заказ — в админ-панели."
     return await _send_telegram_message(seller_id, text)
 
@@ -384,6 +393,9 @@ async def notify_seller_new_order_guest(
     delivery_type: Optional[str] = None,
     delivery_fee: Optional[float] = None,
     delivery_zone_name: Optional[str] = None,
+    recipient_name: Optional[str] = None,
+    recipient_phone: Optional[str] = None,
+    gift_note: Optional[str] = None,
 ) -> bool:
     """Notify seller about new guest order (web checkout, no Telegram account)."""
     text = f"🆕 Новый заказ #{order_id} (гость)"
@@ -402,6 +414,12 @@ async def notify_seller_new_order_guest(
         text += f"\n\n🛒 {display_items}"
     text += f"\n\n👤 Покупатель: {guest_name}"
     text += f"\n📞 Телефон: {guest_phone}"
+    if recipient_name:
+        text += f"\n\n🎁 Получатель: {recipient_name}"
+        if recipient_phone:
+            text += f" ({recipient_phone})"
+    if gift_note:
+        text += f"\n💌 Записка: {gift_note}"
     text += "\n\nПринять или отклонить заказ — в админ-панели."
     return await _send_telegram_message(seller_id, text)
 

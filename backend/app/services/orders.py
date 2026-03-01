@@ -704,6 +704,9 @@ class OrderService:
                 "delivery_slot_date": o.delivery_slot_date.isoformat() if getattr(o, "delivery_slot_date", None) else None,
                 "delivery_slot_start": getattr(o, "delivery_slot_start", None),
                 "delivery_slot_end": getattr(o, "delivery_slot_end", None),
+                "recipient_name": getattr(o, "recipient_name", None),
+                "recipient_phone": getattr(o, "recipient_phone", None),
+                "gift_note": getattr(o, "gift_note", None),
             })
         return out
 
@@ -794,6 +797,9 @@ class OrderService:
             "delivery_slot_date": order.delivery_slot_date.isoformat() if getattr(order, "delivery_slot_date", None) else None,
             "delivery_slot_start": getattr(order, "delivery_slot_start", None),
             "delivery_slot_end": getattr(order, "delivery_slot_end", None),
+            "recipient_name": getattr(order, "recipient_name", None),
+            "recipient_phone": getattr(order, "recipient_phone", None),
+            "gift_note": getattr(order, "gift_note", None),
         }
 
     async def get_buyer_orders(self, buyer_id: int) -> List[Dict[str, Any]]:
@@ -856,6 +862,8 @@ class OrderService:
                 "seller_map_url": row.map_url,
                 "payment_id": getattr(row[0], "payment_id", None),
                 "payment_status": getattr(row[0], "payment_status", None),
+                "recipient_name": getattr(row[0], "recipient_name", None),
+                "recipient_phone": getattr(row[0], "recipient_phone", None),
             }
             for row in rows
         ]

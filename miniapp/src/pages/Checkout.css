@@ -780,3 +780,46 @@
     padding: 40px 32px;
   }
 }
+
+/* ===== Recipient ("Получатель не я") ===== */
+.checkout-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--tg-theme-text-color);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.checkout-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--tg-theme-button-color, #3390ec);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkout-recipient {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--tg-theme-bg-color, #fff);
+  border-radius: 12px;
+}
+
+/* ===== Gift Note ("Записка к цветам") ===== */
+.checkout-gift-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--app-border, rgba(0, 0, 0, 0.06));
+}
+
+.checkout-gift-note__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--tg-theme-hint-color, #999);
+  margin-bottom: 6px;
+}

@@ -121,6 +121,7 @@ export function ProductDetail() {
           seller_name: shopName || undefined,
           delivery_type: sellerDetail?.delivery_type ?? null,
           city_id: sellerDetail?.city_id ?? null,
+          gift_note_enabled: sellerDetail?.gift_note_enabled ?? false,
         });
         showAlert(preorderDate ? 'Предзаказ добавлен в корзину' : 'Добавлено в корзину');
         setSelectedPreorderDate(null);

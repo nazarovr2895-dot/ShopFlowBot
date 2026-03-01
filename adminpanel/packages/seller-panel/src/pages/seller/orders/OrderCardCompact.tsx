@@ -104,6 +104,23 @@ export function OrderCardCompact({
         </div>
       )}
 
+      {/* Row 2b: Recipient + gift note indicators */}
+      {(order.recipient_name || order.gift_note) && (
+        <div className="occ__extras">
+          {order.recipient_name && (
+            <span className="occ__extra-tag occ__extra-tag--recipient">
+              Получатель: {order.recipient_name}
+              {order.recipient_phone ? ` (${formatPhone(order.recipient_phone)})` : ''}
+            </span>
+          )}
+          {order.gift_note && (
+            <span className="occ__extra-tag occ__extra-tag--note" title={order.gift_note}>
+              Записка
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Row 3: Items (clickable product names) */}
       <div className="occ__items">
         {items.map((item, i) => (

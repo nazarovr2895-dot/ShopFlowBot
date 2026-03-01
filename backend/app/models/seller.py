@@ -93,6 +93,8 @@ class Seller(Base):
     # Network seller: max allowed branches (null = regular seller, >0 = network)
     max_branches: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
     search_vector = mapped_column(_TSVector, nullable=True)
+    # Feature toggle: allow buyers to attach a gift note/card to orders
+    gift_note_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

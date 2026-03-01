@@ -441,6 +441,9 @@ class ApiClient {
     delivery_slots?: Array<{ seller_id: number; date: string; start: string; end: string }>;
     buyer_district_id?: number | null;
     buyer_district_name?: string | null;
+    recipient_name?: string;
+    recipient_phone?: string;
+    gift_notes_by_seller?: Array<{ seller_id: number; gift_note: string }>;
   }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
     return this.fetch('/buyers/me/cart/checkout', {
       method: 'POST',
@@ -466,6 +469,9 @@ class ApiClient {
     delivery_slots?: Array<{ seller_id: number; date: string; start: string; end: string }>;
     buyer_district_id?: number | null;
     buyer_district_name?: string | null;
+    recipient_name?: string;
+    recipient_phone?: string;
+    gift_notes_by_seller?: Array<{ seller_id: number; gift_note: string }>;
   }): Promise<{ orders: Array<{ order_id: number; seller_id: number; total_price: number }> }> {
     const url = `${this.getBaseUrl()}/orders/guest-checkout`;
     const response = await fetch(url, {

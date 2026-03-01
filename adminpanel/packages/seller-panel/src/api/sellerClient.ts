@@ -104,6 +104,8 @@ export interface SellerMe {
   owner_id?: number;
   branches_count?: number;
   max_branches?: number | null;
+  // Gift note
+  gift_note_enabled?: boolean;
 }
 
 export interface DeliveryZone {
@@ -152,6 +154,9 @@ export interface SellerOrder {
   delivery_slot_date?: string | null;
   delivery_slot_start?: string | null;
   delivery_slot_end?: string | null;
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
+  gift_note?: string | null;
 }
 
 export type SellerStatsPeriod = '1d' | '7d' | '30d' | 'custom';
@@ -293,6 +298,7 @@ export async function updateMe(payload: {
   geo_lon?: number | null;
   metro_id?: number | null;
   metro_walk_minutes?: number | null;
+  gift_note_enabled?: boolean;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',

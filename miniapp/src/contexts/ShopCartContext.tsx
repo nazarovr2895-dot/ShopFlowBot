@@ -21,6 +21,7 @@ export interface AddToCartParams {
   sellerName?: string;
   sellerDeliveryType?: 'delivery' | 'pickup' | 'both' | null;
   sellerCityId?: number | null;
+  sellerGiftNoteEnabled?: boolean;
 }
 
 interface ShopCartContextValue {
@@ -134,7 +135,7 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
 
   /* ─── Add item ─────────────────────────────── */
   const addItem = useCallback(async (params: AddToCartParams): Promise<{ reserved_at?: string | null }> => {
-    const { product, quantity = 1, preorderDeliveryDate, sellerName, sellerDeliveryType, sellerCityId } = params;
+    const { product, quantity = 1, preorderDeliveryDate, sellerName, sellerDeliveryType, sellerCityId, sellerGiftNoteEnabled } = params;
 
     if (isGuestRef.current) {
       addToGuestCart({
@@ -147,6 +148,7 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
         seller_name: sellerName,
         delivery_type: sellerDeliveryType ?? null,
         city_id: sellerCityId ?? null,
+        gift_note_enabled: sellerGiftNoteEnabled ?? false,
       });
       // Optimistic local update
       if (!preorderDeliveryDate) {

@@ -93,6 +93,17 @@ export function SellerOrderDetail() {
           <div className="print-delivery">
             <strong>Доставка:</strong> {deliveryLabel}
           </div>
+          {order.recipient_name && (
+            <div className="print-recipient">
+              <strong>Получатель:</strong> {order.recipient_name}
+              {order.recipient_phone ? ` (${order.recipient_phone})` : ''}
+            </div>
+          )}
+          {order.gift_note && (
+            <div className="print-gift-note">
+              <strong>Записка:</strong> {order.gift_note}
+            </div>
+          )}
           <div className="print-meta">
             <span>Сумма: {order.total_price} ₽</span>
             <span>Создан: {formatDate(order.created_at)}</span>
@@ -116,6 +127,21 @@ export function SellerOrderDetail() {
             <p>
               <Link to={`/customers/${order.customer_id}`}>Клиент по программе лояльности →</Link>
             </p>
+          )}
+          {order.recipient_name && (
+            <>
+              <h3>Получатель</h3>
+              <p><strong>Имя:</strong> {order.recipient_name}</p>
+              {order.recipient_phone && (
+                <p><strong>Телефон:</strong> {order.recipient_phone}</p>
+              )}
+            </>
+          )}
+          {order.gift_note && (
+            <>
+              <h3>Записка к цветам</h3>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{order.gift_note}</p>
+            </>
           )}
           <h3>Состав</h3>
           <p>{formatItemsInfo(order.items_info)}</p>

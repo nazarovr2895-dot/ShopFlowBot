@@ -466,6 +466,13 @@ async def guest_checkout(
         for slot in data.delivery_slots:
             slots_map[slot.seller_id] = {"date": slot.date, "start": slot.start, "end": slot.end}
 
+    # Build gift notes map: {seller_id: note_text}
+    gift_notes_map: dict = {}
+    if data.gift_notes_by_seller:
+        for gn in data.gift_notes_by_seller:
+            if gn.gift_note.strip():
+                gift_notes_map[gn.seller_id] = gn.gift_note.strip()
+
     # Pre-fetch all products from DB to validate prices (never trust client prices)
     all_product_ids = [it.product_id for it in data.items]
     products_result = await session.execute(
@@ -560,6 +567,14 @@ async def guest_checkout(
                 order.delivery_fee = float(Decimal(str(zone_match["delivery_price"])))
             elif delivery_price > 0:
                 order.delivery_fee = float(delivery_price)
+            # Store recipient info ("Получатель не я")
+            if data.recipient_name:
+                order.recipient_name = data.recipient_name
+                order.recipient_phone = data.recipient_phone or None
+            # Store gift note if seller has it enabled
+            if gift_notes_map.get(seller_id):
+                if seller and getattr(seller, "gift_note_enabled", False):
+                    order.gift_note = gift_notes_map[seller_id]
             created.append({
                 "order_id": order.id,
                 "seller_id": seller_id,
@@ -586,6 +601,9 @@ async def guest_checkout(
                 delivery_type=o.get("delivery_type"),
                 delivery_fee=o.get("delivery_fee"),
                 delivery_zone_name=o.get("delivery_zone_name"),
+                recipient_name=data.recipient_name,
+                recipient_phone=data.recipient_phone,
+                gift_note=gift_notes_map.get(o["seller_id"]),
             )
 
         logger.info(

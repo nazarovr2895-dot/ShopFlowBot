@@ -76,6 +76,16 @@ class GuestCartItem(BaseModel):
         return sanitize_user_input(v, max_length=500)
 
 
+class GuestGiftNotePerSeller(BaseModel):
+    seller_id: int
+    gift_note: str
+
+    @field_validator("gift_note")
+    @classmethod
+    def sanitize_gift_note(cls, v: str) -> str:
+        return sanitize_user_input(v, max_length=500)
+
+
 class GuestDeliveryPerSeller(BaseModel):
     seller_id: int
     delivery_type: str  # "Доставка" | "Самовывоз"
@@ -99,6 +109,18 @@ class GuestCheckoutBody(BaseModel):
     delivery_slots: Optional[List[GuestDeliverySlotPerSeller]] = None
     buyer_district_id: Optional[int] = None  # district for delivery zone matching
     buyer_district_name: Optional[str] = None  # district name from DaData (e.g. "ЦАО")
+    # Recipient fields ("Получатель не я")
+    recipient_name: Optional[str] = None
+    recipient_phone: Optional[str] = None
+    # Gift notes per seller ("Записка к цветам")
+    gift_notes_by_seller: Optional[List[GuestGiftNotePerSeller]] = None
+
+    @field_validator("recipient_name")
+    @classmethod
+    def sanitize_recipient_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return sanitize_user_input(v, max_length=255)
 
     @field_validator("guest_name")
     @classmethod

@@ -96,6 +96,32 @@
   font-family: var(--font-mono);
 }
 
+/* ── Row 2b: extras (recipient + gift note) ── */
+.occ__extras {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.occ__extra-tag {
+  font-size: 0.6rem;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.occ__extra-tag--recipient {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent);
+}
+
+.occ__extra-tag--note {
+  background: rgba(236, 72, 153, 0.1);
+  color: #ec4899;
+  cursor: help;
+}
+
 /* ── Row 3: items (clickable) ────────────── */
 .occ__items {
   font-size: 0.7rem;

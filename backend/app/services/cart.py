@@ -108,6 +108,7 @@ class CartService:
                 "map_url": map_url,
                 "delivery_type": normalize_delivery_type_setting(seller.delivery_type) if seller else None,
                 "city_id": getattr(seller, "city_id", None) if seller else None,
+                "gift_note_enabled": getattr(seller, "gift_note_enabled", False) if seller else False,
             })
         return out
 
@@ -316,6 +317,9 @@ class CartService:
         buyer_district_id: Optional[int] = None,
         buyer_district_name: Optional[str] = None,
         delivery_slots_by_seller: Optional[Dict[int, dict]] = None,
+        recipient_name: Optional[str] = None,
+        recipient_phone: Optional[str] = None,
+        gift_notes_by_seller: Optional[Dict[int, str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Create one order per (seller, is_preorder) from cart, then clear cart.
@@ -477,6 +481,14 @@ class CartService:
                     if points_used > 0:
                         order.points_used = float(points_used)
                         order.points_discount = float(points_discount)
+                    # Store recipient info ("Получатель не я")
+                    if recipient_name:
+                        order.recipient_name = recipient_name
+                        order.recipient_phone = recipient_phone or None
+                    # Store gift note if seller has it enabled
+                    if gift_notes_by_seller and seller_id in gift_notes_by_seller:
+                        if seller and getattr(seller, "gift_note_enabled", False):
+                            order.gift_note = gift_notes_by_seller[seller_id]
                     created.append({
                         "order_id": order.id,
                         "seller_id": seller_id,
