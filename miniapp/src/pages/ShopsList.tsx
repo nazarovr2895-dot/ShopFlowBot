@@ -108,6 +108,19 @@ export function ShopsList() {
     };
   }, [searchInput, setFilters]);
 
+  // Immediate search on Enter: cancel debounce and apply now
+  const handleSearchSubmit = useCallback(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+    prevSearchInputRef.current = searchInput;
+    setFilters((prev: SellerFilters) => ({
+      ...prev,
+      search: searchInput.trim() || undefined,
+    }));
+  }, [searchInput, setFilters]);
+
   // Initial load and reload on filter change (wait for cache initialization)
   useEffect(() => {
     if (!isInitialized) return;
@@ -191,6 +204,7 @@ export function ShopsList() {
         <CatalogNavBar
           searchValue={searchInput}
           onSearchChange={setSearchInput}
+          onSearchSubmit={handleSearchSubmit}
           onFilterClick={() => setIsFilterModalOpen(true)}
           activeFiltersCount={activeFiltersCount}
           showFilterButton
