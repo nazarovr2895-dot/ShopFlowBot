@@ -67,6 +67,39 @@
   white-space: nowrap;
 }
 
+.occ__header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.occ__timer {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.08);
+  white-space: nowrap;
+}
+
+.occ__timer--warn {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.occ__timer--critical {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  animation: occ-timer-pulse 2s ease-in-out infinite;
+}
+
+@keyframes occ-timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .occ__date {
   font-size: 0.75rem;
   color: var(--text-tertiary);

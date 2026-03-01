@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formatPhone } from '@shared/utils/formatters';
 import { STATUS_LABELS, getStatusColor, isPickup } from './constants';
 import type { CardContext } from './constants';
@@ -30,6 +30,34 @@ const fmtDate = (iso?: string) => {
   } catch { return ''; }
 };
 
+function formatWaitTime(minutes: number): string {
+  if (minutes < 1) return 'только что';
+  if (minutes < 60) return `${minutes} мин`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h < 24) return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh > 0 ? `${d} д ${rh} ч` : `${d} д`;
+}
+
+function useWaitingMinutes(createdAt?: string | null): number {
+  const [minutes, setMinutes] = useState(() => {
+    if (!createdAt) return 0;
+    return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+  });
+
+  useEffect(() => {
+    if (!createdAt) return;
+    const update = () => setMinutes(Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
+    update();
+    const id = setInterval(update, 60000);
+    return () => clearInterval(id);
+  }, [createdAt]);
+
+  return minutes;
+}
+
 export function OrderCardCompact({
   order,
   context,
@@ -47,11 +75,13 @@ export function OrderCardCompact({
   const [infoOpen, setInfoOpen] = useState(false);
   const pickup = isPickup(order.delivery_type);
   const sc = getStatusColor(order.status);
+  const waitMin = useWaitingMinutes(order.created_at);
+  const showTimer = order.status === 'pending' || order.status === 'accepted' || order.status === 'assembling';
 
   return (
     <>
       <div className={`occ ${pickup ? 'occ--pickup' : 'occ--delivery'}`}>
-        {/* Row 1: Status badge + date */}
+        {/* Row 1: Status badge + timer + date */}
         <div className="occ__header">
           <span
             className="occ__status"
@@ -59,7 +89,14 @@ export function OrderCardCompact({
           >
             {STATUS_LABELS[order.status] || order.status}
           </span>
-          <span className="occ__date">{fmtDate(order.created_at)}</span>
+          <div className="occ__header-right">
+            {showTimer && (
+              <span className={`occ__timer ${waitMin >= 60 ? 'occ__timer--warn' : ''} ${waitMin >= 180 ? 'occ__timer--critical' : ''}`}>
+                {formatWaitTime(waitMin)}
+              </span>
+            )}
+            <span className="occ__date">{fmtDate(order.created_at)}</span>
+          </div>
         </div>
 
         {/* Row 2: ID + price + paid badge */}
