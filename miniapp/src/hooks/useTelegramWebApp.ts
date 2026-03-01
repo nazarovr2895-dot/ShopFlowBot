@@ -15,6 +15,12 @@ function initTelegramWebAppOnce() {
       WebApp.ready();
       WebApp.expand();
       WebApp.setHeaderColor('secondary_bg_color');
+      if (typeof WebApp.setBackgroundColor === 'function') {
+        try { WebApp.setBackgroundColor('bg_color'); } catch { /* Not supported */ }
+      }
+      if (typeof (WebApp as any).setBottomBarColor === 'function') {
+        try { (WebApp as any).setBottomBarColor('secondary_bg_color'); } catch { /* Not supported */ }
+      }
       WebApp.enableClosingConfirmation();
       if (typeof WebApp.disableVerticalSwipes === 'function') {
         WebApp.disableVerticalSwipes();
@@ -205,6 +211,32 @@ export function useTelegramWebApp() {
     }
   }, []);
 
+  const hapticNotification = useCallback((type: 'error' | 'success' | 'warning') => {
+    try {
+      if (WebApp.HapticFeedback?.notificationOccurred) {
+        WebApp.HapticFeedback.notificationOccurred(type);
+      }
+    } catch {
+      // ignore when not supported
+    }
+  }, []);
+
+  const setSettingsButton = useCallback((visible: boolean, onClick?: () => void) => {
+    if (!isTelegram()) return;
+    try {
+      const sb = (WebApp as any).SettingsButton;
+      if (!sb) return;
+      if (visible && onClick) {
+        sb.onClick(onClick);
+        sb.show();
+      } else {
+        sb.hide();
+      }
+    } catch {
+      // Not supported in this version
+    }
+  }, []);
+
   const requestContact = useCallback((): Promise<string | null> => {
     return new Promise((resolve) => {
       try {
@@ -236,5 +268,7 @@ export function useTelegramWebApp() {
     hideMainButton,
     setBackButton,
     requestContact,
+    hapticNotification,
+    setSettingsButton,
   };
 }

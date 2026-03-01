@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   Landing,
@@ -24,13 +24,16 @@ import { api } from './api/client';
 import { useLocationCache } from './hooks/useLocationCache';
 import type { SellerFilters } from './types';
 import { isTelegram, getTelegramInitData } from './utils/environment';
+import { useTelegramWebApp } from './hooks/useTelegramWebApp';
 import './App.css';
 
 function AppContent() {
   const { setFilters } = useLocationCache();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
-  
+  const navigate = useNavigate();
+  const { setSettingsButton } = useTelegramWebApp();
+
   // Initialize theme system (integrates with Telegram colorScheme internally)
   useTheme();
 
@@ -53,6 +56,13 @@ function AppContent() {
 
     initAuth();
   }, []);
+
+  // Show native Settings button in Telegram "..." menu
+  useEffect(() => {
+    if (authInitialized) {
+      setSettingsButton(true, () => navigate('/profile'));
+    }
+  }, [authInitialized, setSettingsButton, navigate]);
 
   // Theme is now managed by useTheme hook which integrates with Telegram colorScheme
 

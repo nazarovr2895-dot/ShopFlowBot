@@ -36,7 +36,7 @@ export function Profile() {
   const [searchParams, setSearchParams] = useSearchParams();
   const fromParam = searchParams.get('from');
   const section = searchParams.get('section');
-  const { showAlert, requestContact, hapticFeedback, setBackButton, user: telegramUser } = useTelegramWebApp();
+  const { showAlert, requestContact, hapticFeedback, hapticNotification, setBackButton, user: telegramUser } = useTelegramWebApp();
   const [user, setUser] = useState<{
     tg_id: number;
     fio?: string;
@@ -50,6 +50,7 @@ export function Profile() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [phoneInput, setPhoneInput] = useState('');
   const [showManualPhoneInput, setShowManualPhoneInput] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
 
   const loadUser = useCallback(async () => {
     try {
@@ -73,6 +74,7 @@ export function Profile() {
     try {
       const updated = await api.updateProfile({ phone: normalized });
       setUser(updated);
+      hapticNotification('success');
       showAlert('Номер телефона сохранен');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ошибка сохранения';
@@ -263,8 +265,6 @@ export function Profile() {
 
     return (
       <div className="profile-page">
-        <h1 className="profile-page__title">Профиль</h1>
-
         {showAuthBlock && (
           <section className="profile-auth-block">
             <p className="profile-auth-block__text">
@@ -276,69 +276,96 @@ export function Profile() {
 
         {user && (
           <>
-            {/* User header with avatar */}
+            {/* Centered user header with photo */}
             <div className="profile-header">
               <div className="profile-header__avatar">
-                {getUserInitial()}
-              </div>
-              <div className="profile-header__info">
-                <span className="profile-header__name">{getUserDisplayName()}</span>
-                {user.username && (
-                  <span className="profile-header__username">@{user.username}</span>
+                {telegramUser?.photo_url && !photoError ? (
+                  <img
+                    src={telegramUser.photo_url}
+                    alt=""
+                    className="profile-header__avatar-img"
+                    onError={() => setPhotoError(true)}
+                  />
+                ) : (
+                  <span className="profile-header__avatar-fallback">{getUserInitial()}</span>
                 )}
               </div>
+              <span className="profile-header__name">{getUserDisplayName()}</span>
+              {(user.phone || user.username) && (
+                <span className="profile-header__subtitle">
+                  {user.phone ? formatPhoneForDisplay(user.phone) : `@${user.username}`}
+                </span>
+              )}
             </div>
 
-            {/* Section navigation */}
+            {/* Grouped navigation */}
             <nav className="profile-nav">
-              <button
-                type="button"
-                className="profile-nav__item"
-                onClick={() => {
-                  hapticFeedback('light');
-                  navigate('/?tab=orders');
-                }}
-              >
-                <span className="profile-nav__icon">📦</span>
-                Мои заказы
-                <span className="profile-nav__arrow">›</span>
-              </button>
-              <button
-                type="button"
-                className="profile-nav__item"
-                onClick={() => {
-                  hapticFeedback('light');
-                  setSearchParams({ section: 'personal' });
-                }}
-              >
-                <span className="profile-nav__icon">👤</span>
-                Мои данные
-                <span className="profile-nav__arrow">›</span>
-              </button>
+              <div className="profile-nav__group">
+                <button
+                  type="button"
+                  className="profile-nav__item"
+                  onClick={() => {
+                    hapticFeedback('light');
+                    navigate('/?tab=orders');
+                  }}
+                >
+                  <span className="profile-nav__icon">📦</span>
+                  <span className="profile-nav__text">Мои заказы</span>
+                  <span className="profile-nav__arrow">›</span>
+                </button>
+                <button
+                  type="button"
+                  className="profile-nav__item"
+                  onClick={() => {
+                    hapticFeedback('light');
+                    setSearchParams({ section: 'personal' });
+                  }}
+                >
+                  <span className="profile-nav__icon">👤</span>
+                  <span className="profile-nav__text">Мои данные</span>
+                  <span className="profile-nav__arrow">›</span>
+                </button>
+              </div>
             </nav>
 
             {isBrowser() && (
-              <button
-                type="button"
-                className="profile-logout"
-                onClick={() => {
-                  api.logout();
-                  navigate('/landing', { replace: true });
-                }}
-              >
-                Выйти
-              </button>
+              <div className="profile-nav__group profile-nav__group--standalone">
+                <button
+                  type="button"
+                  className="profile-nav__item profile-nav__item--danger"
+                  onClick={() => {
+                    api.logout();
+                    navigate('/landing', { replace: true });
+                  }}
+                >
+                  <span className="profile-nav__text">Выйти</span>
+                </button>
+              </div>
             )}
           </>
         )}
 
         <footer className="profile-legal-footer">
-          <button type="button" className="profile-legal-footer__link" onClick={() => navigate('/terms')}>
-            Пользовательское соглашение
-          </button>
-          <button type="button" className="profile-legal-footer__link" onClick={() => navigate('/privacy')}>
-            Политика конфиденциальности
-          </button>
+          <div className="profile-nav__group">
+            <button
+              type="button"
+              className="profile-nav__item profile-nav__item--subtle"
+              onClick={() => navigate('/terms')}
+            >
+              <span className="profile-nav__icon">📄</span>
+              <span className="profile-nav__text">Пользовательское соглашение</span>
+              <span className="profile-nav__arrow">›</span>
+            </button>
+            <button
+              type="button"
+              className="profile-nav__item profile-nav__item--subtle"
+              onClick={() => navigate('/privacy')}
+            >
+              <span className="profile-nav__icon">🔒</span>
+              <span className="profile-nav__text">Политика конфиденциальности</span>
+              <span className="profile-nav__arrow">›</span>
+            </button>
+          </div>
         </footer>
       </div>
     );

@@ -1,18 +1,10 @@
 /* ══════════════════════════════════════════════
-   Profile Page — Modern UI
+   Profile Page — Telegram-native style
    ══════════════════════════════════════════════ */
 
 .profile-page {
   padding: 16px;
   background: var(--app-bg);
-}
-
-.profile-page__title {
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 20px;
-  color: var(--app-text);
-  letter-spacing: -0.02em;
 }
 
 /* ── Auth block ───────────────────────────────── */
@@ -31,60 +23,78 @@
   line-height: 1.5;
 }
 
-/* ── User header ──────────────────────────────── */
+/* ── Centered user header ─────────────────────── */
 .profile-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 18px;
+  gap: 4px;
+  padding: 24px 16px 20px;
   margin-bottom: 16px;
-  background: var(--app-bg-elevated);
-  border-radius: 16px;
-  border: 1px solid var(--app-border);
 }
 
 .profile-header__avatar {
-  width: 52px;
-  height: 52px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--app-accent) 0%, #a855f7 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  color: #fff;
-  font-weight: 600;
   flex-shrink: 0;
-  line-height: 1;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 8px;
 }
 
-.profile-header__info {
+.profile-header__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.profile-header__avatar-fallback {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 40px;
+  color: #fff;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .profile-header__name {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--app-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: center;
 }
 
-.profile-header__username {
-  font-size: 14px;
+.profile-header__subtitle {
+  font-size: 15px;
   color: var(--app-text-secondary);
+  text-align: center;
 }
 
-/* ── Navigation menu ──────────────────────────── */
+/* ── Grouped navigation cards ─────────────────── */
 .profile-nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 16px;
+}
+
+.profile-nav__group {
+  background: var(--app-bg-elevated);
+  border-radius: 14px;
+  border: 1px solid var(--app-border);
+  overflow: hidden;
+}
+
+.profile-nav__group--standalone {
+  margin-top: 16px;
 }
 
 .profile-nav__item {
@@ -92,34 +102,53 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 18px;
-  background: var(--app-bg-elevated);
-  border: 1px solid var(--app-border);
-  border-radius: 14px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--app-border);
   font-size: 16px;
   font-weight: 500;
   color: var(--app-text);
   cursor: pointer;
   text-align: left;
+  font-family: inherit;
   transition: background 0.15s ease;
 }
 
+.profile-nav__item:last-child {
+  border-bottom: none;
+}
+
 .profile-nav__item:active {
-  opacity: 0.9;
+  background: var(--app-surface);
+}
+
+.profile-nav__item--danger {
+  color: #ef4444;
+  justify-content: center;
+}
+
+.profile-nav__item--subtle {
+  font-weight: 400;
+}
+
+.profile-nav__text {
+  flex: 1;
+  min-width: 0;
 }
 
 .profile-nav__icon {
-  font-size: 22px;
+  font-size: 20px;
   flex-shrink: 0;
   width: 28px;
   text-align: center;
 }
 
 .profile-nav__arrow {
-  margin-left: auto;
-  font-size: 22px;
+  font-size: 20px;
   color: var(--app-text-secondary);
-  opacity: 0.5;
+  opacity: 0.4;
+  flex-shrink: 0;
 }
 
 /* ── Profile data (personal section) ──────────── */
@@ -250,84 +279,9 @@
   letter-spacing: -0.02em;
 }
 
-/* ── Logout button ────────────────────────────── */
-.profile-logout {
-  display: block;
-  width: 100%;
-  margin-top: 24px;
-  padding: 14px 16px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #ef4444;
-  background: var(--app-bg-elevated);
-  border: 1px solid var(--app-border);
-  border-radius: 14px;
-  cursor: pointer;
-  text-align: center;
-  transition: background 0.15s ease;
-}
-
-.profile-logout:active {
-  background: rgba(239, 68, 68, 0.06);
-}
-
-/* ── Profile card (legacy) ────────────────────── */
-.profile-card {
-  background: var(--app-bg-elevated);
-  border-radius: 16px;
-  padding: 0;
-  margin-bottom: 20px;
-  border: 1px solid var(--app-border);
-  overflow: hidden;
-}
-
-.profile-card__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--app-border);
-}
-
-.profile-card__row:last-child {
-  border-bottom: none;
-}
-
-.profile-card__label {
-  font-size: 14px;
-  color: var(--app-text-secondary);
-}
-
-.profile-card__value {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--app-text);
-}
-
 /* ── Legal links footer ──────────────────────── */
 .profile-legal-footer {
-  margin-top: 32px;
-  padding-top: 20px;
-  border-top: 1px solid var(--app-border);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.profile-legal-footer__link {
-  padding: 8px 0;
-  background: none;
-  border: none;
-  font-size: 13px;
-  font-family: inherit;
-  color: var(--app-text-secondary);
-  text-align: left;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.profile-legal-footer__link:active {
-  color: var(--app-accent);
+  margin-top: 16px;
 }
 
 /* ══════════════════════════════════════════════
@@ -340,8 +294,8 @@
     padding: 24px 32px;
   }
 
-  .profile-page__title {
-    font-size: 28px;
+  .profile-header__name {
+    font-size: 22px;
   }
 
   .profile-data__card {
@@ -365,31 +319,16 @@
     opacity: 0.9;
   }
 
-  .profile-nav__item {
+  .profile-nav__group {
     max-width: 600px;
-    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  .profile-nav__item {
+    transition: background 0.15s ease;
   }
 
   .profile-nav__item:hover {
     background: var(--app-surface);
-    transform: translateX(2px);
-  }
-
-  .profile-header {
-    max-width: 600px;
-  }
-
-  .profile-logout {
-    max-width: 360px;
-    transition: background 0.15s ease;
-  }
-
-  .profile-logout:hover {
-    background: rgba(239, 68, 68, 0.08);
-  }
-
-  .profile-legal-footer__link:hover {
-    color: var(--app-accent);
   }
 }
 
