@@ -40,6 +40,15 @@ export function getStatusVariant(status: string): 'success' | 'danger' | 'warnin
   return 'neutral';
 }
 
+export type CardContext =
+  | 'pending'
+  | 'awaiting_payment'
+  | 'active'
+  | 'history'
+  | 'cancelled'
+  | 'preorder_requests'
+  | 'preorder_waiting';
+
 export function isPickup(type?: string): boolean {
   if (!type) return false;
   const v = type.trim().toLowerCase();

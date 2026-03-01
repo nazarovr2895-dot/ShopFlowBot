@@ -1,0 +1,257 @@
+/* ============================================
+   OrderInfoModal — order details modal
+   ============================================ */
+
+.oim {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Section ─────────────────────────────── */
+
+.oim__section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.oim__section:first-child {
+  padding-top: 0;
+}
+
+.oim__section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.oim__section-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin: 0 0 12px;
+}
+
+/* ── Key-value rows ──────────────────────── */
+
+.oim__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.oim__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+}
+
+.oim__row--top {
+  align-items: flex-start;
+}
+
+.oim__label {
+  width: 110px;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.oim__value {
+  font-size: 0.875rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.oim__value--price {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.oim__value--old {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.oim__value--bonus {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.oim__value--link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.oim__value--link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+/* ── Delivery type pills ─────────────────── */
+
+.oim__pill {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  border-radius: 10px;
+  letter-spacing: 0.02em;
+}
+
+.oim__pill--delivery {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.oim__pill--pickup {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+}
+
+/* ── Address copy ────────────────────────── */
+
+.oim__addr-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.oim__copy-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(99, 102, 241, 0.4);
+  transition: color var(--transition-fast);
+  align-self: flex-start;
+}
+
+.oim__copy-btn:hover {
+  color: var(--accent-hover);
+  text-decoration-color: var(--accent-hover);
+}
+
+/* ── Price edit ──────────────────────────── */
+
+.oim__edit-price-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(99, 102, 241, 0.4);
+  transition: color var(--transition-fast);
+}
+
+.oim__edit-price-btn:hover {
+  color: var(--accent-hover);
+  text-decoration-color: var(--accent-hover);
+}
+
+.oim__price-edit {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.oim__price-input {
+  width: 100px;
+  font-size: 0.875rem !important;
+  padding: 4px 8px !important;
+}
+
+/* ── Items list ──────────────────────────── */
+
+.oim__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oim__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.oim__item-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.oim__item-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.oim__item-qty {
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+}
+
+/* ── Gift note ───────────────────────────── */
+
+.oim__gift-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oim__gift-note .oim__label {
+  width: auto;
+}
+
+.oim__quote {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* ── Footer link ─────────────────────────── */
+
+.oim__full-link {
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.oim__full-link:hover {
+  color: var(--accent);
+}
+
+/* ── Waiting countdown (reuse from card) ── */
+.waiting-countdown { font-weight: 500; font-size: 0.75rem; color: var(--text-muted); }
+.waiting-countdown--today { color: #22c55e; font-weight: 600; }
+.waiting-countdown--tomorrow { color: #f59e0b; font-weight: 600; }
+.waiting-countdown--overdue { color: #ef4444; font-weight: 600; }
