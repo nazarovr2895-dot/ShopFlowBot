@@ -41,15 +41,21 @@ function formatWaitTime(minutes: number): string {
   return rh > 0 ? `${d} д ${rh} ч` : `${d} д`;
 }
 
+/** Parse server datetime as UTC (backend stores naive UTC via datetime.now in Docker) */
+function parseUtc(iso: string): number {
+  const s = iso.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
+  return new Date(s).getTime();
+}
+
 function useWaitingMinutes(createdAt?: string | null): number {
   const [minutes, setMinutes] = useState(() => {
     if (!createdAt) return 0;
-    return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+    return Math.max(0, Math.floor((Date.now() - parseUtc(createdAt)) / 60000));
   });
 
   useEffect(() => {
     if (!createdAt) return;
-    const update = () => setMinutes(Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
+    const update = () => setMinutes(Math.max(0, Math.floor((Date.now() - parseUtc(createdAt)) / 60000)));
     update();
     const id = setInterval(update, 60000);
     return () => clearInterval(id);
