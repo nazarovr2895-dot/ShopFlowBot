@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = 'add_recipient_gift_note'
-down_revision: Union[str, None] = 'add_fts_search'
+down_revision: Union[str, None] = 'add_payment_method'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
