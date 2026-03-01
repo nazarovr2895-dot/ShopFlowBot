@@ -128,9 +128,9 @@
     background: var(--bg-surface);
   }
 
-  /* Telegram fullscreen: --tg-header-offset already includes safe-area */
+  /* Telegram fullscreen: use max() so env() acts as fallback */
   .tg-fullscreen .sidebar-v2 {
-    top: var(--tg-header-offset, 0px);
+    top: max(env(safe-area-inset-top, 0px), var(--tg-header-offset, 0px));
   }
 
   .sidebar-v2-brand {

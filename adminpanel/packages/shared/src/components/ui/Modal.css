@@ -119,5 +119,5 @@
 
 /* ── Telegram fullscreen: сдвигаем модалку ниже статус-бара ── */
 .tg-fullscreen .ui-modal-overlay {
-  top: var(--tg-header-offset, 0px);
+  top: max(env(safe-area-inset-top, 0px), var(--tg-header-offset, 0px));
 }

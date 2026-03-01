@@ -17,10 +17,10 @@
   padding-top: calc(68px + env(safe-area-inset-top, 0));
 }
 
-/* Telegram fullscreen: --tg-header-offset already includes safe-area */
+/* Telegram fullscreen: use max() so env() acts as fallback when --tg-header-offset is 0 */
 .tg-fullscreen .main-layout--telegram,
 .tg-fullscreen .main-layout[data-telegram="true"] {
-  padding-top: calc(68px + var(--tg-header-offset, 0px));
+  padding-top: calc(68px + max(env(safe-area-inset-top, 0px), var(--tg-header-offset, 0px)));
 }
 
 .main-layout__content {

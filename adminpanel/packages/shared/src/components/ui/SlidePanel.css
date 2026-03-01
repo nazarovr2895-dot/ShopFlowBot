@@ -84,5 +84,5 @@
 
 /* ── Telegram fullscreen: сдвигаем панель ниже статус-бара ── */
 .tg-fullscreen .slide-panel {
-  top: var(--tg-header-offset, 0px);
+  top: max(env(safe-area-inset-top, 0px), var(--tg-header-offset, 0px));
 }
