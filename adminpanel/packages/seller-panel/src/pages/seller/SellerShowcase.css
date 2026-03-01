@@ -12,6 +12,12 @@
   padding: var(--space-6);
 }
 
+@media (max-width: 767px) {
+  .seller-showcase-page {
+    padding: var(--space-2);
+  }
+}
+
 .seller-showcase-intro {
   color: var(--text-secondary);
   font-size: var(--text-sm);
@@ -279,10 +285,6 @@
     border-top: 1px solid var(--border);
     padding-top: var(--space-2);
     margin-top: var(--space-1);
-  }
-
-  .sc-product-row:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
   }
 }
 
