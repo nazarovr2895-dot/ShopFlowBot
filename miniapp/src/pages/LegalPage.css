@@ -4,7 +4,7 @@
   min-height: 100vh;
   background: var(--app-bg);
   padding: 16px;
-  padding-top: env(safe-area-inset-top, 0);
+  padding-top: calc(max(env(safe-area-inset-top, 0px), var(--tg-header-offset, 0px)) + 16px);
   padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
