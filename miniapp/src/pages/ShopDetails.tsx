@@ -545,24 +545,18 @@ export function ShopDetails() {
 
       {/* Compact info strip */}
       <div className="shop-details__info-strip">
-        {hasPickup && (seller.city_name || seller.district_name || seller.metro_name) && (
+        {hasPickup && seller.metro_name && (
           <div className="shop-details__info-line">
             <DistrictIcon />
             <span className="shop-details__info-line-text">
-              {[seller.city_name, seller.district_name].filter(Boolean).join(', ')}
-              {seller.metro_name && (
-                <>
-                  {(seller.city_name || seller.district_name) && ', '}
-                  {seller.metro_line_color && (
-                    <span
-                      className="shop-details__metro-dot"
-                      style={{ background: seller.metro_line_color }}
-                    />
-                  )}
-                  м. {seller.metro_name}
-                  {seller.metro_walk_minutes ? ` (${seller.metro_walk_minutes} мин)` : ''}
-                </>
+              {seller.metro_line_color && (
+                <span
+                  className="shop-details__metro-dot"
+                  style={{ background: seller.metro_line_color }}
+                />
               )}
+              м. {seller.metro_name}
+              {seller.metro_walk_minutes ? ` (${seller.metro_walk_minutes} мин)` : ''}
             </span>
           </div>
         )}
@@ -570,7 +564,7 @@ export function ShopDetails() {
           <>
             <div className="shop-details__info-line">
               <AddressIcon />
-              <span className="shop-details__info-line-text">{seller.address_name}</span>
+              <span className="shop-details__info-line-text">{seller.address_name?.replace(/^г\s+[^,]+,\s*/, '') || seller.address_name}</span>
               {/* Toggle inline mini-map */}
               {showMapButton && (
                 <button
