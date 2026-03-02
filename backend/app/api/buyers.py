@@ -582,6 +582,7 @@ async def get_favorite_sellers(
             "max_price": float(row.max_price) if row.max_price else None,
             "product_count": row.product_count or 0,
             "subscriber_count": row.subscriber_count or 0,
+            "logo_url": getattr(seller, "logo_url", None),
         })
     return sellers
 
