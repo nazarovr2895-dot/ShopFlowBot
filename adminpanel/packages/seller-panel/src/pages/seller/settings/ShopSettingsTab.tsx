@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { updateMe, getBannerImageUrl, uploadBannerPhoto, searchMetro } from '../../../api/sellerClient';
+import { useEffect, useState } from 'react';
+import { updateMe, searchMetro } from '../../../api/sellerClient';
 import { FormField, useToast } from '@shared/components/ui';
 import { useEditMode } from '@shared/hooks/useEditMode';
 import { LocationPicker } from '../../../components/LocationPicker';
 import { MetroSearchField } from '@shared/components/MetroSearchField';
 import { Toggle } from '@shared/components/ui';
-import { Store, Image, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, Upload, Trash2, MessageSquare } from 'lucide-react';
+import { Store, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, MessageSquare } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './ShopSettingsTab.css';
 
@@ -34,10 +34,6 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
 
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [savingGeo, setSavingGeo] = useState(false);
-  const [bannerUploading, setBannerUploading] = useState(false);
-  const [bannerRemoving, setBannerRemoving] = useState(false);
-  const bannerFileInputRef = useRef<HTMLInputElement>(null);
-
   // Metro state
   const [metroId, setMetroId] = useState<number | null>(me.metro_id ?? null);
   const [metroWalkMinutes, setMetroWalkMinutes] = useState<number | null>(me.metro_walk_minutes ?? null);
@@ -85,35 +81,6 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
       toast.error(e instanceof Error ? e.message : 'Ошибка сохранения координат');
     } finally {
       setSavingGeo(false);
-    }
-  };
-
-  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBannerUploading(true);
-    try {
-      await uploadBannerPhoto(file);
-      await reload();
-      e.target.value = '';
-      toast.success('Баннер загружен');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Ошибка загрузки баннера');
-    } finally {
-      setBannerUploading(false);
-    }
-  };
-
-  const handleRemoveBanner = async () => {
-    setBannerRemoving(true);
-    try {
-      await updateMe({ banner_url: null });
-      await reload();
-      toast.success('Баннер удалён');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setBannerRemoving(false);
     }
   };
 
@@ -356,68 +323,7 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
         )}
       </div>
 
-      {/* ── Section 2: Banner ─────────────────────── */}
-      <div className="shop-card">
-        <div className="shop-card__header">
-          <div className="shop-card__header-left">
-            <div className="shop-card__icon-badge shop-card__icon-badge--teal">
-              <Image size={18} />
-            </div>
-            <div>
-              <h3 className="shop-card__title">Баннер магазина</h3>
-              <p className="shop-card__subtitle">Рекомендуемый размер: 1200 x 400 px (3:1)</p>
-            </div>
-          </div>
-        </div>
-
-        {me.banner_url ? (
-          <div className="shop-banner">
-            <div className="shop-banner__preview">
-              <img src={getBannerImageUrl(me.banner_url) ?? ''} alt="Баннер магазина" />
-            </div>
-            <div className="shop-banner__actions">
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                disabled={bannerUploading}
-                onClick={() => bannerFileInputRef.current?.click()}
-              >
-                <Upload size={14} />
-                {bannerUploading ? 'Загрузка...' : 'Заменить'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm shop-banner__remove-btn"
-                disabled={bannerRemoving}
-                onClick={handleRemoveBanner}
-              >
-                <Trash2 size={14} />
-                {bannerRemoving ? 'Удаление...' : 'Удалить'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="shop-banner__dropzone"
-            onClick={() => bannerFileInputRef.current?.click()}
-          >
-            <Upload size={24} className="shop-banner__dropzone-icon" />
-            <span className="shop-banner__dropzone-text">
-              {bannerUploading ? 'Загрузка...' : 'Нажмите, чтобы загрузить баннер'}
-            </span>
-            <span className="shop-banner__dropzone-hint">JPG, PNG, WebP или GIF</span>
-          </div>
-        )}
-        <input
-          ref={bannerFileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={handleBannerUpload}
-          className="shop-banner__file-input"
-        />
-      </div>
-
-      {/* ── Section 3: Shop link ──────────────────── */}
+      {/* ── Section 2: Shop link ──────────────────── */}
       <div className="shop-card">
         <div className="shop-card__header">
           <div className="shop-card__header-left">

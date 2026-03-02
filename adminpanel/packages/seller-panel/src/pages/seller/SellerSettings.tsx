@@ -16,7 +16,7 @@ import { LogoSettingsTab } from './settings/LogoSettingsTab';
 
 const ALL_TABS = [
   { key: 'shop', label: 'Магазин' },
-  { key: 'logo', label: 'Лого' },
+  { key: 'logo', label: 'Медиа' },
   { key: 'delivery', label: 'Доставка' },
   { key: 'hours', label: 'Время работы' },
   { key: 'preorders', label: 'Предзаказы' },

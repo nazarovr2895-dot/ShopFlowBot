@@ -1434,7 +1434,7 @@ async def upload_shop_banner(
     except ValueError:
         raise HTTPException(status_code=400, detail="Недопустимый путь к файлу")
     path.write_bytes(content)
-    banner_url = f"/static/{SHOP_BANNERS_UPLOAD_SUBDIR}/{name}"
+    banner_url = f"/static/{SHOP_BANNERS_UPLOAD_SUBDIR}/{name}?v={int(time.time())}"
     service = SellerService(session)
     await service.update_field(seller_id, "banner_url", banner_url)
     return {"banner_url": banner_url}
