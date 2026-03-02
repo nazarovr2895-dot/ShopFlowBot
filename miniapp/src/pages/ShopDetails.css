@@ -232,23 +232,16 @@
   }
 }
 
-/* Большие экраны: еще более широкий банер как на YouTube канале */
+/* Большие экраны: увеличенный border-radius */
 @media (min-width: 1024px) {
   .shop-details__banner {
     border-radius: 20px;
   }
 
-  .shop-details__banner::before {
-    padding-top: 20%; /* 5:1 для широких экранов */
-  }
 }
 
-/* Очень большие экраны: максимально широкий */
+/* Очень большие экраны */
 @media (min-width: 1440px) {
-  .shop-details__banner::before {
-    padding-top: 16.67%; /* 6:1 для очень широких экранов */
-  }
-
   .shop-details__logo,
   .shop-details__logo-placeholder {
     width: 72px;
