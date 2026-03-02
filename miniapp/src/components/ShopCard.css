@@ -32,9 +32,8 @@
 
 .shop-card__header {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
+  padding-right: 66px;
 }
 
 .shop-card__name {
@@ -64,8 +63,10 @@
   height: 58px;
   border-radius: 50%;
   object-fit: cover;
-  flex-shrink: 0;
   border: 2px solid rgba(255, 255, 255, 0.2);
+  position: absolute;
+  top: 12px;
+  right: 12px;
 }
 
 [data-theme="light"] .shop-card .shop-card__logo {
@@ -76,7 +77,6 @@
   width: 58px;
   height: 58px;
   border-radius: 50%;
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,6 +84,9 @@
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, #9b87c4, #6c5ce7);
+  position: absolute;
+  top: 12px;
+  right: 12px;
 }
 
 [data-theme="light"] .shop-card .shop-card__logo-placeholder {

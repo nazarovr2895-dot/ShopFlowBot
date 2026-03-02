@@ -1,12 +1,13 @@
 .my-flowers-page {
-  padding: 16px;
-  padding-top: calc(16px + 56px);
+  padding: 12px 8px;
+  padding-top: calc(12px + 56px);
   background: var(--app-bg);
   min-height: 100vh;
 }
 
 /* Telegram version */
 .my-flowers-page[data-telegram="true"] {
+  padding: 0 8px;
   padding-top: calc(12px + 38px);
 }
 

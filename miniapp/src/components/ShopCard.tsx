@@ -82,13 +82,13 @@ export function ShopCard({ seller }: ShopCardProps) {
 
   return (
     <div className="shop-card" onClick={handleClick}>
+      {logoSrc ? (
+        <img className="shop-card__logo" src={logoSrc} alt="" />
+      ) : (
+        <div className="shop-card__logo-placeholder">{shopInitial}</div>
+      )}
       <div className="shop-card__header">
         <h3 className="shop-card__name">{seller.shop_name || 'Без названия'}</h3>
-        {logoSrc ? (
-          <img className="shop-card__logo" src={logoSrc} alt="" />
-        ) : (
-          <div className="shop-card__logo-placeholder">{shopInitial}</div>
-        )}
       </div>
 
       {(showDelivery || showPickup) && (
