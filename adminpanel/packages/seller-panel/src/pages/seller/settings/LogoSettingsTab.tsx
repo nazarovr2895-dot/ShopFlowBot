@@ -174,7 +174,7 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
             </div>
             <div>
               <h3 className="shop-card__title">Баннер магазина</h3>
-              <p className="shop-card__subtitle">Рекомендуемый размер: 1200 x 400 px (3:1)</p>
+              <p className="shop-card__subtitle">Рекомендуемый размер: 1600 x 400 px (4:1)</p>
             </div>
           </div>
         </div>
@@ -242,7 +242,7 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
         <ImageCropModal
           isOpen
           imageSrc={bannerCropSrc}
-          aspect={3}
+          aspect={4}
           onCropComplete={handleBannerCropComplete}
           onClose={handleBannerCropClose}
         />
