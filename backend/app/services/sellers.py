@@ -505,6 +505,7 @@ class SellerService:
             "preorder_custom_dates": preorder_custom_dates if preorder_custom_dates else [],
             "preorder_available_dates": preorder_available_dates,
             "banner_url": getattr(seller, "banner_url", None),
+            "logo_url": getattr(seller, "logo_url", None),
             "working_hours": getattr(seller, "working_hours", None),
             "commission_percent": getattr(seller, "commission_percent", None),
             "yookassa_account_id": getattr(seller, "yookassa_account_id", None),

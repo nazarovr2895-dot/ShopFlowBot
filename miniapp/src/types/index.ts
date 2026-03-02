@@ -43,6 +43,7 @@ export interface PublicSellerListItem {
   max_price: number | null;
   product_count: number;
   subscriber_count?: number;
+  logo_url?: string | null;
   working_hours?: Record<string, { open: string; close: string } | null> | null;
   is_open_now?: boolean | null;
 }
@@ -126,6 +127,7 @@ export interface VisitedSeller {
   max_price: number | null;
   product_count: number;
   subscriber_count?: number;
+  logo_url?: string | null;
   working_hours?: Record<string, { open: string; close: string } | null> | null;
   is_open_now?: boolean | null;
 }
@@ -209,6 +211,7 @@ export interface PublicSellerDetail {
   preorder_discount_min_days?: number;
   preorder_max_per_date?: number | null;
   banner_url?: string | null;
+  logo_url?: string | null;
   subscriber_count?: number;
   working_hours?: Record<string, { open: string; close: string } | null> | null;
   is_open_now?: boolean | null;

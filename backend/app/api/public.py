@@ -75,6 +75,7 @@ class PublicSellerListItem(BaseModel):
     max_price: Optional[float]
     product_count: int
     subscriber_count: int = 0
+    logo_url: Optional[str] = None
     working_hours: Optional[dict] = None
     is_open_now: Optional[bool] = None
 
@@ -113,6 +114,7 @@ class PublicSellerDetail(BaseModel):
     preorder_discount_min_days: int = 7
     preorder_max_per_date: Optional[int] = None
     banner_url: Optional[str] = None
+    logo_url: Optional[str] = None
     subscriber_count: int = 0
     working_hours: Optional[dict] = None
     is_open_now: Optional[bool] = None
@@ -492,6 +494,7 @@ async def get_public_sellers(
                 max_price=float(row.max_price) if row.max_price else None,
                 product_count=row.product_count or 0,
                 subscriber_count=row.subscriber_count or 0,
+                logo_url=getattr(seller, "logo_url", None),
                 working_hours=wh,
                 is_open_now=is_open,
             ))
@@ -864,6 +867,7 @@ async def get_public_seller_detail(
         preorder_discount_min_days=getattr(seller, "preorder_discount_min_days", 7) or 7,
         preorder_max_per_date=getattr(seller, "preorder_max_per_date", None),
         banner_url=getattr(seller, "banner_url", None),
+        logo_url=getattr(seller, "logo_url", None),
         subscriber_count=subscriber_count,
         working_hours=getattr(seller, "working_hours", None),
         is_open_now=_is_open_now(getattr(seller, "working_hours", None)),

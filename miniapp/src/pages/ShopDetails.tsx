@@ -444,7 +444,13 @@ export function ShopDetails() {
 
       <div className="shop-details__main-info">
         <header className="shop-details__header">
-          <img className="shop-details__logo" src="/android-chrome-512x512.png" alt="" />
+          {api.getProductImageUrl(seller.logo_url) ? (
+            <img className="shop-details__logo" src={api.getProductImageUrl(seller.logo_url)!} alt="" />
+          ) : (
+            <div className="shop-details__logo-placeholder">
+              {(seller.shop_name || '?')[0].toUpperCase()}
+            </div>
+          )}
           <div className="shop-details__header-text">
             <h1
               className={`shop-details__name${(seller.owner_fio || seller.inn || seller.ogrn) ? ' shop-details__name--clickable' : ''}`}

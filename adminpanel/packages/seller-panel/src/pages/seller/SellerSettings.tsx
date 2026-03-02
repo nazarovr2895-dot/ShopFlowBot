@@ -12,9 +12,11 @@ import { PaymentSettingsTab } from './settings/PaymentSettingsTab';
 import { SubscriptionSettingsTab } from './settings/SubscriptionSettingsTab';
 import { LegalSettingsTab } from './settings/LegalSettingsTab';
 import { DeliveryZonesSettingsTab } from './settings/DeliveryZonesSettingsTab';
+import { LogoSettingsTab } from './settings/LogoSettingsTab';
 
 const ALL_TABS = [
   { key: 'shop', label: 'Магазин' },
+  { key: 'logo', label: 'Лого' },
   { key: 'delivery', label: 'Доставка' },
   { key: 'hours', label: 'Время работы' },
   { key: 'preorders', label: 'Предзаказы' },
@@ -88,6 +90,7 @@ export function SellerSettings() {
       <PageHeader title="Настройки" subtitle="Магазин, время работы, предзаказы, ЮКасса и аккаунт" />
       <TabBar tabs={tabs} activeTab={tab} onChange={setTab} />
       {tab === 'shop' && <ShopSettingsTab me={me} reload={reload} />}
+      {tab === 'logo' && <LogoSettingsTab me={me} reload={reload} />}
       {tab === 'delivery' && <DeliveryZonesSettingsTab me={me} reload={reload} />}
       {tab === 'hours' && <WorkingHoursSettingsTab me={me} reload={reload} />}
       {tab === 'preorders' && <PreordersSettingsTab me={me} reload={reload} />}

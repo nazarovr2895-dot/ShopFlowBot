@@ -90,6 +90,7 @@ export interface SellerMe {
   preorder_discount_percent?: number;
   preorder_discount_min_days?: number;
   banner_url?: string | null;
+  logo_url?: string | null;
   yookassa_account_id?: string | null;
   use_delivery_zones?: boolean;
   // Delivery slot settings
@@ -289,6 +290,7 @@ export async function updateMe(payload: {
   address_name?: string;
   map_url?: string;
   banner_url?: string | null;
+  logo_url?: string | null;
   yookassa_account_id?: string | null;
   use_delivery_zones?: boolean;
   deliveries_per_slot?: number | null;
@@ -443,6 +445,32 @@ export async function uploadBannerPhoto(file: File): Promise<{ banner_url: strin
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(`${getApiBase()}/seller-web/upload-banner`, {
+    method: 'POST',
+    headers: token ? { 'X-Seller-Token': token } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export function getLogoImageUrl(logoUrl: string | null | undefined): string | null {
+  if (logoUrl == null || String(logoUrl).trim() === '') return null;
+  const raw = String(logoUrl).trim();
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  const path = raw.startsWith('/') ? raw : `/${raw}`;
+  if (!path.startsWith('/static/')) return null;
+  const base = (getApiBase() || '').replace(/\/$/, '');
+  return base ? `${base}${path}` : path;
+}
+
+export async function uploadLogoPhoto(file: File): Promise<{ logo_url: string }> {
+  const token = sessionStorage.getItem('seller_token');
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${getApiBase()}/seller-web/upload-logo`, {
     method: 'POST',
     headers: token ? { 'X-Seller-Token': token } : {},
     body: form,

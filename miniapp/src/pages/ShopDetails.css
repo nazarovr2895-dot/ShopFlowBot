@@ -161,8 +161,22 @@
   flex-shrink: 0;
   width: 56px;
   height: 56px;
-  object-fit: contain;
-  border-radius: 10px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.shop-details__logo-placeholder {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #9b87c4, #6c5ce7);
 }
 
 .shop-details__header-text {
@@ -235,10 +249,14 @@
     padding-top: 16.67%; /* 6:1 для очень широких экранов */
   }
 
-  .shop-details__logo {
+  .shop-details__logo,
+  .shop-details__logo-placeholder {
     width: 72px;
     height: 72px;
-    border-radius: 14px;
+  }
+
+  .shop-details__logo-placeholder {
+    font-size: 28px;
   }
 
   .shop-details__name {
@@ -743,9 +761,14 @@
     margin-bottom: 24px;
   }
 
-  .shop-details__logo {
+  .shop-details__logo,
+  .shop-details__logo-placeholder {
     width: 64px;
     height: 64px;
+  }
+
+  .shop-details__logo-placeholder {
+    font-size: 24px;
   }
 
   .shop-details__name {

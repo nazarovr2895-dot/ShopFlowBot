@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import type { PublicSellerListItem } from '../types';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { formatPrice } from '../utils/formatters';
+import { api } from '../api/client';
 import './ShopCard.css';
 
 interface ShopCardProps {
@@ -76,15 +77,19 @@ export function ShopCard({ seller }: ShopCardProps) {
   const showDelivery = seller.delivery_type === 'delivery' || seller.delivery_type === 'both';
   const showPickup = seller.delivery_type === 'pickup' || seller.delivery_type === 'both';
 
+  const logoSrc = api.getProductImageUrl(seller.logo_url);
+  const shopInitial = (seller.shop_name || '?')[0].toUpperCase();
+
   return (
     <div className="shop-card" onClick={handleClick}>
       <div className="shop-card__header">
         <h3 className="shop-card__name">{seller.shop_name || 'Без названия'}</h3>
+        {logoSrc ? (
+          <img className="shop-card__logo" src={logoSrc} alt="" />
+        ) : (
+          <div className="shop-card__logo-placeholder">{shopInitial}</div>
+        )}
       </div>
-
-      {seller.owner_fio && (
-        <div className="shop-card__owner">Владелец: {seller.owner_fio}</div>
-      )}
 
       {(showDelivery || showPickup) && (
         <div className="shop-card__services">
