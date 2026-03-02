@@ -194,7 +194,7 @@ class SellerService:
         "address_name", "map_url", "delivery_type", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
         "commission_percent", "yookassa_account_id", "use_delivery_zones",
-        "geo_lat", "geo_lon", "max_branches",
+        "geo_lat", "geo_lon", "max_branches", "gift_note_enabled",
     }
     
     def __init__(self, session: AsyncSession):
@@ -956,6 +956,8 @@ class SellerService:
                 seller.yookassa_account_id = value_stripped
         elif field == "use_delivery_zones":
             seller.use_delivery_zones = bool(value)
+        elif field == "gift_note_enabled":
+            seller.gift_note_enabled = bool(value)
         elif field == "max_branches":
             value_stripped = (str(value) if value is not None else "").strip()
             if not value_stripped or value_stripped.lower() in ("null", "none", "-", "", "0"):
