@@ -62,7 +62,7 @@
 .shop-details__banner::before {
   content: '';
   display: block;
-  padding-top: 25%; /* 4:1 = 1/4 = 0.25 = 25% */
+  padding-top: 20%; /* 5:1 */
 }
 
 .shop-details__banner img {
@@ -228,7 +228,7 @@
 
   /* Планшеты и маленькие десктопы: 4:1 (узкий и длинный) */
   .shop-details__banner::before {
-    padding-top: 25%; /* 4:1 = 1/4 = 0.25 = 25% */
+    padding-top: 20%; /* 5:1 */
   }
 }
 
