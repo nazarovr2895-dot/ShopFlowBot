@@ -2,6 +2,7 @@
 import csv
 import io
 import os
+import time
 import uuid
 from pathlib import Path
 from typing import Optional, List
@@ -1473,7 +1474,7 @@ async def upload_shop_logo(
     except ValueError:
         raise HTTPException(status_code=400, detail="Недопустимый путь к файлу")
     path.write_bytes(content)
-    logo_url = f"/static/{SHOP_LOGOS_UPLOAD_SUBDIR}/{name}"
+    logo_url = f"/static/{SHOP_LOGOS_UPLOAD_SUBDIR}/{name}?v={int(time.time())}"
     service = SellerService(session)
     await service.update_field(seller_id, "logo_url", logo_url)
     return {"logo_url": logo_url}

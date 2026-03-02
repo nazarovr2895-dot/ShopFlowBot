@@ -119,6 +119,7 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
         <ImageCropModal
           isOpen
           imageSrc={cropImageSrc}
+          cropShape="round"
           onCropComplete={handleCropComplete}
           onClose={handleCropClose}
         />
