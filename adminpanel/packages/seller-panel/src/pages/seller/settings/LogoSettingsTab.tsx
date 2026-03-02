@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { updateMe, getLogoImageUrl, uploadLogoPhoto } from '../../../api/sellerClient';
 import { useToast } from '@shared/components/ui';
+import { ImageCropModal } from '../../../components/ImageCropModal';
 import { Image, Upload, Trash2 } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 
@@ -8,22 +9,35 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
   const toast = useToast();
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoRemoving, setLogoRemoving] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const url = URL.createObjectURL(file);
+    setCropImageSrc(url);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (blob: Blob) => {
+    setCropImageSrc(null);
+    const file = new File([blob], `logo-${Date.now()}.jpg`, { type: 'image/jpeg' });
     setLogoUploading(true);
     try {
       await uploadLogoPhoto(file);
       await reload();
-      e.target.value = '';
       toast.success('Логотип загружен');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Ошибка загрузки логотипа');
     } finally {
       setLogoUploading(false);
     }
+  };
+
+  const handleCropClose = () => {
+    if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+    setCropImageSrc(null);
   };
 
   const handleRemoveLogo = async () => {
@@ -96,10 +110,19 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
           ref={logoFileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={handleLogoUpload}
+          onChange={handleFileSelect}
           className="shop-banner__file-input"
         />
       </div>
+
+      {cropImageSrc && (
+        <ImageCropModal
+          isOpen
+          imageSrc={cropImageSrc}
+          onCropComplete={handleCropComplete}
+          onClose={handleCropClose}
+        />
+      )}
 
       <style>{`
         .shop-logo__preview {

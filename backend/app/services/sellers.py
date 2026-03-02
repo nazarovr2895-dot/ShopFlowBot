@@ -192,7 +192,7 @@ class SellerService:
     VALID_UPDATE_FIELDS = {
         "fio", "phone", "shop_name", "description",
         "address_name", "map_url", "delivery_type", "city_id", "district_id",
-        "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "ogrn",
+        "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "logo_url", "ogrn",
         "commission_percent", "yookassa_account_id", "use_delivery_zones",
         "geo_lat", "geo_lon", "max_branches", "gift_note_enabled",
     }
@@ -935,6 +935,8 @@ class SellerService:
                     raise SellerServiceError(f"Неверный формат даты: {e}")
         elif field == "banner_url":
             seller.banner_url = (value or "").strip() or None
+        elif field == "logo_url":
+            seller.logo_url = (value or "").strip() or None
         elif field == "commission_percent":
             value_stripped = (str(value) if value is not None else "").strip()
             if not value_stripped or value_stripped.lower() in ("null", "none", "-", ""):
