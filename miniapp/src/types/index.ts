@@ -170,6 +170,8 @@ export interface BuyerOrder {
   // Recipient ("Получатель не я")
   recipient_name?: string | null;
   recipient_phone?: string | null;
+  // Gift note ("Записка к цветам")
+  gift_note?: string | null;
 }
 
 export interface PublicSellerDetail {

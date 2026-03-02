@@ -872,6 +872,7 @@ class OrderService:
                 "payment_status": getattr(row[0], "payment_status", None),
                 "recipient_name": getattr(row[0], "recipient_name", None),
                 "recipient_phone": getattr(row[0], "recipient_phone", None),
+                "gift_note": getattr(row[0], "gift_note", None),
             }
             for row in rows
         ]

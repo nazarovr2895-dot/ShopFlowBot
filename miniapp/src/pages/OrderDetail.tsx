@@ -379,6 +379,16 @@ export function OrderDetail() {
         </div>
       ) : null}
 
+      {/* Gift note */}
+      {order.gift_note && (
+        <div className="order-detail__row" style={{ marginTop: 8, marginBottom: 4 }}>
+          <span className="order-detail__label">Записка к цветам</span>
+          <span className="order-detail__value" style={{ whiteSpace: 'pre-wrap' }}>
+            {order.gift_note}
+          </span>
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="order-detail__actions">
         {/* Pay button — show for accepted orders with online payment that are not yet paid */}
