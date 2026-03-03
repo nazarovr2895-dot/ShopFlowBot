@@ -55,6 +55,7 @@ services:
       args:
         - VITE_API_URL=${MINIAPP_API_URL:-http://localhost:8000}
         - VITE_BOT_USERNAME=${BOT_USERNAME:-flurai_bot}
+        - VITE_MINI_APP_SHORT_NAME=${MINI_APP_SHORT_NAME:-app}
     depends_on:
       - backend
     ports:

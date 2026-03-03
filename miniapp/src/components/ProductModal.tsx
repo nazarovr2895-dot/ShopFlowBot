@@ -192,19 +192,23 @@ export function ProductModal({
   /* ---------- share ---------- */
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const productUrl = `${window.location.origin}/shop/${sellerId}/product/${product.id}`;
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'flurai_bot';
+    const appShortName = import.meta.env.VITE_MINI_APP_SHORT_NAME || 'app';
+    const miniAppLink = `https://t.me/${botUsername}/${appShortName}?startapp=p_${sellerId}_${product.id}`;
+    const webUrl = `${window.location.origin}/shop/${sellerId}/product/${product.id}`;
     const shareText = product.name;
-    const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(productUrl)}&text=${encodeURIComponent(shareText)}`;
 
     if (isTelegram()) {
+      const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(miniAppLink)}&text=${encodeURIComponent(shareText)}`;
       try {
         WebApp.openTelegramLink(telegramShareUrl);
       } catch {
         window.open(telegramShareUrl, '_blank');
       }
     } else if (navigator.share) {
-      navigator.share({ title: product.name, url: productUrl }).catch(() => {});
+      navigator.share({ title: product.name, url: webUrl }).catch(() => {});
     } else {
+      const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(webUrl)}&text=${encodeURIComponent(shareText)}`;
       window.open(telegramShareUrl, '_blank');
     }
   };

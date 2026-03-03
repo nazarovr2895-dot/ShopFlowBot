@@ -65,7 +65,7 @@ function AppContent() {
     }
   }, [authInitialized, setSettingsButton, navigate]);
 
-  // Handle Telegram startapp deep link (e.g. ?startapp=seller_123)
+  // Handle Telegram startapp deep link (e.g. ?startapp=seller_123 or ?startapp=p_1_42)
   useEffect(() => {
     if (!authInitialized || !isTelegram()) return;
     try {
@@ -74,6 +74,12 @@ function AppContent() {
         const sellerId = startParam.replace('seller_', '');
         if (sellerId && !isNaN(Number(sellerId))) {
           navigate(`/shop/${sellerId}`, { replace: true });
+        }
+      } else if (startParam?.startsWith('p_')) {
+        const parts = startParam.replace('p_', '').split('_');
+        const [sellerId, productId] = parts;
+        if (sellerId && productId && !isNaN(Number(sellerId)) && !isNaN(Number(productId))) {
+          navigate(`/shop/${sellerId}/product/${productId}`, { replace: true });
         }
       }
     } catch { /* ignore */ }
