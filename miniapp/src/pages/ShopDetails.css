@@ -979,22 +979,31 @@
   text-align: left;
 }
 
-/* Кнопка "В корзину" на всю ширину */
+/* Цена + кнопка корзины на одной строке */
+.shop-details__product-card-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* Кнопка "В корзину" — половина ширины, скруглённая */
 .shop-details__product-card-add-pill {
-  width: 100%;
   height: 28px;
-  border-radius: 8px;
+  padding: 0 10px;
+  border-radius: 14px;
   background: #000000;
   color: #ffffff;
   border: none;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 4px;
+  white-space: nowrap;
+  flex: 0 1 50%;
 }
 
 .shop-details__product-card-add-pill:active {
@@ -1028,13 +1037,6 @@
   font-size: 12px;
 }
 
-/* Full-width qty counter under name */
-.shop-details__qty-counter--full {
-  width: 100%;
-  justify-content: space-between;
-  border-radius: 8px;
-  margin-top: 4px;
-}
 
 /* Qty counter pill */
 .shop-details__qty-counter {
