@@ -1325,7 +1325,7 @@ export async function resetBranchPassword(branchId: number): Promise<{ web_login
 }
 
 export async function switchBranch(sellerId: number): Promise<{ token: string; seller_id: number; owner_id: number; branches: BranchInfo[] }> {
-  return fetchSeller<{ token: string; seller_id: number; owner_id: number; branches: BranchInfo[] }>('/seller-auth/switch-branch', {
+  return fetchSeller<{ token: string; seller_id: number; owner_id: number; branches: BranchInfo[] }>('/seller-web/switch-branch', {
     method: 'POST',
     body: JSON.stringify({ seller_id: sellerId }),
   });

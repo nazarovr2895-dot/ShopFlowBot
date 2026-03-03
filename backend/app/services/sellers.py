@@ -195,6 +195,7 @@ class SellerService:
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "logo_url", "ogrn",
         "commission_percent", "commission_balance", "use_delivery_zones",
         "geo_lat", "geo_lon", "max_branches", "gift_note_enabled",
+        "contact_phone", "contact_username",
     }
     
     def __init__(self, session: AsyncSession):
@@ -985,6 +986,10 @@ class SellerService:
                 if seller.max_branches is None:
                     return await self.convert_to_network(tg_id, val)
                 seller.max_branches = val
+        elif field == "contact_phone":
+            seller.contact_phone = (value or "").strip() or None
+        elif field == "contact_username":
+            seller.contact_username = (value or "").strip().lstrip("@") or None
 
         await self.session.commit()
         return {"status": "ok"}

@@ -5,8 +5,8 @@ import {
   getPublicCities, getPublicDistricts, getPublicMetro,
 } from '../../api/sellerClient';
 import type { BranchDetail } from '../../api/sellerClient';
-import { useToast } from '@shared/components/ui';
-import { GitBranch, Plus, Trash2, MapPin, Pencil, Truck, X, KeyRound, Copy, Check, MessageCircle } from 'lucide-react';
+import { useToast, SlidePanel } from '@shared/components/ui';
+import { GitBranch, Plus, Trash2, MapPin, Pencil, Truck, X, KeyRound, Copy, Check, MessageCircle, LogIn, Globe } from 'lucide-react';
 
 const DELIVERY_OPTIONS = [
   { value: '', label: 'Не указано' },
@@ -145,6 +145,9 @@ export function SellerBranches() {
 
   // Credentials modal
   const [credentials, setCredentials] = useState<{ login: string; password: string } | null>(null);
+
+  // Detail panel
+  const [selectedBranch, setSelectedBranch] = useState<BranchDetail | null>(null);
 
   // Reference data
   const [cities, setCities] = useState<RefOption[]>([]);
@@ -338,7 +341,10 @@ export function SellerBranches() {
               style={{
                 padding: '1rem 1.25rem',
                 border: isCurrent ? '2px solid var(--primary, #6366f1)' : undefined,
+                cursor: 'pointer',
+                transition: 'border-color 0.15s',
               }}
+              onClick={() => setSelectedBranch(b)}
             >
               {/* Top row: name + actions */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
@@ -350,7 +356,7 @@ export function SellerBranches() {
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <div style={{ display: 'flex', gap: '0.4rem' }} onClick={e => e.stopPropagation()}>
                   <button
                     className="btn btn-sm"
                     onClick={() => openEditForm(b)}
@@ -371,7 +377,7 @@ export function SellerBranches() {
                   )}
                   {!isCurrent && (
                     <button
-                      className="btn btn-sm"
+                      className="btn btn-sm btn-primary"
                       onClick={() => switchBranch(b.seller_id)}
                       style={{ fontSize: '0.75rem' }}
                     >
@@ -605,6 +611,155 @@ export function SellerBranches() {
           </div>
         </div>
       )}
+
+      {/* Branch detail panel */}
+      <SlidePanel
+        isOpen={selectedBranch !== null}
+        onClose={() => setSelectedBranch(null)}
+        title={selectedBranch?.shop_name || `Филиал #${selectedBranch?.seller_id}`}
+      >
+        {selectedBranch && (() => {
+          const b = selectedBranch;
+          const isCurrent = b.seller_id === sellerId;
+          const isOwnerBranch = b.seller_id === (branches.find(br => br.web_login === null)?.seller_id ?? sellerId);
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Status */}
+              {b.is_blocked && (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: 8, padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#ef4444', fontWeight: 600,
+                }}>
+                  Филиал заблокирован
+                </div>
+              )}
+              {isCurrent && (
+                <div style={{
+                  background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)',
+                  borderRadius: 8, padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: 'var(--primary, #6366f1)', fontWeight: 600,
+                }}>
+                  Текущий филиал
+                </div>
+              )}
+
+              {/* Info rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {b.address_name && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <MapPin size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Адрес</div>
+                      <div>{b.address_name}</div>
+                    </div>
+                  </div>
+                )}
+
+                {b.city_id && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <Globe size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Город</div>
+                      <div>{getCityName(b.city_id) || `ID: ${b.city_id}`}</div>
+                    </div>
+                  </div>
+                )}
+
+                {b.delivery_type && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <Truck size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Доставка</div>
+                      <div>{DELIVERY_LABELS[b.delivery_type] || b.delivery_type}</div>
+                    </div>
+                  </div>
+                )}
+
+                {b.web_login && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <KeyRound size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Логин</div>
+                      <div style={{ fontFamily: 'monospace' }}>{b.web_login}</div>
+                    </div>
+                  </div>
+                )}
+
+                {b.contact_tg_id && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <MessageCircle size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Telegram ID</div>
+                      <div>{b.contact_tg_id}</div>
+                    </div>
+                  </div>
+                )}
+
+                {(b.geo_lat != null && b.geo_lon != null) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <MapPin size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Координаты</div>
+                      <div>{b.geo_lat}, {b.geo_lon}</div>
+                    </div>
+                  </div>
+                )}
+
+                {b.working_hours && Object.keys(b.working_hours).length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <span style={{ color: 'var(--text-secondary)', flexShrink: 0, marginTop: 2 }}>🕐</span>
+                    <div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Рабочие часы</div>
+                      <div>{Object.entries(b.working_hours as unknown as Record<string, { open: string; close: string }>).map(([day, h]) => (
+                        <div key={day} style={{ fontSize: '0.8rem' }}>
+                          {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][Number(day)] || day}: {h.open}–{h.close}
+                        </div>
+                      ))}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', borderTop: '1px solid var(--border, #e5e7eb)', paddingTop: '1rem' }}>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => { setSelectedBranch(null); openEditForm(b); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', width: '100%', justifyContent: 'center' }}
+                >
+                  <Pencil size={14} /> Редактировать
+                </button>
+                {b.web_login && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => { setSelectedBranch(null); handleResetPassword(b.seller_id); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', width: '100%', justifyContent: 'center' }}
+                  >
+                    <KeyRound size={14} /> Сбросить пароль
+                  </button>
+                )}
+                {!isCurrent && (
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() => switchBranch(b.seller_id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', width: '100%', justifyContent: 'center' }}
+                  >
+                    <LogIn size={14} /> Перейти к филиалу
+                  </button>
+                )}
+                {branches.length > 1 && !isOwnerBranch && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => { setSelectedBranch(null); handleDelete(b.seller_id); }}
+                    style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.4rem', width: '100%', justifyContent: 'center' }}
+                  >
+                    <Trash2 size={14} /> Удалить филиал
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </SlidePanel>
 
       {/* Credentials modal */}
       {credentials && (
