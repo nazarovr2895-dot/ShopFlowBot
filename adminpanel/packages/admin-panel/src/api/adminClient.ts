@@ -1,6 +1,6 @@
 import type {
   Seller, SellerStats, City, District, MetroStation,
-  AdminDashboardData, AdminOrdersResponse, AdminCustomersResponse, AdminFinanceResponse,
+  AdminDashboardData, AdminOrdersResponse, AdminOrderDetail, AdminCustomersResponse, AdminFinanceResponse,
 } from '../types';
 
 // Runtime API URL (set from config.json) takes priority over build-time env var
@@ -12,6 +12,17 @@ export function setAdminApiBaseUrl(url: string): void {
 
 function getApiBase(): string {
   return runtimeApiUrl ?? (import.meta.env.VITE_API_URL || '');
+}
+
+/** Full URL for a product photo path (e.g. /static/uploads/products/...) */
+export function getProductImageUrl(photoId: string | null | undefined): string | null {
+  if (!photoId) return null;
+  const raw = String(photoId).trim();
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  const path = raw.startsWith('/') ? raw : `/${raw}`;
+  if (!path.startsWith('/static/')) return null;
+  const base = (getApiBase() || '').replace(/\/$/, '');
+  return base ? `${base}${path}` : path;
 }
 
 function getToken(): string | null {
@@ -358,6 +369,7 @@ export interface AdminOrdersParams {
   date_to?: string;
   delivery_type?: string;
   is_preorder?: boolean;
+  search?: string;
   page?: number;
   per_page?: number;
 }
@@ -370,10 +382,15 @@ export async function getAdminOrders(params?: AdminOrdersParams): Promise<AdminO
   if (params?.date_to) sp.set('date_to', params.date_to);
   if (params?.delivery_type) sp.set('delivery_type', params.delivery_type);
   if (params?.is_preorder !== undefined) sp.set('is_preorder', String(params.is_preorder));
+  if (params?.search) sp.set('search', params.search);
   if (params?.page) sp.set('page', String(params.page));
   if (params?.per_page) sp.set('per_page', String(params.per_page));
   const q = sp.toString() ? `?${sp.toString()}` : '';
   return fetchAdmin<AdminOrdersResponse>(`/admin/orders${q}`);
+}
+
+export async function getAdminOrderDetail(orderId: number): Promise<AdminOrderDetail> {
+  return fetchAdmin<AdminOrderDetail>(`/admin/orders/${orderId}`);
 }
 
 // ── Customers ──

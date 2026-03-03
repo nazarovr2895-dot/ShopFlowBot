@@ -157,6 +157,7 @@ export interface AdminOrder {
   id: number
   buyer_id: number
   seller_id: number
+  seller_tg_id: number
   items_info: string
   total_price: number
   original_price: number | null
@@ -172,6 +173,27 @@ export interface AdminOrder {
   seller_name: string
   buyer_fio: string
   buyer_phone: string
+}
+
+export interface AdminOrderDetailItem {
+  product_id: number
+  name: string
+  price: number
+  quantity: number
+  photo: string | null
+}
+
+export interface AdminOrderDetail extends AdminOrder {
+  delivery_fee: number | null
+  payment_method: string | null
+  payment_status: string | null
+  delivery_slot_date: string | null
+  delivery_slot_start: string | null
+  delivery_slot_end: string | null
+  recipient_name: string | null
+  recipient_phone: string | null
+  gift_note: string | null
+  items: AdminOrderDetailItem[]
 }
 
 export interface AdminOrdersResponse {

@@ -1135,6 +1135,7 @@ async def get_admin_orders(
     date_to: Optional[str] = None,
     delivery_type: Optional[str] = None,
     is_preorder: Optional[bool] = None,
+    search: Optional[str] = None,
     page: int = 1,
     per_page: int = 50,
     session: AsyncSession = Depends(get_session),
@@ -1142,7 +1143,7 @@ async def get_admin_orders(
 ):
     """Список всех заказов платформы с фильтрами и пагинацией."""
     from datetime import datetime as dt, time as time_t
-    from sqlalchemy import select, func, and_
+    from sqlalchemy import select, func, and_, or_
     from backend.app.models.order import Order
     from backend.app.models.seller import Seller
     from backend.app.models.user import User
@@ -1160,6 +1161,19 @@ async def get_admin_orders(
         filters.append(Order.delivery_type == delivery_type)
     if is_preorder is not None:
         filters.append(Order.is_preorder == is_preorder)
+    if search:
+        search = search.strip()
+        try:
+            order_id = int(search)
+            filters.append(Order.id == order_id)
+        except ValueError:
+            pattern = f"%{search}%"
+            filters.append(or_(
+                User.fio.ilike(pattern),
+                User.phone.ilike(pattern),
+                Order.guest_name.ilike(pattern),
+                Order.guest_phone.ilike(pattern),
+            ))
 
     where = and_(*filters) if filters else True
 
@@ -1231,6 +1245,7 @@ async def get_admin_orders(
             "is_preorder": r.is_preorder or False,
             "preorder_delivery_date": str(r.preorder_delivery_date) if r.preorder_delivery_date else None,
             "seller_name": r.seller_name or "",
+            "seller_tg_id": r.seller_id,
             "buyer_fio": r.guest_name or r.buyer_fio or "",
             "buyer_phone": r.guest_phone or r.buyer_phone or "",
         })
@@ -1251,6 +1266,93 @@ async def get_admin_orders(
         "total_amount": round(total_amount),
         "completed_amount": round(completed_amount),
         "sellers_list": sellers_list,
+    }
+
+
+@router.get("/orders/{order_id}")
+async def get_admin_order_detail(
+    order_id: int,
+    session: AsyncSession = Depends(get_session),
+    _token: None = Depends(require_admin_token),
+):
+    """Детальная информация о заказе с товарами и фото."""
+    from sqlalchemy import select
+    from backend.app.models.order import Order
+    from backend.app.models.seller import Seller
+    from backend.app.models.user import User
+    from backend.app.models.product import Product
+    from backend.app.core.item_parsing import parse_items_info
+
+    q = (
+        select(Order, Seller.shop_name.label("seller_name"), User.fio.label("buyer_fio"), User.phone.label("buyer_phone"))
+        .outerjoin(Seller, Seller.seller_id == Order.seller_id)
+        .outerjoin(User, User.tg_id == Order.buyer_id)
+        .where(Order.id == order_id)
+    )
+    row = (await session.execute(q)).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order = row[0]
+    seller_name = row.seller_name
+    buyer_fio = row.buyer_fio
+    buyer_phone = row.buyer_phone
+
+    # Parse items and fetch product photos
+    parsed = parse_items_info(order.items_info)
+    product_ids = [item["product_id"] for item in parsed]
+    products_map = {}
+    if product_ids:
+        q_products = select(Product.id, Product.photo_id, Product.photo_ids).where(Product.id.in_(product_ids))
+        product_rows = (await session.execute(q_products)).all()
+        for p in product_rows:
+            photo = None
+            if p.photo_ids and len(p.photo_ids) > 0:
+                photo = p.photo_ids[0]
+            elif p.photo_id:
+                photo = p.photo_id
+            products_map[p.id] = photo
+
+    items = []
+    for item in parsed:
+        items.append({
+            "product_id": item["product_id"],
+            "name": item["name"],
+            "price": float(item.get("price", 0)),
+            "quantity": item["quantity"],
+            "photo": products_map.get(item["product_id"]),
+        })
+
+    return {
+        "id": order.id,
+        "buyer_id": order.buyer_id,
+        "seller_id": order.seller_id,
+        "seller_tg_id": order.seller_id,
+        "items_info": order.items_info,
+        "total_price": round(float(order.total_price or 0)),
+        "original_price": round(float(order.original_price)) if order.original_price else None,
+        "points_discount": round(float(order.points_discount or 0)),
+        "status": order.status,
+        "delivery_type": order.delivery_type,
+        "address": order.address,
+        "comment": order.comment,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "completed_at": order.completed_at.isoformat() if order.completed_at else None,
+        "is_preorder": order.is_preorder or False,
+        "preorder_delivery_date": str(order.preorder_delivery_date) if order.preorder_delivery_date else None,
+        "seller_name": seller_name or "",
+        "buyer_fio": order.guest_name or buyer_fio or "",
+        "buyer_phone": order.guest_phone or buyer_phone or "",
+        "delivery_fee": float(order.delivery_fee) if order.delivery_fee else None,
+        "payment_method": order.payment_method,
+        "payment_status": order.payment_status,
+        "delivery_slot_date": str(order.delivery_slot_date) if order.delivery_slot_date else None,
+        "delivery_slot_start": order.delivery_slot_start,
+        "delivery_slot_end": order.delivery_slot_end,
+        "recipient_name": order.recipient_name,
+        "recipient_phone": order.recipient_phone,
+        "gift_note": order.gift_note,
+        "items": items,
     }
 
 
