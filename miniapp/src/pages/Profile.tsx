@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { Loader, TelegramAuth } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
-import { isBrowser } from '../utils/environment';
+import { isBrowser, isTelegram } from '../utils/environment';
 import { REQUIRE_AUTH_FROM_CHECKOUT, REQUIRE_AUTH_FROM_ORDERS } from '../components/ProtectedRoute';
 import { normalizePhone, formatPhoneForDisplay } from '../utils/phone';
 import './Profile.css';
@@ -302,6 +302,30 @@ export function Profile() {
                   <span className="profile-nav__text">Мои данные</span>
                   <span className="profile-nav__arrow">›</span>
                 </button>
+                {import.meta.env.VITE_SUPPORT_TG && (
+                  <button
+                    type="button"
+                    className="profile-nav__item"
+                    onClick={() => {
+                      hapticFeedback('light');
+                      const url = `https://t.me/${import.meta.env.VITE_SUPPORT_TG}`;
+                      if (isTelegram()) {
+                        try {
+                          const WebApp = (window as any).Telegram?.WebApp;
+                          WebApp?.openTelegramLink(url);
+                        } catch {
+                          window.open(url, '_blank');
+                        }
+                      } else {
+                        window.open(url, '_blank');
+                      }
+                    }}
+                  >
+                    <span className="profile-nav__icon">💬</span>
+                    <span className="profile-nav__text">Поддержка</span>
+                    <span className="profile-nav__arrow">›</span>
+                  </button>
+                )}
               </div>
             </nav>
 
