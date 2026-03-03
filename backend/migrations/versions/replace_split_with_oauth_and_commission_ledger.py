@@ -31,23 +31,24 @@ def upgrade() -> None:
     op.execute("ALTER TABLE sellers ADD COLUMN IF NOT EXISTS commission_balance DECIMAL(10,2) DEFAULT 0")
     op.execute("ALTER TABLE sellers ADD COLUMN IF NOT EXISTS grace_period_until TIMESTAMP")
 
-    # --- commission_ledger table ---
-    op.create_table(
-        'commission_ledger',
-        sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column('seller_id', sa.BigInteger(), sa.ForeignKey('sellers.seller_id'), nullable=False),
-        sa.Column('order_id', sa.Integer(), sa.ForeignKey('orders.id'), nullable=False),
-        sa.Column('order_total', sa.DECIMAL(10, 2), nullable=False),
-        sa.Column('commission_rate', sa.DECIMAL(5, 2), nullable=False),
-        sa.Column('commission_amount', sa.DECIMAL(10, 2), nullable=False),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.func.now()),
-        sa.Column('paid', sa.Boolean(), server_default=sa.text('false')),
-        sa.Column('paid_at', sa.DateTime(), nullable=True),
-        sa.Column('subscription_payment_id', sa.String(255), nullable=True),
-    )
-    op.create_index('ix_commission_ledger_seller_id', 'commission_ledger', ['seller_id'])
-    op.create_index('ix_commission_ledger_paid', 'commission_ledger', ['paid'])
-    op.create_index('ix_commission_ledger_seller_paid', 'commission_ledger', ['seller_id', 'paid'])
+    # --- commission_ledger table (IF NOT EXISTS for idempotency) ---
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS commission_ledger (
+            id SERIAL PRIMARY KEY,
+            seller_id BIGINT NOT NULL REFERENCES sellers(seller_id),
+            order_id INTEGER NOT NULL REFERENCES orders(id),
+            order_total DECIMAL(10,2) NOT NULL,
+            commission_rate DECIMAL(5,2) NOT NULL,
+            commission_amount DECIMAL(10,2) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT now(),
+            paid BOOLEAN NOT NULL DEFAULT false,
+            paid_at TIMESTAMP,
+            subscription_payment_id VARCHAR(255)
+        )
+    """)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_commission_ledger_seller_id ON commission_ledger(seller_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_commission_ledger_paid ON commission_ledger(paid)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_commission_ledger_seller_paid ON commission_ledger(seller_id, paid)")
 
 
 def downgrade() -> None:
