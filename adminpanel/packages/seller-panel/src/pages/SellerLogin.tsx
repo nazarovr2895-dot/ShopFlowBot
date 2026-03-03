@@ -26,8 +26,8 @@ export function SellerLogin() {
     setLoading(true);
 
     try {
-      const { token, seller_id, branches, is_primary, max_branches } = await sellerLogin(loginValue, password);
-      login({ token, sellerId: seller_id, branches, isPrimary: is_primary, maxBranches: max_branches });
+      const { token, refresh_token, seller_id, branches, is_primary, max_branches } = await sellerLogin(loginValue, password);
+      login({ token, refreshToken: refresh_token, sellerId: seller_id, branches, isPrimary: is_primary, maxBranches: max_branches });
       navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка входа');

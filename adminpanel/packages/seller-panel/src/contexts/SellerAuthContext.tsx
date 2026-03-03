@@ -3,10 +3,34 @@ import { isTelegram, getTelegramInitData } from '@shared/utils/environment';
 import { telegramSellerAuth, switchBranch as switchBranchApi, type BranchInfo } from '../api/sellerClient';
 
 const SELLER_TOKEN_KEY = 'seller_token';
+const REFRESH_TOKEN_KEY = 'seller_refresh_token';
 const SELLER_ID_KEY = 'seller_id';
 const BRANCHES_KEY = 'branches';
 const IS_PRIMARY_KEY = 'is_primary';
 const MAX_BRANCHES_KEY = 'max_branches';
+
+// Migration: move data from sessionStorage to localStorage (one-time)
+(() => {
+  if (typeof window === 'undefined') return;
+  const oldToken = sessionStorage.getItem(SELLER_TOKEN_KEY);
+  if (oldToken && !localStorage.getItem(SELLER_TOKEN_KEY)) {
+    localStorage.setItem(SELLER_TOKEN_KEY, oldToken);
+    const sid = sessionStorage.getItem(SELLER_ID_KEY);
+    if (sid) localStorage.setItem(SELLER_ID_KEY, sid);
+    const branches = sessionStorage.getItem(BRANCHES_KEY);
+    if (branches) localStorage.setItem(BRANCHES_KEY, branches);
+    const isPrimary = sessionStorage.getItem(IS_PRIMARY_KEY);
+    if (isPrimary) localStorage.setItem(IS_PRIMARY_KEY, isPrimary);
+    const maxBranches = sessionStorage.getItem(MAX_BRANCHES_KEY);
+    if (maxBranches) localStorage.setItem(MAX_BRANCHES_KEY, maxBranches);
+  }
+  // Clean up old sessionStorage keys
+  sessionStorage.removeItem(SELLER_TOKEN_KEY);
+  sessionStorage.removeItem(SELLER_ID_KEY);
+  sessionStorage.removeItem(BRANCHES_KEY);
+  sessionStorage.removeItem(IS_PRIMARY_KEY);
+  sessionStorage.removeItem(MAX_BRANCHES_KEY);
+})();
 
 interface SellerAuthContextType {
   isAuthenticated: boolean;
@@ -18,7 +42,7 @@ interface SellerAuthContextType {
   maxBranches: number | null;
   telegramAuthLoading: boolean;
   telegramAuthError: string | null;
-  login: (params: { token: string; sellerId: number; branches?: BranchInfo[]; isPrimary?: boolean; maxBranches?: number | null }) => void;
+  login: (params: { token: string; refreshToken?: string; sellerId: number; branches?: BranchInfo[]; isPrimary?: boolean; maxBranches?: number | null }) => void;
   logout: () => void;
   switchBranch: (sellerId: number) => Promise<void>;
 }
@@ -27,20 +51,24 @@ const SellerAuthContext = createContext<SellerAuthContextType | null>(null);
 
 function getStoredBranches(): BranchInfo[] {
   try {
-    const raw = sessionStorage.getItem(BRANCHES_KEY);
+    const raw = localStorage.getItem(BRANCHES_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
 
+function getApiBase(): string {
+  return (import.meta.env.VITE_API_URL || '') as string;
+}
+
 function getInitialAuth() {
-  if (typeof sessionStorage === 'undefined') return { isAuth: false, sellerId: null as number | null, branches: [] as BranchInfo[], isPrimary: true, maxBranches: null as number | null };
-  const sellerToken = sessionStorage.getItem(SELLER_TOKEN_KEY);
-  const storedSellerId = sessionStorage.getItem(SELLER_ID_KEY);
+  if (typeof localStorage === 'undefined') return { isAuth: false, sellerId: null as number | null, branches: [] as BranchInfo[], isPrimary: true, maxBranches: null as number | null };
+  const sellerToken = localStorage.getItem(SELLER_TOKEN_KEY);
+  const storedSellerId = localStorage.getItem(SELLER_ID_KEY);
   const hasAuth = !!sellerToken;
   const sellerId = storedSellerId ? parseInt(storedSellerId, 10) : null;
   const branches = getStoredBranches();
-  const isPrimary = sessionStorage.getItem(IS_PRIMARY_KEY) !== 'false';
-  const storedMaxBranches = sessionStorage.getItem(MAX_BRANCHES_KEY);
+  const isPrimary = localStorage.getItem(IS_PRIMARY_KEY) !== 'false';
+  const storedMaxBranches = localStorage.getItem(MAX_BRANCHES_KEY);
   const maxBranches = storedMaxBranches != null ? parseInt(storedMaxBranches, 10) : null;
   return { isAuth: hasAuth, sellerId, branches, isPrimary, maxBranches: maxBranches != null && !isNaN(maxBranches) ? maxBranches : null };
 }
@@ -58,17 +86,20 @@ export function SellerAuthProvider({ children }: { children: ReactNode }) {
   const isNetwork = maxBranches != null && maxBranches > 0;
   const isNetworkOwner = isPrimary && isNetwork;
 
-  const login = useCallback((params: { token: string; sellerId: number; branches?: BranchInfo[]; isPrimary?: boolean; maxBranches?: number | null }) => {
-    sessionStorage.setItem(SELLER_TOKEN_KEY, params.token);
-    sessionStorage.setItem(SELLER_ID_KEY, String(params.sellerId));
-    if (params.branches) {
-      sessionStorage.setItem(BRANCHES_KEY, JSON.stringify(params.branches));
+  const login = useCallback((params: { token: string; refreshToken?: string; sellerId: number; branches?: BranchInfo[]; isPrimary?: boolean; maxBranches?: number | null }) => {
+    localStorage.setItem(SELLER_TOKEN_KEY, params.token);
+    if (params.refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, params.refreshToken);
     }
-    sessionStorage.setItem(IS_PRIMARY_KEY, String(params.isPrimary ?? true));
+    localStorage.setItem(SELLER_ID_KEY, String(params.sellerId));
+    if (params.branches) {
+      localStorage.setItem(BRANCHES_KEY, JSON.stringify(params.branches));
+    }
+    localStorage.setItem(IS_PRIMARY_KEY, String(params.isPrimary ?? true));
     if (params.maxBranches != null) {
-      sessionStorage.setItem(MAX_BRANCHES_KEY, String(params.maxBranches));
+      localStorage.setItem(MAX_BRANCHES_KEY, String(params.maxBranches));
     } else {
-      sessionStorage.removeItem(MAX_BRANCHES_KEY);
+      localStorage.removeItem(MAX_BRANCHES_KEY);
     }
     setIsAuthenticated(true);
     setSellerId(params.sellerId);
@@ -78,11 +109,20 @@ export function SellerAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(SELLER_TOKEN_KEY);
-    sessionStorage.removeItem(SELLER_ID_KEY);
-    sessionStorage.removeItem(BRANCHES_KEY);
-    sessionStorage.removeItem(IS_PRIMARY_KEY);
-    sessionStorage.removeItem(MAX_BRANCHES_KEY);
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (refreshToken) {
+      fetch(`${getApiBase()}/seller-web/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }).catch(() => {});
+    }
+    localStorage.removeItem(SELLER_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(SELLER_ID_KEY);
+    localStorage.removeItem(BRANCHES_KEY);
+    localStorage.removeItem(IS_PRIMARY_KEY);
+    localStorage.removeItem(MAX_BRANCHES_KEY);
     setIsAuthenticated(false);
     setSellerId(null);
     setBranches([]);
@@ -92,15 +132,25 @@ export function SellerAuthProvider({ children }: { children: ReactNode }) {
 
   const switchBranch = useCallback(async (targetSellerId: number) => {
     const result = await switchBranchApi(targetSellerId);
-    sessionStorage.setItem(SELLER_TOKEN_KEY, result.token);
-    sessionStorage.setItem(SELLER_ID_KEY, String(result.seller_id));
+    localStorage.setItem(SELLER_TOKEN_KEY, result.token);
+    if (result.refresh_token) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, result.refresh_token);
+    }
+    localStorage.setItem(SELLER_ID_KEY, String(result.seller_id));
     if (result.branches) {
-      sessionStorage.setItem(BRANCHES_KEY, JSON.stringify(result.branches));
+      localStorage.setItem(BRANCHES_KEY, JSON.stringify(result.branches));
       setBranches(result.branches);
     }
     setSellerId(result.seller_id);
     window.location.reload();
   }, []);
+
+  // Listen for auth-expired events from the fetch interceptor
+  useEffect(() => {
+    const handler = () => logout();
+    window.addEventListener('seller-auth-expired', handler);
+    return () => window.removeEventListener('seller-auth-expired', handler);
+  }, [logout]);
 
   // Auto-authenticate via Telegram
   useEffect(() => {
@@ -111,14 +161,14 @@ export function SellerAuthProvider({ children }: { children: ReactNode }) {
     if (!initData) { setTelegramAuthLoading(false); return; }
 
     telegramSellerAuth(initData)
-      .then(({ token, role, seller_id, branches: authBranches, is_primary, max_branches }) => {
+      .then(({ token, refresh_token, role, seller_id, branches: authBranches, is_primary, max_branches }) => {
         if (role !== 'seller') {
           throw new Error('Этот аккаунт не является продавцом');
         }
         if (!seller_id) {
           throw new Error('Не удалось определить аккаунт продавца');
         }
-        login({ token, sellerId: seller_id, branches: authBranches, isPrimary: is_primary ?? true, maxBranches: max_branches ?? null });
+        login({ token, refreshToken: refresh_token, sellerId: seller_id, branches: authBranches, isPrimary: is_primary ?? true, maxBranches: max_branches ?? null });
       })
       .catch((err) => {
         console.error('[TG Auth] Failed:', err);
@@ -127,16 +177,16 @@ export function SellerAuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setTelegramAuthLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync from sessionStorage on mount
+  // Sync from localStorage on mount
   useEffect(() => {
     if (isTelegram()) return;
-    const sellerToken = sessionStorage.getItem(SELLER_TOKEN_KEY);
-    const storedSellerId = sessionStorage.getItem(SELLER_ID_KEY);
+    const sellerToken = localStorage.getItem(SELLER_TOKEN_KEY);
+    const storedSellerId = localStorage.getItem(SELLER_ID_KEY);
     setIsAuthenticated(!!sellerToken);
     setSellerId(storedSellerId ? parseInt(storedSellerId, 10) : null);
     setBranches(getStoredBranches());
-    setIsPrimary(sessionStorage.getItem(IS_PRIMARY_KEY) !== 'false');
-    const storedMb = sessionStorage.getItem(MAX_BRANCHES_KEY);
+    setIsPrimary(localStorage.getItem(IS_PRIMARY_KEY) !== 'false');
+    const storedMb = localStorage.getItem(MAX_BRANCHES_KEY);
     setMaxBranches(storedMb != null ? parseInt(storedMb, 10) : null);
   }, []);
 

@@ -28,7 +28,8 @@ if not JWT_SECRET:
         sys.exit(1)
 
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_HOURS = 24 * 7  # 7 days
+JWT_EXPIRY_HOURS = 24 * 7  # Legacy: kept for backward compat window
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Rate limit uses app.state.limiter (set in main.py); exception handler in main.py
 
@@ -46,6 +47,7 @@ class BranchInfo(BaseModel):
 
 class SellerLoginResponse(BaseModel):
     token: str
+    refresh_token: Optional[str] = None
     role: str = "seller"
     seller_id: int
     owner_id: int
@@ -60,6 +62,7 @@ class SwitchBranchRequest(BaseModel):
 
 class SwitchBranchResponse(BaseModel):
     token: str
+    refresh_token: Optional[str] = None
     seller_id: int
 
 
@@ -69,8 +72,9 @@ def create_seller_token(seller_id: int, owner_id: int, is_primary: bool = True) 
         "sub": str(seller_id),
         "owner": str(owner_id),
         "role": "seller",
+        "type": "access",
         "is_primary": is_primary,
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         "iat": datetime.utcnow(),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -81,6 +85,10 @@ def decode_seller_token(token: str) -> Optional[Tuple[int, int, bool]]:
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("role") != "seller":
+            return None
+        # Accept old tokens (no type) and new access tokens
+        token_type = payload.get("type")
+        if token_type is not None and token_type != "access":
             return None
         seller_id = int(payload["sub"])
         # Backwards compat: old tokens without "owner" use seller_id as owner_id
@@ -205,8 +213,19 @@ async def seller_login(
         )
         max_branches_val = owner_r.scalar_one_or_none()
 
+    from backend.app.services.token_service import create_refresh_token
+    refresh = await create_refresh_token(
+        session,
+        user_type="seller",
+        user_id=str(seller.seller_id),
+        owner_id=str(seller.owner_id),
+        is_primary=is_primary,
+    )
+    await session.commit()
+
     return SellerLoginResponse(
         token=token,
+        refresh_token=refresh,
         seller_id=seller.seller_id,
         owner_id=seller.owner_id,
         is_primary=is_primary,
@@ -247,4 +266,82 @@ async def switch_branch(
         raise HTTPException(status_code=403, detail="Филиал заблокирован")
     # Owner retains is_primary=True even when switching to a branch
     token = create_seller_token(target.seller_id, owner_id, is_primary=True)
-    return SwitchBranchResponse(token=token, seller_id=target.seller_id)
+
+    from backend.app.services.token_service import create_refresh_token
+    refresh = await create_refresh_token(
+        session,
+        user_type="seller",
+        user_id=str(target.seller_id),
+        owner_id=str(owner_id),
+        is_primary=True,
+    )
+    await session.commit()
+
+    return SwitchBranchResponse(token=token, refresh_token=refresh, seller_id=target.seller_id)
+
+
+class SellerRefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class SellerRefreshResponse(BaseModel):
+    token: str
+    refresh_token: str
+
+
+class SellerLogoutRequest(BaseModel):
+    refresh_token: str
+
+
+@router.post("/refresh", response_model=SellerRefreshResponse)
+@limiter.limit("10/minute")
+async def seller_refresh(
+    request: Request,
+    data: SellerRefreshRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Refresh seller token pair using refresh token."""
+    from backend.app.services.token_service import validate_and_rotate_refresh_token
+
+    result = await validate_and_rotate_refresh_token(session, data.refresh_token)
+    if not result:
+        raise HTTPException(status_code=401, detail="Недействительный refresh token")
+
+    old_record, new_refresh = result
+    if old_record.user_type != "seller":
+        raise HTTPException(status_code=401, detail="Недействительный refresh token")
+
+    seller_id = int(old_record.user_id)
+    owner_id = int(old_record.owner_id) if old_record.owner_id else seller_id
+    is_primary = old_record.is_primary
+
+    # Verify seller still exists and is not blocked
+    seller_result = await session.execute(
+        select(Seller).where(
+            Seller.seller_id == seller_id,
+            Seller.deleted_at.is_(None),
+        )
+    )
+    seller = seller_result.scalar_one_or_none()
+    if not seller:
+        raise HTTPException(status_code=401, detail="Продавец не найден")
+    if seller.is_blocked:
+        raise HTTPException(status_code=403, detail="Аккаунт заблокирован")
+
+    access_token = create_seller_token(seller_id, owner_id, is_primary)
+    await session.commit()
+    return SellerRefreshResponse(token=access_token, refresh_token=new_refresh)
+
+
+@router.post("/logout")
+@limiter.limit("10/minute")
+async def seller_logout(
+    request: Request,
+    data: SellerLogoutRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Revoke refresh token on logout."""
+    from backend.app.services.token_service import revoke_token
+    await revoke_token(session, data.refresh_token)
+    await session.commit()
+    return {"status": "ok"}

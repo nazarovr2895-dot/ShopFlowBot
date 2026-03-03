@@ -44,9 +44,12 @@ class TelegramAuthRequest(BaseModel):
 
 class TelegramAuthResponse(BaseModel):
     token: str
+    refresh_token: Optional[str] = None
     role: str
     seller_id: Optional[int] = None
     owner_id: Optional[int] = None
+    is_primary: Optional[bool] = None
+    max_branches: Optional[int] = None
     branches: list[BranchInfo] = []
 
 
@@ -103,10 +106,23 @@ async def admin_telegram_auth(
             BranchInfo(seller_id=s.seller_id, shop_name=s.shop_name, address_name=s.address_name)
             for s in sellers
         ]
+
+        from backend.app.services.token_service import create_refresh_token
+        refresh = await create_refresh_token(
+            session,
+            user_type="seller",
+            user_id=str(primary.seller_id),
+            owner_id=str(primary.owner_id),
+            is_primary=True,
+        )
+        await session.commit()
+
         return TelegramAuthResponse(
-            token=token, role="seller",
+            token=token, refresh_token=refresh, role="seller",
             seller_id=primary.seller_id,
             owner_id=primary.owner_id,
+            is_primary=True,
+            max_branches=primary.max_branches,
             branches=branches,
         )
 

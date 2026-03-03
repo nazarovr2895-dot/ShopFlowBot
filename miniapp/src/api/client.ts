@@ -24,8 +24,9 @@ export function setApiBaseUrl(url: string): void {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-// JWT token storage key
+// JWT token storage keys
 const JWT_TOKEN_KEY = 'flurai_jwt_token';
+const REFRESH_TOKEN_KEY = 'flurai_refresh_token';
 
 // Migration: rename old key to new
 (() => {
@@ -44,6 +45,7 @@ export function hasTelegramAuth(): boolean {
 
 class ApiClient {
   private baseUrl: string;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -69,6 +71,58 @@ class ApiClient {
     localStorage.removeItem(JWT_TOKEN_KEY);
   }
 
+  // Refresh token management
+  private getRefreshToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
+  }
+
+  private setRefreshToken(token: string): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(REFRESH_TOKEN_KEY, token);
+  }
+
+  private clearRefreshToken(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
+
+  private async tryRefreshToken(): Promise<boolean> {
+    if (this.refreshPromise) return this.refreshPromise;
+
+    this.refreshPromise = (async () => {
+      const refreshToken = this.getRefreshToken();
+      if (!refreshToken) return false;
+
+      try {
+        const response = await fetch(`${this.getBaseUrl()}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+
+        if (!response.ok) {
+          this.clearJwtToken();
+          this.clearRefreshToken();
+          return false;
+        }
+
+        const data = await response.json();
+        this.setJwtToken(data.token);
+        this.setRefreshToken(data.refresh_token);
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
   /**
    * Check if user is authenticated (has JWT token or Telegram initData)
    */
@@ -79,7 +133,7 @@ class ApiClient {
   /**
    * Authenticate using Telegram Mini App initData
    */
-  async authWithMiniApp(initData: string): Promise<{ token: string; telegram_id: number; username?: string; first_name: string }> {
+  async authWithMiniApp(initData: string): Promise<{ token: string; refresh_token?: string; telegram_id: number; username?: string; first_name: string }> {
     const response = await fetch(`${this.getBaseUrl()}/auth/telegram-mini-app`, {
       method: 'POST',
       headers: {
@@ -95,6 +149,7 @@ class ApiClient {
 
     const data = await response.json();
     this.setJwtToken(data.token);
+    if (data.refresh_token) this.setRefreshToken(data.refresh_token);
     return data;
   }
 
@@ -109,7 +164,7 @@ class ApiClient {
     photo_url?: string;
     auth_date: number;
     hash: string;
-  }): Promise<{ token: string; telegram_id: number; username?: string; first_name: string }> {
+  }): Promise<{ token: string; refresh_token?: string; telegram_id: number; username?: string; first_name: string }> {
     const response = await fetch(`${this.getBaseUrl()}/auth/telegram-widget`, {
       method: 'POST',
       headers: {
@@ -125,14 +180,24 @@ class ApiClient {
 
     const data = await response.json();
     this.setJwtToken(data.token);
+    if (data.refresh_token) this.setRefreshToken(data.refresh_token);
     return data;
   }
 
   /**
-   * Logout - clear JWT token
+   * Logout - revoke refresh token and clear all tokens
    */
   logout(): void {
+    const refreshToken = this.getRefreshToken();
+    if (refreshToken) {
+      fetch(`${this.getBaseUrl()}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }).catch(() => {});
+    }
     this.clearJwtToken();
+    this.clearRefreshToken();
   }
 
   /** Полный URL фото товара (photo_id с бэкенда — путь вида /static/... или полный URL) */
@@ -225,13 +290,32 @@ class ApiClient {
       console.log('[API] Response status:', response.status);
 
       if (!response.ok) {
-        // If 401 and we used JWT, clear it and retry with initData if available
+        // If 401 and we used JWT, try refresh token first
         if (response.status === 401 && jwtToken) {
-          this.clearJwtToken();
+          const refreshed = await this.tryRefreshToken();
+          if (refreshed) {
+            console.log('[API] Token refreshed, retrying request');
+            const newToken = this.getJwtToken();
+            const retryResponse = await fetch(url, {
+              headers: {
+                ...headers,
+                ...(options?.headers || {}),
+                'Authorization': `Bearer ${newToken}`,
+              },
+              ...options,
+            });
+            if (retryResponse.ok) {
+              return await retryResponse.json();
+            }
+          }
 
-          // Retry with Telegram initData if available
+          // Refresh failed, clear tokens
+          this.clearJwtToken();
+          this.clearRefreshToken();
+
+          // Fall back to Telegram initData if available
           if (initData) {
-            console.log('[API] JWT expired, retrying with Telegram initData');
+            console.log('[API] Refresh failed, retrying with Telegram initData');
             const retryHeaders: Record<string, string> = {
               'Content-Type': 'application/json',
               'ngrok-skip-browser-warning': 'true',

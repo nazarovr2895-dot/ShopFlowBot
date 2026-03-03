@@ -10,7 +10,62 @@ function getApiBase(): string {
 }
 
 function getSellerToken(): string | null {
-  return sessionStorage.getItem('seller_token');
+  return localStorage.getItem('seller_token');
+}
+
+function getRefreshToken(): string | null {
+  return localStorage.getItem('seller_refresh_token');
+}
+
+function setRefreshToken(token: string): void {
+  localStorage.setItem('seller_refresh_token', token);
+}
+
+function clearAllSellerAuth(): void {
+  localStorage.removeItem('seller_token');
+  localStorage.removeItem('seller_refresh_token');
+  localStorage.removeItem('seller_id');
+  localStorage.removeItem('branches');
+  localStorage.removeItem('is_primary');
+  localStorage.removeItem('max_branches');
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefreshSellerToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+
+    try {
+      const url = `${getApiBase()}/seller-web/refresh`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!res.ok) {
+        clearAllSellerAuth();
+        return false;
+      }
+
+      const data = await res.json();
+      localStorage.setItem('seller_token', data.token);
+      setRefreshToken(data.refresh_token);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }
 
 async function fetchSeller<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -25,6 +80,19 @@ async function fetchSeller<T>(endpoint: string, options: RequestInit = {}): Prom
   }
 
   const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 401 && token) {
+    const refreshed = await tryRefreshSellerToken();
+    if (refreshed) {
+      const newToken = getSellerToken();
+      const retryHeaders = { ...headers, 'X-Seller-Token': newToken! };
+      const retryRes = await fetch(url, { ...options, headers: retryHeaders });
+      if (retryRes.ok) return retryRes.json();
+    }
+    window.dispatchEvent(new CustomEvent('seller-auth-expired'));
+    throw new Error('Сессия истекла');
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `HTTP ${res.status}`);
@@ -1324,8 +1392,8 @@ export async function resetBranchPassword(branchId: number): Promise<{ web_login
   });
 }
 
-export async function switchBranch(sellerId: number): Promise<{ token: string; seller_id: number; owner_id: number; branches: BranchInfo[] }> {
-  return fetchSeller<{ token: string; seller_id: number; owner_id: number; branches: BranchInfo[] }>('/seller-web/switch-branch', {
+export async function switchBranch(sellerId: number): Promise<{ token: string; refresh_token?: string; seller_id: number; owner_id: number; branches: BranchInfo[] }> {
+  return fetchSeller<{ token: string; refresh_token?: string; seller_id: number; owner_id: number; branches: BranchInfo[] }>('/seller-web/switch-branch', {
     method: 'POST',
     body: JSON.stringify({ seller_id: sellerId }),
   });
@@ -1335,6 +1403,7 @@ export async function switchBranch(sellerId: number): Promise<{ token: string; s
 
 export async function sellerLogin(login: string, password: string): Promise<{
   token: string;
+  refresh_token?: string;
   seller_id: number;
   owner_id: number;
   is_primary: boolean;
@@ -1373,6 +1442,7 @@ export async function searchMetro(query: string): Promise<MetroStation[]> {
 
 export async function telegramSellerAuth(initData: string): Promise<{
   token: string;
+  refresh_token?: string;
   role: 'admin' | 'seller';
   seller_id?: number;
   owner_id?: number;

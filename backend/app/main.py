@@ -170,6 +170,17 @@ async def _daily_scheduler():
                 except Exception as e:
                     await session.rollback()
                     logger.error("Daily scheduler: subscription check failed", error=str(e))
+
+                # 7. Clean up expired refresh tokens
+                try:
+                    from backend.app.services.token_service import cleanup_expired_tokens
+                    cleaned = await cleanup_expired_tokens(session)
+                    await session.commit()
+                    if cleaned > 0:
+                        logger.info("Daily scheduler: cleaned expired refresh tokens", count=cleaned)
+                except Exception as e:
+                    await session.rollback()
+                    logger.error("Daily scheduler: refresh token cleanup failed", error=str(e))
         except Exception as e:
             logger.error("Daily scheduler: unexpected error", error=str(e))
             import asyncio

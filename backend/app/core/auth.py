@@ -38,7 +38,8 @@ if not JWT_SECRET:
         sys.exit(1)
 
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_HOURS = 24 * 7  # 7 days
+JWT_EXPIRY_HOURS = 24 * 7  # Legacy: kept for backward compat window
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 class TelegramUser(BaseModel):
@@ -280,7 +281,8 @@ def create_user_jwt(telegram_id: int) -> str:
     payload = {
         "sub": str(telegram_id),
         "role": "buyer",
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
+        "type": "access",
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         "iat": datetime.utcnow(),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -299,6 +301,10 @@ def decode_user_jwt(token: str) -> Optional[int]:
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("role") != "buyer":
+            return None
+        # Accept old tokens (no type) and new access tokens
+        token_type = payload.get("type")
+        if token_type is not None and token_type != "access":
             return None
         return int(payload["sub"])
     except (jwt.InvalidTokenError, ValueError, KeyError):
