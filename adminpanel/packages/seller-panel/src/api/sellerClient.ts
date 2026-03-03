@@ -91,7 +91,10 @@ export interface SellerMe {
   preorder_discount_min_days?: number;
   banner_url?: string | null;
   logo_url?: string | null;
-  yookassa_account_id?: string | null;
+  yookassa_oauth_token?: string | null;
+  yookassa_shop_id?: string | null;
+  yookassa_connected_at?: string | null;
+  commission_balance?: number;
   use_delivery_zones?: boolean;
   // Delivery slot settings
   deliveries_per_slot?: number | null;
@@ -291,7 +294,10 @@ export async function updateMe(payload: {
   map_url?: string;
   banner_url?: string | null;
   logo_url?: string | null;
-  yookassa_account_id?: string | null;
+  yookassa_oauth_token?: string | null;
+  yookassa_shop_id?: string | null;
+  yookassa_connected_at?: string | null;
+  commission_balance?: number;
   use_delivery_zones?: boolean;
   deliveries_per_slot?: number | null;
   slot_days_ahead?: number;
@@ -1379,4 +1385,35 @@ export async function telegramSellerAuth(initData: string): Promise<{
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+// --- YooKassa OAuth ---
+
+export async function getYookassaConnectUrl(): Promise<{ oauth_url: string; state: string }> {
+  return fetchSeller('/seller-web/yookassa/connect');
+}
+
+export async function disconnectYookassa(): Promise<{ status: string }> {
+  return fetchSeller('/seller-web/yookassa/disconnect', { method: 'POST' });
+}
+
+// --- Commission ---
+
+export async function getCommissionBalance(): Promise<{ balance: number; commission_rate: number }> {
+  return fetchSeller('/seller-web/commission/balance');
+}
+
+export interface CommissionEntry {
+  id: number;
+  order_id: number;
+  order_total: number;
+  commission_rate: number;
+  commission_amount: number;
+  created_at: string | null;
+  paid: boolean;
+  paid_at: string | null;
+}
+
+export async function getCommissionHistory(limit = 50, offset = 0): Promise<{ entries: CommissionEntry[] }> {
+  return fetchSeller(`/seller-web/commission/history?limit=${limit}&offset=${offset}`);
 }

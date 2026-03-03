@@ -123,7 +123,6 @@ class UpdateMeBody(BaseModel):
     map_url: Optional[str] = None
     banner_url: Optional[str] = None  # set to empty string or null to remove banner
     logo_url: Optional[str] = None  # set to empty string or null to remove logo
-    yookassa_account_id: Optional[str] = None  # YuKassa marketplace account ID
     use_delivery_zones: Optional[bool] = None  # enable zone-based delivery pricing
     # Delivery slot settings
     deliveries_per_slot: Optional[int] = None  # null to disable, 1-10 deliveries per slot
@@ -214,8 +213,6 @@ async def update_me(
         await service.update_field(seller_id, "banner_url", body.banner_url or "")
     if body.logo_url is not None:
         await service.update_field(seller_id, "logo_url", body.logo_url or "")
-    if body.yookassa_account_id is not None:
-        await service.update_field(seller_id, "yookassa_account_id", body.yookassa_account_id or "")
     if body.use_delivery_zones is not None:
         await service.update_field(seller_id, "use_delivery_zones", body.use_delivery_zones)
     # Geo coordinates — set AFTER address_name so manual pin overrides auto-geocode
@@ -2669,7 +2666,9 @@ async def create_branch(
         contact_tg_id=data.contact_tg_id,
         # Network-level fields inherited from owner
         subscription_plan=owner_seller.subscription_plan,
-        yookassa_account_id=owner_seller.yookassa_account_id,
+        yookassa_oauth_token=owner_seller.yookassa_oauth_token,
+        yookassa_shop_id=owner_seller.yookassa_shop_id,
+        yookassa_connected_at=owner_seller.yookassa_connected_at,
         commission_percent=owner_seller.commission_percent,
         loyalty_points_percent=owner_seller.loyalty_points_percent,
         loyalty_tiers_config=owner_seller.loyalty_tiers_config,
@@ -2819,7 +2818,6 @@ async def reset_branch_password(
 
 class NetworkSettingsBody(BaseModel):
     """Network-level settings (apply to all branches)."""
-    yookassa_account_id: Optional[str] = None
     loyalty_points_percent: Optional[float] = None
     max_points_discount_percent: Optional[int] = None
     points_to_ruble_rate: Optional[float] = None
@@ -2857,7 +2855,9 @@ async def get_network_settings(
     return {
         "owner_id": owner_id,
         "subscription_plan": primary.subscription_plan,
-        "yookassa_account_id": primary.yookassa_account_id,
+        "yookassa_connected": bool(primary.yookassa_oauth_token),
+        "yookassa_shop_id": primary.yookassa_shop_id,
+        "yookassa_connected_at": primary.yookassa_connected_at.isoformat() if primary.yookassa_connected_at else None,
         "commission_percent": primary.commission_percent,
         "inn": primary.inn,
         "ogrn": primary.ogrn,
@@ -2896,3 +2896,150 @@ async def update_network_settings(
 
     await session.commit()
     return {"status": "ok"}
+
+
+# --- YOOKASSA OAUTH ---
+
+
+@router.get("/yookassa/connect")
+async def yookassa_connect(
+    auth: tuple = Depends(require_seller_token_with_owner),
+):
+    """Generate YooKassa OAuth URL and return it for redirect."""
+    from backend.app.core.settings import get_settings
+    settings = get_settings()
+    if not settings.YOOKASSA_OAUTH_CLIENT_ID or not settings.YOOKASSA_OAUTH_REDIRECT_URI:
+        raise HTTPException(status_code=503, detail="YooKassa OAuth не настроен")
+
+    seller_id, _owner_id = auth
+    import secrets
+    state = f"{seller_id}_{secrets.token_urlsafe(16)}"
+
+    oauth_url = (
+        f"https://yookassa.ru/oauth/v2/authorize"
+        f"?client_id={settings.YOOKASSA_OAUTH_CLIENT_ID}"
+        f"&response_type=code"
+        f"&state={state}"
+    )
+    return {"oauth_url": oauth_url, "state": state}
+
+
+@router.get("/yookassa/callback")
+async def yookassa_callback(
+    code: str = Query(...),
+    state: str = Query(""),
+    session: AsyncSession = Depends(get_session),
+):
+    """Exchange YooKassa OAuth code for token and save to seller."""
+    import httpx
+    from backend.app.core.settings import get_settings
+    settings = get_settings()
+
+    if not settings.YOOKASSA_OAUTH_CLIENT_ID or not settings.YOOKASSA_OAUTH_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="YooKassa OAuth не настроен")
+
+    # Extract seller_id from state
+    try:
+        seller_id = int(state.split("_")[0])
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=400, detail="Некорректный state параметр")
+
+    seller = await session.get(Seller, seller_id)
+    if not seller:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
+
+    # Exchange code for token
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://yookassa.ru/oauth/v2/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+            },
+            auth=(settings.YOOKASSA_OAUTH_CLIENT_ID, settings.YOOKASSA_OAUTH_CLIENT_SECRET),
+        )
+
+    if resp.status_code != 200:
+        logger.error("YooKassa OAuth token exchange failed", status=resp.status_code, body=resp.text)
+        raise HTTPException(status_code=502, detail="Не удалось получить токен ЮКассы")
+
+    token_data = resp.json()
+    access_token = token_data.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=502, detail="ЮКасса не вернула access_token")
+
+    # Fetch merchant info to get shopId
+    async with httpx.AsyncClient() as client:
+        me_resp = await client.get(
+            "https://api.yookassa.ru/v3/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    shop_id = None
+    if me_resp.status_code == 200:
+        me_data = me_resp.json()
+        shop_id = str(me_data.get("account_id", ""))
+
+    seller.yookassa_oauth_token = access_token
+    seller.yookassa_shop_id = shop_id
+    seller.yookassa_connected_at = datetime.utcnow()
+    await session.commit()
+
+    logger.info("YooKassa OAuth connected", seller_id=seller_id, shop_id=shop_id)
+
+    # Redirect to seller panel settings page
+    from starlette.responses import RedirectResponse
+    return RedirectResponse(url="/settings?tab=payment&yookassa=connected")
+
+
+@router.post("/yookassa/disconnect")
+async def yookassa_disconnect(
+    auth: tuple = Depends(require_seller_token_with_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Disconnect YooKassa OAuth — clear token."""
+    seller_id, _owner_id = auth
+    seller = await session.get(Seller, seller_id)
+    if not seller:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
+
+    seller.yookassa_oauth_token = None
+    seller.yookassa_shop_id = None
+    seller.yookassa_connected_at = None
+    await session.commit()
+
+    logger.info("YooKassa OAuth disconnected", seller_id=seller_id)
+    return {"status": "ok"}
+
+
+# --- COMMISSION BALANCE ---
+
+
+@router.get("/commission/balance")
+async def get_commission_balance_endpoint(
+    auth: tuple = Depends(require_seller_token_with_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get current commission balance for the seller."""
+    seller_id, _owner_id = auth
+    from backend.app.services.commissions import get_commission_balance, get_effective_commission_rate
+    balance = await get_commission_balance(session, seller_id)
+    rate = await get_effective_commission_rate(session, seller_id)
+    return {
+        "balance": float(balance),
+        "commission_rate": rate,
+    }
+
+
+@router.get("/commission/history")
+async def get_commission_history_endpoint(
+    auth: tuple = Depends(require_seller_token_with_owner),
+    session: AsyncSession = Depends(get_session),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    """Get commission history for the seller."""
+    seller_id, _owner_id = auth
+    from backend.app.services.commissions import get_commission_history
+    entries = await get_commission_history(session, seller_id, limit, offset)
+    return {"entries": entries}

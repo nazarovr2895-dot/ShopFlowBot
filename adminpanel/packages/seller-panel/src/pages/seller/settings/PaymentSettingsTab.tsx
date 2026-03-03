@@ -1,45 +1,47 @@
-import { useState } from 'react';
-import { updateMe } from '../../../api/sellerClient';
+import { useState, useEffect } from 'react';
+import { getYookassaConnectUrl, disconnectYookassa, getCommissionBalance } from '../../../api/sellerClient';
 import { useToast } from '@shared/components/ui';
-import { CreditCard, CheckCircle, XCircle, Save, Trash2 } from 'lucide-react';
+import { CreditCard, CheckCircle, XCircle, Link2, Unlink, Wallet } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 
 export function PaymentSettingsTab({ me, reload }: SettingsTabProps) {
   const toast = useToast();
-  const [accountId, setAccountId] = useState(me.yookassa_account_id || '');
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [commissionRate, setCommissionRate] = useState<number | null>(null);
 
-  const isConnected = !!me.yookassa_account_id;
+  const isConnected = !!me.yookassa_oauth_token;
 
-  const handleSave = async () => {
-    const trimmed = accountId.trim();
-    if (!trimmed) {
-      toast.error('Введите YooKassa Account ID');
-      return;
-    }
-    setSaving(true);
+  useEffect(() => {
+    getCommissionBalance()
+      .then((data) => {
+        setBalance(data.balance);
+        setCommissionRate(data.commission_rate);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleConnect = async () => {
+    setLoading(true);
     try {
-      await updateMe({ yookassa_account_id: trimmed });
-      await reload();
-      toast.success('YooKassa Account ID сохранён');
+      const data = await getYookassaConnectUrl();
+      window.location.href = data.oauth_url;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка сохранения');
-    } finally {
-      setSaving(false);
+      toast.error(e instanceof Error ? e.message : 'Ошибка подключения');
+      setLoading(false);
     }
   };
 
   const handleDisconnect = async () => {
-    setSaving(true);
+    setLoading(true);
     try {
-      await updateMe({ yookassa_account_id: '' });
-      setAccountId('');
+      await disconnectYookassa();
       await reload();
-      toast.success('YooKassa отключена');
+      toast.success('ЮКасса отключена');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
@@ -65,11 +67,11 @@ export function PaymentSettingsTab({ me, reload }: SettingsTabProps) {
         )}
         <div>
           <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-            {isConnected ? 'Онлайн-оплата подключена' : 'Онлайн-оплата не подключена'}
+            {isConnected ? 'ЮКасса подключена' : 'ЮКасса не подключена'}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             {isConnected
-              ? `Account ID: ${me.yookassa_account_id}`
+              ? `Shop ID: ${me.yookassa_shop_id || '—'}${me.yookassa_connected_at ? ` • Подключено ${new Date(me.yookassa_connected_at).toLocaleDateString('ru')}` : ''}`
               : 'Покупатели не смогут оплачивать заказы онлайн'
             }
           </div>
@@ -82,50 +84,59 @@ export function PaymentSettingsTab({ me, reload }: SettingsTabProps) {
           <CreditCard size={18} /> Настройки ЮКасса
         </h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-          Укажите ваш YooKassa Account ID для приёма онлайн-оплаты.
-          Когда покупатель оформит заказ и вы его примете, ему автоматически придёт ссылка на оплату.
-          Деньги поступят на ваш счёт за вычетом комиссии платформы.
+          {isConnected
+            ? 'Ваш аккаунт ЮКассы подключён. Платежи от покупателей поступают напрямую на ваш счёт.'
+            : 'Подключите свой аккаунт ЮКассы для приёма онлайн-оплаты. Деньги от покупателей поступают напрямую на ваш счёт.'
+          }
         </p>
       </div>
 
-      {/* Input */}
-      <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.375rem' }}>
-          YooKassa Account ID
-        </label>
-        <input
-          type="text"
-          className="form-input"
-          value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
-          placeholder="Введите Account ID"
-          style={{ width: '100%' }}
-        />
-        <small style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-          Получите ID у администратора платформы или в личном кабинете ЮКасса
-        </small>
-      </div>
-
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <button
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={saving || !accountId.trim()}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}
-        >
-          <Save size={14} /> {saving ? 'Сохранение...' : 'Сохранить'}
-        </button>
-        {isConnected && (
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+        {!isConnected ? (
+          <button
+            className="btn btn-primary"
+            onClick={handleConnect}
+            disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}
+          >
+            <Link2 size={14} /> {loading ? 'Подключение...' : 'Подключить ЮКассу'}
+          </button>
+        ) : (
           <button
             className="btn btn-secondary"
             onClick={handleDisconnect}
-            disabled={saving}
+            disabled={loading}
             style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#ef4444' }}
           >
-            <Trash2 size={14} /> Отключить
+            <Unlink size={14} /> Отключить
           </button>
         )}
+      </div>
+
+      {/* Commission Balance */}
+      <div
+        style={{
+          padding: '1rem',
+          borderRadius: '8px',
+          background: 'rgba(59, 130, 246, 0.06)',
+          border: '1px solid rgba(59, 130, 246, 0.15)',
+        }}
+      >
+        <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+          <Wallet size={16} /> Баланс комиссии
+        </h4>
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <div>
+            Текущий долг: <strong style={{ color: 'var(--text-primary)' }}>{balance !== null ? `${balance.toFixed(2)} ₽` : '...'}</strong>
+          </div>
+          {commissionRate !== null && (
+            <div>Ставка комиссии: {commissionRate}%</div>
+          )}
+          <div style={{ marginTop: '0.25rem', fontSize: '0.8rem' }}>
+            Комиссия оплачивается вместе с подпиской в конце периода.
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -34,7 +34,10 @@ export interface Seller {
   plan_limit_cap?: number
   weekly_schedule?: Record<string, number> | null
   commission_percent?: number | null
-  yookassa_account_id?: string | null
+  yookassa_oauth_token?: string | null
+  yookassa_shop_id?: string | null
+  yookassa_connected_at?: string | null
+  commission_balance?: number
   max_branches?: number | null
   branch_count?: number
   branches?: AdminBranchInfo[]

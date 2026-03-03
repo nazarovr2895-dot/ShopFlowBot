@@ -1,14 +1,10 @@
 """
-Payment service — YuKassa payment operations for the marketplace.
+Payment service — YuKassa payment operations via Partner API (OAuth).
 
-Supports two modes:
-1. Split payment (transfers) — when seller has yookassa_account_id,
-   payment is split between platform and seller using YuKassa transfers API.
-2. Direct payment — when seller has no yookassa_account_id,
-   full amount goes to platform account (no transfers).
-
-Commission rates are determined by the existing commission system
-(get_effective_commission_rate from commissions.py).
+Each seller connects their own YuKassa account via OAuth.
+Payments are created using the seller's OAuth token — money goes
+directly to the seller's account.  Platform commission is tracked
+internally via CommissionLedger and billed with the monthly subscription.
 """
 import asyncio
 import uuid
@@ -19,13 +15,10 @@ from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from yookassa import Configuration, Payment as YooPayment, Refund as YooRefund
-
 from backend.app.models.order import Order
 from backend.app.models.product import Product
 from backend.app.models.seller import Seller
 from backend.app.models.user import User
-from backend.app.services.commissions import get_effective_commission_rate
 from backend.app.core.settings import get_settings
 from backend.app.core.logging import get_logger
 from backend.app.core.exceptions import ServiceError
@@ -51,11 +44,11 @@ class PaymentNotConfiguredError(PaymentServiceError):
 
 
 class SellerNotOnboardedError(PaymentServiceError):
-    """Seller has no yookassa_account_id."""
+    """Seller has not connected their YooKassa account via OAuth."""
 
     def __init__(self, seller_id: int):
         super().__init__(
-            f"Seller {seller_id} is not onboarded for payments (missing yookassa_account_id)",
+            f"Seller {seller_id} is not onboarded for payments (YooKassa OAuth not connected)",
             400,
         )
 
@@ -65,26 +58,10 @@ class SellerNotOnboardedError(PaymentServiceError):
 # ---------------------------------------------------------------------------
 
 class PaymentService:
-    """Handles YuKassa split payment operations."""
+    """Handles YuKassa payment operations via seller OAuth tokens."""
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self._configure_sdk()
-
-    # -- SDK configuration --------------------------------------------------
-
-    def _configure_sdk(self) -> None:
-        settings = get_settings()
-        if settings.YOOKASSA_SHOP_ID and settings.YOOKASSA_SECRET_KEY:
-            Configuration.account_id = settings.YOOKASSA_SHOP_ID
-            Configuration.secret_key = settings.YOOKASSA_SECRET_KEY
-            self._configured = True
-        else:
-            self._configured = False
-
-    def _ensure_configured(self) -> None:
-        if not self._configured:
-            raise PaymentNotConfiguredError()
 
     # -- Receipt helpers ----------------------------------------------------
 
@@ -221,13 +198,54 @@ class PaymentService:
 
     # -- Public methods -----------------------------------------------------
 
+    async def _seller_api_request(
+        self,
+        seller: Seller,
+        method: str,
+        endpoint: str,
+        json_data: Optional[Dict[str, Any]] = None,
+        idempotence_key: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Make a YooKassa API request using the seller's OAuth token."""
+        import httpx
+
+        if not seller.yookassa_oauth_token:
+            raise SellerNotOnboardedError(seller.seller_id)
+
+        headers: Dict[str, str] = {
+            "Authorization": f"Bearer {seller.yookassa_oauth_token}",
+            "Content-Type": "application/json",
+        }
+        if idempotence_key:
+            headers["Idempotence-Key"] = idempotence_key
+
+        url = f"https://api.yookassa.ru/v3{endpoint}"
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.request(method, url, json=json_data, headers=headers)
+
+        if resp.status_code >= 400:
+            logger.error(
+                "YooKassa API error",
+                status=resp.status_code,
+                body=resp.text,
+                endpoint=endpoint,
+            )
+            raise PaymentServiceError(
+                f"YooKassa API error {resp.status_code}: {resp.text}", 502
+            )
+
+        return resp.json()
+
     async def create_payment(
         self,
         order_id: int,
         return_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Create a YuKassa payment with marketplace split for the given order.
+        Create a YuKassa payment via seller's OAuth token.
+
+        Money goes directly to the seller's YooKassa account.
+        Platform commission is tracked internally.
 
         Returns::
 
@@ -237,52 +255,65 @@ class PaymentService:
                 "status": "pending",
             }
         """
-        self._ensure_configured()
         settings = get_settings()
 
         order = await self.session.get(Order, order_id)
         if not order:
             raise PaymentServiceError(f"Order {order_id} not found", 404)
 
-        # If a payment already exists and is still active, return it
-        # (but only if the confirmation URL is still fresh — YooKassa URLs expire in ~10-15 min)
+        # Load seller
+        seller = await self.session.get(Seller, order.seller_id)
+        if not seller:
+            raise PaymentServiceError(f"Seller {order.seller_id} not found", 404)
+
+        if not seller.yookassa_oauth_token:
+            raise SellerNotOnboardedError(order.seller_id)
+
+        # If a payment already exists and is still active, check if we can reuse it
         PAYMENT_URL_MAX_AGE_SECONDS = 600  # 10 minutes
         if order.payment_id:
             try:
-                existing = await asyncio.to_thread(YooPayment.find_one, order.payment_id)
-                if existing and existing.status in ("pending", "waiting_for_capture"):
-                    # Check if the payment is still fresh enough for its confirmation URL to work
+                existing = await self._seller_api_request(
+                    seller, "GET", f"/payments/{order.payment_id}"
+                )
+                ex_status = existing.get("status")
+                if ex_status in ("pending", "waiting_for_capture"):
                     is_fresh = True
-                    if existing.created_at:
+                    created_at_str = existing.get("created_at")
+                    if created_at_str:
                         try:
                             created = datetime.fromisoformat(
-                                str(existing.created_at).replace("Z", "+00:00")
+                                str(created_at_str).replace("Z", "+00:00")
                             )
                             age = (datetime.now(timezone.utc) - created).total_seconds()
                             is_fresh = age < PAYMENT_URL_MAX_AGE_SECONDS
                         except (ValueError, TypeError):
                             is_fresh = False
 
-                    if is_fresh and existing.confirmation:
+                    confirmation = existing.get("confirmation", {})
+                    if is_fresh and confirmation.get("confirmation_url"):
                         return {
-                            "payment_id": existing.id,
-                            "confirmation_url": existing.confirmation.confirmation_url,
-                            "status": existing.status,
+                            "payment_id": existing["id"],
+                            "confirmation_url": confirmation["confirmation_url"],
+                            "status": ex_status,
                         }
 
-                    # Payment is stale — cancel it and create a new one
-                    if existing.status == "pending":
+                    # Payment is stale — cancel and create new
+                    if ex_status == "pending":
                         try:
-                            await asyncio.to_thread(YooPayment.cancel, existing.id)
+                            await self._seller_api_request(
+                                seller, "POST", f"/payments/{existing['id']}/cancel",
+                                idempotence_key=str(uuid.uuid4()),
+                            )
                             logger.info(
                                 "Cancelled stale payment, creating new",
-                                payment_id=existing.id,
+                                payment_id=existing["id"],
                                 order_id=order_id,
                             )
                         except Exception as cancel_exc:
                             logger.warning(
                                 "Failed to cancel stale payment",
-                                payment_id=existing.id,
+                                payment_id=existing.get("id"),
                                 error=str(cancel_exc),
                             )
             except Exception as exc:
@@ -291,11 +322,6 @@ class PaymentService:
                     payment_id=order.payment_id,
                     error=str(exc),
                 )
-
-        # Load seller
-        seller = await self.session.get(Seller, order.seller_id)
-        if not seller:
-            raise PaymentServiceError(f"Seller {order.seller_id} not found", 404)
 
         total = Decimal(str(order.total_price))
         amount_value = str(total.quantize(Decimal("0.01")))
@@ -328,32 +354,12 @@ class PaymentService:
             },
         }
 
-        # Split payment mode: if seller has yookassa_account_id, add transfers
-        if seller.yookassa_account_id:
-            commission_rate = await get_effective_commission_rate(self.session, order.seller_id)
-            commission_amount = (total * Decimal(str(commission_rate)) / Decimal("100")).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
-            payment_params["transfers"] = [
-                {
-                    "account_id": seller.yookassa_account_id,
-                    "amount": {
-                        "value": amount_value,
-                        "currency": "RUB",
-                    },
-                    "platform_fee_amount": {
-                        "value": str(commission_amount),
-                        "currency": "RUB",
-                    },
-                    "description": f"Order #{order_id}",
-                    "metadata": {
-                        "order_id": str(order_id),
-                    },
-                }
-            ]
-
         try:
-            payment = await asyncio.to_thread(YooPayment.create, payment_params, idempotence_key)
+            payment_data = await self._seller_api_request(
+                seller, "POST", "/payments",
+                json_data=payment_params,
+                idempotence_key=idempotence_key,
+            )
         except Exception as exc:
             logger.error(
                 "YuKassa payment creation failed",
@@ -363,31 +369,26 @@ class PaymentService:
             raise PaymentServiceError(f"Payment creation failed: {exc}", 502)
 
         # Persist payment info on order
-        order.payment_id = payment.id
-        order.payment_status = payment.status
+        order.payment_id = payment_data["id"]
+        order.payment_status = payment_data.get("status", "pending")
         await self.session.flush()
 
-        confirmation_url = None
-        if payment.confirmation:
-            confirmation_url = payment.confirmation.confirmation_url
+        confirmation = payment_data.get("confirmation", {})
+        confirmation_url = confirmation.get("confirmation_url")
 
-        split_mode = bool(seller.yookassa_account_id)
-        log_extra: Dict[str, Any] = {
-            "order_id": order_id,
-            "payment_id": payment.id,
-            "amount": amount_value,
-            "status": payment.status,
-            "split_mode": split_mode,
-        }
-        if split_mode:
-            commission_rate_val = await get_effective_commission_rate(self.session, order.seller_id)
-            log_extra["commission_rate"] = commission_rate_val
-        logger.info("Payment created", **log_extra)
+        logger.info(
+            "Payment created",
+            order_id=order_id,
+            payment_id=payment_data["id"],
+            amount=amount_value,
+            status=payment_data.get("status"),
+            seller_shop_id=seller.yookassa_shop_id,
+        )
 
         return {
-            "payment_id": payment.id,
+            "payment_id": payment_data["id"],
             "confirmation_url": confirmation_url,
-            "status": payment.status,
+            "status": payment_data.get("status", "pending"),
         }
 
     async def handle_webhook(self, event_data: Dict[str, Any]) -> None:
@@ -465,8 +466,31 @@ class PaymentService:
             new_payment_status=payment_status,
         )
 
-        # Send notifications on successful payment
+        # Send notifications and record commission on successful payment
         if payment_status == "succeeded" and old_status != "succeeded":
+            # Record platform commission in ledger
+            try:
+                from backend.app.services.commissions import record_commission
+                if order.total_price:
+                    await record_commission(
+                        self.session,
+                        seller_id=order.seller_id,
+                        order_id=order_id,
+                        order_total=Decimal(str(order.total_price)),
+                    )
+                    logger.info(
+                        "Commission recorded",
+                        order_id=order_id,
+                        seller_id=order.seller_id,
+                    )
+            except Exception as comm_err:
+                logger.error(
+                    "Failed to record commission (critical)",
+                    order_id=order_id,
+                    error=str(comm_err),
+                )
+
+            # Send Telegram notifications
             try:
                 from backend.app.services.telegram_notify import (
                     notify_buyer_payment_succeeded,
@@ -500,10 +524,9 @@ class PaymentService:
         """
         Get current payment status for an order.
 
-        Fetches fresh status from YuKassa API and updates local cache.
+        Fetches fresh status from YuKassa API via seller's OAuth token
+        and updates local cache.
         """
-        self._ensure_configured()
-
         order = await self.session.get(Order, order_id)
         if not order:
             raise PaymentServiceError(f"Order {order_id} not found", 404)
@@ -516,17 +539,30 @@ class PaymentService:
                 "paid": False,
             }
 
-        try:
-            payment = await asyncio.to_thread(YooPayment.find_one, order.payment_id)
-            order.payment_status = payment.status
-            await self.session.flush()
-
+        seller = await self.session.get(Seller, order.seller_id)
+        if not seller or not seller.yookassa_oauth_token:
+            # Fallback to cached status
             return {
                 "order_id": order_id,
-                "payment_id": payment.id,
-                "payment_status": payment.status,
-                "paid": payment.paid,
-                "amount": str(payment.amount.value) if payment.amount else None,
+                "payment_id": order.payment_id,
+                "payment_status": order.payment_status,
+                "paid": order.payment_status == "succeeded",
+            }
+
+        try:
+            payment_data = await self._seller_api_request(
+                seller, "GET", f"/payments/{order.payment_id}"
+            )
+            order.payment_status = payment_data.get("status")
+            await self.session.flush()
+
+            amount_obj = payment_data.get("amount", {})
+            return {
+                "order_id": order_id,
+                "payment_id": payment_data["id"],
+                "payment_status": payment_data.get("status"),
+                "paid": payment_data.get("paid", False),
+                "amount": amount_obj.get("value"),
             }
         except Exception as exc:
             logger.error(
@@ -535,7 +571,6 @@ class PaymentService:
                 payment_id=order.payment_id,
                 error=str(exc),
             )
-            # Return cached status as fallback
             return {
                 "order_id": order_id,
                 "payment_id": order.payment_id,
@@ -549,12 +584,10 @@ class PaymentService:
         amount: Optional[Decimal] = None,
     ) -> Dict[str, Any]:
         """
-        Refund a payment (full or partial).
+        Refund a payment (full or partial) via seller's OAuth token.
 
         ``amount=None`` means full refund of the order's total_price.
         """
-        self._ensure_configured()
-
         order = await self.session.get(Order, order_id)
         if not order:
             raise PaymentServiceError(f"Order {order_id} not found", 404)
@@ -567,13 +600,17 @@ class PaymentService:
                 f"Cannot refund: payment status is '{order.payment_status}'", 400
             )
 
+        seller = await self.session.get(Seller, order.seller_id)
+        if not seller or not seller.yookassa_oauth_token:
+            raise PaymentServiceError("Seller not connected to YooKassa, cannot refund", 400)
+
         refund_amount = amount or Decimal(str(order.total_price))
         refund_value = str(refund_amount.quantize(Decimal("0.01")))
 
         try:
-            refund = await asyncio.to_thread(
-                YooRefund.create,
-                {
+            refund_data = await self._seller_api_request(
+                seller, "POST", "/refunds",
+                json_data={
                     "payment_id": order.payment_id,
                     "amount": {
                         "value": refund_value,
@@ -581,7 +618,7 @@ class PaymentService:
                     },
                     "description": f"Refund for order #{order_id}",
                 },
-                str(uuid.uuid4()),
+                idempotence_key=str(uuid.uuid4()),
             )
         except Exception as exc:
             logger.error(
@@ -594,13 +631,13 @@ class PaymentService:
         logger.info(
             "Refund created",
             order_id=order_id,
-            refund_id=refund.id,
+            refund_id=refund_data.get("id"),
             amount=refund_value,
-            status=refund.status,
+            status=refund_data.get("status"),
         )
 
         return {
-            "refund_id": refund.id,
-            "status": refund.status,
+            "refund_id": refund_data.get("id"),
+            "status": refund_data.get("status"),
             "amount": refund_value,
         }

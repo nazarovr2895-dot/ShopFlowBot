@@ -133,15 +133,21 @@ class SubscriptionService:
             sub_seller_id = seller_id
 
         prices = self.get_prices()
-        amount = prices[period_months]
-        amount_decimal = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        subscription_price = prices[period_months]
+        subscription_decimal = Decimal(str(subscription_price)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        # Add accumulated commission balance to the total
+        from backend.app.services.commissions import get_commission_balance
+        commission_balance = await get_commission_balance(self.session, sub_seller_id)
+        commission_decimal = commission_balance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_amount = subscription_decimal + commission_decimal
 
         # Create subscription record for the specific branch/seller
         sub = Subscription(
             seller_id=sub_seller_id,
             period_months=period_months,
             status="pending",
-            amount_paid=amount_decimal,
+            amount_paid=total_amount,
         )
         self.session.add(sub)
         await self.session.flush()  # get sub.id
@@ -150,30 +156,46 @@ class SubscriptionService:
         return_url = settings.YOOKASSA_RETURN_URL or "https://app.flurai.ru/?tab=settings"
 
         # Build receipt (54-ФЗ)
-        # Get shop name for description
         target = await self.session.get(Seller, sub_seller_id)
         shop_label = target.shop_name if target and target.shop_name else f"#{sub_seller_id}"
+
+        receipt_items = [
+            {
+                "description": f"Подписка Flurai ({period_months} мес.) — {shop_label}"[:128],
+                "quantity": "1",
+                "amount": {
+                    "value": str(subscription_decimal),
+                    "currency": "RUB",
+                },
+                "vat_code": 1,
+                "payment_mode": "full_payment",
+                "payment_subject": "service",
+            },
+        ]
+
+        # Add commission as separate receipt line if > 0
+        if commission_decimal > 0:
+            receipt_items.append({
+                "description": f"Комиссия платформы — {shop_label}"[:128],
+                "quantity": "1",
+                "amount": {
+                    "value": str(commission_decimal),
+                    "currency": "RUB",
+                },
+                "vat_code": 1,
+                "payment_mode": "full_payment",
+                "payment_subject": "service",
+            })
+
         desc = f"Подписка Flurai ({period_months} мес.) — {shop_label}"
         receipt = {
             "customer": {"email": "subscription@flurai.ru"},
-            "items": [
-                {
-                    "description": desc[:128],  # YooKassa limit
-                    "quantity": "1",
-                    "amount": {
-                        "value": str(amount_decimal),
-                        "currency": "RUB",
-                    },
-                    "vat_code": 1,
-                    "payment_mode": "full_payment",
-                    "payment_subject": "service",
-                },
-            ],
+            "items": receipt_items,
         }
 
         payment_params = {
             "amount": {
-                "value": str(amount_decimal),
+                "value": str(total_amount),
                 "currency": "RUB",
             },
             "confirmation": {
@@ -187,6 +209,7 @@ class SubscriptionService:
                 "type": "subscription",
                 "subscription_id": str(sub.id),
                 "seller_id": str(sub_seller_id),
+                "commission_amount": str(commission_decimal),
             },
         }
 
@@ -397,10 +420,31 @@ class SubscriptionService:
         sub.expires_at = sub.started_at + relativedelta(months=sub.period_months)
         sub.status = "active"
 
-        # Update subscription_plan on the specific seller/branch
+        # Update subscription_plan on the specific seller/branch and clear grace period
         seller = await self.session.get(Seller, target_seller_id)
         if seller:
             seller.subscription_plan = "active"
+            seller.grace_period_until = None
+
+        # Mark accumulated commissions as paid
+        try:
+            from backend.app.services.commissions import mark_commissions_paid
+            paid_count = await mark_commissions_paid(
+                self.session, target_seller_id, sub.payment_id
+            )
+            if paid_count:
+                logger.info(
+                    "Commissions marked as paid with subscription",
+                    seller_id=target_seller_id,
+                    count=paid_count,
+                    payment_id=sub.payment_id,
+                )
+        except Exception as e:
+            logger.error(
+                "Failed to mark commissions as paid",
+                seller_id=target_seller_id,
+                error=str(e),
+            )
 
         logger.info(
             "Subscription activated",
@@ -426,7 +470,7 @@ class SubscriptionService:
     # -- Expiry management ------------------------------------------------------
 
     async def expire_subscriptions(self) -> int:
-        """Expire overdue subscriptions. Returns count of expired."""
+        """Expire overdue subscriptions and set grace period. Returns count of expired."""
         now = datetime.utcnow()
         result = await self.session.execute(
             select(Subscription).where(
@@ -452,8 +496,10 @@ class SubscriptionService:
                 seller = await self.session.get(Seller, target_seller_id)
                 if seller:
                     seller.subscription_plan = "none"
+                    # Set 7-day grace period before blocking
+                    seller.grace_period_until = now + timedelta(days=7)
 
-                # Send expiry notification
+                # Send expiry notification with grace period info
                 try:
                     from backend.app.services.telegram_notify import notify_seller_subscription_expired, resolve_notification_chat_id
                     _chat_id = await resolve_notification_chat_id(self.session, target_seller_id)
@@ -464,6 +510,44 @@ class SubscriptionService:
             expired += 1
 
         return expired
+
+    async def check_grace_period_expired(self) -> int:
+        """Block sellers whose grace period has expired without renewal. Returns count blocked."""
+        now = datetime.utcnow()
+        result = await self.session.execute(
+            select(Seller).where(
+                Seller.grace_period_until.isnot(None),
+                Seller.grace_period_until <= now,
+                Seller.subscription_plan != "active",
+                Seller.is_blocked == False,  # noqa: E712
+                Seller.deleted_at.is_(None),
+            )
+        )
+        blocked = 0
+        for seller in result.scalars().all():
+            seller.is_blocked = True
+            seller.grace_period_until = None
+            logger.info(
+                "Seller blocked after grace period expired",
+                seller_id=seller.seller_id,
+            )
+
+            # Notify seller
+            try:
+                from backend.app.services.telegram_notify import resolve_notification_chat_id
+                _chat_id = await resolve_notification_chat_id(self.session, seller.seller_id)
+                from backend.app.services.telegram_notify import send_notification
+                await send_notification(
+                    _chat_id,
+                    "🚫 Ваш магазин заблокирован из-за неоплаченной подписки.\n"
+                    "Оплатите подписку в настройках, чтобы разблокировать."
+                )
+            except Exception as e:
+                logger.warning("Grace period block notification failed", seller_id=seller.seller_id, error=str(e))
+
+            blocked += 1
+
+        return blocked
 
     async def check_expiring_subscriptions(self) -> None:
         """Send notifications for subscriptions expiring in 7 or 1 day."""

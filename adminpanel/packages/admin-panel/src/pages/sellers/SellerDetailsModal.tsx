@@ -876,33 +876,52 @@ export function SellerDetailsModal({ seller, onClose, onSuccess, onUpdate }: Sel
               </div>
             </div>
 
-            {/* === Payment (YuKassa) === */}
+            {/* === Payment (YuKassa OAuth) === */}
             <div ref={(el) => { sectionRefs.current['payment'] = el; }} className="sdm-section">
               <div className="sdm-section-header">
                 <h3 className="sdm-section-title"><CreditCard size={16} /> ЮКасса</h3>
               </div>
               <p className="sdm-hint">
-                ID аккаунта продавца в системе ЮКасса. Если задан — при принятии заказа автоматически создаётся платёж с разделением денег (комиссия платформы + перевод продавцу).
+                Продавец подключает свой аккаунт ЮКассы через OAuth. Платежи поступают напрямую на его счёт.
+                Комиссия платформы копится и оплачивается вместе с подпиской.
               </p>
-              <div className="sdm-edit-field">
-                <label className="sdm-edit-label">YooKassa Account ID</label>
-                <div className="sdm-inline-row">
-                  <input
-                    className="sdm-edit-input"
-                    type="text"
-                    value={seller.yookassa_account_id ?? ''}
-                    placeholder="Не подключён"
-                    onChange={(e) => onUpdate({ ...seller, yookassa_account_id: e.target.value || null })}
-                  />
+              <div className="sdm-stat-row" style={{ marginTop: 'var(--space-3)' }}>
+                <div className="sdm-stat-item">
+                  <span className="sdm-stat-label">Статус ЮКассы</span>
+                  <span className="sdm-stat-value">
+                    {seller.yookassa_oauth_token
+                      ? '✅ Подключён (OAuth)'
+                      : '❌ Не подключён'}
+                  </span>
+                </div>
+                {seller.yookassa_shop_id && (
+                  <div className="sdm-stat-item">
+                    <span className="sdm-stat-label">Shop ID</span>
+                    <span className="sdm-stat-value">{seller.yookassa_shop_id}</span>
+                  </div>
+                )}
+                {seller.yookassa_connected_at && (
+                  <div className="sdm-stat-item">
+                    <span className="sdm-stat-label">Подключено</span>
+                    <span className="sdm-stat-value">{new Date(seller.yookassa_connected_at).toLocaleDateString('ru')}</span>
+                  </div>
+                )}
+                <div className="sdm-stat-item">
+                  <span className="sdm-stat-label">Баланс комиссии</span>
+                  <span className="sdm-stat-value">{(seller.commission_balance ?? 0).toFixed(2)} ₽</span>
+                </div>
+              </div>
+              {(seller.commission_balance ?? 0) > 0 && (
+                <div style={{ marginTop: 'var(--space-3)' }}>
                   <button
-                    className="sdm-btn sdm-btn--primary"
+                    className="sdm-btn sdm-btn--secondary"
                     disabled={loading}
                     onClick={async () => {
                       try {
                         setLoading(true);
-                        const val = seller.yookassa_account_id || '';
-                        await updateSellerField(seller.tg_id, 'yookassa_account_id', val || 'null');
-                        toast.success('YooKassa Account ID обновлён');
+                        await updateSellerField(seller.tg_id, 'commission_balance', '0');
+                        onUpdate({ ...seller, commission_balance: 0 });
+                        toast.success('Баланс комиссии сброшен');
                         onSuccess();
                       } catch (e) {
                         toast.error(e instanceof Error ? e.message : 'Ошибка');
@@ -911,41 +930,10 @@ export function SellerDetailsModal({ seller, onClose, onSuccess, onUpdate }: Sel
                       }
                     }}
                   >
-                    Сохранить
+                    Сбросить комиссию
                   </button>
-                  {seller.yookassa_account_id && (
-                    <button
-                      className="sdm-btn sdm-btn--secondary"
-                      disabled={loading}
-                      onClick={async () => {
-                        try {
-                          setLoading(true);
-                          await updateSellerField(seller.tg_id, 'yookassa_account_id', 'null');
-                          onUpdate({ ...seller, yookassa_account_id: null });
-                          toast.success('YooKassa Account ID удалён');
-                          onSuccess();
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : 'Ошибка');
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                    >
-                      Отключить
-                    </button>
-                  )}
                 </div>
-              </div>
-              <div className="sdm-stat-row" style={{ marginTop: 'var(--space-3)' }}>
-                <div className="sdm-stat-item">
-                  <span className="sdm-stat-label">Статус оплаты</span>
-                  <span className="sdm-stat-value">
-                    {seller.yookassa_account_id
-                      ? '✅ Подключён'
-                      : '❌ Не подключён'}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* === Placement === */}

@@ -69,8 +69,14 @@ class Seller(Base):
     subscription_plan: Mapped[str] = mapped_column(String(20), default='free')
     # Per-seller commission override (null = use global setting from GlobalSettings)
     commission_percent: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
-    # YuKassa marketplace account ID (assigned after seller onboarding at YuKassa)
-    yookassa_account_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # YuKassa OAuth (Partner API) — seller's own YuKassa account
+    yookassa_oauth_token: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    yookassa_shop_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    yookassa_connected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # Accumulated platform commission balance (paid with subscription)
+    commission_balance: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0)
+    # Grace period: if subscription expires, seller has until this date to pay before block
+    grace_period_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     # Weekly limit schedule: JSON {"0": 10, "1": 10, ..., "6": 5} (0=Mon, 6=Sun), null = use default_daily_limit
     weekly_schedule: Mapped[Optional[dict]] = mapped_column(JSON(), nullable=True)
     # Shop banner (YouTube-style), path like /static/uploads/shop_banners/123.webp

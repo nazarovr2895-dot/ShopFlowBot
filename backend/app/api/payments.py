@@ -1,4 +1,4 @@
-"""Payment API endpoints for YuKassa split payment integration."""
+"""Payment API endpoints for YuKassa payment integration via seller OAuth."""
 import ipaddress
 from typing import Optional
 

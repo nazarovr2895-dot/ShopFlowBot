@@ -4,6 +4,7 @@ import {
   getSubscriptionStatus,
   createSubscription,
   getBranchesSubscriptionStatus,
+  getCommissionBalance,
 } from '../../../api/sellerClient';
 import type {
   SubscriptionPricesResponse,
@@ -201,14 +202,16 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [commissionBalance, setCommissionBalance] = useState<number>(0);
 
   const isActive = me.subscription_plan === 'active';
 
   useEffect(() => {
-    Promise.all([getSubscriptionPrices(), getSubscriptionStatus()])
-      .then(([p, s]) => {
+    Promise.all([getSubscriptionPrices(), getSubscriptionStatus(), getCommissionBalance()])
+      .then(([p, s, c]) => {
         setPrices(p);
         setSubStatus(s);
+        setCommissionBalance(c.balance);
       })
       .catch(() => toast.error('Не удалось загрузить данные подписки'))
       .finally(() => setLoading(false));
@@ -317,6 +320,32 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
         </div>
       </div>
 
+      {/* Payment breakdown */}
+      {commissionBalance > 0 && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          background: 'rgba(234, 179, 8, 0.06)',
+          border: '1px solid rgba(234, 179, 8, 0.15)',
+          marginBottom: '0.75rem',
+          fontSize: '0.85rem',
+          lineHeight: 1.6,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Подписка:</span>
+            <span>{formatPrice(prices?.prices[selectedPeriod] ?? 0)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Комиссия платформы:</span>
+            <span>{formatPrice(commissionBalance)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, borderTop: '1px solid rgba(234, 179, 8, 0.2)', paddingTop: '0.375rem', marginTop: '0.375rem' }}>
+            <span>Итого:</span>
+            <span>{formatPrice((prices?.prices[selectedPeriod] ?? 0) + commissionBalance)}</span>
+          </div>
+        </div>
+      )}
+
       {/* Pay Button */}
       <button
         className="btn btn-primary"
@@ -327,8 +356,8 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
         {paying
           ? 'Создание платежа...'
           : isActive
-            ? `Продлить за ${formatPrice(prices?.prices[selectedPeriod] ?? 0)}`
-            : `Оплатить ${formatPrice(prices?.prices[selectedPeriod] ?? 0)}`
+            ? `Продлить за ${formatPrice((prices?.prices[selectedPeriod] ?? 0) + commissionBalance)}`
+            : `Оплатить ${formatPrice((prices?.prices[selectedPeriod] ?? 0) + commissionBalance)}`
         }
       </button>
 

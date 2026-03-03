@@ -67,10 +67,15 @@ class Settings(BaseSettings):
     # DaData API configuration
     DADATA_API_KEY: Optional[str] = Field(default=None, description="DaData API key for INN validation")
 
-    # YuKassa payment configuration (split payments for marketplace)
-    YOOKASSA_SHOP_ID: Optional[str] = Field(default=None, description="YuKassa marketplace shop ID")
-    YOOKASSA_SECRET_KEY: Optional[str] = Field(default=None, description="YuKassa secret key")
+    # YuKassa payment configuration (platform account for subscriptions)
+    YOOKASSA_SHOP_ID: Optional[str] = Field(default=None, description="YuKassa platform shop ID (for subscription payments)")
+    YOOKASSA_SECRET_KEY: Optional[str] = Field(default=None, description="YuKassa secret key (for subscription payments)")
     YOOKASSA_RETURN_URL: Optional[str] = Field(default=None, description="URL to return to after YuKassa payment (miniapp)")
+
+    # YuKassa OAuth (Partner API — sellers connect their own YuKassa accounts)
+    YOOKASSA_OAUTH_CLIENT_ID: Optional[str] = Field(default=None, description="YuKassa OAuth application Client ID")
+    YOOKASSA_OAUTH_CLIENT_SECRET: Optional[str] = Field(default=None, description="YuKassa OAuth application Client Secret")
+    YOOKASSA_OAUTH_REDIRECT_URI: Optional[str] = Field(default=None, description="YuKassa OAuth redirect URI (e.g. https://seller.flurai.ru/yookassa/callback)")
 
     # Subscription configuration
     SUBSCRIPTION_BASE_PRICE: int = Field(default=990, description="Base monthly subscription price in rubles")

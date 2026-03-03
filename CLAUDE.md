@@ -6,7 +6,7 @@ E-commerce платформа через Telegram Mini App: Backend (FastAPI), B
 
 - Два набора order-endpoints: `/orders/` (бот, internal) и `/seller-web/orders/` (seller panel, JWT)
 - Auth: `INTERNAL_API_KEY` для bot→backend, `X-Seller-Token` JWT для seller panel, `X-Admin-Token` для platform admin
-- Payment: YooKassa split payments (marketplace transfers)
+- Payment: YooKassa Partner API (OAuth) — each seller connects their own YooKassa account, payments go directly to seller. Platform commission tracked via CommissionLedger, paid with monthly subscription.
 - Все user-facing строки — на русском
 
 ### Frontend monorepo (`adminpanel/`)

@@ -193,7 +193,7 @@ class SellerService:
         "fio", "phone", "shop_name", "description",
         "address_name", "map_url", "delivery_type", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "logo_url", "ogrn",
-        "commission_percent", "yookassa_account_id", "use_delivery_zones",
+        "commission_percent", "commission_balance", "use_delivery_zones",
         "geo_lat", "geo_lon", "max_branches", "gift_note_enabled",
     }
     
@@ -508,7 +508,10 @@ class SellerService:
             "logo_url": getattr(seller, "logo_url", None),
             "working_hours": getattr(seller, "working_hours", None),
             "commission_percent": getattr(seller, "commission_percent", None),
-            "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
+            "yookassa_oauth_token": getattr(seller, "yookassa_oauth_token", None),
+            "yookassa_shop_id": getattr(seller, "yookassa_shop_id", None),
+            "yookassa_connected_at": getattr(seller, "yookassa_connected_at", None),
+            "commission_balance": float(getattr(seller, "commission_balance", 0) or 0),
             "use_delivery_zones": getattr(seller, "use_delivery_zones", False),
             # Delivery slot settings
             "deliveries_per_slot": getattr(seller, "deliveries_per_slot", None),
@@ -761,7 +764,10 @@ class SellerService:
             points_expire_days=seller.points_expire_days,
             subscription_plan=seller.subscription_plan,
             commission_percent=seller.commission_percent,
-            yookassa_account_id=seller.yookassa_account_id,
+            yookassa_oauth_token=seller.yookassa_oauth_token,
+            yookassa_shop_id=seller.yookassa_shop_id,
+            yookassa_connected_at=seller.yookassa_connected_at,
+            commission_balance=seller.commission_balance,
             weekly_schedule=seller.weekly_schedule,
             banner_url=seller.banner_url,
             working_hours=seller.working_hours,
@@ -951,12 +957,13 @@ class SellerService:
                 seller.commission_percent = val
         elif field == "ogrn":
             seller.ogrn = (value or "").strip() or None
-        elif field == "yookassa_account_id":
-            value_stripped = (str(value) if value is not None else "").strip()
-            if not value_stripped or value_stripped.lower() in ("null", "none", ""):
-                seller.yookassa_account_id = None
-            else:
-                seller.yookassa_account_id = value_stripped
+        elif field == "commission_balance":
+            from decimal import Decimal
+            value_stripped = (str(value) if value is not None else "0").strip()
+            try:
+                seller.commission_balance = Decimal(value_stripped)
+            except Exception:
+                seller.commission_balance = Decimal("0")
         elif field == "use_delivery_zones":
             seller.use_delivery_zones = bool(value)
         elif field == "gift_note_enabled":
@@ -1401,7 +1408,10 @@ class SellerService:
                 "is_deleted": seller.deleted_at is not None,
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
                 "commission_percent": getattr(seller, "commission_percent", None),
-                "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
+                "yookassa_oauth_token": getattr(seller, "yookassa_oauth_token", None),
+                "yookassa_shop_id": getattr(seller, "yookassa_shop_id", None),
+                "yookassa_connected_at": getattr(seller, "yookassa_connected_at", None),
+                "commission_balance": float(getattr(seller, "commission_balance", 0) or 0),
                 "max_branches": getattr(seller, "max_branches", None),
                 "branch_count": branch_count,
                 "branches": [],
@@ -1490,7 +1500,10 @@ class SellerService:
                 "is_deleted": seller.deleted_at is not None,
                 "deleted_at": seller.deleted_at.isoformat() if seller.deleted_at else None,
                 "commission_percent": getattr(seller, "commission_percent", None),
-                "yookassa_account_id": getattr(seller, "yookassa_account_id", None),
+                "yookassa_oauth_token": getattr(seller, "yookassa_oauth_token", None),
+                "yookassa_shop_id": getattr(seller, "yookassa_shop_id", None),
+                "yookassa_connected_at": getattr(seller, "yookassa_connected_at", None),
+                "commission_balance": float(getattr(seller, "commission_balance", 0) or 0),
                 "max_branches": getattr(seller, "max_branches", None),
                 "branch_count": branch_count,
                 "branches": [],
