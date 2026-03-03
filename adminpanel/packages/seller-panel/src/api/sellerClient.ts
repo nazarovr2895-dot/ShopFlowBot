@@ -111,6 +111,9 @@ export interface SellerMe {
   max_branches?: number | null;
   // Gift note
   gift_note_enabled?: boolean;
+  // Contact info
+  contact_phone?: string | null;
+  contact_username?: string | null;
 }
 
 export interface DeliveryZone {
@@ -309,6 +312,8 @@ export async function updateMe(payload: {
   metro_id?: number | null;
   metro_walk_minutes?: number | null;
   gift_note_enabled?: boolean;
+  contact_phone?: string;
+  contact_username?: string;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',

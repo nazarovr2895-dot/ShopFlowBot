@@ -137,6 +137,9 @@ class UpdateMeBody(BaseModel):
     metro_walk_minutes: Optional[int] = None
     # Gift note toggle
     gift_note_enabled: Optional[bool] = None
+    # Contact info
+    contact_phone: Optional[str] = None
+    contact_username: Optional[str] = None
 
 
 @router.get("/me")
@@ -237,6 +240,12 @@ async def update_me(
     # Gift note toggle
     if body.gift_note_enabled is not None:
         await service.update_field(seller_id, "gift_note_enabled", body.gift_note_enabled)
+    # Contact info
+    if body.contact_phone is not None:
+        await service.update_field(seller_id, "contact_phone", body.contact_phone.strip())
+    if body.contact_username is not None:
+        val = body.contact_username.strip().lstrip("@")
+        await service.update_field(seller_id, "contact_username", val)
     result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
     seller = result.scalar_one_or_none()
     if seller:

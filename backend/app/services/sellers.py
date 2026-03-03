@@ -521,6 +521,8 @@ class SellerService:
             "geo_lat": getattr(seller, "geo_lat", None),
             "geo_lon": getattr(seller, "geo_lon", None),
             "gift_note_enabled": getattr(seller, "gift_note_enabled", False),
+            "contact_phone": getattr(seller, "contact_phone", None),
+            "contact_username": getattr(seller, "contact_username", None),
         }
 
     async def create_seller(

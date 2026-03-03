@@ -162,6 +162,7 @@ export interface BuyerOrder {
   preorder_delivery_date?: string | null;
   shop_name?: string;
   seller_username?: string | null;
+  seller_contact_phone?: string | null;
   first_product_photo?: string | null;
   seller_address_name?: string | null;
   seller_map_url?: string | null;
@@ -218,6 +219,8 @@ export interface PublicSellerDetail {
   owner_username?: string | null;
   owner_tg_id?: number | null;
   owner_fio?: string | null;
+  contact_phone?: string | null;
+  contact_username?: string | null;
   inn?: string | null;
   ogrn?: string | null;
   gift_note_enabled?: boolean;

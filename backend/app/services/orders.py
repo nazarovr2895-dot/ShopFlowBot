@@ -814,7 +814,7 @@ class OrderService:
     async def get_buyer_orders(self, buyer_id: int) -> List[Dict[str, Any]]:
         """Get orders for a buyer, enriched with shop_name, seller_username, first product photo."""
         query = (
-            select(Order, Seller.shop_name, User.username, Seller.address_name, Seller.map_url)
+            select(Order, Seller.shop_name, User.username, Seller.address_name, Seller.map_url, Seller.contact_username, Seller.contact_phone)
             .outerjoin(Seller, Order.seller_id == Seller.seller_id)
             .outerjoin(User, Order.seller_id == User.tg_id)
             .where(Order.buyer_id == buyer_id)
@@ -863,7 +863,8 @@ class OrderService:
                     else None
                 ),
                 "shop_name": row.shop_name or "Магазин",
-                "seller_username": row.username,
+                "seller_username": row.contact_username or row.username,
+                "seller_contact_phone": row.contact_phone,
                 "first_product_photo": product_photos.get(order_first_pid.get(row[0].id)),
                 "seller_address_name": row.address_name,
                 "seller_map_url": row.map_url,

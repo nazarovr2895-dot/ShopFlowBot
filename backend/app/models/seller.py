@@ -98,6 +98,9 @@ class Seller(Base):
     geo_lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Telegram ID for receiving order notifications (null = use owner_id)
     contact_tg_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    # Public contact info (editable in seller panel)
+    contact_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    contact_username: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # TG @username для связи
     # Network seller: max allowed branches (null = regular seller, >0 = network)
     max_branches: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
     search_vector = mapped_column(_TSVector, nullable=True)

@@ -700,6 +700,16 @@
   min-width: 0;
 }
 
+.shop-details__phone-link {
+  color: var(--tg-theme-link-color, #2481cc);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.shop-details__phone-link:active {
+  opacity: 0.6;
+}
+
 .shop-details__metro-dot {
   display: inline-block;
   width: 8px;

@@ -5,7 +5,7 @@ import { useEditMode } from '@shared/hooks/useEditMode';
 import { LocationPicker } from '../../../components/LocationPicker';
 import { MetroSearchField } from '@shared/components/MetroSearchField';
 import { Toggle } from '@shared/components/ui';
-import { Store, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, MessageSquare } from 'lucide-react';
+import { Store, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, MessageSquare, Phone, AtSign } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './ShopSettingsTab.css';
 
@@ -30,6 +30,8 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
     description: me.description || '',
     deliveryType: me.delivery_type || '',
     addressName: me.address_name || '',
+    contactPhone: me.contact_phone || '',
+    contactUsername: me.contact_username || '',
   });
 
   const [showMapPicker, setShowMapPicker] = useState(false);
@@ -51,6 +53,8 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
         description: shopEdit.draft.description.trim() || undefined,
         delivery_type: shopEdit.draft.deliveryType.trim() || undefined,
         address_name: shopEdit.draft.addressName.trim() || undefined,
+        contact_phone: shopEdit.draft.contactPhone.trim(),
+        contact_username: shopEdit.draft.contactUsername.trim(),
       };
       // Metro fields (0 = clear)
       if (me.has_metro) {
@@ -198,6 +202,28 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
               />
             )}
 
+            {/* Row 6: Contact phone + Telegram username */}
+            <div className="shop-form__row-2col">
+              <FormField label="Рабочий телефон">
+                <input
+                  type="tel"
+                  value={shopEdit.draft.contactPhone}
+                  onChange={(e) => shopEdit.updateField('contactPhone', e.target.value)}
+                  placeholder="+7 (999) 123-45-67"
+                  className="form-input"
+                />
+              </FormField>
+              <FormField label="Telegram для связи">
+                <input
+                  type="text"
+                  value={shopEdit.draft.contactUsername}
+                  onChange={(e) => shopEdit.updateField('contactUsername', e.target.value)}
+                  placeholder="@username"
+                  className="form-input"
+                />
+              </FormField>
+            </div>
+
             {/* Actions */}
             <div className="shop-form__actions">
               <button
@@ -318,6 +344,22 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
                   </span>
                 </div>
               )}
+
+              {/* Contact phone + Telegram */}
+              <div className="shop-view__item">
+                <div className="shop-view__label-row">
+                  <Phone size={14} className="shop-view__label-icon" />
+                  <span className="shop-view__label">Телефон</span>
+                </div>
+                <span className="shop-view__value">{me.contact_phone || <span style={{ color: 'var(--text-tertiary)' }}>Не указан</span>}</span>
+              </div>
+              <div className="shop-view__item">
+                <div className="shop-view__label-row">
+                  <AtSign size={14} className="shop-view__label-icon" />
+                  <span className="shop-view__label">Telegram для связи</span>
+                </div>
+                <span className="shop-view__value">{me.contact_username ? `@${me.contact_username}` : <span style={{ color: 'var(--text-tertiary)' }}>Не указан</span>}</span>
+              </div>
             </div>
           </div>
         )}

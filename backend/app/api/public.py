@@ -121,6 +121,8 @@ class PublicSellerDetail(BaseModel):
     owner_username: Optional[str] = None
     owner_tg_id: Optional[int] = None
     owner_fio: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_username: Optional[str] = None
     inn: Optional[str] = None
     ogrn: Optional[str] = None
     gift_note_enabled: bool = False
@@ -874,6 +876,8 @@ async def get_public_seller_detail(
         owner_username=row.owner_username,
         owner_tg_id=seller.seller_id,
         owner_fio=row.owner_fio,
+        contact_phone=getattr(seller, "contact_phone", None),
+        contact_username=getattr(seller, "contact_username", None),
         inn=seller.inn,
         ogrn=seller.ogrn,
         gift_note_enabled=getattr(seller, "gift_note_enabled", False),
