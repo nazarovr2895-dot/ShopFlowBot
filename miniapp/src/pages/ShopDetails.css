@@ -340,6 +340,35 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+/* Contact toggle button */
+.shop-details__contact-toggle {
+  gap: 4px;
+}
+
+.shop-details__contact-chevron {
+  transition: transform 0.25s ease;
+}
+
+.shop-details__contact-toggle--open .shop-details__contact-chevron {
+  transform: rotate(180deg);
+}
+
+/* Contact dropdown */
+.shop-details__contact-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
+.shop-details__contact-dropdown--open {
+  max-height: 100px;
+  opacity: 1;
+}
+
 /* Clickable shop name */
 .shop-details__name--clickable {
   cursor: pointer;

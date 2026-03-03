@@ -6,7 +6,7 @@ import {
 } from '../../api/sellerClient';
 import type { BranchDetail } from '../../api/sellerClient';
 import { useToast, SlidePanel } from '@shared/components/ui';
-import { GitBranch, Plus, Trash2, MapPin, Pencil, Truck, X, KeyRound, Copy, Check, MessageCircle, LogIn, Globe } from 'lucide-react';
+import { GitBranch, Plus, Trash2, MapPin, Pencil, Truck, X, KeyRound, Copy, Check, MessageCircle, LogIn } from 'lucide-react';
 
 const DELIVERY_OPTIONS = [
   { value: '', label: 'Не указано' },
@@ -642,81 +642,69 @@ export function SellerBranches() {
                 </div>
               )}
 
-              {/* Info rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {b.address_name && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                    <MapPin size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Адрес</div>
-                      <div>{b.address_name}</div>
+              {/* Info table */}
+              <div style={{
+                background: 'var(--bg-secondary, #1e1e2e)', borderRadius: 10,
+                padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: 0,
+                border: '1px solid var(--border, #2a2a3e)',
+              }}>
+                {[
+                  b.address_name && { label: 'Адрес', value: [b.address_name, getCityName(b.city_id)].filter(Boolean).join(', ') },
+                  b.delivery_type && { label: 'Доставка', value: DELIVERY_LABELS[b.delivery_type] || b.delivery_type },
+                  b.web_login && { label: 'Логин', value: b.web_login, mono: true },
+                  b.contact_tg_id && { label: 'Telegram ID', value: String(b.contact_tg_id) },
+                  (b.geo_lat != null && b.geo_lon != null) && {
+                    label: 'На карте',
+                    value: b.address_name || 'Открыть',
+                    link: `https://yandex.ru/maps/?pt=${b.geo_lon},${b.geo_lat}&z=16`,
+                  },
+                  b.working_hours && Object.keys(b.working_hours).length > 0 && (() => {
+                    const hours = b.working_hours as unknown as Record<string, { open: string; close: string }>;
+                    const vals = Object.values(hours);
+                    const allSame = vals.length > 0 && vals.every(v => v.open === vals[0].open && v.close === vals[0].close);
+                    return {
+                      label: 'Режим работы',
+                      value: allSame
+                        ? `${vals[0].open}–${vals[0].close} (ежедневно)`
+                        : Object.entries(hours).map(([d, h]) =>
+                            `${['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][Number(d)] || d}: ${h.open}–${h.close}`
+                          ).join('\n'),
+                    };
+                  })(),
+                ].filter(Boolean).map((row, i, arr) => {
+                  const r = row as { label: string; value: string; mono?: boolean; link?: string };
+                  return (
+                    <div
+                      key={r.label}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                        padding: '0.6rem 0.5rem', fontSize: '0.82rem',
+                        borderBottom: i < arr.length - 1 ? '1px solid var(--border, #2a2a3e)' : 'none',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-secondary)', flexShrink: 0, marginRight: '1rem' }}>{r.label}</span>
+                      {r.link ? (
+                        <a
+                          href={r.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: 'var(--primary, #6366f1)', textDecoration: 'none', textAlign: 'right' }}
+                        >
+                          {r.value}
+                        </a>
+                      ) : (
+                        <span style={{
+                          textAlign: 'right',
+                          fontFamily: r.mono ? 'monospace' : undefined,
+                          whiteSpace: 'pre-line',
+                          fontSize: r.mono ? '0.78rem' : undefined,
+                        }}>
+                          {r.value}
+                        </span>
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {b.city_id && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                    <Globe size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Город</div>
-                      <div>{getCityName(b.city_id) || `ID: ${b.city_id}`}</div>
-                    </div>
-                  </div>
-                )}
-
-                {b.delivery_type && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                    <Truck size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Доставка</div>
-                      <div>{DELIVERY_LABELS[b.delivery_type] || b.delivery_type}</div>
-                    </div>
-                  </div>
-                )}
-
-                {b.web_login && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                    <KeyRound size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Логин</div>
-                      <div style={{ fontFamily: 'monospace' }}>{b.web_login}</div>
-                    </div>
-                  </div>
-                )}
-
-                {b.contact_tg_id && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                    <MessageCircle size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Telegram ID</div>
-                      <div>{b.contact_tg_id}</div>
-                    </div>
-                  </div>
-                )}
-
-                {(b.geo_lat != null && b.geo_lon != null) && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                    <MapPin size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Координаты</div>
-                      <div>{b.geo_lat}, {b.geo_lon}</div>
-                    </div>
-                  </div>
-                )}
-
-                {b.working_hours && Object.keys(b.working_hours).length > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-secondary)', flexShrink: 0, marginTop: 2 }}>🕐</span>
-                    <div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 500 }}>Рабочие часы</div>
-                      <div>{Object.entries(b.working_hours as unknown as Record<string, { open: string; close: string }>).map(([day, h]) => (
-                        <div key={day} style={{ fontSize: '0.8rem' }}>
-                          {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][Number(day)] || day}: {h.open}–{h.close}
-                        </div>
-                      ))}</div>
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
 
               {/* Actions */}

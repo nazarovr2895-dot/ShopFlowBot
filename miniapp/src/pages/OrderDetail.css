@@ -2,6 +2,7 @@
   padding: 16px;
   padding-top: calc(16px + env(safe-area-inset-top, 0));
   padding-bottom: 80px;
+  overflow-x: hidden;
 }
 
 /* Telegram fullscreen: --tg-header-offset already includes safe-area */
@@ -114,9 +115,8 @@
 
 .order-detail__shop-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .order-detail__shop-label {
@@ -136,13 +136,14 @@
 .order-detail__shop-actions {
   display: flex;
   gap: 8px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .order-detail__shop-btn,
 .order-detail__contact-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 8px 14px;
   border: 1.5px solid var(--tg-theme-button-color);
@@ -154,7 +155,8 @@
   cursor: pointer;
   white-space: nowrap;
   transition: opacity 0.15s;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .order-detail__shop-btn:active,
