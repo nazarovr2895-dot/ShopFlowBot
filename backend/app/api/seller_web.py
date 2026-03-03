@@ -152,10 +152,19 @@ async def get_me(
         if not data:
             return {}
         bot_username = os.getenv("BOT_USERNAME", "")
+        mini_app_short_name = os.getenv("MINI_APP_SHORT_NAME", "")
         if bot_username:
-            data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}"
+            if mini_app_short_name:
+                data["shop_link"] = f"https://t.me/{bot_username}/{mini_app_short_name}?startapp=seller_{seller_id}"
+            else:
+                data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}"
         else:
             data["shop_link"] = None
+        mini_app_url = os.getenv("MINI_APP_URL", "")
+        if mini_app_url:
+            data["shop_link_web"] = f"{mini_app_url}/shop/{seller_id}"
+        else:
+            data["shop_link_web"] = None
         # Add branch info
         from backend.app.models.seller import Seller
         data["owner_id"] = owner_id
@@ -288,7 +297,16 @@ async def update_me(
     if not data:
         return {}
     bot_username = os.getenv("BOT_USERNAME", "")
-    data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}" if bot_username else None
+    mini_app_short_name = os.getenv("MINI_APP_SHORT_NAME", "")
+    if bot_username:
+        if mini_app_short_name:
+            data["shop_link"] = f"https://t.me/{bot_username}/{mini_app_short_name}?startapp=seller_{seller_id}"
+        else:
+            data["shop_link"] = f"https://t.me/{bot_username}?start=seller_{seller_id}"
+    else:
+        data["shop_link"] = None
+    mini_app_url = os.getenv("MINI_APP_URL", "")
+    data["shop_link_web"] = f"{mini_app_url}/shop/{seller_id}" if mini_app_url else None
     return data
 
 

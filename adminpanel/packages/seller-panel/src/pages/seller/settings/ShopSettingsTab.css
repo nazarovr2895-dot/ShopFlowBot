@@ -394,6 +394,15 @@
   border: 1px solid var(--border-subtle);
 }
 
+.shop-link__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 60px;
+}
+
 .shop-link__url {
   flex: 1;
   word-break: break-all;

@@ -1,8 +1,9 @@
 from aiogram import Router, types
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.types import ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from bot.api_client.buyers import api_register_user, api_get_user
+from bot.config import MINI_APP_URL
 
 router = Router()
 
@@ -20,8 +21,7 @@ WELCOME_TEXT = (
 WELCOME_SELLER_LINK = (
     "Вы перешли в магазин!\n"
     "\n"
-    "Откройте приложение через кнопку меню — "
-    "там можно посмотреть товары и оформить заказ."
+    "Нажмите кнопку ниже, чтобы посмотреть товары и оформить заказ."
 )
 
 @router.message(CommandStart())
@@ -52,9 +52,15 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
     # 4. Переход по ссылке магазина
     if target_seller_id:
         await state.update_data(current_seller_id=target_seller_id)
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="Открыть магазин",
+                web_app=WebAppInfo(url=f"{MINI_APP_URL}/shop/{target_seller_id}"),
+            )
+        ]])
         await message.answer(
             WELCOME_SELLER_LINK,
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=kb,
         )
         return
 

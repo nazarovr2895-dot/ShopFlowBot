@@ -65,6 +65,7 @@ export interface SellerMe {
   weekly_schedule?: Record<string, number | { delivery: number; pickup: number }> | null;
   working_hours?: Record<string, { open: string; close: string } | null> | null;
   shop_link: string | null;
+  shop_link_web: string | null;
   delivery_type?: string;
   delivery_price?: number;
   city_id?: number;

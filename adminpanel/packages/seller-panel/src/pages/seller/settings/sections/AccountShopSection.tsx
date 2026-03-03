@@ -33,8 +33,12 @@ export function AccountShopSection({ me }: Props) {
         ) : '—'}
       />
       <DataRow
-        label="Ссылка на магазин"
+        label="Ссылка (Telegram)"
         value={me.shop_link ? <code className="account-code">{me.shop_link}</code> : '—'}
+      />
+      <DataRow
+        label="Ссылка (Веб)"
+        value={me.shop_link_web ? <code className="account-code">{me.shop_link_web}</code> : '—'}
       />
     </div>
   );

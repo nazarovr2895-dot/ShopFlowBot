@@ -323,7 +323,7 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
         )}
       </div>
 
-      {/* ── Section 2: Shop link ──────────────────── */}
+      {/* ── Section 2: Shop links ─────────────────── */}
       <div className="shop-card">
         <div className="shop-card__header">
           <div className="shop-card__header-left">
@@ -331,7 +331,7 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
               <LinkIcon size={18} />
             </div>
             <div>
-              <h3 className="shop-card__title">Ссылка на магазин</h3>
+              <h3 className="shop-card__title">Ссылки на магазин</h3>
               <p className="shop-card__subtitle">Отправьте клиентам — они сразу попадут в каталог</p>
             </div>
           </div>
@@ -339,6 +339,7 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
 
         {me.shop_link ? (
           <div className="shop-link">
+            <span className="shop-link__label">Telegram</span>
             <code className="shop-link__url">{me.shop_link}</code>
             <button
               className="shop-link__copy-btn"
@@ -353,6 +354,23 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
           </div>
         ) : (
           <p className="shop-card__muted">Ссылка генерируется автоматически. Обратитесь к администратору.</p>
+        )}
+
+        {me.shop_link_web && (
+          <div className="shop-link" style={{ marginTop: 8 }}>
+            <span className="shop-link__label">Веб</span>
+            <code className="shop-link__url">{me.shop_link_web}</code>
+            <button
+              className="shop-link__copy-btn"
+              onClick={() => {
+                navigator.clipboard.writeText(me.shop_link_web!);
+                toast.success('Ссылка скопирована');
+              }}
+            >
+              <Copy size={14} />
+              Копировать
+            </button>
+          </div>
         )}
       </div>
 

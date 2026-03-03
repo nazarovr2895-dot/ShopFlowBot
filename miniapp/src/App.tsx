@@ -25,6 +25,7 @@ import { useLocationCache } from './hooks/useLocationCache';
 import type { SellerFilters } from './types';
 import { isTelegram, getTelegramInitData } from './utils/environment';
 import { useTelegramWebApp } from './hooks/useTelegramWebApp';
+import WebApp from '@twa-dev/sdk';
 import './App.css';
 
 function AppContent() {
@@ -63,6 +64,20 @@ function AppContent() {
       setSettingsButton(true, () => navigate('/profile'));
     }
   }, [authInitialized, setSettingsButton, navigate]);
+
+  // Handle Telegram startapp deep link (e.g. ?startapp=seller_123)
+  useEffect(() => {
+    if (!authInitialized || !isTelegram()) return;
+    try {
+      const startParam = WebApp.initDataUnsafe?.start_param;
+      if (startParam?.startsWith('seller_')) {
+        const sellerId = startParam.replace('seller_', '');
+        if (sellerId && !isNaN(Number(sellerId))) {
+          navigate(`/shop/${sellerId}`, { replace: true });
+        }
+      }
+    } catch { /* ignore */ }
+  }, [authInitialized, navigate]);
 
   // Theme is now managed by useTheme hook which integrates with Telegram colorScheme
 
