@@ -950,7 +950,7 @@
 }
 
 .shop-details__product-card-info {
-  padding: 4px 12px 12px;
+  padding: 4px 10px 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -971,88 +971,99 @@
   font-weight: 500;
   color: var(--app-text-secondary, #666);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.3;
   text-align: left;
-  min-height: 2.6em;
 }
 
-.shop-details__product-card-bottom {
+/* Heart overlay на фото (верх-право) */
+.shop-details__product-card-heart-overlay {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 6px;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
-/* Группа иконок слева (лайк + поделиться) */
-.shop-details__product-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* Сердечко в нижней строке */
-.shop-details__product-card-action-heart.heart-icon {
+.shop-details__product-card-heart-overlay .heart-icon {
   filter: none;
-  color: var(--app-text-secondary, #999);
+  color: #ffffff;
 }
 
-.shop-details__product-card-action-heart.heart-icon--filled {
+.shop-details__product-card-heart-overlay .heart-icon--filled {
   color: #ff3b6e;
 }
 
-/* Кнопка поделиться */
-.shop-details__product-card-share {
-  background: transparent;
+[data-theme="dark"] .shop-details__product-card-heart-overlay {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Цена + корзина в одну строку */
+.shop-details__product-card-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+/* Круглая кнопка "+" для корзины */
+.shop-details__product-card-add-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #000000;
+  color: #ffffff;
   border: none;
-  padding: 0;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--app-text-secondary, #999);
-  width: 20px;
-  height: 20px;
   flex-shrink: 0;
+  padding: 0;
 }
 
-.shop-details__product-card-share svg {
-  pointer-events: none;
+.shop-details__product-card-add-circle:active {
+  opacity: 0.7;
 }
 
-.shop-details__product-card-add {
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #ffffff;
-  background: #000000;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  border-radius: 20px;
-  cursor: pointer;
-  box-shadow: none;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.shop-details__product-card-add span {
-  position: relative;
-  z-index: 1;
-}
-
-.shop-details__product-card-add:disabled {
-  opacity: 0.5;
+.shop-details__product-card-add-circle:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
   background: rgba(128, 128, 128, 0.3);
 }
 
-[data-theme="dark"] .shop-details__product-card-add {
+[data-theme="dark"] .shop-details__product-card-add-circle {
   background: #ffffff;
   color: #000000;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Компактный qty counter (в строке с ценой) */
+.shop-details__qty-counter--compact {
+  height: 28px;
+}
+
+.shop-details__qty-counter--compact .shop-details__qty-counter-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+}
+
+.shop-details__qty-counter--compact .shop-details__qty-counter-value {
+  min-width: 16px;
+  font-size: 12px;
 }
 
 /* Qty counter pill */
@@ -1103,15 +1114,6 @@
 
 [data-theme="dark"] .shop-details__qty-counter-value {
   color: #000000;
-}
-
-[data-theme="dark"] .shop-details__product-card-action-heart.heart-icon {
-  filter: none;
-  color: var(--app-text-secondary, #999);
-}
-
-[data-theme="dark"] .shop-details__product-card-share {
-  color: var(--app-text-secondary, #999);
 }
 
 /* Темная тема - специфичные стили */

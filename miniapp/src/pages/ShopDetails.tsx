@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import type { PublicSellerDetail, Product } from '../types';
 import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
-import { isBrowser, isTelegram } from '../utils/environment';
+import { isBrowser } from '../utils/environment';
 import { useShopCart } from '../contexts/ShopCartContext';
 import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal, LiquidGlassCard } from '../components';
 import { FloatingCartBar } from '../components/FloatingCartBar';
@@ -54,19 +54,11 @@ const DeliveryIcon = () => (
   </svg>
 );
 
-const ShareIcon = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-    <polyline points="16 6 12 2 8 6" />
-    <line x1="12" y1="2" x2="12" y2="15" />
-  </svg>
-);
-
 export function ShopDetails() {
   const { sellerId } = useParams<{ sellerId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { setBackButton, hapticFeedback, showAlert, webApp } = useTelegramWebApp();
+  const { setBackButton, hapticFeedback, showAlert } = useTelegramWebApp();
   const [seller, setSeller] = useState<PublicSellerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -335,27 +327,6 @@ export function ShopDetails() {
 
   const confirmPreorderDate = (productId: number, dateStr: string) => {
     addToCart(productId, dateStr);
-  };
-
-  const shareProduct = (product: Product, e: React.MouseEvent) => {
-    e.stopPropagation();
-    hapticFeedback('light');
-
-    const productUrl = `${window.location.origin}/shop/${sellerId}/product/${product.id}`;
-    const shareText = product.name;
-    const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(productUrl)}&text=${encodeURIComponent(shareText)}`;
-
-    if (isTelegram()) {
-      try {
-        webApp.openTelegramLink(telegramShareUrl);
-      } catch {
-        window.open(telegramShareUrl, '_blank');
-      }
-    } else if (navigator.share) {
-      navigator.share({ title: product.name, url: productUrl }).catch(() => {});
-    } else {
-      window.open(telegramShareUrl, '_blank');
-    }
   };
 
   const formatSubscriberLabel = (n: number): string => {
@@ -760,90 +731,83 @@ export function ShopDetails() {
                       className="shop-details__product-card-image"
                       placeholderClassName="shop-details__product-card-image-placeholder"
                     />
+                    {api.isAuthenticated() && !showDatePicker && (
+                      <div className="shop-details__product-card-heart-overlay" onClick={(e) => e.stopPropagation()}>
+                        <HeartIcon
+                          isFavorite={favoriteProductIds.has(product.id)}
+                          onClick={(e) => toggleProductFavorite(product.id, e)}
+                          size={18}
+                          className="shop-details__product-card-heart-overlay-icon"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="shop-details__product-card-info">
-                    <span className="shop-details__product-card-price">{formatPrice(product.price)}</span>
-                    <span className="shop-details__product-card-name">{product.name}</span>
-                    <div className="shop-details__product-card-bottom">
+                    <div className="shop-details__product-card-price-row">
+                      <span className="shop-details__product-card-price">{formatPrice(product.price)}</span>
                       {!showDatePicker && (
-                        <div className="shop-details__product-card-actions">
-                          {api.isAuthenticated() && (
-                            <HeartIcon
-                              isFavorite={favoriteProductIds.has(product.id)}
-                              onClick={(e) => toggleProductFavorite(product.id, e)}
-                              size={20}
-                              className="shop-details__product-card-action-heart"
-                            />
-                          )}
-                          <button
-                            type="button"
-                            className="shop-details__product-card-share"
-                            onClick={(e) => shareProduct(product, e)}
-                            aria-label="Поделиться"
-                          >
-                            <ShareIcon size={20} />
-                          </button>
-                        </div>
-                      )}
-                      {showDatePicker && availableDates.length > 0 ? (
-                        <div className="shop-details__preorder-dates" onClick={(e) => e.stopPropagation()}>
-                          <span className="shop-details__preorder-dates-label">Выберите дату:</span>
-                          {availableDates.slice(0, 4).map((d) => (
+                        cartQty > 0 && !isPreorder ? (
+                          <div className="shop-details__qty-counter shop-details__qty-counter--compact" onClick={(e) => e.stopPropagation()}>
                             <button
-                              key={d}
                               type="button"
-                              className="shop-details__preorder-date-btn"
-                              onClick={() => confirmPreorderDate(product.id, d)}
-                              disabled={isAdding}
+                              className="shop-details__qty-counter-btn"
+                              onClick={(e) => updateCartQuantity(product.id, cartQty - 1, e)}
                             >
-                              {new Date(d).toLocaleDateString('ru-RU')}
+                              −
                             </button>
-                          ))}
+                            <span className="shop-details__qty-counter-value">{cartQty}</span>
+                            <button
+                              type="button"
+                              className="shop-details__qty-counter-btn"
+                              onClick={(e) => updateCartQuantity(product.id, cartQty + 1, e)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             type="button"
-                            className="shop-details__preorder-date-cancel"
-                            onClick={() => setPreorderDateForProductId(null)}
+                            className="shop-details__product-card-add-circle"
+                            disabled={(!inStock && !isPreorder) || isAdding || seller.subscription_active === false}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (seller.subscription_active === false) return;
+                              if (isPreorder && availableDates.length > 0) {
+                                setPreorderDateForProductId(product.id);
+                              } else {
+                                addToCart(product.id);
+                              }
+                            }}
                           >
-                            Отмена
+                            <span>{isAdding ? '…' : '+'}</span>
                           </button>
-                        </div>
-                      ) : cartQty > 0 && !isPreorder ? (
-                        <div className="shop-details__qty-counter" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            className="shop-details__qty-counter-btn"
-                            onClick={(e) => updateCartQuantity(product.id, cartQty - 1, e)}
-                          >
-                            −
-                          </button>
-                          <span className="shop-details__qty-counter-value">{cartQty}</span>
-                          <button
-                            type="button"
-                            className="shop-details__qty-counter-btn"
-                            onClick={(e) => updateCartQuantity(product.id, cartQty + 1, e)}
-                          >
-                            +
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className="shop-details__product-card-add"
-                          disabled={(!inStock && !isPreorder) || isAdding || seller.subscription_active === false}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (seller.subscription_active === false) return;
-                            if (isPreorder && availableDates.length > 0) {
-                              setPreorderDateForProductId(product.id);
-                            } else {
-                              addToCart(product.id);
-                            }
-                          }}
-                        >
-                          <span>{seller.subscription_active === false ? 'Недоступно' : isAdding ? '…' : isPreorder ? 'Заказать на дату' : inStock ? 'В корзину' : 'Нет'}</span>
-                        </button>
+                        )
                       )}
                     </div>
+                    {showDatePicker && availableDates.length > 0 && (
+                      <div className="shop-details__preorder-dates" onClick={(e) => e.stopPropagation()}>
+                        <span className="shop-details__preorder-dates-label">Выберите дату:</span>
+                        {availableDates.slice(0, 4).map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            className="shop-details__preorder-date-btn"
+                            onClick={() => confirmPreorderDate(product.id, d)}
+                            disabled={isAdding}
+                          >
+                            {new Date(d).toLocaleDateString('ru-RU')}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="shop-details__preorder-date-cancel"
+                          onClick={() => setPreorderDateForProductId(null)}
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    )}
+                    <span className="shop-details__product-card-name">{product.name}</span>
                   </div>
                 </div>
               );
