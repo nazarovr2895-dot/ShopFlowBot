@@ -733,47 +733,7 @@ export function ShopDetails() {
                     />
                   </div>
                   <div className="shop-details__product-card-info">
-                    <div className="shop-details__product-card-price-row">
-                      <span className="shop-details__product-card-price">{formatPrice(product.price)}</span>
-                      {!showDatePicker && (
-                        cartQty > 0 && !isPreorder ? (
-                          <div className="shop-details__qty-counter shop-details__qty-counter--compact" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              className="shop-details__qty-counter-btn"
-                              onClick={(e) => updateCartQuantity(product.id, cartQty - 1, e)}
-                            >
-                              −
-                            </button>
-                            <span className="shop-details__qty-counter-value">{cartQty}</span>
-                            <button
-                              type="button"
-                              className="shop-details__qty-counter-btn"
-                              onClick={(e) => updateCartQuantity(product.id, cartQty + 1, e)}
-                            >
-                              +
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            className="shop-details__product-card-add-pill"
-                            disabled={(!inStock && !isPreorder) || isAdding || seller.subscription_active === false}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (seller.subscription_active === false) return;
-                              if (isPreorder && availableDates.length > 0) {
-                                setPreorderDateForProductId(product.id);
-                              } else {
-                                addToCart(product.id);
-                              }
-                            }}
-                          >
-                            <span>{isAdding ? '…' : '+'}</span>
-                          </button>
-                        )
-                      )}
-                    </div>
+                    <span className="shop-details__product-card-price">{formatPrice(product.price)}</span>
                     {showDatePicker && availableDates.length > 0 && (
                       <div className="shop-details__preorder-dates" onClick={(e) => e.stopPropagation()}>
                         <span className="shop-details__preorder-dates-label">Выберите дату:</span>
@@ -798,6 +758,44 @@ export function ShopDetails() {
                       </div>
                     )}
                     <span className="shop-details__product-card-name">{product.name}</span>
+                    {!showDatePicker && (
+                      cartQty > 0 && !isPreorder ? (
+                        <div className="shop-details__qty-counter shop-details__qty-counter--compact shop-details__qty-counter--full" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="shop-details__qty-counter-btn"
+                            onClick={(e) => updateCartQuantity(product.id, cartQty - 1, e)}
+                          >
+                            −
+                          </button>
+                          <span className="shop-details__qty-counter-value">{cartQty}</span>
+                          <button
+                            type="button"
+                            className="shop-details__qty-counter-btn"
+                            onClick={(e) => updateCartQuantity(product.id, cartQty + 1, e)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="shop-details__product-card-add-pill"
+                          disabled={(!inStock && !isPreorder) || isAdding || seller.subscription_active === false}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (seller.subscription_active === false) return;
+                            if (isPreorder && availableDates.length > 0) {
+                              setPreorderDateForProductId(product.id);
+                            } else {
+                              addToCart(product.id);
+                            }
+                          }}
+                        >
+                          <span>{seller.subscription_active === false ? 'Недоступно' : isAdding ? '…' : isPreorder ? 'Предзаказ' : inStock ? 'В корзину' : 'Нет'}</span>
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
               );
