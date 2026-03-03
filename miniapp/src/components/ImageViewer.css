@@ -21,7 +21,7 @@
 /* Close button */
 .image-viewer__close {
   position: fixed;
-  top: 16px;
+  top: calc(16px + max(env(safe-area-inset-top, 0px), var(--tg-header-offset, 0px)));
   right: 16px;
   z-index: 2010;
   width: 44px;
@@ -39,7 +39,7 @@
 /* Counter */
 .image-viewer__counter {
   position: fixed;
-  top: 16px;
+  top: calc(16px + max(env(safe-area-inset-top, 0px), var(--tg-header-offset, 0px)));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2010;
