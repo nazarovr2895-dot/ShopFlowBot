@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isBrowser } from '../utils/environment';
 import { useShopCart } from '../contexts/ShopCartContext';
-import { Loader, EmptyState, ProductImage, HeartIcon, ProductModal, LiquidGlassCard } from '../components';
+import { Loader, EmptyState, ProductImage, ProductModal, LiquidGlassCard } from '../components';
 import { FloatingCartBar } from '../components/FloatingCartBar';
 import { ShopCartPanel } from '../components/ShopCartPanel';
 import { getYmapsApiKey } from '../api/ymapsConfig';
@@ -731,16 +731,6 @@ export function ShopDetails() {
                       className="shop-details__product-card-image"
                       placeholderClassName="shop-details__product-card-image-placeholder"
                     />
-                    {api.isAuthenticated() && !showDatePicker && (
-                      <div className="shop-details__product-card-heart-overlay" onClick={(e) => e.stopPropagation()}>
-                        <HeartIcon
-                          isFavorite={favoriteProductIds.has(product.id)}
-                          onClick={(e) => toggleProductFavorite(product.id, e)}
-                          size={18}
-                          className="shop-details__product-card-heart-overlay-icon"
-                        />
-                      </div>
-                    )}
                   </div>
                   <div className="shop-details__product-card-info">
                     <div className="shop-details__product-card-price-row">
@@ -767,7 +757,7 @@ export function ShopDetails() {
                         ) : (
                           <button
                             type="button"
-                            className="shop-details__product-card-add-circle"
+                            className="shop-details__product-card-add-pill"
                             disabled={(!inStock && !isPreorder) || isAdding || seller.subscription_active === false}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -869,6 +859,9 @@ export function ShopDetails() {
               addToCart(selectedProduct.id, null, qty);
             }
           }}
+          currentCartQuantity={cartQuantities.get(selectedProduct.id) || 0}
+          onUpdateCart={(qty: number) => ctxUpdateQuantity(selectedProduct.id, qty)}
+          sellerId={seller.seller_id}
           isAdding={addingId === selectedProduct.id}
           inStock={selectedProduct.quantity ? selectedProduct.quantity > 0 : false}
           isPreorder={selectedProduct.is_preorder || false}

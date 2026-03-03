@@ -174,12 +174,31 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* ---- Favorite (overlaid on image) ---- */
-.product-modal__favorite {
+/* ---- Heart + Share actions (overlaid on image, top-left) ---- */
+.product-modal__image-actions {
   position: absolute;
   top: 10px;
   left: 10px;
   z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.product-modal__favorite {
+  /* no positioning — handled by parent */
+}
+
+.product-modal__share {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3));
 }
 
 

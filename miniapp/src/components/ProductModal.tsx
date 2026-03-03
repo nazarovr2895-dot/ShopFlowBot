@@ -9,6 +9,14 @@ import { api } from '../api/client';
 import { isTelegram } from '../utils/environment';
 import './ProductModal.css';
 
+const ShareIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <polyline points="16 6 12 2 8 6" />
+    <line x1="12" y1="2" x2="12" y2="15" />
+  </svg>
+);
+
 interface ProductModalProps {
   product: Product;
   isOpen: boolean;
@@ -16,6 +24,9 @@ interface ProductModalProps {
   isFavorite: boolean;
   onToggleFavorite: (e: React.MouseEvent) => void;
   onAddToCart: (quantity: number) => void;
+  currentCartQuantity?: number;
+  onUpdateCart?: (quantity: number) => void;
+  sellerId?: number;
   isAdding: boolean;
   inStock: boolean;
   isPreorder: boolean;
@@ -52,6 +63,9 @@ export function ProductModal({
   isFavorite,
   onToggleFavorite,
   onAddToCart,
+  currentCartQuantity = 0,
+  onUpdateCart,
+  sellerId,
   isAdding,
   inStock,
   isPreorder,
@@ -70,7 +84,7 @@ export function ProductModal({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(currentCartQuantity || 1);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -120,7 +134,7 @@ export function ProductModal({
     // Reset state for fresh open
     setCurrentImageIndex(0);
     setClosing(false);
-    setQuantity(1);
+    setQuantity(currentCartQuantity || 1);
 
     const html = document.documentElement;
     html.classList.add('scroll-locked');
@@ -172,6 +186,37 @@ export function ProductModal({
   const deliveryCostLabel = hasDelivery
     ? (deliveryPrice == null ? 'зависит от зоны' : deliveryPrice === 0 ? 'бесплатно' : `от ${deliveryPrice.toLocaleString('ru-RU')} ₽`)
     : null;
+
+  const isInCart = currentCartQuantity > 0;
+
+  /* ---------- share ---------- */
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const productUrl = `${window.location.origin}/shop/${sellerId}/product/${product.id}`;
+    const shareText = product.name;
+    const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(productUrl)}&text=${encodeURIComponent(shareText)}`;
+
+    if (isTelegram()) {
+      try {
+        WebApp.openTelegramLink(telegramShareUrl);
+      } catch {
+        window.open(telegramShareUrl, '_blank');
+      }
+    } else if (navigator.share) {
+      navigator.share({ title: product.name, url: productUrl }).catch(() => {});
+    } else {
+      window.open(telegramShareUrl, '_blank');
+    }
+  };
+
+  /* ---------- cart action ---------- */
+  const handleCartAction = () => {
+    if (isInCart && onUpdateCart) {
+      onUpdateCart(quantity);
+    } else {
+      onAddToCart(quantity);
+    }
+  };
 
   /* ---------- backdrop click ---------- */
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -320,13 +365,24 @@ export function ProductModal({
                 Закрыть
               </button>
 
-              {/* Heart */}
-              {api.isAuthenticated() && (
-                <div className="product-modal__favorite" onClick={(e) => e.stopPropagation()}>
-                  <HeartIcon isFavorite={isFavorite} onClick={onToggleFavorite} size={30} />
-                </div>
-              )}
-
+              {/* Heart + Share */}
+              <div className="product-modal__image-actions">
+                {api.isAuthenticated() && (
+                  <div className="product-modal__favorite" onClick={(e) => e.stopPropagation()}>
+                    <HeartIcon isFavorite={isFavorite} onClick={onToggleFavorite} size={30} />
+                  </div>
+                )}
+                {sellerId && (
+                  <button
+                    type="button"
+                    className="product-modal__share"
+                    onClick={handleShare}
+                    aria-label="Поделиться"
+                  >
+                    <ShareIcon size={22} />
+                  </button>
+                )}
+              </div>
 
               {/* Dots */}
               {images.length > 1 && (
@@ -478,7 +534,7 @@ export function ProductModal({
             <button
               type="button"
               className="product-modal__cart-btn"
-              onClick={() => onAddToCart(quantity)}
+              onClick={handleCartAction}
               disabled={(!inStock && !isPreorder) || isAdding}
             >
               {isAdding
@@ -486,7 +542,9 @@ export function ProductModal({
                 : isPreorder
                   ? 'Заказать на дату'
                   : inStock
-                    ? `В корзину · ${formatTotal(totalPrice)} ₽`
+                    ? isInCart
+                      ? `Обновить · ${formatTotal(totalPrice)} ₽`
+                      : `В корзину · ${formatTotal(totalPrice)} ₽`
                     : 'Нет в наличии'}
             </button>
           </div>

@@ -218,6 +218,7 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 32px;
+    padding-bottom: 100px;
   }
 
   .shop-details__banner {
@@ -978,36 +979,6 @@
   text-align: left;
 }
 
-/* Heart overlay на фото (верх-право) */
-.shop-details__product-card-heart-overlay {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 2;
-  width: 32px;
-  height: 32px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-.shop-details__product-card-heart-overlay .heart-icon {
-  filter: none;
-  color: #ffffff;
-}
-
-.shop-details__product-card-heart-overlay .heart-icon--filled {
-  color: #ff3b6e;
-}
-
-[data-theme="dark"] .shop-details__product-card-heart-overlay {
-  background: rgba(255, 255, 255, 0.2);
-}
-
 /* Цена + корзина в одну строку */
 .shop-details__product-card-price-row {
   display: flex;
@@ -1016,15 +987,15 @@
   gap: 4px;
 }
 
-/* Круглая кнопка "+" для корзины */
-.shop-details__product-card-add-circle {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+/* Кнопка "+" для корзины (pill) */
+.shop-details__product-card-add-pill {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 15px;
   background: #000000;
   color: #ffffff;
   border: none;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 400;
   line-height: 1;
   cursor: pointer;
@@ -1032,20 +1003,19 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: 0;
 }
 
-.shop-details__product-card-add-circle:active {
+.shop-details__product-card-add-pill:active {
   opacity: 0.7;
 }
 
-.shop-details__product-card-add-circle:disabled {
+.shop-details__product-card-add-pill:disabled {
   opacity: 0.35;
   cursor: not-allowed;
   background: rgba(128, 128, 128, 0.3);
 }
 
-[data-theme="dark"] .shop-details__product-card-add-circle {
+[data-theme="dark"] .shop-details__product-card-add-pill {
   background: #ffffff;
   color: #000000;
 }
