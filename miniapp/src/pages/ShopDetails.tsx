@@ -774,6 +774,7 @@ export function ShopDetails() {
                         )
                       )}
                     </div>
+                    <span className="shop-details__product-card-name">{product.name}</span>
                     {showDatePicker && availableDates.length > 0 && (
                       <div className="shop-details__preorder-dates" onClick={(e) => e.stopPropagation()}>
                         <span className="shop-details__preorder-dates-label">Выберите дату:</span>

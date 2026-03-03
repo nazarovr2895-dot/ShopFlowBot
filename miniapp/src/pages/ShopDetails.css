@@ -989,9 +989,9 @@
 
 /* Кнопка "В корзину" — половина ширины, скруглённая */
 .shop-details__product-card-add-pill {
-  height: 28px;
+  height: 24px;
   padding: 0 10px;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #000000;
   color: #ffffff;
   border: none;
@@ -1023,12 +1023,12 @@
 
 /* Компактный qty counter */
 .shop-details__qty-counter--compact {
-  height: 28px;
+  height: 24px;
 }
 
 .shop-details__qty-counter--compact .shop-details__qty-counter-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   font-size: 14px;
 }
 
