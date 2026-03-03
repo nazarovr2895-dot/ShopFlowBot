@@ -3,6 +3,7 @@ import type {
   City,
   District,
   Metro,
+  Product,
   PublicSellersResponse,
   PublicSellerDetail,
   SellerFilters,
@@ -325,6 +326,10 @@ class ApiClient {
 
   async getSellerDetail(sellerId: number): Promise<PublicSellerDetail> {
     return this.fetch<PublicSellerDetail>(`/public/sellers/${sellerId}`);
+  }
+
+  async getProduct(productId: number): Promise<Product> {
+    return this.fetchPublic<Product>(`/sellers/products/${productId}`);
   }
 
   async getSellerAvailability(sellerId: number): Promise<{

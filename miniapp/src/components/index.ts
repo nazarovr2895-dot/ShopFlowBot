@@ -28,3 +28,4 @@ export { ReservationBadge } from './ReservationBadge';
 export { FloatingCartBar } from './FloatingCartBar';
 export { ShopCartPanel } from './ShopCartPanel';
 export { AddressAutocomplete } from './AddressAutocomplete';
+export { OrderProductInfoModal } from './OrderProductInfoModal';

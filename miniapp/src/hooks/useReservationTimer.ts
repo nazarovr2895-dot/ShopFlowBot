@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const RESERVATION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const RESERVATION_TTL_MS = 7 * 60 * 1000; // 7 minutes
 
 export interface ReservationTimerResult {
   remainingSeconds: number;

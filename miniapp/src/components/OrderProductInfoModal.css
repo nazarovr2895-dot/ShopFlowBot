@@ -1,0 +1,375 @@
+/* =======================================================
+   OrderProductInfoModal — read-only product info
+   Mirrors ProductModal structure, without cart/bottom-bar
+   ======================================================= */
+
+/* ---- Keyframes ---- */
+@keyframes opi-overlayIn  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes opi-overlayOut { from { opacity: 1 } to { opacity: 0 } }
+@keyframes opi-cardIn     { from { opacity: 0; transform: scale(0.94) } to { opacity: 1; transform: scale(1) } }
+@keyframes opi-cardOut    { from { opacity: 1; transform: scale(1) } to { opacity: 0; transform: scale(0.94) } }
+
+/* ---- Overlay ---- */
+.opi-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: opi-overlayIn 0.25s ease both;
+}
+
+.opi-modal-overlay--closing {
+  animation: opi-overlayOut 0.2s ease both;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .opi-modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* ---- Modal card ---- */
+.opi-modal {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: min(88vh, 700px);
+  background: var(--app-bg);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  animation: opi-cardIn 0.25s cubic-bezier(0.25, 1, 0.5, 1) both;
+  will-change: transform, opacity;
+}
+
+.opi-modal-overlay--closing .opi-modal {
+  animation: opi-cardOut 0.18s ease both;
+}
+
+[data-theme="dark"] .opi-modal {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.opi-modal--dragging {
+  animation: none !important;
+  transition: transform 0s !important;
+}
+
+.opi-modal--snapping {
+  transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  animation: none !important;
+}
+
+/* ---- Drag handle ---- */
+.opi-modal__handle {
+  width: 36px;
+  height: 4px;
+  background: var(--app-border);
+  border-radius: 2px;
+  margin: 8px auto;
+  flex-shrink: 0;
+}
+
+/* ---- Scrollable content ---- */
+.opi-modal__scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ---- Loading / Error states ---- */
+.opi-modal__loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.opi-modal__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 24px;
+  font-size: 15px;
+  color: var(--tg-theme-hint-color, #999);
+  text-align: center;
+}
+
+/* ---- Gallery ---- */
+.opi-modal__gallery {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.opi-modal__image-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--app-surface);
+  overflow: hidden;
+}
+
+/* ---- Carousel ---- */
+.opi-modal__carousel {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  width: 100%;
+  height: 100%;
+}
+
+.opi-modal__carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.opi-modal__carousel-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  scroll-snap-align: center;
+  cursor: pointer;
+}
+
+.opi-modal__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.opi-modal__image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  opacity: 0.2;
+}
+
+/* ---- Close button ---- */
+.opi-modal__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  letter-spacing: 0.01em;
+}
+
+.opi-modal__close:active {
+  opacity: 0.7;
+  transform: scale(0.95);
+}
+
+[data-theme="dark"] .opi-modal__close {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ---- Dots ---- */
+.opi-modal__dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 5;
+}
+
+.opi-modal__dot {
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.45);
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.opi-modal__dot--active {
+  width: 18px;
+  border-radius: 3px;
+  background: #ffffff;
+}
+
+/* ---- Thumbnails ---- */
+.opi-modal__thumbs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.opi-modal__thumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.opi-modal__thumb {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--app-surface);
+  transition: border-color 0.2s ease, opacity 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0.6;
+}
+
+.opi-modal__thumb--active {
+  border-color: var(--app-text);
+  opacity: 1;
+}
+
+.opi-modal__thumb:not(.opi-modal__thumb--active):hover {
+  opacity: 0.85;
+}
+
+.opi-modal__thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.opi-modal__thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  opacity: 0.2;
+}
+
+[data-theme="dark"] .opi-modal__thumb--active {
+  border-color: #ffffff;
+}
+
+/* ---- Info section ---- */
+.opi-modal__info {
+  padding: 16px;
+  padding-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.opi-modal__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.opi-modal__name {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--app-text);
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.opi-modal__price {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--app-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.opi-modal__desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--app-text-secondary);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* ---- Desktop ---- */
+@media (min-width: 768px) {
+  .opi-modal-overlay {
+    padding: 24px;
+  }
+
+  .opi-modal {
+    max-width: 460px;
+  }
+
+  .opi-modal__handle {
+    display: none;
+  }
+
+  .opi-modal__info {
+    padding: 20px;
+    padding-bottom: 28px;
+    gap: 12px;
+  }
+
+  .opi-modal__name {
+    font-size: 20px;
+  }
+
+  .opi-modal__price {
+    font-size: 22px;
+  }
+
+  .opi-modal__desc {
+    font-size: 15px;
+  }
+
+  .opi-modal__close:hover {
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  [data-theme="dark"] .opi-modal__close:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .opi-modal__thumbs {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+
+  .opi-modal__thumb {
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+  }
+}

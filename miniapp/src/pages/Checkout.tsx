@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CartSellerGroup } from '../types';
 import { api } from '../api/client';
@@ -186,28 +186,62 @@ export function Checkout() {
     }
   };
 
-  // Poll cart every 30s to detect expired reservations
+  // Auto-extend reservations while user is on checkout page.
+  // Extends immediately when cart loads, then every 6 minutes (1-min buffer before 7-min TTL).
+  const extendInFlightRef = useRef(false);
+
   useEffect(() => {
     if (cart.length === 0) return;
-    const interval = setInterval(async () => {
+
+    const extendAll = async () => {
+      const reservedProductIds: number[] = [];
+      for (const group of cart) {
+        for (const item of group.items) {
+          if (item.reserved_at && !item.is_preorder) {
+            reservedProductIds.push(item.product_id);
+          }
+        }
+      }
+      if (reservedProductIds.length === 0 || extendInFlightRef.current) return;
+
+      extendInFlightRef.current = true;
       try {
-        const freshCart = await api.getCart();
-        const freshArr = Array.isArray(freshCart) ? freshCart : [];
-        const oldCount = cart.reduce((s, g) => s + g.items.length, 0);
-        const newCount = freshArr.reduce((s, g) => s + g.items.length, 0);
-        if (newCount < oldCount) {
-          setCart(freshArr);
+        const results = await Promise.allSettled(
+          reservedProductIds.map((pid) => api.extendReservation(pid))
+        );
+
+        const anyFailed = results.some((r) => r.status === 'rejected');
+        if (anyFailed) {
+          const freshCart = await api.getCart();
+          const freshArr = Array.isArray(freshCart) ? freshCart : [];
+          const filteredFresh = filterSellerId
+            ? freshArr.filter((g) => g.seller_id === filterSellerId)
+            : freshArr;
+          const newCount = filteredFresh.reduce((s, g) => s + g.items.length, 0);
+
           if (newCount === 0) {
             showAlert('Все резервирования истекли. Корзина пуста.');
             navigate('/cart');
           } else {
-            showAlert('Некоторые товары были убраны из корзины (истекло резервирование).');
+            const oldCount = cart.reduce((s, g) => s + g.items.length, 0);
+            if (newCount < oldCount) {
+              showAlert('Некоторые товары были убраны из корзины (истекло резервирование).');
+            }
+            setCart(filteredFresh);
           }
         }
-      } catch { /* ignore polling errors */ }
-    }, 30000);
+      } catch {
+        // Network error — silently ignore, will retry on next interval
+      } finally {
+        extendInFlightRef.current = false;
+      }
+    };
+
+    extendAll();
+
+    const interval = setInterval(extendAll, 360_000); // 6 minutes
     return () => clearInterval(interval);
-  }, [cart, showAlert, navigate]);
+  }, [cart, filterSellerId, showAlert, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

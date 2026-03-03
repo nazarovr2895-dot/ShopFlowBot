@@ -292,7 +292,7 @@ export function ShopCartPanel() {
             Оформить заказ
           </button>
           {!isGuest && (
-            <p className="shop-cart-panel__note">Товары бронируются на 5 минут</p>
+            <p className="shop-cart-panel__note">Товары бронируются на 7 минут</p>
           )}
         </div>
       </div>

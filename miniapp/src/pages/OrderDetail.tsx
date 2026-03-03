@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { BuyerOrder } from '../types';
 import { api } from '../api/client';
-import { Loader, EmptyState, DesktopBackNav } from '../components';
+import { Loader, EmptyState, DesktopBackNav, OrderProductInfoModal, showBrowserToast } from '../components';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isTelegram } from '../utils/environment';
-import { parseItemsDisplay, formatDeliveryAddress, formatPrice } from '../utils/formatters';
+import { parseItemsStructured, formatDeliveryAddress, formatPrice } from '../utils/formatters';
 import { STATUS_LABELS_DETAIL as STATUS_LABELS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS } from '../utils/orderConstants';
 import './OrderDetail.css';
 
@@ -54,6 +54,7 @@ export function OrderDetail() {
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
 
   useEffect(() => {
     setBackButton(true, () => navigate('/?tab=orders'));
@@ -266,16 +267,29 @@ export function OrderDetail() {
             <span className="order-detail__shop-label">Магазин</span>
             <span className="order-detail__shop-name">{order.shop_name || 'Магазин'}</span>
           </div>
-          <button
-            type="button"
-            className="order-detail__contact-btn"
-            onClick={handleContactSeller}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            Написать
-          </button>
+          <div className="order-detail__shop-actions">
+            <button
+              type="button"
+              className="order-detail__shop-btn"
+              onClick={() => navigate(`/shop/${order.seller_id}`)}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+              В магазин
+            </button>
+            <button
+              type="button"
+              className="order-detail__contact-btn"
+              onClick={handleContactSeller}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Написать
+            </button>
+          </div>
         </div>
       </div>
 
@@ -296,9 +310,28 @@ export function OrderDetail() {
 
         <div className="order-detail__row">
           <span className="order-detail__label">Состав заказа</span>
-          <span className="order-detail__value order-detail__items">
-            {parseItemsDisplay(order.items_info)}
-          </span>
+          <div className="order-detail__items-list">
+            {parseItemsStructured(order.items_info).map((item, i) => (
+              <div key={i} className="order-detail__item-row">
+                <div className="order-detail__item-info">
+                  <span className="order-detail__item-name">{item.name}</span>
+                  <span className="order-detail__item-qty">
+                    {item.quantity > 1 ? ` x ${item.quantity}` : ''}
+                    {item.price > 0 ? ` — ${formatPrice(item.price * item.quantity)}` : ''}
+                  </span>
+                </div>
+                {item.productId > 0 && (
+                  <button
+                    type="button"
+                    className="order-detail__item-info-btn"
+                    onClick={() => setSelectedProductId(item.productId)}
+                  >
+                    О товаре
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="order-detail__row">
@@ -313,8 +346,27 @@ export function OrderDetail() {
           {order.delivery_type === 'Самовывоз' && (order.seller_address_name || order.seller_map_url) ? (
             <div className="order-detail__pickup">
               {order.seller_address_name && (
-                <div className="order-detail__pickup-address">
-                  {order.seller_address_name}
+                <div className="order-detail__pickup-address-row">
+                  <div className="order-detail__pickup-address">
+                    {order.seller_address_name}
+                  </div>
+                  <button
+                    type="button"
+                    className="order-detail__copy-btn"
+                    onClick={() => {
+                      navigator.clipboard.writeText(order.seller_address_name!).then(
+                        () => showBrowserToast('Адрес скопирован'),
+                        () => showBrowserToast('Не удалось скопировать'),
+                      );
+                      hapticFeedback('light');
+                    }}
+                    aria-label="Скопировать адрес"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  </button>
                 </div>
               )}
               {order.seller_map_url && (
@@ -430,6 +482,12 @@ export function OrderDetail() {
         )}
       </div>
     </div>
+
+    <OrderProductInfoModal
+      productId={selectedProductId ?? 0}
+      isOpen={selectedProductId !== null}
+      onClose={() => setSelectedProductId(null)}
+    />
     </>
   );
 }

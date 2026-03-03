@@ -8,7 +8,7 @@ from sqlalchemy import select, and_
 from backend.app.models.cart import CartItem
 from backend.app.models.product import Product
 
-RESERVATION_TTL_SECONDS = 300  # 5 minutes
+RESERVATION_TTL_SECONDS = 420  # 7 minutes
 
 
 class ReservationService:

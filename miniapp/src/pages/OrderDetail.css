@@ -133,6 +133,13 @@
   color: var(--tg-theme-text-color);
 }
 
+.order-detail__shop-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.order-detail__shop-btn,
 .order-detail__contact-btn {
   display: flex;
   align-items: center;
@@ -150,6 +157,7 @@
   flex-shrink: 0;
 }
 
+.order-detail__shop-btn:active,
 .order-detail__contact-btn:active {
   opacity: 0.7;
 }
@@ -196,12 +204,74 @@
   line-height: 1.4;
 }
 
+/* ===== Structured items list ===== */
+.order-detail__items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.order-detail__item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.order-detail__item-row:not(:last-child) {
+  border-bottom: 1px solid var(--tg-theme-secondary-bg-color);
+}
+
+.order-detail__item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-detail__item-name {
+  font-size: 15px;
+  color: var(--tg-theme-text-color);
+  line-height: 1.3;
+}
+
+.order-detail__item-qty {
+  font-size: 13px;
+  color: var(--tg-theme-hint-color);
+}
+
+.order-detail__item-info-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tg-theme-link-color, var(--tg-theme-button-color));
+  background: var(--tg-theme-secondary-bg-color, rgba(0, 0, 0, 0.05));
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.order-detail__item-info-btn:active {
+  opacity: 0.7;
+}
+
 /* ===== Pickup section ===== */
 .order-detail__pickup {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 4px;
+}
+
+.order-detail__pickup-address-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-detail__pickup-address-row .order-detail__pickup-address {
+  flex: 1;
 }
 
 .order-detail__pickup-address {
@@ -211,6 +281,25 @@
   background: var(--tg-theme-secondary-bg-color, rgba(0, 0, 0, 0.03));
   border-radius: 8px;
   line-height: 1.4;
+}
+
+.order-detail__copy-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--tg-theme-hint-color, rgba(0, 0, 0, 0.15));
+  border-radius: 8px;
+  background: var(--tg-theme-secondary-bg-color, rgba(0, 0, 0, 0.03));
+  color: var(--tg-theme-link-color, var(--tg-theme-button-color));
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.order-detail__copy-btn:active {
+  opacity: 0.7;
 }
 
 .order-detail__pickup-map-btn {
@@ -307,11 +396,21 @@
     padding: 4px 20px;
   }
 
+  .order-detail__shop-btn,
   .order-detail__contact-btn {
     transition: opacity 0.15s ease;
   }
 
+  .order-detail__shop-btn:hover,
   .order-detail__contact-btn:hover {
+    opacity: 0.8;
+  }
+
+  .order-detail__item-info-btn:hover {
+    opacity: 0.8;
+  }
+
+  .order-detail__copy-btn:hover {
     opacity: 0.8;
   }
 
