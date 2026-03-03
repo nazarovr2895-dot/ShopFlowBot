@@ -733,6 +733,7 @@ export function ShopDetails() {
                     />
                   </div>
                   <div className="shop-details__product-card-info">
+                    <span className="shop-details__product-card-name">{product.name}</span>
                     <div className="shop-details__product-card-price-row">
                       <span className="shop-details__product-card-price">{formatPrice(product.price)}</span>
                       {!showDatePicker && (
@@ -774,7 +775,6 @@ export function ShopDetails() {
                         )
                       )}
                     </div>
-                    <span className="shop-details__product-card-name">{product.name}</span>
                     {showDatePicker && availableDates.length > 0 && (
                       <div className="shop-details__preorder-dates" onClick={(e) => e.stopPropagation()}>
                         <span className="shop-details__preorder-dates-label">Выберите дату:</span>
