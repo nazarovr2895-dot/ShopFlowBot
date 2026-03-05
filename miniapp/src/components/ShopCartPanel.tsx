@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Product } from '../types';
+import type { Product, CartItemEntry } from '../types';
 import WebApp from '@twa-dev/sdk';
 import { useShopCart } from '../contexts/ShopCartContext';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
@@ -47,6 +47,7 @@ export function ShopCartPanel() {
   const { hapticFeedback, showAlert } = useTelegramWebApp();
   const [closing, setClosing] = useState(false);
   const [selectedAddonProduct, setSelectedAddonProduct] = useState<Product | null>(null);
+  const [selectedCartProduct, setSelectedCartProduct] = useState<Product | null>(null);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -166,6 +167,13 @@ export function ShopCartPanel() {
     if (e.target === e.currentTarget) closePanel();
   }, [closePanel]);
 
+  const handleCartItemClick = useCallback(async (item: CartItemEntry) => {
+    try {
+      const product = await api.getProduct(item.product_id);
+      setSelectedCartProduct(product);
+    } catch { /* ignore */ }
+  }, []);
+
   if (!isPanelOpen) return null;
 
   const grandTotal = total + (deliveryPrice ?? 0);
@@ -208,7 +216,7 @@ export function ShopCartPanel() {
         <div className="shop-cart-panel__items">
           {items.map((item) => (
             <div key={item.product_id} className="shop-cart-panel__item">
-              <div className="shop-cart-panel__item-image">
+              <div className="shop-cart-panel__item-image" style={{ cursor: 'pointer' }} onClick={() => handleCartItemClick(item)}>
                 <ProductImage
                   src={api.getProductImageUrl(item.photo_id ?? null)}
                   alt={item.name}
@@ -217,8 +225,10 @@ export function ShopCartPanel() {
                 />
               </div>
               <div className="shop-cart-panel__item-body">
-                <span className="shop-cart-panel__item-price">{formatPrice(item.price)}</span>
-                <span className="shop-cart-panel__item-name">{item.name}</span>
+                <div style={{ cursor: 'pointer' }} onClick={() => handleCartItemClick(item)}>
+                  <span className="shop-cart-panel__item-price">{formatPrice(item.price)}</span>
+                  <span className="shop-cart-panel__item-name">{item.name}</span>
+                </div>
                 {item.is_preorder && item.preorder_delivery_date && (
                   <span className="shop-cart-panel__item-preorder">
                     Предзаказ на {new Date(item.preorder_delivery_date).toLocaleDateString('ru-RU')}
@@ -356,6 +366,23 @@ export function ShopCartPanel() {
           )}
         </div>
       </div>
+
+      {selectedCartProduct && (
+        <ProductModal
+          product={selectedCartProduct}
+          isOpen={!!selectedCartProduct}
+          onClose={() => setSelectedCartProduct(null)}
+          onAddToCart={() => setSelectedCartProduct(null)}
+          isFavorite={false}
+          onToggleFavorite={() => {}}
+          isAdding={false}
+          inStock={true}
+          isPreorder={!!selectedCartProduct.is_preorder}
+          currentCartQuantity={items.find(i => i.product_id === selectedCartProduct.id)?.quantity}
+          onUpdateCart={(qty) => { updateQuantity(selectedCartProduct.id, qty); setSelectedCartProduct(null); }}
+          sellerId={sellerId}
+        />
+      )}
 
       {selectedAddonProduct && (
         <ProductModal
