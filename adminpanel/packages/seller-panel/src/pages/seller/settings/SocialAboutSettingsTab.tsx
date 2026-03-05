@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
 import { updateMe, uploadAboutMedia, getBannerImageUrl } from '../../../api/sellerClient';
 import { FormField, useToast, Toggle } from '@shared/components/ui';
-import { Instagram, Send, MessageCircle, Plus, Type, Image, Video, Trash2, ChevronUp, ChevronDown, Eye, X } from 'lucide-react';
+import { Instagram, Send, MessageCircle, Plus, Type, Image, Video, Trash2, ChevronUp, ChevronDown, Eye, X, Moon, Sun } from 'lucide-react';
 import { ImageCropModal } from '../../../components/ImageCropModal';
+import { getContrastColors } from '../../../utils/colorContrast';
 import type { SettingsTabProps } from './types';
 import './SocialAboutSettingsTab.css';
 
@@ -53,6 +54,7 @@ export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
   const [uploading, setUploading] = useState<number | null>(null);
   const [uploadingBg, setUploadingBg] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
   const [pendingBlockIndex, setPendingBlockIndex] = useState<number | null>(null);
@@ -447,17 +449,46 @@ export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
           <div className="social-about-tab__preview-container" onClick={e => e.stopPropagation()}>
             <div className="social-about-tab__preview-header">
               <span>Предпросмотр «О нас»</span>
-              <button onClick={() => setPreview(false)}><X size={20} /></button>
+              <div className="social-about-tab__preview-header-actions">
+                <button
+                  className="social-about-tab__preview-theme-toggle"
+                  onClick={() => setPreviewTheme(t => t === 'light' ? 'dark' : 'light')}
+                  title={previewTheme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
+                >
+                  {previewTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+                </button>
+                <button onClick={() => setPreview(false)}><X size={20} /></button>
+              </div>
             </div>
             <div
-              className="social-about-tab__preview-frame"
-              style={
-                background.type === 'color' && background.value
-                  ? { backgroundColor: background.value }
-                  : background.type === 'image' && background.url
-                  ? { backgroundImage: `url(${getImageUrl(background.url) || ''})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                  : {}
-              }
+              className={`social-about-tab__preview-frame${background.type === 'image' && background.url ? ' social-about-tab__preview-frame--image-bg' : ''}`}
+              style={(() => {
+                const s: Record<string, string> = {};
+                // Base theme
+                if (previewTheme === 'light') {
+                  s.backgroundColor = '#ffffff';
+                  s['--text'] = '#000000';
+                  s['--text-muted'] = '#666666';
+                } else {
+                  s.backgroundColor = '#1a1a1a';
+                  s['--text'] = '#ffffff';
+                  s['--text-muted'] = '#999999';
+                }
+                // Override with custom background
+                if (background.type === 'color' && background.value) {
+                  s.backgroundColor = background.value;
+                  const colors = getContrastColors(background.value);
+                  s['--text'] = colors.text;
+                  s['--text-muted'] = colors.textSecondary;
+                } else if (background.type === 'image' && background.url) {
+                  s.backgroundImage = `url(${getImageUrl(background.url) || ''})`;
+                  s.backgroundSize = 'cover';
+                  s.backgroundPosition = 'center';
+                  s['--text'] = '#ffffff';
+                  s['--text-muted'] = '#dddddd';
+                }
+                return s as React.CSSProperties;
+              })()}
             >
               {blocks.map((block, i) => {
                 if (block.type === 'text' && block.content) {

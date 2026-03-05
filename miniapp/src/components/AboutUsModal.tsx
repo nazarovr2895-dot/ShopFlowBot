@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { api } from '../api/client';
+import { getContrastColors } from '../utils/colorContrast';
 import './AboutUsModal.css';
 
 interface AboutBlock {
@@ -46,18 +47,32 @@ export function AboutUsModal({ open, onClose, blocks, background, shopName }: Ab
 
   if (!open) return null;
 
-  const bgStyle: React.CSSProperties = {};
+  const bgStyle: Record<string, string> = {};
+  let hasImageBg = false;
+
   if (background?.type === 'color' && background.value) {
     bgStyle.backgroundColor = background.value;
+    const colors = getContrastColors(background.value);
+    bgStyle['--app-text'] = colors.text;
+    bgStyle['--app-text-secondary'] = colors.textSecondary;
+    bgStyle['--app-surface'] = colors.surface;
   } else if (background?.type === 'image' && background.url) {
     bgStyle.backgroundImage = `url(${api.getProductImageUrl(background.url) || background.url})`;
     bgStyle.backgroundSize = 'cover';
     bgStyle.backgroundPosition = 'center';
+    bgStyle['--app-text'] = '#ffffff';
+    bgStyle['--app-text-secondary'] = '#dddddd';
+    bgStyle['--app-surface'] = 'rgba(255,255,255,0.1)';
+    hasImageBg = true;
   }
 
   return (
     <div className="about-modal-overlay" onClick={onClose}>
-      <div className="about-modal" style={bgStyle} onClick={e => e.stopPropagation()}>
+      <div
+        className={`about-modal${hasImageBg ? ' about-modal--image-bg' : ''}`}
+        style={bgStyle as React.CSSProperties}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="about-modal__header">
           <button className="about-modal__back" onClick={onClose}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

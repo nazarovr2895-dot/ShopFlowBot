@@ -487,6 +487,31 @@
   cursor: pointer;
 }
 
+.social-about-tab__preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.social-about-tab__preview-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--bg-surface-alt, #f7f7f8);
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.social-about-tab__preview-theme-toggle:hover {
+  border-color: var(--accent, #6c5ce7);
+  color: var(--accent, #6c5ce7);
+}
+
 .social-about-tab__preview-frame {
   flex: 1;
   overflow-y: auto;
@@ -495,6 +520,31 @@
   width: 375px;
   max-width: 100%;
   margin: 0 auto;
+  position: relative;
+  transition: background-color 0.2s;
+}
+
+.social-about-tab__preview-frame--image-bg {
+  position: relative;
+}
+
+.social-about-tab__preview-frame--image-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.social-about-tab__preview-frame--image-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+.social-about-tab__preview-frame--image-bg .social-about-tab__preview-text p,
+.social-about-tab__preview-frame--image-bg .social-about-tab__preview-caption {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .social-about-tab__preview-text p {
