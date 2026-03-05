@@ -895,8 +895,8 @@ class SellerService:
             seller.description = value
         elif field == "address_name":
             seller.address_name = (value or "").strip() or None
-            # Auto-geocode address for map display
-            if seller.address_name:
+            # Auto-geocode only if no manual coordinates exist yet
+            if seller.address_name and seller.geo_lat is None and seller.geo_lon is None:
                 from backend.app.services.dadata_address import geocode_address
                 lat, lon = await geocode_address(seller.address_name)
                 if lat is not None and lon is not None:
