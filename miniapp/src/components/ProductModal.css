@@ -7,6 +7,8 @@
 @keyframes pm-overlayOut { from { opacity: 1 } to { opacity: 0 } }
 @keyframes pm-slideUp    { from { transform: translateY(100%) } to { transform: translateY(0) } }
 @keyframes pm-slideDown  { from { transform: translateY(0) } to { transform: translateY(100%) } }
+@keyframes pm-cardIn     { from { opacity: 0; transform: scale(0.95) } to { opacity: 1; transform: scale(1) } }
+@keyframes pm-cardOut    { from { opacity: 1; transform: scale(1) } to { opacity: 0; transform: scale(0.95) } }
 
 /* ---- Overlay (backdrop) ---- */
 .product-modal-overlay {
@@ -457,18 +459,29 @@
 
   .product-modal {
     max-width: 480px;
-    max-height: 80vh;
+    max-height: 85vh;
     border-radius: 20px;
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+    animation-name: pm-cardIn;
+  }
+
+  .product-modal-overlay--closing .product-modal {
+    animation-name: pm-cardOut;
   }
 
   [data-theme="dark"] .product-modal {
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .product-modal__handle {
     display: none;
+  }
+
+  .product-modal__image-wrap {
+    width: 100%;
+    margin: 0;
+    border-radius: 20px 20px 0 0;
   }
 
   .product-modal__info {
@@ -476,25 +489,38 @@
     gap: 10px;
   }
 
-  .product-modal__name {
-    font-size: 22px;
-  }
-
-  .product-modal__price {
-    font-size: 26px;
-  }
-
-  .product-modal__desc {
-    font-size: 15px;
-  }
-
-  .product-modal__detail-row {
-    font-size: 14px;
-  }
+  .product-modal__name { font-size: 22px; }
+  .product-modal__price { font-size: 26px; }
+  .product-modal__desc { font-size: 15px; }
+  .product-modal__detail-row { font-size: 14px; }
 
   .product-modal__bottom-bar {
     padding: 14px 20px;
     gap: 12px;
+    border-radius: 0 0 20px 20px;
+  }
+
+  .product-modal__qty-selector {
+    height: 48px;
+    border: 1px solid var(--app-border, #e5e7eb);
+  }
+
+  .product-modal__qty-btn {
+    height: 48px;
+    width: 40px;
+  }
+
+  .product-modal__cart-btn {
+    height: 48px;
+    border-radius: 12px;
+  }
+
+  .product-modal__close {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    top: 12px;
+    right: 12px;
   }
 
   .product-modal__close:hover {
@@ -505,9 +531,7 @@
     background: rgba(255, 255, 255, 0.3);
   }
 
-  .product-modal__image-wrap {
-    width: calc(100% - 32px);
-    margin: 0 16px;
-    border-radius: 16px;
+  [data-theme="dark"] .product-modal__qty-selector {
+    border-color: rgba(255, 255, 255, 0.15);
   }
 }

@@ -117,6 +117,22 @@ export function ProductModal({
   }, [images.length]);
 
   /* ---------- close helpers ---------- */
+  // Kill entry animation inline after it plays, so swipe classes can't re-trigger it
+  const handleModalAnimationEnd = useCallback((e: React.AnimationEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.animationName === 'pm-slideUp' || e.animationName === 'pm-cardIn') {
+      (e.currentTarget as HTMLElement).style.animation = 'none';
+    }
+  }, []);
+
+  // Clear inline animation before closing so pm-slideDown/pm-cardOut can play
+  const triggerClose = useCallback(() => {
+    if (modalRef.current) {
+      modalRef.current.style.animation = '';
+    }
+    setClosing(true);
+  }, []);
+
   // When closing animation ends on the overlay → actually unmount
   // IMPORTANT: check e.target === e.currentTarget to ignore bubbled events from children
   const handleAnimationEnd = useCallback((e: React.AnimationEvent) => {
@@ -145,7 +161,7 @@ export function ProductModal({
     }
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setClosing(true);
+      if (e.key === 'Escape') triggerClose();
     };
     document.addEventListener('keydown', onKey);
 
@@ -224,7 +240,7 @@ export function ProductModal({
 
   /* ---------- backdrop click ---------- */
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) setClosing(true);
+    if (e.target === e.currentTarget) triggerClose();
   };
 
 
@@ -289,7 +305,7 @@ export function ProductModal({
     if (diff > SWIPE_THRESHOLD) {
       // Dismiss
       el.classList.remove('product-modal--dragging');
-      setClosing(true);
+      triggerClose();
       el.style.transform = '';
     } else if (diff > 1) {
       // Snap back — replace dragging with snapping atomically
@@ -328,6 +344,7 @@ export function ProductModal({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        onAnimationEnd={handleModalAnimationEnd}
       >
         {/* Drag handle */}
         <div className="product-modal__handle" />
@@ -372,7 +389,7 @@ export function ProductModal({
               <button
                 type="button"
                 className="product-modal__close"
-                onClick={(e) => { e.stopPropagation(); setClosing(true); }}
+                onClick={(e) => { e.stopPropagation(); triggerClose(); }}
                 aria-label="Закрыть"
               >
                 ×
