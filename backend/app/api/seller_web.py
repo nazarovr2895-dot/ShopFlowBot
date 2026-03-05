@@ -2100,23 +2100,50 @@ async def create_customer(
 
 @router.get("/customers/export")
 async def export_customers_csv(
-    seller_id: int = Depends(require_seller_token),
+    branch: Optional[str] = Query(None, description="'all' for all branches or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
     """Export customers to CSV file."""
+    seller_id, owner_id = auth
     svc = LoyaltyService(session)
-    customers = await svc.list_customers(seller_id)
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
+
+    is_multi = isinstance(target, list)
+    name_map = {}
+    if is_multi:
+        branch_rows = await session.execute(
+            select(Seller.seller_id, Seller.shop_name, Seller.address_name).where(
+                Seller.seller_id.in_(target)
+            )
+        )
+        name_map = {
+            r.seller_id: f"{r.shop_name}" + (f" ({r.address_name})" if r.address_name else "")
+            for r in branch_rows.all()
+        }
+        all_customers = []
+        for sid in target:
+            custs = await svc.list_customers(sid)
+            for c in custs:
+                c["branch_name"] = name_map.get(sid, str(sid))
+            all_customers.extend(custs)
+        customers = all_customers
+    else:
+        customers = await svc.list_customers(target)
 
     # Create CSV in memory (utf-8-sig encoding adds BOM for Excel compatibility)
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
 
     # Headers
-    writer.writerow(['Телефон', 'Имя', 'Фамилия', 'Карта', 'Баллы', 'Дата регистрации', 'Заметка', 'Теги'])
+    headers = ['Телефон', 'Имя', 'Фамилия', 'Карта', 'Баллы', 'Дата регистрации', 'Заметка', 'Теги']
+    if is_multi:
+        headers.append('Филиал')
+    writer.writerow(headers)
 
     # Rows
     for c in customers:
-        writer.writerow([
+        row = [
             c.get('phone', ''),
             c.get('first_name', ''),
             c.get('last_name', ''),
@@ -2125,7 +2152,10 @@ async def export_customers_csv(
             c.get('created_at', ''),
             c.get('notes', ''),
             ', '.join(c.get('tags') or []) if isinstance(c.get('tags'), list) else (c.get('tags') or ''),
-        ])
+        ]
+        if is_multi:
+            row.append(c.get('branch_name', ''))
+        writer.writerow(row)
 
     output.seek(0)
     return StreamingResponse(
@@ -2137,15 +2167,39 @@ async def export_customers_csv(
 
 @router.get("/customers/all")
 async def list_all_customers(
-    seller_id: int = Depends(require_seller_token),
+    branch: Optional[str] = Query(None, description="'all' for all branches or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
     """Unified list: all subscribers + standalone loyalty customers.
     Used by the Customers page to show the full client base with search support.
+    Supports branch param for network owners to aggregate across branches.
     """
+    seller_id, owner_id = auth
     from backend.app.services.cart import FavoriteSellersService
     svc = FavoriteSellersService(session)
-    return await svc.get_subscribers_with_customers(seller_id)
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
+    if isinstance(target, list):
+        # Build branch name lookup
+        branch_rows = await session.execute(
+            select(Seller.seller_id, Seller.shop_name, Seller.address_name).where(
+                Seller.seller_id.in_(target)
+            )
+        )
+        name_map = {
+            r.seller_id: f"{r.shop_name}" + (f" ({r.address_name})" if r.address_name else "")
+            for r in branch_rows.all()
+        }
+        all_customers = []
+        for sid in target:
+            customers = await svc.get_subscribers_with_customers(sid)
+            bname = name_map.get(sid, str(sid))
+            for c in customers:
+                c["branch_seller_id"] = sid
+                c["branch_name"] = bname
+            all_customers.extend(customers)
+        return all_customers
+    return await svc.get_subscribers_with_customers(target)
 
 
 @router.get("/customers/{customer_id}")
@@ -2350,14 +2404,40 @@ async def update_working_hours(
 # --- SUBSCRIBERS ---
 @router.get("/subscribers")
 async def get_subscribers(
-    seller_id: int = Depends(require_seller_token),
+    branch: Optional[str] = Query(None, description="'all' for all branches or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get all subscribers for the current seller with loyalty status."""
+    """Get all subscribers for the current seller with loyalty status.
+    Supports branch param for network owners to aggregate across branches.
+    """
+    seller_id, owner_id = auth
     from backend.app.services.cart import FavoriteSellersService
     svc = FavoriteSellersService(session)
-    subscribers = await svc.get_subscribers(seller_id)
-    count = await svc.get_subscriber_count(seller_id)
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
+    if isinstance(target, list):
+        branch_rows = await session.execute(
+            select(Seller.seller_id, Seller.shop_name, Seller.address_name).where(
+                Seller.seller_id.in_(target)
+            )
+        )
+        name_map = {
+            r.seller_id: f"{r.shop_name}" + (f" ({r.address_name})" if r.address_name else "")
+            for r in branch_rows.all()
+        }
+        all_subscribers = []
+        total = 0
+        for sid in target:
+            subs = await svc.get_subscribers(sid)
+            bname = name_map.get(sid, str(sid))
+            for s in subs:
+                s["branch_seller_id"] = sid
+                s["branch_name"] = bname
+            all_subscribers.extend(subs)
+            total += await svc.get_subscriber_count(sid)
+        return {"subscribers": all_subscribers, "total": total}
+    subscribers = await svc.get_subscribers(target)
+    count = await svc.get_subscriber_count(target)
     return {"subscribers": subscribers, "total": count}
 
 

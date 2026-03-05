@@ -59,7 +59,11 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   rejected: 'Отклонён',
 };
 
-export function SellerCustomers() {
+interface SellerCustomersProps {
+  branch?: string;
+}
+
+export function SellerCustomers({ branch }: SellerCustomersProps) {
   const toast = useToast();
   const confirm = useConfirm();
   const { id } = useParams<{ id: string }>();
@@ -90,7 +94,7 @@ export function SellerCustomers() {
   const loadList = useCallback(async () => {
     try {
       const [list, tags] = await Promise.all([
-        getAllCustomers(),
+        getAllCustomers(branch),
         getCustomerTags(),
       ]);
       setCustomers(list || []);
@@ -107,7 +111,7 @@ export function SellerCustomers() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [branch]);
 
   const loadDetail = useCallback(async (customerId: number) => {
     setLoading(true);
@@ -277,7 +281,7 @@ export function SellerCustomers() {
 
   const handleExportCustomers = async () => {
     try {
-      const blob = await exportCustomersCSV();
+      const blob = await exportCustomersCSV(branch);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -674,6 +678,9 @@ export function SellerCustomers() {
                         <StatusBadge variant={SEGMENT_BADGE_VARIANT[c.segment] || 'neutral'} size="sm">
                           {c.segment}
                         </StatusBadge>
+                      )}
+                      {c.branch_name && (
+                        <span className="customer-branch-tag">{c.branch_name}</span>
                       )}
                       {Array.isArray(c.tags) && c.tags.length > 0 && c.tags.map((tag, i) => (
                         <span key={i} className="customer-list-tag">{tag}</span>

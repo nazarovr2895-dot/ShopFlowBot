@@ -24,7 +24,11 @@ function formatPhone(phone: string | null): string {
   return phone;
 }
 
-export function SellerSubscribers() {
+interface SellerSubscribersProps {
+  branch?: string;
+}
+
+export function SellerSubscribers({ branch }: SellerSubscribersProps) {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -32,8 +36,9 @@ export function SellerSubscribers() {
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        const data = await getSubscribers();
+        const data = await getSubscribers(branch);
         setSubscribers(data.subscribers || []);
         setTotal(data.total);
       } catch {
@@ -44,7 +49,7 @@ export function SellerSubscribers() {
       }
     };
     load();
-  }, []);
+  }, [branch]);
 
   const withLoyalty = subscribers.filter(s => s.has_loyalty).length;
 
@@ -104,7 +109,10 @@ export function SellerSubscribers() {
           {filtered.map(sub => (
             <div key={sub.buyer_id} className="subscriber-row">
               <div className="subscriber-user-info">
-                <div className="subscriber-name">{sub.fio || sub.username || `ID ${sub.buyer_id}`}</div>
+                <div className="subscriber-name">
+                  {sub.fio || sub.username || `ID ${sub.buyer_id}`}
+                  {sub.branch_name && <span className="subscriber-branch-tag">{sub.branch_name}</span>}
+                </div>
                 {sub.username && <div className="subscriber-username">@{sub.username}</div>}
               </div>
               <div className="subscriber-phone">{formatPhone(sub.phone)}</div>

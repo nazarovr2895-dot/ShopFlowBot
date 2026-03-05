@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState } from 'react';
 import { TabBar, PageHeader } from '@shared/components/ui';
 import { useTabs } from '@shared/hooks/useTabs';
 import { useSellerAuth } from '../../contexts/SellerAuthContext';
@@ -14,23 +14,40 @@ const ALL_TABS = [
   { key: 'loyalty', label: 'Настройки лояльности' },
 ];
 
-const NETWORK_OWNER_TABS = [
-  { key: 'subscribers', label: 'Подписчики' },
-  { key: 'loyalty', label: 'Настройки лояльности' },
-];
-
 export function SellerCustomerHub() {
-  const { isNetworkOwner } = useSellerAuth();
-  const tabs = useMemo(() => isNetworkOwner ? NETWORK_OWNER_TABS : ALL_TABS, [isNetworkOwner]);
-  const [tab, setTab] = useTabs(isNetworkOwner ? 'subscribers' : 'crm');
+  const { isNetworkOwner, branches } = useSellerAuth();
+  const [tab, setTab] = useTabs('crm');
+  const [branch, setBranch] = useState<string>('all');
+
+  const branchParam = isNetworkOwner ? branch : undefined;
 
   return (
     <div>
-      <PageHeader title="Клиенты" subtitle="CRM, подписчики и лояльность" />
-      <TabBar tabs={tabs} activeTab={tab} onChange={setTab} />
-      {tab === 'crm' && <SellerCustomers />}
+      <PageHeader
+        title="Клиенты"
+        subtitle="CRM, подписчики и лояльность"
+        actions={
+          isNetworkOwner && (tab === 'crm' || tab === 'subscribers') ? (
+            <select
+              className="form-input form-input-sm"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              style={{ minWidth: 160 }}
+            >
+              <option value="all">Все филиалы</option>
+              {branches.map((b) => (
+                <option key={b.seller_id} value={String(b.seller_id)}>
+                  {b.shop_name || `Филиал #${b.seller_id}`}
+                </option>
+              ))}
+            </select>
+          ) : undefined
+        }
+      />
+      <TabBar tabs={ALL_TABS} activeTab={tab} onChange={setTab} />
+      {tab === 'crm' && <SellerCustomers branch={branchParam} />}
       {tab === 'add' && <AddCustomerTab />}
-      {tab === 'subscribers' && <SellerSubscribers />}
+      {tab === 'subscribers' && <SellerSubscribers branch={branchParam} />}
       {tab === 'loyalty' && <LoyaltySettingsTab />}
     </div>
   );

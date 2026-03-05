@@ -726,10 +726,13 @@ export interface UnifiedCustomerBrief {
   tags: string[] | null;
   birthday: string | null;
   segment: string | null;
+  branch_seller_id?: number;
+  branch_name?: string;
 }
 
-export async function getAllCustomers(): Promise<UnifiedCustomerBrief[]> {
-  return fetchSeller<UnifiedCustomerBrief[]>('/seller-web/customers/all');
+export async function getAllCustomers(branch?: string): Promise<UnifiedCustomerBrief[]> {
+  const params = branch ? `?branch=${encodeURIComponent(branch)}` : '';
+  return fetchSeller<UnifiedCustomerBrief[]>(`/seller-web/customers/all${params}`);
 }
 
 export async function createCustomer(data: { phone: string; first_name: string; last_name: string; birthday?: string | null }): Promise<SellerCustomerBrief> {
@@ -807,11 +810,12 @@ export async function getUpcomingEvents(days: number = 7): Promise<UpcomingEvent
   return fetchSeller<UpcomingEvent[]>(`/seller-web/dashboard/upcoming-events?days=${days}`);
 }
 
-export async function exportCustomersCSV(): Promise<Blob> {
+export async function exportCustomersCSV(branch?: string): Promise<Blob> {
   const token = getSellerToken();
   if (!token) throw new Error('Не авторизован');
 
-  const res = await fetch(`${getApiBase()}/seller-web/customers/export`, {
+  const params = branch ? `?branch=${encodeURIComponent(branch)}` : '';
+  const res = await fetch(`${getApiBase()}/seller-web/customers/export${params}`, {
     headers: {
       'X-Seller-Token': token,
     },
@@ -1126,6 +1130,8 @@ export interface Subscriber {
   loyalty_points: number;
   loyalty_customer_id: number | null;
   has_loyalty: boolean;
+  branch_seller_id?: number;
+  branch_name?: string;
 }
 
 export interface SubscribersResponse {
@@ -1133,8 +1139,9 @@ export interface SubscribersResponse {
   total: number;
 }
 
-export async function getSubscribers(): Promise<SubscribersResponse> {
-  return fetchSeller<SubscribersResponse>('/seller-web/subscribers');
+export async function getSubscribers(branch?: string): Promise<SubscribersResponse> {
+  const params = branch ? `?branch=${encodeURIComponent(branch)}` : '';
+  return fetchSeller<SubscribersResponse>(`/seller-web/subscribers${params}`);
 }
 
 export async function getSubscriberCount(branch?: string): Promise<{ count: number }> {

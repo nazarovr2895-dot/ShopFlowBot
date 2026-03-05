@@ -161,6 +161,16 @@
   color: var(--accent);
 }
 
+.customer-branch-tag {
+  display: inline-flex;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-xl);
+  font-size: 0.6875rem;
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.06));
+  color: var(--text-secondary);
+  margin-left: var(--space-1);
+}
+
 .customer-no-card {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
