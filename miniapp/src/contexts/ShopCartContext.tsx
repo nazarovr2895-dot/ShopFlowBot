@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import type { CartItemEntry } from '../types';
+import type { CartItemEntry, Product, SellerCategory } from '../types';
 import { api } from '../api/client';
 import { isBrowser } from '../utils/environment';
 import {
@@ -38,6 +38,11 @@ interface ShopCartContextValue {
   isPanelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
 
+  // Addon products for cross-sell in cart
+  addonProducts: Product[];
+  addonCategories: SellerCategory[];
+  setAddonData: (products: Product[], categories: SellerCategory[]) => void;
+
   // Operations — return void (errors are thrown for callers to catch/handle)
   addItem: (params: AddToCartParams) => Promise<{ reserved_at?: string | null }>;
   updateQuantity: (productId: number, newQty: number) => Promise<void>;
@@ -68,6 +73,8 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup' | 'both' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPanelOpen, setPanelOpen] = useState(false);
+  const [addonProducts, setAddonProducts] = useState<Product[]>([]);
+  const [addonCategories, setAddonCategories] = useState<SellerCategory[]>([]);
 
   const isGuest = isBrowser() && !api.isAuthenticated();
   const isGuestRef = useRef(isGuest);
@@ -266,6 +273,11 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
     }
   }, [items.length, isPanelOpen]);
 
+  const setAddonData = useCallback((products: Product[], categories: SellerCategory[]) => {
+    setAddonProducts(products);
+    setAddonCategories(categories);
+  }, []);
+
   const value: ShopCartContextValue = {
     sellerId,
     items,
@@ -277,6 +289,9 @@ export function ShopCartProvider({ children }: { children: ReactNode }) {
     isLoading,
     isPanelOpen,
     setPanelOpen,
+    addonProducts,
+    addonCategories,
+    setAddonData,
     addItem,
     updateQuantity,
     removeItem: removeItemFn,

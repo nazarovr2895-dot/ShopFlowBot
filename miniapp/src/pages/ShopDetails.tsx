@@ -83,7 +83,7 @@ export function ShopDetails() {
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [showMiniMap, setShowMiniMap] = useState(false);
-  const { cartQuantities, addItem: ctxAddItem, updateQuantity: ctxUpdateQuantity, isPanelOpen, setPanelOpen, itemCount: cartItemCount } = useShopCart();
+  const { cartQuantities, addItem: ctxAddItem, updateQuantity: ctxUpdateQuantity, isPanelOpen, setPanelOpen, itemCount: cartItemCount, setAddonData } = useShopCart();
 
   // Set up back button — close cart panel first, then navigate back
   useEffect(() => {
@@ -113,6 +113,8 @@ export function ShopDetails() {
         const id = parseInt(sellerId, 10);
         const data = await api.getSellerDetail(id);
         setSeller(data);
+        // Pass addon data to cart context for cross-sell
+        setAddonData(data.addon_products ?? [], data.addon_categories ?? []);
         // Auto-select tab: if no regular products but preorder products exist, switch to preorder
         const hasRegular = data.products.length > 0;
         const hasPreorder = data.preorder_enabled && (data.preorder_products?.length ?? 0) > 0;
@@ -840,6 +842,71 @@ export function ShopDetails() {
               );
             })}
           </div>
+
+          {/* Addon products "К цветам" section */}
+          {(seller.addon_products?.length ?? 0) > 0 && (seller.addon_categories?.length ?? 0) > 0 && (
+            <div className="shop-details__addons-section">
+              <h3 className="shop-details__addons-title">К цветам</h3>
+              {seller.addon_categories!.map((cat) => {
+                const catProducts = seller.addon_products!.filter((p: Product) => p.category_id === cat.id);
+                if (catProducts.length === 0) return null;
+                return (
+                  <div key={cat.id} className="shop-details__addon-category">
+                    <h4 className="shop-details__addon-category-name">{cat.name}</h4>
+                    <div className="shop-details__addon-scroll">
+                      {catProducts.map((product: Product) => {
+                        const firstPhotoId = (product.photo_ids && product.photo_ids[0]) || product.photo_id;
+                        const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
+                        const cartQty = cartQuantities.get(product.id) || 0;
+                        const inStock = (product.quantity ?? 0) > 0;
+                        return (
+                          <div
+                            key={product.id}
+                            className="shop-details__addon-card"
+                            onClick={() => setSelectedProduct(product)}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <div className="shop-details__addon-card-image-wrap">
+                              <ProductImage
+                                src={imageUrl}
+                                alt={product.name}
+                                className="shop-details__addon-card-image"
+                                placeholderClassName="shop-details__addon-card-image-placeholder"
+                              />
+                            </div>
+                            <span className="shop-details__addon-card-name">{product.name}</span>
+                            <div className="shop-details__addon-card-price-row">
+                              <span className="shop-details__addon-card-price">{formatPrice(product.price)}</span>
+                              {cartQty > 0 ? (
+                                <div className="shop-details__qty-counter shop-details__qty-counter--compact" onClick={(e) => e.stopPropagation()}>
+                                  <button type="button" className="shop-details__qty-counter-btn" onClick={(e) => updateCartQuantity(product.id, cartQty - 1, e)}>−</button>
+                                  <span className="shop-details__qty-counter-value">{cartQty}</span>
+                                  <button type="button" className="shop-details__qty-counter-btn" onClick={(e) => updateCartQuantity(product.id, cartQty + 1, e)}>+</button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="shop-details__product-card-add-pill"
+                                  disabled={!inStock || seller.subscription_active === false}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (seller.subscription_active !== false) addToCart(product.id);
+                                  }}
+                                >
+                                  <span>{inStock ? 'В корзину' : 'Нет'}</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
         );
       })()}

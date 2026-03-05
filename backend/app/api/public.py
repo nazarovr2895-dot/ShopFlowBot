@@ -108,6 +108,8 @@ class PublicSellerDetail(BaseModel):
     categories: List[dict] = []
     products: List[dict]
     preorder_products: List[dict] = []
+    addon_products: List[dict] = []
+    addon_categories: List[dict] = []
     preorder_available_dates: List[str] = []
     preorder_enabled: bool = False
     preorder_discount_percent: float = 0
@@ -205,7 +207,8 @@ async def get_public_sellers(
             Seller.subscription_plan == "active",
         ]
 
-        # Подзапрос для статистики товаров (только с количеством > 0)
+        # Подзапрос для статистики товаров (только с количеством > 0, без addon)
+        from backend.app.models.category import Category as CategoryModel
         product_stats = (
             select(
                 Product.seller_id,
@@ -213,7 +216,12 @@ async def get_public_sellers(
                 func.max(Product.price).label("max_price"),
                 func.count(Product.id).label("product_count"),
             )
-            .where(Product.is_active == True, Product.quantity > 0)
+            .outerjoin(CategoryModel, Product.category_id == CategoryModel.id)
+            .where(
+                Product.is_active == True,
+                Product.quantity > 0,
+                or_(Product.category_id.is_(None), CategoryModel.is_addon == False),
+            )
             .group_by(Product.seller_id)
             .subquery()
         )
@@ -571,13 +579,19 @@ async def get_sellers_geo(
     if city_id:
         base_conditions.append(Seller.city_id == city_id)
 
+    from backend.app.models.category import Category as CategoryModel
     product_stats = (
         select(
             Product.seller_id,
             func.min(Product.price).label("min_price"),
             func.count(Product.id).label("product_count"),
         )
-        .where(Product.is_active == True, Product.quantity > 0)
+        .outerjoin(CategoryModel, Product.category_id == CategoryModel.id)
+        .where(
+            Product.is_active == True,
+            Product.quantity > 0,
+            or_(Product.category_id.is_(None), CategoryModel.is_addon == False),
+        )
         .group_by(Product.seller_id)
         .subquery()
     )
@@ -761,7 +775,8 @@ async def get_public_seller_detail(
         if getattr(p, "bouquet_id", None) is None or p.bouquet_id in active_bouquet_ids
     ]
     if not products and not preorder_products:
-        raise HTTPException(status_code=404, detail="Продавец не найден")
+        # Don't 404 yet — addon products will be checked after category split
+        pass
     from backend.app.services.sellers import get_preorder_available_dates
     # Column temporarily commented out in model until migration is applied
     preorder_custom_dates = getattr(seller, "preorder_custom_dates", None)
@@ -816,17 +831,56 @@ async def get_public_seller_detail(
     products_list = [_product_dict(p) for p in products]
     preorder_products_list = [_product_dict(p) for p in preorder_products]
 
-    # Seller categories
+    # Seller categories (split regular / addon)
     from backend.app.models.category import Category
     cat_result = await session.execute(
         select(Category)
         .where(Category.seller_id == seller_id, Category.is_active == True)
         .order_by(Category.sort_order, Category.id)
     )
+    all_categories = list(cat_result.scalars().all())
+    regular_cats = [c for c in all_categories if not c.is_addon]
+    addon_cats = [c for c in all_categories if c.is_addon]
+    addon_category_ids = {c.id for c in addon_cats}
+
     categories_list = [
         {"id": c.id, "name": c.name, "sort_order": c.sort_order}
-        for c in cat_result.scalars().all()
+        for c in regular_cats
     ]
+    addon_categories_list = [
+        {"id": c.id, "name": c.name, "sort_order": c.sort_order}
+        for c in addon_cats
+    ]
+
+    # Filter addon products out of regular/preorder lists
+    if addon_category_ids:
+        products_list = [p for p in products_list if p.get("category_id") not in addon_category_ids]
+        preorder_products_list = [p for p in preorder_products_list if p.get("category_id") not in addon_category_ids]
+
+    # Addon products (from addon categories, in stock)
+    if addon_category_ids:
+        addon_query = (
+            select(Product)
+            .where(
+                Product.seller_id == seller_id,
+                Product.is_active == True,
+                Product.quantity > 0,
+                Product.category_id.in_(addon_category_ids),
+            )
+            .order_by(Product.price.asc())
+        )
+        addon_result = await session.execute(addon_query)
+        addon_products_raw = list(addon_result.scalars().all())
+        addon_products_raw = [
+            p for p in addon_products_raw
+            if getattr(p, "bouquet_id", None) is None or p.bouquet_id in active_bouquet_ids
+        ]
+        addon_products_list = [_product_dict(p) for p in addon_products_raw]
+    else:
+        addon_products_list = []
+
+    if not products_list and not preorder_products_list and not addon_products_list:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
 
     delivery_type_normalized = _normalize_delivery_type(seller.delivery_type)
 
@@ -863,6 +917,8 @@ async def get_public_seller_detail(
         subscription_active=subscription_active,
         products=products_list,
         preorder_products=preorder_products_list,
+        addon_products=addon_products_list,
+        addon_categories=addon_categories_list,
         preorder_available_dates=preorder_available_dates,
         preorder_enabled=preorder_enabled,
         preorder_discount_percent=float(getattr(seller, "preorder_discount_percent", 0) or 0),

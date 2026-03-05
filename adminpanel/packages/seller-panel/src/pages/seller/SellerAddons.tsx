@@ -1,94 +1,79 @@
 import { useEffect, useState, useRef } from 'react';
 import {
-  Eye, EyeOff, Pencil, Trash2, RefreshCw, ImageIcon, Plus, X, Tag,
+  Eye, EyeOff, Pencil, Trash2, ImageIcon, Plus, X, Tag,
 } from 'lucide-react';
 import {
   getMe,
   getProducts,
-  getBouquets,
   createProduct,
   updateProduct,
   deleteProduct,
   uploadProductPhoto,
   getProductImageUrl,
-  recalculateProductPrice,
   getCategories,
   createCategory,
   updateCategory as updateCategoryApi,
   deleteCategory as deleteCategoryApi,
 } from '../../api/sellerClient';
-import type { SellerMe, SellerProduct, BouquetDetail, CompositionItem, SellerCategory } from '../../api/sellerClient';
+import type { SellerMe, SellerProduct, CompositionItem, SellerCategory } from '../../api/sellerClient';
 import { useToast, useConfirm, TabBar, FormField, EmptyState } from '@shared/components/ui';
 import { ImageCropModal } from '../../components/ImageCropModal';
 import { CompositionEditor } from '../../components/CompositionEditor';
 import { ProductEditModal } from '../../components/ProductEditModal';
 import './SellerShowcase.css';
 
-type AddProductMode = 'choice' | 'manual' | 'bouquet';
+type AddonTab = 'products' | 'categories';
 
-type ShowcaseTab = 'regular' | 'preorder' | 'categories';
-
-export function SellerShowcase() {
+export function SellerAddons() {
   const toast = useToast();
   const confirm = useConfirm();
-  const [activeTab, setActiveTab] = useState<ShowcaseTab>('regular');
+  const [activeTab, setActiveTab] = useState<AddonTab>('products');
   const [me, setMe] = useState<SellerMe | null>(null);
-  const [products, setProducts] = useState<SellerProduct[]>([]);
+  const [allProducts, setAllProducts] = useState<SellerProduct[]>([]);
+  const [allCategories, setAllCategories] = useState<SellerCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [addProductMode, setAddProductMode] = useState<AddProductMode>('choice');
-  const [bouquets, setBouquets] = useState<BouquetDetail[]>([]);
-  const [selectedBouquetId, setSelectedBouquetId] = useState<number | null>(null);
   const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', quantity: '1' });
   const [newProductComposition, setNewProductComposition] = useState<CompositionItem[]>([]);
   const [productPhotoFiles, setProductPhotoFiles] = useState<File[]>([]);
   const [productPhotoPreviews, setProductPhotoPreviews] = useState<string[]>([]);
-
-  const [markupPercent, setMarkupPercent] = useState('50');
-  const [selectedBouquetCost, setSelectedBouquetCost] = useState(0);
-  const [recalculating, setRecalculating] = useState<number | null>(null);
+  const [newProductCategoryId, setNewProductCategoryId] = useState<number | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<SellerProduct | null>(null);
 
   // Categories
-  const [categories, setCategories] = useState<SellerCategory[]>([]);
-  const [newProductCategoryId, setNewProductCategoryId] = useState<number | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
   const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
 
-  // Crop modal state (for add product form)
+  // Crop modal
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const pendingCropFiles = useRef<File[]>([]);
+
+  // Derived: addon categories & products only
+  const addonCategories = allCategories.filter((c) => c.is_addon);
+  const addonCategoryIds = new Set(addonCategories.map((c) => c.id));
+  const products = allProducts.filter((p) => p.category_id != null && addonCategoryIds.has(p.category_id));
+  const visibleCount = products.filter((p) => p.is_active !== false).length;
 
   const load = async () => {
     setLoading(true);
     try {
-      if (activeTab === 'categories') {
-        const [meData, cats] = await Promise.all([
-          getMe(),
-          getCategories().catch(() => []),
-        ]);
-        setMe(meData);
-        setCategories(cats ?? []);
-      } else {
-        const isPreorder = activeTab === 'preorder';
-        const [meData, productsData, cats] = await Promise.all([
-          getMe(),
-          getProducts({ preorder: isPreorder }),
-          getCategories().catch(() => []),
-        ]);
-        setMe(meData);
-        setProducts(productsData ?? []);
-        setCategories(cats ?? []);
-      }
+      const [meData, productsData, cats] = await Promise.all([
+        getMe(),
+        getProducts(),
+        getCategories().catch(() => []),
+      ]);
+      setMe(meData);
+      setAllProducts(productsData ?? []);
+      setAllCategories(cats ?? []);
     } catch {
       setMe(null);
-      setProducts([]);
+      setAllProducts([]);
     } finally {
       setLoading(false);
     }
@@ -99,24 +84,17 @@ export function SellerShowcase() {
     load();
   }, [activeTab]);
 
-  // Filter out addon categories & their products (managed in "К цветам" tab)
-  const regularCategories = categories.filter((c) => !c.is_addon);
-  const addonCategoryIds = new Set(categories.filter((c) => c.is_addon).map((c) => c.id));
-  const regularProducts = products.filter((p) => !p.category_id || !addonCategoryIds.has(p.category_id));
-
-  const visibleCount = regularProducts.filter((p) => p.is_active !== false).length;
-
   const handleToggleShowInApp = async (product: SellerProduct) => {
     const nextActive = product.is_active === false;
     setTogglingId(product.id);
     const prev = product.is_active;
-    setProducts((list) =>
+    setAllProducts((list) =>
       list.map((p) => (p.id === product.id ? { ...p, is_active: nextActive } : p))
     );
     try {
       await updateProduct(product.id, { is_active: nextActive });
     } catch (err) {
-      setProducts((list) =>
+      setAllProducts((list) =>
         list.map((p) => (p.id === product.id ? { ...p, is_active: prev } : p))
       );
       toast.error(err instanceof Error ? err.message : 'Ошибка сохранения');
@@ -134,6 +112,10 @@ export function SellerShowcase() {
       toast.warning('Проверьте цену и количество');
       return;
     }
+    if (newProductCategoryId == null) {
+      toast.warning('Выберите категорию');
+      return;
+    }
     setIsAddingProduct(true);
     try {
       const photo_ids: string[] = [];
@@ -147,29 +129,18 @@ export function SellerShowcase() {
         description: newProduct.description,
         price,
         quantity,
-        is_preorder: activeTab === 'preorder',
+        is_preorder: false,
+        category_id: newProductCategoryId,
       };
       if (photo_ids.length) payload.photo_ids = photo_ids;
       const validComposition = newProductComposition.filter((c) => c.name.trim());
       if (validComposition.length) payload.composition = validComposition;
-      if (selectedBouquetId != null) {
-        payload.bouquet_id = selectedBouquetId;
-        payload.cost_price = selectedBouquetCost;
-        payload.markup_percent = parseFloat(markupPercent) || 0;
-      }
-      if (newProductCategoryId != null) {
-        payload.category_id = newProductCategoryId;
-      }
       await createProduct(payload);
       setNewProduct({ name: '', description: '', price: '', quantity: '1' });
       setNewProductComposition([]);
       setProductPhotoFiles([]);
       setProductPhotoPreviews([]);
       setShowAddProduct(false);
-      setAddProductMode('choice');
-      setSelectedBouquetId(null);
-      setSelectedBouquetCost(0);
-      setMarkupPercent('50');
       setNewProductCategoryId(null);
       load();
     } catch (e) {
@@ -198,32 +169,6 @@ export function SellerShowcase() {
     });
   };
 
-  const openAddFromBouquet = async () => {
-    try {
-      const list = await getBouquets();
-      setBouquets(list || []);
-      setAddProductMode('bouquet');
-    } catch {
-      setBouquets([]);
-      setAddProductMode('bouquet');
-    }
-  };
-
-  const selectBouquetForProduct = (b: BouquetDetail) => {
-    setSelectedBouquetId(b.id);
-    const canAssemble = Math.max(0, b.can_assemble_count ?? 0);
-    const costPrice = b.total_price ?? 0;
-    setSelectedBouquetCost(costPrice);
-    const defaultMarkup = 50;
-    setMarkupPercent(String(defaultMarkup));
-    setNewProduct({
-      name: b.name,
-      description: '',
-      price: String(Math.round(costPrice * (1 + defaultMarkup / 100))),
-      quantity: String(canAssemble),
-    });
-  };
-
   const handleDeleteProduct = async (id: number) => {
     if (!await confirm({ message: 'Удалить товар?' })) return;
     try {
@@ -245,7 +190,6 @@ export function SellerShowcase() {
     if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
     setCropImageSrc(null);
 
-    // Process next pending file
     const nextFile = pendingCropFiles.current.shift();
     if (nextFile) {
       setCropImageSrc(URL.createObjectURL(nextFile));
@@ -269,25 +213,24 @@ export function SellerShowcase() {
   return (
     <div className="seller-showcase-page">
       <p className="seller-showcase-intro">
-        Как видят ваш каталог в приложении. Добавляйте, редактируйте товары и управляйте показом в mini app.
+        Сопутствующие товары к букетам: игрушки, конфеты, открытки и другое. Покупатели увидят их в конце каталога и в корзине.
       </p>
 
       <TabBar
         tabs={[
-          { key: 'regular', label: 'Товары в mini app', count: activeTab === 'regular' ? regularProducts.length : undefined },
-          { key: 'preorder', label: 'Товары по предзаказу' },
-          { key: 'categories', label: 'Категории', count: regularCategories.length || undefined },
+          { key: 'products', label: 'Товары', count: products.length || undefined },
+          { key: 'categories', label: 'Категории', count: addonCategories.length || undefined },
         ]}
         activeTab={activeTab}
-        onChange={(key) => setActiveTab(key as ShowcaseTab)}
+        onChange={(key) => setActiveTab(key as AddonTab)}
       />
 
       {/* ====== Categories Tab ====== */}
       {activeTab === 'categories' && (
         <div className="sc-categories-tab">
           <div className="sc-categories-header">
-            <h3>Управление категориями</h3>
-            <p>Создавайте категории для группировки товаров в каталоге</p>
+            <h3>Категории сопутствующих товаров</h3>
+            <p>Например: Игрушки, Конфеты, Открытки</p>
           </div>
 
           <div className="sc-categories-add-form">
@@ -301,10 +244,10 @@ export function SellerShowcase() {
               onKeyDown={async (e) => {
                 if (e.key === 'Enter' && newCategoryName.trim()) {
                   try {
-                    await createCategory({ name: newCategoryName.trim(), sort_order: categories.length });
+                    await createCategory({ name: newCategoryName.trim(), sort_order: addonCategories.length, is_addon: true });
                     setNewCategoryName('');
                     const cats = await getCategories();
-                    setCategories(cats ?? []);
+                    setAllCategories(cats ?? []);
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : 'Ошибка');
                   }
@@ -317,10 +260,10 @@ export function SellerShowcase() {
               disabled={!newCategoryName.trim()}
               onClick={async () => {
                 try {
-                  await createCategory({ name: newCategoryName.trim(), sort_order: categories.length });
+                  await createCategory({ name: newCategoryName.trim(), sort_order: addonCategories.length, is_addon: true });
                   setNewCategoryName('');
                   const cats = await getCategories();
-                  setCategories(cats ?? []);
+                  setAllCategories(cats ?? []);
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : 'Ошибка');
                 }
@@ -330,15 +273,15 @@ export function SellerShowcase() {
             </button>
           </div>
 
-          {regularCategories.length === 0 ? (
+          {addonCategories.length === 0 ? (
             <EmptyState
               icon={<Tag size={40} />}
               title="Нет категорий"
-              message="Создайте первую категорию, чтобы группировать товары"
+              message="Создайте первую категорию, например «Игрушки» или «Конфеты»"
             />
           ) : (
             <div className="sc-category-list">
-              {regularCategories.map((cat) => (
+              {addonCategories.map((cat) => (
                 <div key={cat.id} className={`sc-category-row${cat.is_active === false ? ' sc-category-row--inactive' : ''}`}>
                   {editingCategoryId === cat.id ? (
                     <div className="sc-category-edit">
@@ -354,7 +297,7 @@ export function SellerShowcase() {
                             await updateCategoryApi(cat.id, { name: editingCategoryName.trim() });
                             setEditingCategoryId(null);
                             const cats = await getCategories();
-                            setCategories(cats ?? []);
+                            setAllCategories(cats ?? []);
                           }
                           if (e.key === 'Escape') setEditingCategoryId(null);
                         }}
@@ -367,7 +310,7 @@ export function SellerShowcase() {
                           await updateCategoryApi(cat.id, { name: editingCategoryName.trim() });
                           setEditingCategoryId(null);
                           const cats = await getCategories();
-                          setCategories(cats ?? []);
+                          setAllCategories(cats ?? []);
                         }}
                       >
                         OK
@@ -383,7 +326,7 @@ export function SellerShowcase() {
                         <span className="sc-category-name">{cat.name}</span>
                       </div>
                       <span className="sc-category-badge">
-                        {regularProducts.filter((p) => p.category_id === cat.id).length} товаров
+                        {products.filter((p) => p.category_id === cat.id).length} товаров
                       </span>
                       <div className="sc-category-actions">
                         <button
@@ -402,7 +345,7 @@ export function SellerShowcase() {
                             try {
                               await deleteCategoryApi(cat.id);
                               const cats = await getCategories();
-                              setCategories(cats ?? []);
+                              setAllCategories(cats ?? []);
                             } catch (e) {
                               toast.error(e instanceof Error ? e.message : 'Ошибка');
                             }
@@ -422,69 +365,33 @@ export function SellerShowcase() {
       )}
 
       {/* ====== Products Tab Content ====== */}
-      {activeTab !== 'categories' && regularProducts.length > 0 && (
+      {activeTab === 'products' && products.length > 0 && (
         <p className="seller-showcase-stats">
-          В каталоге: {visibleCount} из {regularProducts.length}
+          В каталоге: {visibleCount} из {products.length}
         </p>
       )}
 
-      {activeTab !== 'categories' && (
+      {activeTab === 'products' && (
         <div className="seller-showcase-toolbar">
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => {
-              setShowAddProduct(true);
-              setAddProductMode('choice');
-            }}
-          >
-            {activeTab === 'preorder' ? 'Добавить товар для предзаказа' : 'Добавить товар'}
-          </button>
-        </div>
-      )}
-
-      {showAddProduct && addProductMode === 'choice' && (
-        <div className="seller-showcase-add-choice card">
-          <h4>Как добавить товар?</h4>
-          <div className="seller-showcase-choice-buttons">
-            <button type="button" className="btn btn-primary" onClick={() => setAddProductMode('manual')}>
-              Создать вручную
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={openAddFromBouquet}>
-              Из букета
-            </button>
-          </div>
-          <button type="button" className="btn btn-secondary" onClick={() => setShowAddProduct(false)}>
-            Отмена
-          </button>
-        </div>
-      )}
-
-      {showAddProduct && addProductMode === 'bouquet' && !selectedBouquetId && (
-        <div className="seller-showcase-add-form card">
-          <h4>Выберите букет</h4>
-          {bouquets.length === 0 ? (
-            <p className="seller-showcase-empty-text">Нет букетов. Создайте букет в разделе «Конструктор букетов».</p>
+          {addonCategories.length === 0 ? (
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+              Сначала создайте категорию во вкладке «Категории»
+            </p>
           ) : (
-            <ul className="seller-showcase-bouquet-list">
-              {bouquets.map((b) => (
-                <li key={b.id}>
-                  <button type="button" className="btn btn-secondary" onClick={() => selectBouquetForProduct(b)}>
-                    {b.name} — {b.total_price != null ? `${b.total_price.toFixed(0)} ₽` : '—'}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowAddProduct(true)}
+            >
+              Добавить товар
+            </button>
           )}
-          <button type="button" className="btn btn-secondary" onClick={() => { setShowAddProduct(false); setAddProductMode('choice'); }}>
-            Назад
-          </button>
         </div>
       )}
 
-      {showAddProduct && (addProductMode === 'manual' || (addProductMode === 'bouquet' && selectedBouquetId)) && (
+      {showAddProduct && activeTab === 'products' && (
         <form onSubmit={handleAddProduct} className="seller-showcase-add-form card">
-          <h4>{selectedBouquetId ? 'Товар из букета' : 'Новый товар'}</h4>
+          <h4>Новый сопутствующий товар</h4>
           <FormField label="Название">
             <input
               type="text"
@@ -502,86 +409,39 @@ export function SellerShowcase() {
             />
           </FormField>
           <CompositionEditor items={newProductComposition} onChange={setNewProductComposition} />
-          {regularCategories.length > 0 && (
-            <FormField label="Категория">
-              <select
-                value={newProductCategoryId ?? ''}
-                onChange={(e) => setNewProductCategoryId(e.target.value ? Number(e.target.value) : null)}
+          <FormField label="Категория">
+            <select
+              value={newProductCategoryId ?? ''}
+              onChange={(e) => setNewProductCategoryId(e.target.value ? Number(e.target.value) : null)}
+              className="form-input"
+              required
+            >
+              <option value="">Выберите категорию</option>
+              {addonCategories.filter(c => c.is_active).map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </FormField>
+          <div className="seller-showcase-form-row-2">
+            <FormField label="Цена (₽)">
+              <input
+                type="number"
+                value={newProduct.price}
+                onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
                 className="form-input"
-              >
-                <option value="">Без категории</option>
-                {regularCategories.filter(c => c.is_active).map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                required
+              />
             </FormField>
-          )}
-          {selectedBouquetId && (
-            <div className="seller-showcase-cost-info">
-              <span>Себестоимость букета: <strong>{selectedBouquetCost.toFixed(0)} ₽</strong></span>
-            </div>
-          )}
-          {selectedBouquetId ? (
-            <div className="seller-showcase-form-row-3">
-              <FormField label="Наценка (%)">
-                <input
-                  type="number"
-                  min={0}
-                  step={5}
-                  value={markupPercent}
-                  onChange={(e) => {
-                    const pct = parseFloat(e.target.value) || 0;
-                    setMarkupPercent(e.target.value);
-                    setNewProduct((p) => ({
-                      ...p,
-                      price: String(Math.round(selectedBouquetCost * (1 + pct / 100))),
-                    }));
-                  }}
-                  className="form-input"
-                />
-              </FormField>
-              <FormField label="Цена (₽)" hint="Авто или введите вручную">
-                <input
-                  type="number"
-                  value={newProduct.price}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
-                  className="form-input"
-                  required
-                />
-              </FormField>
-              <FormField label="Количество" hint="По остаткам в приёмке">
-                <input
-                  type="number"
-                  min={0}
-                  value={newProduct.quantity}
-                  readOnly
-                  className="form-input seller-showcase-form-input-readonly"
-                  title="По остаткам в приёмке"
-                />
-              </FormField>
-            </div>
-          ) : (
-            <div className="seller-showcase-form-row-2">
-              <FormField label="Цена (₽)">
-                <input
-                  type="number"
-                  value={newProduct.price}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
-                  className="form-input"
-                  required
-                />
-              </FormField>
-              <FormField label="Количество">
-                <input
-                  type="number"
-                  min={0}
-                  value={newProduct.quantity}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, quantity: e.target.value }))}
-                  className="form-input"
-                />
-              </FormField>
-            </div>
-          )}
+            <FormField label="Количество">
+              <input
+                type="number"
+                min={0}
+                value={newProduct.quantity}
+                onChange={(e) => setNewProduct((p) => ({ ...p, quantity: e.target.value }))}
+                className="form-input"
+              />
+            </FormField>
+          </div>
           <FormField label="Фото товара (до 3 шт., JPG/PNG/WebP/GIF)">
             <input
               type="file"
@@ -608,13 +468,7 @@ export function SellerShowcase() {
               onClick={() => {
                 setProductPhotoFiles([]);
                 setProductPhotoPreviews([]);
-                if (selectedBouquetId) {
-                  setAddProductMode('bouquet');
-                  setSelectedBouquetId(null);
-                } else {
-                  setShowAddProduct(false);
-                  setAddProductMode('choice');
-                }
+                setShowAddProduct(false);
               }}
             >
               Отмена
@@ -630,10 +484,10 @@ export function SellerShowcase() {
         product={editingProduct}
         onClose={() => setEditingProduct(null)}
         onSaved={() => { setEditingProduct(null); load(); }}
-        categories={regularCategories}
+        categories={addonCategories}
       />
 
-      {activeTab !== 'categories' && regularCategories.length > 0 && regularProducts.length > 0 && (
+      {activeTab === 'products' && addonCategories.length > 0 && products.length > 0 && (
         <div className="sc-filter-chips">
           <button
             type="button"
@@ -642,7 +496,7 @@ export function SellerShowcase() {
           >
             Все
           </button>
-          {regularCategories.map((cat) => (
+          {addonCategories.map((cat) => (
             <button
               key={cat.id}
               type="button"
@@ -655,24 +509,20 @@ export function SellerShowcase() {
         </div>
       )}
 
-      {activeTab !== 'categories' && (regularProducts.length === 0 ? (
+      {activeTab === 'products' && (products.length === 0 ? (
         <EmptyState
-          title="Нет товаров"
-          message="Нажмите «Добавить товар» чтобы начать"
+          title="Нет сопутствующих товаров"
+          message={addonCategories.length === 0
+            ? 'Сначала создайте категорию во вкладке «Категории»'
+            : 'Нажмите «Добавить товар» чтобы начать'
+          }
         />
       ) : (
         <div className="sc-product-list">
-          {regularProducts.filter((p) => filterCategoryId == null || p.category_id === filterCategoryId).map((p) => {
+          {products.filter((p) => filterCategoryId == null || p.category_id === filterCategoryId).map((p) => {
             const firstPhotoId = (p.photo_ids && p.photo_ids[0]) || p.photo_id;
             const imageUrl = getProductImageUrl(firstPhotoId ?? null);
             const isActive = p.is_active !== false;
-            const hasShortage = p.stock_shortage && p.stock_shortage.length > 0;
-            const shortageTooltip = hasShortage
-              ? p.stock_shortage!.map((s) => `${s.flower}: −${s.deficit}`).join('\n')
-              : '';
-            const costLabel = p.bouquet_id && p.cost_price != null
-              ? `Себест. ${Number(p.cost_price).toFixed(0)} ₽ + ${Number(p.markup_percent ?? 0).toFixed(0)}%`
-              : '';
 
             return (
               <div
@@ -694,11 +544,11 @@ export function SellerShowcase() {
                     <span className="sc-product-name">{p.name}</span>
                     <span className="sc-product-price">{Number(p.price).toFixed(0)} ₽</span>
                   </div>
-                  {(costLabel || p.description) && (
-                    <span className="sc-product-subtitle">{costLabel || p.description}</span>
+                  {p.description && (
+                    <span className="sc-product-subtitle">{p.description}</span>
                   )}
                   {p.category_id && (() => {
-                    const cat = regularCategories.find(c => c.id === p.category_id);
+                    const cat = addonCategories.find(c => c.id === p.category_id);
                     return cat ? (
                       <span style={{ fontSize: 11, color: 'var(--primary)', background: 'var(--primary-bg, rgba(99,102,241,0.1))', borderRadius: 4, padding: '1px 6px', marginTop: 2, display: 'inline-block' }}>
                         {cat.name}
@@ -711,13 +561,6 @@ export function SellerShowcase() {
                   <span className={`sc-product-stock${p.quantity <= 2 ? ' sc-product-stock--low' : ''}`}>
                     {p.quantity} шт.
                   </span>
-                  {hasShortage && (
-                    <span
-                      className="sc-product-shortage-dot"
-                      data-tooltip={shortageTooltip}
-                      aria-label="Не хватает цветов"
-                    />
-                  )}
                 </div>
 
                 <div className="sc-product-actions">
@@ -731,29 +574,6 @@ export function SellerShowcase() {
                   >
                     {isActive ? <Eye size={16} /> : <EyeOff size={16} />}
                   </button>
-
-                  {p.bouquet_id && (
-                    <button
-                      type="button"
-                      className="sc-action-btn"
-                      disabled={recalculating === p.id}
-                      onClick={async () => {
-                        setRecalculating(p.id);
-                        try {
-                          await recalculateProductPrice(p.id);
-                          load();
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : 'Ошибка пересчёта');
-                        } finally {
-                          setRecalculating(null);
-                        }
-                      }}
-                      data-tooltip="Пересчитать"
-                      aria-label="Пересчитать цену"
-                    >
-                      <RefreshCw size={16} className={recalculating === p.id ? 'animate-spin' : ''} />
-                    </button>
-                  )}
 
                   <button
                     type="button"

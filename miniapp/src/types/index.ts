@@ -206,6 +206,8 @@ export interface PublicSellerDetail {
   categories?: SellerCategory[];
   products: Product[];
   preorder_products?: Product[];
+  addon_products?: Product[];
+  addon_categories?: SellerCategory[];
   preorder_available_dates?: string[];
   preorder_enabled?: boolean;
   preorder_discount_percent?: number;

@@ -10,8 +10,10 @@ class Category(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default='true')
+    is_addon: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
 
     __table_args__ = (
         Index('ix_categories_seller_id', 'seller_id'),
         Index('ix_categories_seller_active', 'seller_id', 'is_active'),
+        Index('ix_categories_seller_addon', 'seller_id', 'is_addon'),
     )

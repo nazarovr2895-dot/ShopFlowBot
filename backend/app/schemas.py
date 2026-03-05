@@ -248,6 +248,7 @@ class ProductResponse(BaseModel):
 class CategoryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     sort_order: int = 0
+    is_addon: bool = False
 
     @field_validator("name")
     @classmethod
@@ -259,6 +260,7 @@ class CategoryUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
+    is_addon: Optional[bool] = None
 
     @field_validator("name")
     @classmethod
@@ -276,6 +278,7 @@ class CategoryResponse(BaseModel):
     name: str
     sort_order: int
     is_active: bool
+    is_addon: bool = False
 
 
 # --- CRM: Flowers, Receptions ---

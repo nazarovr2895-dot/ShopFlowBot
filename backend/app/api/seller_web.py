@@ -416,7 +416,7 @@ async def get_categories(
     )
     return [
         {"id": c.id, "seller_id": c.seller_id, "name": c.name,
-         "sort_order": c.sort_order, "is_active": c.is_active}
+         "sort_order": c.sort_order, "is_active": c.is_active, "is_addon": c.is_addon}
         for c in result.scalars().all()
     ]
 
@@ -424,12 +424,14 @@ async def get_categories(
 class CreateCategoryBody(BaseModel):
     name: str
     sort_order: int = 0
+    is_addon: bool = False
 
 
 class UpdateCategoryBody(BaseModel):
     name: Optional[str] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
+    is_addon: Optional[bool] = None
 
 
 @router.post("/categories")
@@ -440,12 +442,12 @@ async def create_category(
 ):
     """Create a new product category."""
     from backend.app.models.category import Category
-    cat = Category(seller_id=seller_id, name=body.name.strip(), sort_order=body.sort_order)
+    cat = Category(seller_id=seller_id, name=body.name.strip(), sort_order=body.sort_order, is_addon=body.is_addon)
     session.add(cat)
     await session.commit()
     await session.refresh(cat)
     return {"id": cat.id, "seller_id": cat.seller_id, "name": cat.name,
-            "sort_order": cat.sort_order, "is_active": cat.is_active}
+            "sort_order": cat.sort_order, "is_active": cat.is_active, "is_addon": cat.is_addon}
 
 
 @router.put("/categories/{category_id}")
@@ -469,10 +471,12 @@ async def update_category(
         cat.sort_order = body.sort_order
     if body.is_active is not None:
         cat.is_active = body.is_active
+    if body.is_addon is not None:
+        cat.is_addon = body.is_addon
     await session.commit()
     await session.refresh(cat)
     return {"id": cat.id, "seller_id": cat.seller_id, "name": cat.name,
-            "sort_order": cat.sort_order, "is_active": cat.is_active}
+            "sort_order": cat.sort_order, "is_active": cat.is_active, "is_addon": cat.is_addon}
 
 
 @router.delete("/categories/{category_id}")

@@ -35,6 +35,9 @@ export function ShopCartPanel() {
     removeItem,
     extendReservation,
     refreshCart,
+    addonProducts,
+    addonCategories,
+    addItem,
   } = useShopCart();
 
   const navigate = useNavigate();
@@ -260,6 +263,59 @@ export function ShopCartPanel() {
             </div>
           ))}
         </div>
+
+        {/* Cross-sell: Добавить к букету */}
+        {addonCategories.length > 0 && (() => {
+          const cartProductIds = new Set(items.map((i) => i.product_id));
+          const availableAddons = addonProducts.filter((p) => !cartProductIds.has(p.id));
+          if (availableAddons.length === 0) return null;
+          return (
+            <div className="shop-cart-panel__addons">
+              <h3 className="shop-cart-panel__addons-title">Добавить к букету</h3>
+              {addonCategories.map((cat) => {
+                const catProducts = availableAddons.filter((p) => p.category_id === cat.id);
+                if (catProducts.length === 0) return null;
+                return (
+                  <div key={cat.id} className="shop-cart-panel__addon-row">
+                    <span className="shop-cart-panel__addon-category-name">{cat.name}</span>
+                    <div className="shop-cart-panel__addon-scroll">
+                      {catProducts.map((p) => {
+                        const firstPhotoId = (p.photo_ids && p.photo_ids[0]) || p.photo_id;
+                        const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
+                        return (
+                          <div key={p.id} className="shop-cart-panel__addon-card">
+                            <div className="shop-cart-panel__addon-card-image">
+                              <ProductImage
+                                src={imageUrl}
+                                alt={p.name}
+                                className="shop-cart-panel__addon-card-img"
+                                placeholderClassName="shop-cart-panel__addon-card-img-placeholder"
+                              />
+                            </div>
+                            <span className="shop-cart-panel__addon-card-name">{p.name}</span>
+                            <span className="shop-cart-panel__addon-card-price">{formatPrice(p.price)}</span>
+                            <button
+                              type="button"
+                              className="shop-cart-panel__addon-card-add"
+                              onClick={async () => {
+                                hapticFeedback('light');
+                                try {
+                                  await addItem({ product: { id: p.id, name: p.name, price: p.price, photo_id: firstPhotoId } });
+                                } catch { /* ignore */ }
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Footer */}
         <div className="shop-cart-panel__footer">

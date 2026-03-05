@@ -1284,20 +1284,21 @@ export interface SellerCategory {
   name: string;
   sort_order: number;
   is_active: boolean;
+  is_addon: boolean;
 }
 
 export async function getCategories(): Promise<SellerCategory[]> {
   return fetchSeller<SellerCategory[]>('/seller-web/categories');
 }
 
-export async function createCategory(data: { name: string; sort_order?: number }): Promise<SellerCategory> {
+export async function createCategory(data: { name: string; sort_order?: number; is_addon?: boolean }): Promise<SellerCategory> {
   return fetchSeller<SellerCategory>('/seller-web/categories', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateCategory(id: number, data: { name?: string; sort_order?: number; is_active?: boolean }): Promise<SellerCategory> {
+export async function updateCategory(id: number, data: { name?: string; sort_order?: number; is_active?: boolean; is_addon?: boolean }): Promise<SellerCategory> {
   return fetchSeller<SellerCategory>(`/seller-web/categories/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
