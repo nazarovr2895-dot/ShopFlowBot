@@ -525,3 +525,19 @@
   padding: 0;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
+
+/* ── Dark theme overrides ───────────────────── */
+[data-theme="dark"] .shop-cart-panel__close {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .shop-cart-panel__item-remove {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .shop-cart-panel__item-remove:active {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
