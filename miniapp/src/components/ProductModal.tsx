@@ -6,8 +6,21 @@ import { HeartIcon } from './HeartIcon';
 import { ImageViewer } from './ImageViewer';
 import { ProductComposition } from './ProductComposition';
 import { api } from '../api/client';
-import { isTelegram } from '../utils/environment';
+import { isTelegram, DESKTOP_LAYOUT_BREAKPOINT } from '../utils/environment';
 import './ProductModal.css';
+
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth >= DESKTOP_LAYOUT_BREAKPOINT
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${DESKTOP_LAYOUT_BREAKPOINT}px)`);
+    const handler = (e: MediaQueryListEvent) => setDesktop(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return desktop;
+}
 
 const ShareIcon = ({ size = 20 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -81,6 +94,7 @@ export function ProductModal({
   maxPointsDiscountPercent = 100,
   loyaltyLinked = false,
 }: ProductModalProps) {
+  const isDesktop = useIsDesktop();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -168,10 +182,6 @@ export function ProductModal({
     return () => {
       html.classList.remove('scroll-locked');
       document.removeEventListener('keydown', onKey);
-      // Re-enable Telegram swipe-to-close when modal closes
-      if (isTelegram()) {
-        try { WebApp.enableVerticalSwipes(); } catch { /* ignore */ }
-      }
     };
   }, [isOpen]);
 
@@ -331,6 +341,256 @@ export function ProductModal({
   /* ---------- overlay class ---------- */
   const overlayClass = `product-modal-overlay${closing ? ' product-modal-overlay--closing' : ''}`;
 
+  /* ---------- shared fragments ---------- */
+  const galleryImages = (
+    <div
+      ref={carouselRef}
+      className="product-modal__carousel"
+      onScroll={handleCarouselScroll}
+    >
+      {images.length > 0 ? images.map((img, i) => (
+        <div
+          key={i}
+          className="product-modal__carousel-slide"
+          onClick={() => setImageViewerOpen(true)}
+        >
+          <ProductImage
+            src={img}
+            alt={`${product.name} ${i + 1}`}
+            className="product-modal__image"
+            placeholderClassName="product-modal__image-placeholder"
+          />
+        </div>
+      )) : (
+        <div className="product-modal__carousel-slide">
+          <ProductImage
+            src={null}
+            alt={product.name}
+            className="product-modal__image"
+            placeholderClassName="product-modal__image-placeholder"
+          />
+        </div>
+      )}
+    </div>
+  );
+
+  const infoContent = (
+    <>
+      <h2 className="product-modal__name">{product.name}</h2>
+      <span className="product-modal__price">{product.price.toLocaleString('ru-RU')} ₽</span>
+
+      {product.description && (
+        <p className="product-modal__desc">{product.description}</p>
+      )}
+
+      {product.composition && product.composition.length > 0 && (
+        <ProductComposition items={product.composition} />
+      )}
+
+      {(pointsEarned > 0 || redeemablePoints > 0 || deliveryCostLabel) && (
+        <div className="product-modal__details">
+          {pointsEarned > 0 && (
+            <div className="product-modal__detail-row">
+              <span className="product-modal__detail-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              </span>
+              <span className="product-modal__detail-text">
+                Баллы за покупку: <strong>+{pointsEarned}</strong>
+              </span>
+            </div>
+          )}
+          {redeemablePoints > 0 && (
+            <div className="product-modal__detail-row">
+              <span className="product-modal__detail-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              </span>
+              <span className="product-modal__detail-text">
+                Можно списать: до <strong>{redeemablePoints}</strong> баллов (−{formatTotal(redeemableRub)} ₽)
+              </span>
+            </div>
+          )}
+          {deliveryCostLabel && (
+            <div className="product-modal__detail-row">
+              <span className="product-modal__detail-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              </span>
+              <span className="product-modal__detail-text">
+                Доставка: {deliveryCostLabel}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showDatePicker && isPreorder && availableDates.length > 0 && (
+        <div className="product-modal__dates">
+          <h3 className="product-modal__dates-title">Выберите дату доставки</h3>
+          <div className="product-modal__dates-list">
+            {availableDates.map((date) => (
+              <button
+                key={date}
+                type="button"
+                className="product-modal__date-btn"
+                onClick={() => onSelectPreorderDate?.(date)}
+                disabled={isAdding}
+              >
+                {new Date(date).toLocaleDateString('ru-RU', {
+                  day: 'numeric',
+                  month: 'long',
+                  weekday: 'short',
+                })}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="product-modal__cancel-btn"
+            onClick={onCancelDatePicker}
+            disabled={isAdding}
+          >
+            Отмена
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  const bottomBar = !showDatePicker && (
+    <div className="product-modal__bottom-bar">
+      <div className="product-modal__qty-selector">
+        <button
+          type="button"
+          className="product-modal__qty-btn"
+          onClick={handleDecrement}
+          disabled={quantity <= 1}
+          aria-label="Уменьшить"
+        >
+          −
+        </button>
+        <span className="product-modal__qty-value">{quantity}</span>
+        <button
+          type="button"
+          className="product-modal__qty-btn"
+          onClick={handleIncrement}
+          disabled={!isPreorder && product.quantity != null && quantity >= product.quantity}
+          aria-label="Увеличить"
+        >
+          +
+        </button>
+      </div>
+      <button
+        type="button"
+        className="product-modal__cart-btn"
+        onClick={handleCartAction}
+        disabled={(!inStock && !isPreorder) || isAdding}
+      >
+        {isAdding
+          ? '...'
+          : isPreorder
+            ? 'Заказать на дату'
+            : inStock
+              ? isInCart
+                ? `Обновить · ${formatTotal(totalPrice)} ₽`
+                : `В корзину · ${formatTotal(totalPrice)} ₽`
+              : 'Нет в наличии'}
+      </button>
+    </div>
+  );
+
+  const actionsOverlay = (
+    <div className="product-modal__image-actions">
+      {api.isAuthenticated() && (
+        <div className="product-modal__favorite" onClick={(e) => e.stopPropagation()}>
+          <HeartIcon isFavorite={isFavorite} onClick={onToggleFavorite} size={30} />
+        </div>
+      )}
+      {sellerId && (
+        <button
+          type="button"
+          className="product-modal__share"
+          onClick={handleShare}
+          aria-label="Поделиться"
+        >
+          <ShareIcon size={22} />
+        </button>
+      )}
+    </div>
+  );
+
+  /* ---------- DESKTOP layout ---------- */
+  if (isDesktop) {
+    return (
+      <div
+        ref={overlayRef}
+        className={overlayClass}
+        onClick={handleOverlayClick}
+        onAnimationEnd={handleAnimationEnd}
+      >
+        <div
+          ref={modalRef}
+          className="product-modal product-modal--desktop"
+          onAnimationEnd={handleModalAnimationEnd}
+        >
+          {/* Left: image column */}
+          <div className="product-modal__image-column">
+            <div className="product-modal__image-wrap">
+              {galleryImages}
+              {actionsOverlay}
+            </div>
+            {/* Thumbnail strip */}
+            {images.length > 1 && (
+              <div className="product-modal__thumbnails">
+                {images.map((img, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`product-modal__thumb${i === currentImageIndex ? ' product-modal__thumb--active' : ''}`}
+                    onClick={() => { setCurrentImageIndex(i); scrollToIndex(i); }}
+                  >
+                    <ProductImage
+                      src={img}
+                      alt={`${product.name} ${i + 1}`}
+                      className="product-modal__thumb-img"
+                      placeholderClassName="product-modal__image-placeholder"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right: info column */}
+          <div className="product-modal__info-column">
+            <div className="product-modal__info-header">
+              <button
+                type="button"
+                className="product-modal__close"
+                onClick={(e) => { e.stopPropagation(); triggerClose(); }}
+                aria-label="Закрыть"
+              >
+                ×
+              </button>
+            </div>
+            <div className="product-modal__scroll" ref={scrollRef}>
+              <div className="product-modal__info">
+                {infoContent}
+              </div>
+            </div>
+            {bottomBar}
+          </div>
+        </div>
+
+        <ImageViewer
+          images={images}
+          initialIndex={currentImageIndex}
+          isOpen={imageViewerOpen}
+          onClose={() => setImageViewerOpen(false)}
+        />
+      </div>
+    );
+  }
+
+  /* ---------- MOBILE layout (unchanged) ---------- */
   return (
     <div
       ref={overlayRef}
@@ -354,38 +614,9 @@ export function ProductModal({
           {/* Gallery */}
           <div className="product-modal__gallery">
             <div className="product-modal__image-wrap">
-              {/* Carousel — all images side-by-side, scroll-snap */}
-              <div
-                ref={carouselRef}
-                className="product-modal__carousel"
-                onScroll={handleCarouselScroll}
-              >
-                {images.length > 0 ? images.map((img, i) => (
-                  <div
-                    key={i}
-                    className="product-modal__carousel-slide"
-                    onClick={() => setImageViewerOpen(true)}
-                  >
-                    <ProductImage
-                      src={img}
-                      alt={`${product.name} ${i + 1}`}
-                      className="product-modal__image"
-                      placeholderClassName="product-modal__image-placeholder"
-                    />
-                  </div>
-                )) : (
-                  <div className="product-modal__carousel-slide">
-                    <ProductImage
-                      src={null}
-                      alt={product.name}
-                      className="product-modal__image"
-                      placeholderClassName="product-modal__image-placeholder"
-                    />
-                  </div>
-                )}
-              </div>
+              {galleryImages}
 
-              {/* Close — small text button overlaid on image */}
+              {/* Close */}
               <button
                 type="button"
                 className="product-modal__close"
@@ -395,24 +626,7 @@ export function ProductModal({
                 ×
               </button>
 
-              {/* Heart + Share */}
-              <div className="product-modal__image-actions">
-                {api.isAuthenticated() && (
-                  <div className="product-modal__favorite" onClick={(e) => e.stopPropagation()}>
-                    <HeartIcon isFavorite={isFavorite} onClick={onToggleFavorite} size={30} />
-                  </div>
-                )}
-                {sellerId && (
-                  <button
-                    type="button"
-                    className="product-modal__share"
-                    onClick={handleShare}
-                    aria-label="Поделиться"
-                  >
-                    <ShareIcon size={22} />
-                  </button>
-                )}
-              </div>
+              {actionsOverlay}
 
               {/* Dots */}
               {images.length > 1 && (
@@ -429,137 +643,17 @@ export function ProductModal({
                 </div>
               )}
             </div>
-
           </div>
 
           {/* Info */}
           <div className="product-modal__info">
-            <h2 className="product-modal__name">{product.name}</h2>
-            <span className="product-modal__price">{product.price.toLocaleString('ru-RU')} ₽</span>
-
-            {product.description && (
-              <p className="product-modal__desc">{product.description}</p>
-            )}
-
-            {product.composition && product.composition.length > 0 && (
-              <ProductComposition items={product.composition} />
-            )}
-
-            {/* Info detail rows: loyalty + delivery */}
-            {(pointsEarned > 0 || redeemablePoints > 0 || deliveryCostLabel) && (
-              <div className="product-modal__details">
-                {pointsEarned > 0 && (
-                  <div className="product-modal__detail-row">
-                    <span className="product-modal__detail-icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    </span>
-                    <span className="product-modal__detail-text">
-                      Баллы за покупку: <strong>+{pointsEarned}</strong>
-                    </span>
-                  </div>
-                )}
-                {redeemablePoints > 0 && (
-                  <div className="product-modal__detail-row">
-                    <span className="product-modal__detail-icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                    </span>
-                    <span className="product-modal__detail-text">
-                      Можно списать: до <strong>{redeemablePoints}</strong> баллов (−{formatTotal(redeemableRub)} ₽)
-                    </span>
-                  </div>
-                )}
-                {deliveryCostLabel && (
-                  <div className="product-modal__detail-row">
-                    <span className="product-modal__detail-icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                    </span>
-                    <span className="product-modal__detail-text">
-                      Доставка: {deliveryCostLabel}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Preorder date picker */}
-            {showDatePicker && isPreorder && availableDates.length > 0 && (
-              <div className="product-modal__dates">
-                <h3 className="product-modal__dates-title">Выберите дату доставки</h3>
-                <div className="product-modal__dates-list">
-                  {availableDates.map((date) => (
-                    <button
-                      key={date}
-                      type="button"
-                      className="product-modal__date-btn"
-                      onClick={() => onSelectPreorderDate?.(date)}
-                      disabled={isAdding}
-                    >
-                      {new Date(date).toLocaleDateString('ru-RU', {
-                        day: 'numeric',
-                        month: 'long',
-                        weekday: 'short',
-                      })}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="product-modal__cancel-btn"
-                  onClick={onCancelDatePicker}
-                  disabled={isAdding}
-                >
-                  Отмена
-                </button>
-              </div>
-            )}
+            {infoContent}
           </div>
         </div>
 
-        {/* Fixed bottom bar — quantity selector + cart button */}
-        {!showDatePicker && (
-          <div className="product-modal__bottom-bar">
-            <div className="product-modal__qty-selector">
-              <button
-                type="button"
-                className="product-modal__qty-btn"
-                onClick={handleDecrement}
-                disabled={quantity <= 1}
-                aria-label="Уменьшить"
-              >
-                −
-              </button>
-              <span className="product-modal__qty-value">{quantity}</span>
-              <button
-                type="button"
-                className="product-modal__qty-btn"
-                onClick={handleIncrement}
-                disabled={!isPreorder && product.quantity != null && quantity >= product.quantity}
-                aria-label="Увеличить"
-              >
-                +
-              </button>
-            </div>
-            <button
-              type="button"
-              className="product-modal__cart-btn"
-              onClick={handleCartAction}
-              disabled={(!inStock && !isPreorder) || isAdding}
-            >
-              {isAdding
-                ? '...'
-                : isPreorder
-                  ? 'Заказать на дату'
-                  : inStock
-                    ? isInCart
-                      ? `Обновить · ${formatTotal(totalPrice)} ₽`
-                      : `В корзину · ${formatTotal(totalPrice)} ₽`
-                    : 'Нет в наличии'}
-            </button>
-          </div>
-        )}
+        {bottomBar}
       </div>
 
-      {/* Full-screen image viewer */}
       <ImageViewer
         images={images}
         initialIndex={currentImageIndex}

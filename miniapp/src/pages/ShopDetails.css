@@ -934,6 +934,7 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
 }
 
 .shop-details__category-chips::-webkit-scrollbar {
@@ -1359,6 +1360,7 @@
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  touch-action: pan-x;
 }
 .shop-details__addon-scroll::-webkit-scrollbar {
   display: none;

@@ -20,9 +20,12 @@ interface AboutBackground {
 }
 
 const SOCIAL_PLATFORMS = [
-  { key: 'instagram', label: 'Instagram', icon: Instagram, placeholder: 'https://instagram.com/yourshop' },
-  { key: 'telegram', label: 'Telegram', icon: Send, placeholder: 'https://t.me/yourshop' },
-  { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, placeholder: 'https://wa.me/79001234567' },
+  { key: 'instagram', label: 'Instagram', icon: Instagram, placeholder: 'https://instagram.com/yourshop',
+    hint: 'Откройте профиль в Instagram, нажмите «Поделиться профилем» и скопируйте ссылку. Формат: https://instagram.com/ваш_логин' },
+  { key: 'telegram', label: 'Telegram', icon: Send, placeholder: 'https://t.me/yourshop',
+    hint: 'Откройте Telegram канал/группу, нажмите на название сверху → «Ссылка» и скопируйте. Формат: https://t.me/ваш_канал' },
+  { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, placeholder: 'https://wa.me/79001234567',
+    hint: 'Введите ссылку формата https://wa.me/7XXXXXXXXXX (код страны + номер без +, пробелов и скобок)' },
 ] as const;
 
 export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
@@ -152,8 +155,8 @@ export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
 
         {socialEnabled && (
           <div className="social-about-tab__fields">
-            {SOCIAL_PLATFORMS.map(({ key, label, icon: Icon, placeholder }) => (
-              <FormField key={key} label={label}>
+            {SOCIAL_PLATFORMS.map(({ key, label, icon: Icon, placeholder, hint }) => (
+              <FormField key={key} label={label} hint={hint}>
                 <div className="social-about-tab__input-row">
                   <span className="social-about-tab__input-icon"><Icon size={18} /></span>
                   <input

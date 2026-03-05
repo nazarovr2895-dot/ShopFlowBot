@@ -77,9 +77,6 @@ export function OrderProductInfoModal({
     return () => {
       html.classList.remove('scroll-locked');
       document.removeEventListener('keydown', onKey);
-      if (isTelegram()) {
-        try { WebApp.enableVerticalSwipes(); } catch { /* ignore */ }
-      }
     };
   }, [isOpen]);
 
