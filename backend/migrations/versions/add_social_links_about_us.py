@@ -22,6 +22,9 @@ def upgrade() -> None:
     op.execute("ALTER TABLE sellers ADD COLUMN IF NOT EXISTS about_enabled BOOLEAN DEFAULT FALSE")
     op.execute("ALTER TABLE sellers ADD COLUMN IF NOT EXISTS about_content JSON")
     op.execute("ALTER TABLE sellers ADD COLUMN IF NOT EXISTS about_background JSON")
+    # Backfill NULLs for existing rows
+    op.execute("UPDATE sellers SET social_links_enabled = FALSE WHERE social_links_enabled IS NULL")
+    op.execute("UPDATE sellers SET about_enabled = FALSE WHERE about_enabled IS NULL")
 
 
 def downgrade() -> None:

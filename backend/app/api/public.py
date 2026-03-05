@@ -942,11 +942,11 @@ async def get_public_seller_detail(
         inn=seller.inn,
         ogrn=seller.ogrn,
         gift_note_enabled=getattr(seller, "gift_note_enabled", False),
-        social_links_enabled=getattr(seller, "social_links_enabled", False),
-        social_links=getattr(seller, "social_links", None) if getattr(seller, "social_links_enabled", False) else None,
-        about_enabled=getattr(seller, "about_enabled", False),
-        about_content=getattr(seller, "about_content", None) if getattr(seller, "about_enabled", False) else None,
-        about_background=getattr(seller, "about_background", None) if getattr(seller, "about_enabled", False) else None,
+        social_links_enabled=bool(getattr(seller, "social_links_enabled", False)),
+        social_links=getattr(seller, "social_links", None) if getattr(seller, "social_links_enabled", None) else None,
+        about_enabled=bool(getattr(seller, "about_enabled", False)),
+        about_content=getattr(seller, "about_content", None) if getattr(seller, "about_enabled", None) else None,
+        about_background=getattr(seller, "about_background", None) if getattr(seller, "about_enabled", None) else None,
     )
 
 
