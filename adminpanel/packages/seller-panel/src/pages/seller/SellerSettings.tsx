@@ -13,10 +13,12 @@ import { SubscriptionSettingsTab } from './settings/SubscriptionSettingsTab';
 import { LegalSettingsTab } from './settings/LegalSettingsTab';
 import { DeliveryZonesSettingsTab } from './settings/DeliveryZonesSettingsTab';
 import { LogoSettingsTab } from './settings/LogoSettingsTab';
+import { SocialAboutSettingsTab } from './settings/SocialAboutSettingsTab';
 
 const ALL_TABS = [
   { key: 'shop', label: 'Магазин' },
   { key: 'logo', label: 'Медиа' },
+  { key: 'about', label: 'О нас' },
   { key: 'delivery', label: 'Доставка' },
   { key: 'hours', label: 'Время работы' },
   { key: 'preorders', label: 'Предзаказы' },
@@ -91,6 +93,7 @@ export function SellerSettings() {
       <TabBar tabs={tabs} activeTab={tab} onChange={setTab} />
       {tab === 'shop' && <ShopSettingsTab me={me} reload={reload} />}
       {tab === 'logo' && <LogoSettingsTab me={me} reload={reload} />}
+      {tab === 'about' && <SocialAboutSettingsTab me={me} reload={reload} />}
       {tab === 'delivery' && <DeliveryZonesSettingsTab me={me} reload={reload} />}
       {tab === 'hours' && <WorkingHoursSettingsTab me={me} reload={reload} />}
       {tab === 'preorders' && <PreordersSettingsTab me={me} reload={reload} />}

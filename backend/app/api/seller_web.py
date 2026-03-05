@@ -87,6 +87,7 @@ UPLOAD_DIR = Path(__file__).resolve().parents[2] / "static"
 PRODUCTS_UPLOAD_SUBDIR = Path("uploads") / "products"
 SHOP_BANNERS_UPLOAD_SUBDIR = Path("uploads") / "shop_banners"
 SHOP_LOGOS_UPLOAD_SUBDIR = Path("uploads") / "shop_logos"
+ABOUT_MEDIA_UPLOAD_SUBDIR = Path("uploads") / "about"
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 # Конвертация загружаемых фото в лёгкий формат (только web seller; Telegram-бот не трогаем)
@@ -140,6 +141,12 @@ class UpdateMeBody(BaseModel):
     # Contact info
     contact_phone: Optional[str] = None
     contact_username: Optional[str] = None
+    # Social links & About Us
+    social_links_enabled: Optional[bool] = None
+    social_links: Optional[dict] = None
+    about_enabled: Optional[bool] = None
+    about_content: Optional[list] = None
+    about_background: Optional[dict] = None
 
 
 @router.get("/me")
@@ -246,6 +253,17 @@ async def update_me(
     if body.contact_username is not None:
         val = body.contact_username.strip().lstrip("@")
         await service.update_field(seller_id, "contact_username", val)
+    # Social links & About Us
+    if body.social_links_enabled is not None:
+        await service.update_field(seller_id, "social_links_enabled", body.social_links_enabled)
+    if body.social_links is not None:
+        await service.update_field(seller_id, "social_links", body.social_links)
+    if body.about_enabled is not None:
+        await service.update_field(seller_id, "about_enabled", body.about_enabled)
+    if body.about_content is not None:
+        await service.update_field(seller_id, "about_content", body.about_content)
+    if body.about_background is not None:
+        await service.update_field(seller_id, "about_background", body.about_background)
     result = await session.execute(select(Seller).where(Seller.seller_id == seller_id))
     seller = result.scalar_one_or_none()
     if seller:
@@ -1506,6 +1524,43 @@ async def upload_shop_logo(
     service = SellerService(session)
     await service.update_field(seller_id, "logo_url", logo_url)
     return {"logo_url": logo_url}
+
+
+@router.post("/upload-about-media")
+async def upload_about_media(
+    file: UploadFile = File(...),
+    seller_id: int = Depends(require_seller_token),
+):
+    """Upload image for About Us page. Returns url path."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Файл не выбран")
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Допустимые форматы: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
+        )
+    if file.content_type:
+        allowed_mime = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
+        if file.content_type not in allowed_mime:
+            raise HTTPException(status_code=400, detail=f"Недопустимый тип файла: {file.content_type}")
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 10 МБ)")
+    if len(content) < 100:
+        raise HTTPException(status_code=400, detail="Файл слишком маленький")
+    content = _convert_image_to_webp(content, UPLOAD_MAX_SIDE_PX)
+    upload_dir = UPLOAD_DIR / ABOUT_MEDIA_UPLOAD_SUBDIR / str(seller_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}{UPLOAD_OUTPUT_EXT}"
+    path = upload_dir / name
+    try:
+        path.resolve().relative_to(upload_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Недопустимый путь к файлу")
+    path.write_bytes(content)
+    url = f"/static/{ABOUT_MEDIA_UPLOAD_SUBDIR}/{seller_id}/{name}"
+    return {"url": url}
 
 
 def _handle_crm_db_error(e: Exception) -> None:

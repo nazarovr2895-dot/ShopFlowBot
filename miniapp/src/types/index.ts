@@ -226,6 +226,17 @@ export interface PublicSellerDetail {
   inn?: string | null;
   ogrn?: string | null;
   gift_note_enabled?: boolean;
+  social_links_enabled?: boolean;
+  social_links?: Record<string, string> | null;
+  about_enabled?: boolean;
+  about_content?: Array<{
+    type: 'text' | 'image' | 'video';
+    content?: string;
+    url?: string;
+    caption?: string;
+    align?: 'left' | 'center' | 'right';
+  }> | null;
+  about_background?: { type: 'color' | 'image'; value?: string; url?: string } | null;
 }
 
 export interface PublicSellersResponse {

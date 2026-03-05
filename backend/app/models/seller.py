@@ -106,6 +106,12 @@ class Seller(Base):
     search_vector = mapped_column(_TSVector, nullable=True)
     # Feature toggle: allow buyers to attach a gift note/card to orders
     gift_note_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Social links & About Us
+    social_links_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    social_links = mapped_column(JSON(), nullable=True)
+    about_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    about_content = mapped_column(JSON(), nullable=True)
+    about_background = mapped_column(JSON(), nullable=True)
 
     __table_args__ = (
         Index('ix_sellers_city_id', 'city_id'),

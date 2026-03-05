@@ -182,6 +182,12 @@ export interface SellerMe {
   // Contact info
   contact_phone?: string | null;
   contact_username?: string | null;
+  // Social links & About Us
+  social_links_enabled?: boolean;
+  social_links?: Record<string, string> | null;
+  about_enabled?: boolean;
+  about_content?: Array<{ type: string; content?: string; url?: string; caption?: string; align?: string }> | null;
+  about_background?: { type: string; value?: string; url?: string } | null;
 }
 
 export interface DeliveryZone {
@@ -382,6 +388,11 @@ export async function updateMe(payload: {
   gift_note_enabled?: boolean;
   contact_phone?: string;
   contact_username?: string;
+  social_links_enabled?: boolean;
+  social_links?: Record<string, string> | null;
+  about_enabled?: boolean;
+  about_content?: Array<{ type: string; content?: string; url?: string; caption?: string; align?: string }> | null;
+  about_background?: { type: string; value?: string; url?: string } | null;
 }): Promise<SellerMe> {
   return fetchSeller<SellerMe>('/seller-web/me', {
     method: 'PUT',
@@ -565,6 +576,22 @@ export async function uploadLogoPhoto(file: File): Promise<{ logo_url: string }>
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(`${getApiBase()}/seller-web/upload-logo`, {
+    method: 'POST',
+    headers: token ? { 'X-Seller-Token': token } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function uploadAboutMedia(file: File): Promise<{ url: string }> {
+  const token = sessionStorage.getItem('seller_token');
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${getApiBase()}/seller-web/upload-about-media`, {
     method: 'POST',
     headers: token ? { 'X-Seller-Token': token } : {},
     body: form,

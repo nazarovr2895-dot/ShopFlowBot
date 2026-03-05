@@ -196,6 +196,8 @@ class SellerService:
         "commission_percent", "commission_balance", "use_delivery_zones",
         "geo_lat", "geo_lon", "max_branches", "gift_note_enabled",
         "contact_phone", "contact_username",
+        "social_links_enabled", "social_links",
+        "about_enabled", "about_content", "about_background",
     }
     
     def __init__(self, session: AsyncSession):
@@ -524,6 +526,11 @@ class SellerService:
             "gift_note_enabled": getattr(seller, "gift_note_enabled", False),
             "contact_phone": getattr(seller, "contact_phone", None),
             "contact_username": getattr(seller, "contact_username", None),
+            "social_links_enabled": getattr(seller, "social_links_enabled", False),
+            "social_links": getattr(seller, "social_links", None),
+            "about_enabled": getattr(seller, "about_enabled", False),
+            "about_content": getattr(seller, "about_content", None),
+            "about_background": getattr(seller, "about_background", None),
         }
 
     async def create_seller(
@@ -990,6 +997,16 @@ class SellerService:
             seller.contact_phone = (value or "").strip() or None
         elif field == "contact_username":
             seller.contact_username = (value or "").strip().lstrip("@") or None
+        elif field == "social_links_enabled":
+            seller.social_links_enabled = bool(value)
+        elif field == "social_links":
+            seller.social_links = value if value else None
+        elif field == "about_enabled":
+            seller.about_enabled = bool(value)
+        elif field == "about_content":
+            seller.about_content = value if value else None
+        elif field == "about_background":
+            seller.about_background = value if value else None
 
         await self.session.commit()
         return {"status": "ok"}

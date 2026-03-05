@@ -541,6 +541,75 @@
   border-left: 2px solid var(--app-accent);
 }
 
+/* ====== Social Links + About Us ====== */
+.shop-details__social-about {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--app-surface, #f9fafb);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.shop-details__social-links {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.shop-details__social-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--app-bg, #fff);
+  font-size: 11px;
+  color: var(--app-text);
+  text-decoration: none;
+  border: 1px solid var(--app-border, #e5e7eb);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.shop-details__social-btn:active {
+  background: var(--app-border, #e5e7eb);
+}
+
+.shop-details__social-btn svg {
+  flex-shrink: 0;
+}
+
+.shop-details__about-link {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  color: var(--app-accent);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 4px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-theme="dark"] .shop-details__social-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .shop-details__social-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 /* ====== Collapsible Working Hours ====== */
 .shop-details__hours-compact {
   margin-bottom: 8px;
