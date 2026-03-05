@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { Product } from '../types';
 import WebApp from '@twa-dev/sdk';
 import { useShopCart } from '../contexts/ShopCartContext';
 import { useDesktopLayout } from '../hooks/useDesktopLayout';
@@ -7,6 +8,7 @@ import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import { isTelegram, isBrowser } from '../utils/environment';
 import { api } from '../api/client';
 import { ProductImage } from './ProductImage';
+import { ProductModal } from './ProductModal';
 import { ReservationBadge } from './ReservationBadge';
 import { formatPrice } from '../utils/formatters';
 import './ShopCartPanel.css';
@@ -44,6 +46,7 @@ export function ShopCartPanel() {
   const isDesktop = useDesktopLayout();
   const { hapticFeedback, showAlert } = useTelegramWebApp();
   const [closing, setClosing] = useState(false);
+  const [selectedAddonProduct, setSelectedAddonProduct] = useState<Product | null>(null);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -283,7 +286,7 @@ export function ShopCartPanel() {
                         const firstPhotoId = (p.photo_ids && p.photo_ids[0]) || p.photo_id;
                         const imageUrl = api.getProductImageUrl(firstPhotoId ?? null);
                         return (
-                          <div key={p.id} className="shop-cart-panel__addon-card">
+                          <div key={p.id} className="shop-cart-panel__addon-card" onClick={() => setSelectedAddonProduct(p)}>
                             <div className="shop-cart-panel__addon-card-image">
                               <ProductImage
                                 src={imageUrl}
@@ -297,7 +300,8 @@ export function ShopCartPanel() {
                             <button
                               type="button"
                               className="shop-cart-panel__addon-card-add"
-                              onClick={async () => {
+                              onClick={async (e) => {
+                                e.stopPropagation();
                                 hapticFeedback('light');
                                 try {
                                   await addItem({ product: { id: p.id, name: p.name, price: p.price, photo_id: firstPhotoId } });
@@ -352,6 +356,30 @@ export function ShopCartPanel() {
           )}
         </div>
       </div>
+
+      {selectedAddonProduct && (
+        <ProductModal
+          product={selectedAddonProduct}
+          isOpen={!!selectedAddonProduct}
+          onClose={() => setSelectedAddonProduct(null)}
+          onAddToCart={async (quantity: number) => {
+            const p = selectedAddonProduct;
+            const firstPhotoId = (p.photo_ids && p.photo_ids[0]) || p.photo_id;
+            try {
+              for (let i = 0; i < quantity; i++) {
+                await addItem({ product: { id: p.id, name: p.name, price: p.price, photo_id: firstPhotoId } });
+              }
+            } catch { /* ignore */ }
+            setSelectedAddonProduct(null);
+          }}
+          isFavorite={false}
+          onToggleFavorite={() => {}}
+          isAdding={false}
+          inStock={true}
+          isPreorder={false}
+          sellerId={sellerId}
+        />
+      )}
     </div>
   );
 }

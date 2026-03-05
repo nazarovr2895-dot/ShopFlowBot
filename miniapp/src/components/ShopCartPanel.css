@@ -458,8 +458,9 @@
 }
 
 .shop-cart-panel__addon-card {
-  flex: 0 0 100px;
-  min-width: 100px;
+  flex: 0 0 120px;
+  min-width: 120px;
+  cursor: pointer;
   scroll-snap-align: start;
   border-radius: 10px;
   background: var(--tg-theme-bg-color, #fff);
@@ -488,7 +489,7 @@
 }
 
 .shop-cart-panel__addon-card-name {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 4px 6px 1px;
   color: var(--tg-theme-text-color, #1a1a1a);
@@ -498,7 +499,7 @@
 }
 
 .shop-cart-panel__addon-card-price {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   padding: 0 6px 6px;
   color: var(--tg-theme-text-color, #1a1a1a);
