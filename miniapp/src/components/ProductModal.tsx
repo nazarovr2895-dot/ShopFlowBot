@@ -286,21 +286,29 @@ export function ProductModal({
     const el = modalRef.current;
     if (!el) return;
 
-    el.classList.remove('product-modal--dragging');
-
     if (diff > SWIPE_THRESHOLD) {
       // Dismiss
+      el.classList.remove('product-modal--dragging');
       setClosing(true);
       el.style.transform = '';
-    } else {
-      // Snap back
+    } else if (diff > 1) {
+      // Snap back — replace dragging with snapping atomically
+      el.classList.remove('product-modal--dragging');
       el.classList.add('product-modal--snapping');
       el.style.transform = 'translateY(0)';
       const cleanup = () => {
         el.classList.remove('product-modal--snapping');
+        el.style.transform = '';
         el.removeEventListener('transitionend', cleanup);
+        clearTimeout(fallback);
       };
       el.addEventListener('transitionend', cleanup);
+      // Fallback in case transitionend doesn't fire
+      const fallback = setTimeout(cleanup, 300);
+    } else {
+      // Micro-swipe (< 1px) — just clean up
+      el.classList.remove('product-modal--dragging');
+      el.style.transform = '';
     }
   };
 
