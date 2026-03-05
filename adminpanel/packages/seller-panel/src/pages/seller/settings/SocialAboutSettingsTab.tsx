@@ -2,8 +2,17 @@ import { useState, useCallback, useRef } from 'react';
 import { updateMe, uploadAboutMedia, getBannerImageUrl } from '../../../api/sellerClient';
 import { FormField, useToast, Toggle } from '@shared/components/ui';
 import { Instagram, Send, MessageCircle, Plus, Type, Image, Video, Trash2, ChevronUp, ChevronDown, Eye, X } from 'lucide-react';
+import { ImageCropModal } from '../../../components/ImageCropModal';
 import type { SettingsTabProps } from './types';
 import './SocialAboutSettingsTab.css';
+
+const ASPECT_OPTIONS = [
+  { label: '1:1', value: 1 },
+  { label: '4:3', value: 4 / 3 },
+  { label: '3:2', value: 3 / 2 },
+  { label: '16:9', value: 16 / 9 },
+  { label: '9:16', value: 9 / 16 },
+];
 
 interface AboutBlock {
   type: 'text' | 'image' | 'video';
@@ -47,6 +56,11 @@ export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
   const [pendingBlockIndex, setPendingBlockIndex] = useState<number | null>(null);
+
+  // Crop state
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropAspect, setCropAspect] = useState(1);
+  const [cropTarget, setCropTarget] = useState<'block' | 'bg'>('block');
 
   const updateSocialLink = (key: string, value: string) => {
     setSocialLinks(prev => {
@@ -102,6 +116,17 @@ export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
       setUploadingBg(false);
     }
   }, [toast]);
+
+  const handleCropComplete = useCallback(async (blob: Blob) => {
+    setCropSrc(null);
+    const file = new File([blob], `about-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    if (cropTarget === 'block' && pendingBlockIndex !== null) {
+      await handleImageUpload(file, pendingBlockIndex);
+      setPendingBlockIndex(null);
+    } else if (cropTarget === 'bg') {
+      await handleBgImageUpload(file);
+    }
+  }, [cropTarget, pendingBlockIndex, handleImageUpload, handleBgImageUpload]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -240,7 +265,11 @@ export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
                     style={{ display: 'none' }}
                     onChange={e => {
                       const f = e.target.files?.[0];
-                      if (f) handleBgImageUpload(f);
+                      if (f) {
+                        setCropTarget('bg');
+                        setCropAspect(16 / 9);
+                        setCropSrc(URL.createObjectURL(f));
+                      }
                       e.target.value = '';
                     }}
                   />
@@ -350,9 +379,12 @@ export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
               style={{ display: 'none' }}
               onChange={e => {
                 const f = e.target.files?.[0];
-                if (f && pendingBlockIndex !== null) handleImageUpload(f, pendingBlockIndex);
+                if (f) {
+                  setCropTarget('block');
+                  setCropAspect(1);
+                  setCropSrc(URL.createObjectURL(f));
+                }
                 e.target.value = '';
-                setPendingBlockIndex(null);
               }}
             />
 
@@ -383,6 +415,31 @@ export function SocialAboutSettingsTab({ me, reload }: SettingsTabProps) {
       <button className="social-about-tab__save" onClick={handleSave} disabled={saving}>
         {saving ? 'Сохранение...' : 'Сохранить'}
       </button>
+
+      {/* Crop modal */}
+      {cropSrc && (
+        <ImageCropModal
+          isOpen={!!cropSrc}
+          imageSrc={cropSrc}
+          aspect={cropAspect}
+          onCropComplete={handleCropComplete}
+          onClose={() => { setCropSrc(null); setPendingBlockIndex(null); }}
+          extraControls={
+            <div className="social-about-tab__aspect-row">
+              {ASPECT_OPTIONS.map(opt => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  className={`social-about-tab__aspect-btn ${cropAspect === opt.value ? 'active' : ''}`}
+                  onClick={() => setCropAspect(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          }
+        />
+      )}
 
       {/* Preview modal */}
       {preview && (
