@@ -51,7 +51,8 @@ export function ShopCartPanel() {
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef({ active: false, startY: 0, currentY: 0 });
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, currentY: 0, direction: 'none' as 'none' | 'horizontal' | 'vertical' });
+  const itemsRef = useRef<HTMLDivElement>(null);
 
   const isGuest = isBrowser() && !api.isAuthenticated();
 
@@ -97,24 +98,46 @@ export function ShopCartPanel() {
   /* ─── Swipe-to-dismiss (mobile only) ────────── */
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (isDesktop) return;
-    dragRef.current = { active: true, startY: e.touches[0].clientY, currentY: e.touches[0].clientY };
+    // Don't start drag if items list is scrolled — let native scroll work
+    if (itemsRef.current && itemsRef.current.scrollTop > 5) return;
+    dragRef.current = {
+      active: true,
+      startX: e.touches[0].clientX,
+      startY: e.touches[0].clientY,
+      currentY: e.touches[0].clientY,
+      direction: 'none',
+    };
   }, [isDesktop]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!dragRef.current.active || isDesktop) return;
-    const currentY = e.touches[0].clientY;
-    const deltaY = currentY - dragRef.current.startY;
-    dragRef.current.currentY = currentY;
+    const x = e.touches[0].clientX;
+    const y = e.touches[0].clientY;
+    const diffX = Math.abs(x - dragRef.current.startX);
+    const diffY = y - dragRef.current.startY;
 
-    if (deltaY > 0 && panelRef.current) {
-      panelRef.current.style.transform = `translateY(${deltaY}px)`;
+    // Determine direction on first significant move (8px dead zone)
+    if (dragRef.current.direction === 'none' && (diffX > 8 || Math.abs(diffY) > 8)) {
+      dragRef.current.direction = diffX > Math.abs(diffY) ? 'horizontal' : 'vertical';
+    }
+
+    // Horizontal — don't drag panel (let addon scroll work)
+    if (dragRef.current.direction !== 'vertical') return;
+
+    dragRef.current.currentY = y;
+    if (diffY > 0 && panelRef.current) {
+      panelRef.current.style.transform = `translateY(${diffY}px)`;
     }
   }, [isDesktop]);
 
   const handleTouchEnd = useCallback(() => {
     if (!dragRef.current.active || isDesktop) return;
+    const direction = dragRef.current.direction;
     const deltaY = dragRef.current.currentY - dragRef.current.startY;
     dragRef.current.active = false;
+    dragRef.current.direction = 'none';
+
+    if (direction !== 'vertical') return;
 
     if (panelRef.current) {
       if (deltaY > SWIPE_THRESHOLD) {
@@ -213,7 +236,7 @@ export function ShopCartPanel() {
         </div>
 
         {/* Items list */}
-        <div className="shop-cart-panel__items">
+        <div className="shop-cart-panel__items" ref={itemsRef}>
           {items.map((item) => (
             <div key={item.product_id} className="shop-cart-panel__item">
               <div className="shop-cart-panel__item-image" style={{ cursor: 'pointer' }} onClick={() => handleCartItemClick(item)}>

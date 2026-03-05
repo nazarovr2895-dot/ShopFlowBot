@@ -365,8 +365,9 @@ export function ProductModal({
                 type="button"
                 className="product-modal__close"
                 onClick={(e) => { e.stopPropagation(); setClosing(true); }}
+                aria-label="Закрыть"
               >
-                Закрыть
+                ×
               </button>
 
               {/* Heart + Share */}
@@ -404,34 +405,12 @@ export function ProductModal({
               )}
             </div>
 
-            {/* Thumbnails strip */}
-            {images.length > 1 && (
-              <div className="product-modal__thumbs">
-                {images.map((img, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`product-modal__thumb${i === currentImageIndex ? ' product-modal__thumb--active' : ''}`}
-                    onClick={() => { setCurrentImageIndex(i); scrollToIndex(i); }}
-                  >
-                    <ProductImage
-                      src={img}
-                      alt={`${product.name} ${i + 1}`}
-                      className="product-modal__thumb-img"
-                      placeholderClassName="product-modal__thumb-placeholder"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Info */}
           <div className="product-modal__info">
-            <div className="product-modal__header">
-              <h2 className="product-modal__name">{product.name}</h2>
-              <span className="product-modal__price">{product.price.toLocaleString('ru-RU')} ₽</span>
-            </div>
+            <h2 className="product-modal__name">{product.name}</h2>
+            <span className="product-modal__price">{product.price.toLocaleString('ru-RU')} ₽</span>
 
             {product.description && (
               <p className="product-modal__desc">{product.description}</p>
