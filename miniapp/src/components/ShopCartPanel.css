@@ -147,12 +147,17 @@
   background: var(--app-border);
 }
 
-/* ── Items list ──────────────────────────────── */
-.shop-cart-panel__items {
+/* ── Scrollable body (items + addons) ──────── */
+.shop-cart-panel__body {
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  min-height: 0;
+}
+
+/* ── Items list ──────────────────────────────── */
+.shop-cart-panel__items {
 }
 
 .shop-cart-panel__item {

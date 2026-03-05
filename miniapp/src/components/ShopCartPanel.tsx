@@ -229,8 +229,9 @@ export function ShopCartPanel() {
           </button>
         </div>
 
-        {/* Items list */}
-        <div className="shop-cart-panel__items" ref={itemsRef}>
+        {/* Scrollable body: items + addons */}
+        <div className="shop-cart-panel__body" ref={itemsRef}>
+        <div className="shop-cart-panel__items">
           {items.map((item) => (
             <div key={item.product_id} className="shop-cart-panel__item">
               <div className="shop-cart-panel__item-image" style={{ cursor: 'pointer' }} onClick={() => handleCartItemClick(item)}>
@@ -292,6 +293,7 @@ export function ShopCartPanel() {
         </div>
 
         {/* Cross-sell: Добавить к букету */}
+        {/* (inside scrollable body) */}
         {addonCategories.length > 0 && (() => {
           const cartProductIds = new Set(items.map((i) => i.product_id));
           const availableAddons = addonProducts.filter((p) => !cartProductIds.has(p.id));
@@ -344,6 +346,7 @@ export function ShopCartPanel() {
             </div>
           );
         })()}
+        </div>{/* end shop-cart-panel__body */}
 
         {/* Footer */}
         <div className="shop-cart-panel__footer">
