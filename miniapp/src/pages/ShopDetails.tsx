@@ -877,9 +877,8 @@ export function ShopDetails() {
                             </div>
                             <span className="shop-details__addon-card-name">{product.name}</span>
                             <div className="shop-details__addon-card-price-row">
-                              <span className="shop-details__addon-card-price">{formatPrice(product.price)}</span>
                               {cartQty > 0 ? (
-                                <div className="shop-details__qty-counter shop-details__qty-counter--compact" onClick={(e) => e.stopPropagation()}>
+                                <div className="shop-details__addon-card-qty" onClick={(e) => e.stopPropagation()}>
                                   <button type="button" className="shop-details__qty-counter-btn" onClick={(e) => updateCartQuantity(product.id, cartQty - 1, e)}>−</button>
                                   <span className="shop-details__qty-counter-value">{cartQty}</span>
                                   <button type="button" className="shop-details__qty-counter-btn" onClick={(e) => updateCartQuantity(product.id, cartQty + 1, e)}>+</button>
@@ -887,14 +886,14 @@ export function ShopDetails() {
                               ) : (
                                 <button
                                   type="button"
-                                  className="shop-details__product-card-add-pill"
+                                  className="shop-details__addon-card-add-btn"
                                   disabled={!inStock || seller.subscription_active === false}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (seller.subscription_active !== false) addToCart(product.id);
                                   }}
                                 >
-                                  <span>{inStock ? 'В корзину' : 'Нет'}</span>
+                                  {inStock ? formatPrice(product.price) : 'Нет в наличии'}
                                 </button>
                               )}
                             </div>
