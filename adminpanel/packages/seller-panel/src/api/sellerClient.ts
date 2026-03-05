@@ -494,7 +494,7 @@ export async function getProducts(params?: { preorder?: boolean }): Promise<Sell
 }
 
 export async function uploadProductPhoto(file: File): Promise<{ photo_id: string }> {
-  const token = sessionStorage.getItem('seller_token');
+  const token = getSellerToken();
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(`${getApiBase()}/seller-web/upload-photo`, {
@@ -503,6 +503,20 @@ export async function uploadProductPhoto(file: File): Promise<{ photo_id: string
     body: form,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSellerToken();
+      if (refreshed) {
+        const retryToken = getSellerToken();
+        const retryRes = await fetch(`${getApiBase()}/seller-web/upload-photo`, {
+          method: 'POST',
+          headers: retryToken ? { 'X-Seller-Token': retryToken } : {},
+          body: form,
+        });
+        if (retryRes.ok) return retryRes.json();
+        const retryErr = await retryRes.json().catch(() => ({ detail: retryRes.statusText }));
+        throw new Error(retryErr.detail || `HTTP ${retryRes.status}`);
+      }
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
