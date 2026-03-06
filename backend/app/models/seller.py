@@ -38,6 +38,7 @@ class Seller(Base):
     pending_delivery_requests: Mapped[int] = mapped_column(Integer, default=0)
     pending_pickup_requests: Mapped[int] = mapped_column(Integer, default=0)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_visible: Mapped[bool] = mapped_column(Boolean, default=True)
     placement_expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     deleted_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)  # Soft delete timestamp
     # Web panel auth (login/password for seller web access)

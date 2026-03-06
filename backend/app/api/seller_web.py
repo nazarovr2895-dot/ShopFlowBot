@@ -136,6 +136,8 @@ class UpdateMeBody(BaseModel):
     # Metro
     metro_id: Optional[int] = None
     metro_walk_minutes: Optional[int] = None
+    # Shop visibility toggle
+    is_visible: Optional[bool] = None
     # Gift note toggle
     gift_note_enabled: Optional[bool] = None
     # Contact info
@@ -244,6 +246,9 @@ async def update_me(
         await service.update_field(seller_id, "metro_id", str(body.metro_id) if body.metro_id > 0 else "")
     if body.metro_walk_minutes is not None:
         await service.update_field(seller_id, "metro_walk_minutes", str(body.metro_walk_minutes) if body.metro_walk_minutes > 0 else "")
+    # Shop visibility toggle
+    if body.is_visible is not None:
+        await service.update_field(seller_id, "is_visible", body.is_visible)
     # Gift note toggle
     if body.gift_note_enabled is not None:
         await service.update_field(seller_id, "gift_note_enabled", body.gift_note_enabled)

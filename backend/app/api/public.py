@@ -203,9 +203,10 @@ async def get_public_sellers(
             else_=func.coalesce(Seller.default_daily_limit, 30),
         )
 
-        # Базовые условия: не заблокирован, не удалён, размещение не истекло, есть лимит, подписка активна
+        # Базовые условия: не заблокирован, не удалён, размещение не истекло, есть лимит, подписка активна, видим
         base_conditions = [
             Seller.is_blocked == False,
+            Seller.is_visible == True,
             Seller.deleted_at.is_(None),
             (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
             effective_limit_expr > 0,
@@ -575,6 +576,7 @@ async def get_sellers_geo(
 
     base_conditions = [
         Seller.is_blocked == False,
+        Seller.is_visible == True,
         Seller.deleted_at.is_(None),
         (Seller.placement_expired_at > now) | (Seller.placement_expired_at.is_(None)),
         effective_limit_expr > 0,
@@ -698,6 +700,9 @@ async def get_public_seller_detail(
 
     if seller.is_blocked:
         raise HTTPException(status_code=403, detail="Продавец заблокирован")
+
+    if not getattr(seller, "is_visible", True):
+        raise HTTPException(status_code=404, detail="Магазин скрыт")
 
     if seller.placement_expired_at and seller.placement_expired_at < now:
         raise HTTPException(status_code=403, detail="Размещение продавца истекло")

@@ -385,6 +385,7 @@ export async function updateMe(payload: {
   geo_lon?: number | null;
   metro_id?: number | null;
   metro_walk_minutes?: number | null;
+  is_visible?: boolean;
   gift_note_enabled?: boolean;
   contact_phone?: string;
   contact_username?: string;

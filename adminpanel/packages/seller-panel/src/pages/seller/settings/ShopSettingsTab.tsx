@@ -5,7 +5,7 @@ import { useEditMode } from '@shared/hooks/useEditMode';
 import { LocationPicker } from '../../../components/LocationPicker';
 import { MetroSearchField } from '@shared/components/MetroSearchField';
 import { Toggle } from '@shared/components/ui';
-import { Store, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, MessageSquare, Phone, AtSign } from 'lucide-react';
+import { Store, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, MessageSquare, Phone, AtSign, Eye, EyeOff } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './ShopSettingsTab.css';
 
@@ -90,8 +90,40 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
 
   const hasGeo = me.geo_lat != null && me.geo_lon != null;
 
+  const isVisible = me.is_visible ?? true;
+
   return (
     <div className="settings-shop">
+      {/* ── Section 0: Shop visibility toggle ─────── */}
+      <div className="shop-card">
+        <div className="shop-card__header">
+          <div className="shop-card__header-left">
+            <div className={`shop-card__icon-badge ${isVisible ? 'shop-card__icon-badge--green' : ''}`}>
+              {isVisible ? <Eye size={18} /> : <EyeOff size={18} />}
+            </div>
+            <div>
+              <h3 className="shop-card__title">Видимость магазина</h3>
+              <p className="shop-card__subtitle">Управляйте отображением в каталоге</p>
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: '0 20px 20px' }}>
+          <Toggle
+            checked={isVisible}
+            onChange={async (checked) => {
+              try {
+                await updateMe({ is_visible: checked });
+                await reload();
+                toast.success(checked ? 'Магазин виден в каталоге' : 'Магазин скрыт из каталога');
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : 'Ошибка');
+              }
+            }}
+            label="Показывать магазин в каталоге"
+          />
+        </div>
+      </div>
+
       {/* ── Section 1: Shop info ──────────────────── */}
       <div className="shop-card">
         <div className="shop-card__header">
