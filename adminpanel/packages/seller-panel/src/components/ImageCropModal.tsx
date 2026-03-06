@@ -70,6 +70,7 @@ export function ImageCropModal({ isOpen, imageSrc, onCropComplete, onClose, crop
           aspect={aspect}
           cropShape={cropShape}
           objectFit={objectFit}
+          restrictPosition={objectFit !== 'contain'}
           minZoom={objectFit === 'contain' ? 0.1 : 1}
           onCropChange={setCrop}
           onZoomChange={setZoom}
