@@ -1064,17 +1064,92 @@ class SellerService:
         """
         Hard delete a seller. Order history is preserved.
         Changes user role to BUYER.
+        Deletes related products, cart items, favorites, CRM data, loyalty,
+        flowers/receptions/bouquets, subscriptions, and commission ledger.
+        Fails if there are orders (non-nullable FK).
         """
+        from sqlalchemy import delete, select as sa_select
+        from sqlalchemy.exc import IntegrityError
+        from backend.app.models.order import Order
+        from backend.app.models.product import Product
+        from backend.app.models.cart import CartItem, BuyerFavoriteSeller, BuyerFavoriteProduct
+        from backend.app.models.crm import Flower, Reception, ReceptionItem, Bouquet, BouquetItem, WriteOff
+        from backend.app.models.loyalty import SellerCustomer, SellerLoyaltyTransaction, CustomerEvent
+        from backend.app.models.commission_ledger import CommissionLedger
+        from backend.app.models.subscription import Subscription
+
         seller = await self.session.get(Seller, tg_id)
         if not seller:
             raise SellerNotFoundError(tg_id)
-        
+
+        # Check for orders — can't delete seller with existing orders (non-nullable FK)
+        order_count = (await self.session.execute(
+            sa_select(func.count()).select_from(Order).where(Order.seller_id == tg_id)
+        )).scalar() or 0
+        if order_count > 0:
+            raise SellerServiceError(
+                f"Нельзя удалить продавца: есть {order_count} заказ(ов). Используйте мягкое удаление."
+            )
+
+        # Delete related records in dependency order
+        # Bouquet items → bouquets
+        bouquet_ids = (await self.session.execute(
+            sa_select(Bouquet.id).where(Bouquet.seller_id == tg_id)
+        )).scalars().all()
+        if bouquet_ids:
+            await self.session.execute(delete(BouquetItem).where(BouquetItem.bouquet_id.in_(bouquet_ids)))
+
+        # Reception items, write-offs → receptions
+        reception_ids = (await self.session.execute(
+            sa_select(Reception.id).where(Reception.seller_id == tg_id)
+        )).scalars().all()
+        if reception_ids:
+            await self.session.execute(delete(WriteOff).where(WriteOff.reception_item_id.in_(
+                sa_select(ReceptionItem.id).where(ReceptionItem.reception_id.in_(reception_ids))
+            )))
+            await self.session.execute(delete(ReceptionItem).where(ReceptionItem.reception_id.in_(reception_ids)))
+
+        # Customer events, loyalty transactions → seller customers
+        customer_ids = (await self.session.execute(
+            sa_select(SellerCustomer.id).where(SellerCustomer.seller_id == tg_id)
+        )).scalars().all()
+        if customer_ids:
+            await self.session.execute(delete(CustomerEvent).where(CustomerEvent.customer_id.in_(customer_ids)))
+            await self.session.execute(delete(SellerLoyaltyTransaction).where(SellerLoyaltyTransaction.customer_id.in_(customer_ids)))
+
+        # Favorite products (references products)
+        product_ids = (await self.session.execute(
+            sa_select(Product.id).where(Product.seller_id == tg_id)
+        )).scalars().all()
+        if product_ids:
+            await self.session.execute(delete(BuyerFavoriteProduct).where(BuyerFavoriteProduct.product_id.in_(product_ids)))
+
+        # Now delete main tables
+        await self.session.execute(delete(CartItem).where(CartItem.seller_id == tg_id))
+        await self.session.execute(delete(BuyerFavoriteSeller).where(BuyerFavoriteSeller.seller_id == tg_id))
+        await self.session.execute(delete(Product).where(Product.seller_id == tg_id))
+        await self.session.execute(delete(Bouquet).where(Bouquet.seller_id == tg_id))
+        await self.session.execute(delete(Reception).where(Reception.seller_id == tg_id))
+        await self.session.execute(delete(Flower).where(Flower.seller_id == tg_id))
+        await self.session.execute(delete(SellerCustomer).where(SellerCustomer.seller_id == tg_id))
+        await self.session.execute(delete(SellerLoyaltyTransaction).where(SellerLoyaltyTransaction.seller_id == tg_id))
+        await self.session.execute(delete(CustomerEvent).where(CustomerEvent.seller_id == tg_id))
+        await self.session.execute(delete(CommissionLedger).where(CommissionLedger.seller_id == tg_id))
+        await self.session.execute(delete(Subscription).where(Subscription.seller_id == tg_id))
+        # delivery_zones and categories have ondelete=CASCADE, handled by DB
+
         user = await self.session.get(User, tg_id)
         if user and user.role != 'ADMIN':
             user.role = 'BUYER'
-        
+
         await self.session.delete(seller)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            raise SellerServiceError(
+                "Нельзя удалить продавца: есть связанные данные. Используйте мягкое удаление."
+            )
         return {"status": "ok"}
     
     async def reset_counters(self, tg_id: int) -> Dict[str, str]:

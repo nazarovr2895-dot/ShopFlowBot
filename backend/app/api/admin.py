@@ -567,11 +567,13 @@ async def restore_seller(tg_id: int, session: AsyncSession = Depends(get_session
 async def delete_seller(tg_id: int, session: AsyncSession = Depends(get_session)):
     """Удалить продавца (Hard Delete). История заказов не удаляется."""
     service = SellerService(session)
-    
+
     try:
         return await service.hard_delete(tg_id)
     except SellerNotFoundError:
         return {"status": "not_found"}
+    except SellerServiceError as e:
+        return {"status": "error", "message": e.message}
 
 
 @router.post("/sellers/{tg_id}/reset_counters")
