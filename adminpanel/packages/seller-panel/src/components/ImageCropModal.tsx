@@ -12,10 +12,11 @@ interface ImageCropModalProps {
   onClose: () => void;
   cropShape?: 'rect' | 'round';
   aspect?: number;
+  objectFit?: 'contain' | 'horizontal-cover' | 'vertical-cover' | 'auto-cover';
   extraControls?: React.ReactNode;
 }
 
-export function ImageCropModal({ isOpen, imageSrc, onCropComplete, onClose, cropShape = 'rect', aspect = 1, extraControls }: ImageCropModalProps) {
+export function ImageCropModal({ isOpen, imageSrc, onCropComplete, onClose, cropShape = 'rect', aspect = 1, objectFit, extraControls }: ImageCropModalProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -68,6 +69,8 @@ export function ImageCropModal({ isOpen, imageSrc, onCropComplete, onClose, crop
           zoom={zoom}
           aspect={aspect}
           cropShape={cropShape}
+          objectFit={objectFit}
+          minZoom={objectFit === 'contain' ? 0.1 : 1}
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropAreaChange}
@@ -77,7 +80,7 @@ export function ImageCropModal({ isOpen, imageSrc, onCropComplete, onClose, crop
         <label className="image-crop-modal__zoom-label">Масштаб</label>
         <input
           type="range"
-          min={1}
+          min={objectFit === 'contain' ? 0.1 : 1}
           max={3}
           step={0.1}
           value={zoom}

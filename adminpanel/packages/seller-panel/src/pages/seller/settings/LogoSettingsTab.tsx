@@ -243,6 +243,7 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
           isOpen
           imageSrc={bannerCropSrc}
           aspect={5}
+          objectFit="contain"
           onCropComplete={handleBannerCropComplete}
           onClose={handleBannerCropClose}
         />
