@@ -194,7 +194,7 @@ class SellerService:
         "address_name", "map_url", "delivery_type", "city_id", "district_id",
         "metro_id", "metro_walk_minutes", "placement_expired_at", "banner_url", "logo_url", "ogrn",
         "commission_percent", "commission_balance", "use_delivery_zones",
-        "geo_lat", "geo_lon", "max_branches", "gift_note_enabled",
+        "geo_lat", "geo_lon", "max_branches", "is_visible", "gift_note_enabled",
         "contact_phone", "contact_username",
         "social_links_enabled", "social_links",
         "about_enabled", "about_content", "about_background",
@@ -523,6 +523,7 @@ class SellerService:
             "slot_duration_minutes": getattr(seller, "slot_duration_minutes", 120),
             "geo_lat": getattr(seller, "geo_lat", None),
             "geo_lon": getattr(seller, "geo_lon", None),
+            "is_visible": getattr(seller, "is_visible", True),
             "gift_note_enabled": getattr(seller, "gift_note_enabled", False),
             "contact_phone": getattr(seller, "contact_phone", None),
             "contact_username": getattr(seller, "contact_username", None),
@@ -976,6 +977,8 @@ class SellerService:
                 seller.commission_balance = Decimal("0")
         elif field == "use_delivery_zones":
             seller.use_delivery_zones = bool(value)
+        elif field == "is_visible":
+            seller.is_visible = bool(value)
         elif field == "gift_note_enabled":
             seller.gift_note_enabled = bool(value)
         elif field == "max_branches":
