@@ -352,9 +352,7 @@ class CartService:
             # Resolve delivery type for this seller
             seller_delivery = (delivery_by_seller or {}).get(seller_id, delivery_type)
             # Resolve payment method: "on_pickup" only allowed for pickup
-            seller_payment_method = (payment_method_by_seller or {}).get(seller_id, "online")
-            if seller_delivery != "Самовывоз":
-                seller_payment_method = "online"
+            seller_payment_method = (payment_method_by_seller or {}).get(seller_id, "on_pickup")
             addr = address
             if seller_delivery == "Самовывоз" and seller and getattr(seller, "map_url", None):
                 addr = (seller.map_url or "") + f"\n📞 {phone}\n👤 {fio}"
