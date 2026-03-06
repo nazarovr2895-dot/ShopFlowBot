@@ -239,7 +239,7 @@ class SubscriptionService:
             subscription_id=sub.id,
             payment_id=payment.id,
             period_months=period_months,
-            amount=str(amount_decimal),
+            amount=str(total_amount),
         )
 
         return {
