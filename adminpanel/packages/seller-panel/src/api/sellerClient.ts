@@ -547,7 +547,7 @@ export function getBannerImageUrl(bannerUrl: string | null | undefined): string 
 }
 
 export async function uploadBannerPhoto(file: File): Promise<{ banner_url: string }> {
-  const token = sessionStorage.getItem('seller_token');
+  const token = getSellerToken();
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(`${getApiBase()}/seller-web/upload-banner`, {
@@ -556,6 +556,20 @@ export async function uploadBannerPhoto(file: File): Promise<{ banner_url: strin
     body: form,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSellerToken();
+      if (refreshed) {
+        const retryToken = getSellerToken();
+        const retryRes = await fetch(`${getApiBase()}/seller-web/upload-banner`, {
+          method: 'POST',
+          headers: retryToken ? { 'X-Seller-Token': retryToken } : {},
+          body: form,
+        });
+        if (retryRes.ok) return retryRes.json();
+        const retryErr = await retryRes.json().catch(() => ({ detail: retryRes.statusText }));
+        throw new Error(retryErr.detail || `HTTP ${retryRes.status}`);
+      }
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
@@ -573,7 +587,7 @@ export function getLogoImageUrl(logoUrl: string | null | undefined): string | nu
 }
 
 export async function uploadLogoPhoto(file: File): Promise<{ logo_url: string }> {
-  const token = sessionStorage.getItem('seller_token');
+  const token = getSellerToken();
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(`${getApiBase()}/seller-web/upload-logo`, {
@@ -582,6 +596,20 @@ export async function uploadLogoPhoto(file: File): Promise<{ logo_url: string }>
     body: form,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSellerToken();
+      if (refreshed) {
+        const retryToken = getSellerToken();
+        const retryRes = await fetch(`${getApiBase()}/seller-web/upload-logo`, {
+          method: 'POST',
+          headers: retryToken ? { 'X-Seller-Token': retryToken } : {},
+          body: form,
+        });
+        if (retryRes.ok) return retryRes.json();
+        const retryErr = await retryRes.json().catch(() => ({ detail: retryRes.statusText }));
+        throw new Error(retryErr.detail || `HTTP ${retryRes.status}`);
+      }
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
@@ -589,7 +617,7 @@ export async function uploadLogoPhoto(file: File): Promise<{ logo_url: string }>
 }
 
 export async function uploadAboutMedia(file: File): Promise<{ url: string }> {
-  const token = sessionStorage.getItem('seller_token');
+  const token = getSellerToken();
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(`${getApiBase()}/seller-web/upload-about-media`, {
@@ -598,6 +626,20 @@ export async function uploadAboutMedia(file: File): Promise<{ url: string }> {
     body: form,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSellerToken();
+      if (refreshed) {
+        const retryToken = getSellerToken();
+        const retryRes = await fetch(`${getApiBase()}/seller-web/upload-about-media`, {
+          method: 'POST',
+          headers: retryToken ? { 'X-Seller-Token': retryToken } : {},
+          body: form,
+        });
+        if (retryRes.ok) return retryRes.json();
+        const retryErr = await retryRes.json().catch(() => ({ detail: retryRes.statusText }));
+        throw new Error(retryErr.detail || `HTTP ${retryRes.status}`);
+      }
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
