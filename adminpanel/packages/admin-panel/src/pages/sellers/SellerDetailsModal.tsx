@@ -407,7 +407,7 @@ export function SellerDetailsModal({ seller, onClose, onSuccess, onUpdate }: Sel
         onSuccess();
         onClose();
       } else {
-        toast.error('Ошибка удаления');
+        toast.error(res?.message || 'Ошибка удаления');
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');

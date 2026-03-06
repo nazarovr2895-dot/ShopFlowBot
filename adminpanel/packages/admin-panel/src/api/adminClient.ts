@@ -170,7 +170,7 @@ export async function restoreSeller(tgId: number): Promise<{ status?: string }> 
   return fetchAdmin(`/admin/sellers/${tgId}/restore`, { method: 'PUT' });
 }
 
-export async function deleteSeller(tgId: number): Promise<{ status?: string }> {
+export async function deleteSeller(tgId: number): Promise<{ status?: string; message?: string }> {
   return fetchAdmin(`/admin/sellers/${tgId}`, { method: 'DELETE' });
 }
 
