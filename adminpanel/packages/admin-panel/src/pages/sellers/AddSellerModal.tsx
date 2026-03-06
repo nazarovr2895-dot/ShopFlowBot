@@ -7,6 +7,7 @@ import {
   getDistricts,
   suggestAddress,
   checkAddressCoverage,
+  searchMetro,
   type InnData,
   type AddressSuggestion,
   type CoverageCheckResult,
@@ -377,6 +378,7 @@ export function AddSellerModal({ onClose, onSuccess, initialInnData }: AddSeller
             setMetroId(mId);
             setMetroWalkMinutes(walkMin);
           }}
+          searchMetro={searchMetro}
         />
         <div className="form-group">
           <label className="form-label">Индивидуальная комиссия (%)</label>
