@@ -1082,15 +1082,6 @@ class SellerService:
         if not seller:
             raise SellerNotFoundError(tg_id)
 
-        # Check for orders — can't delete seller with existing orders (non-nullable FK)
-        order_count = (await self.session.execute(
-            sa_select(func.count()).select_from(Order).where(Order.seller_id == tg_id)
-        )).scalar() or 0
-        if order_count > 0:
-            raise SellerServiceError(
-                f"Нельзя удалить продавца: есть {order_count} заказ(ов). Используйте мягкое удаление."
-            )
-
         # Delete related records in dependency order
         # Bouquet items → bouquets
         bouquet_ids = (await self.session.execute(
@@ -1136,6 +1127,9 @@ class SellerService:
         await self.session.execute(delete(CustomerEvent).where(CustomerEvent.seller_id == tg_id))
         await self.session.execute(delete(CommissionLedger).where(CommissionLedger.seller_id == tg_id))
         await self.session.execute(delete(Subscription).where(Subscription.seller_id == tg_id))
+        # Orders must be deleted after commission_ledger & loyalty_transactions (which reference orders.id)
+        # and before seller (orders.delivery_zone_id references delivery_zones which cascade from seller)
+        await self.session.execute(delete(Order).where(Order.seller_id == tg_id))
         # delivery_zones and categories have ondelete=CASCADE, handled by DB
 
         user = await self.session.get(User, tg_id)
