@@ -143,7 +143,7 @@ export function ShopDetails() {
     const pid = parseInt(productParam, 10);
     if (isNaN(pid)) return;
 
-    const allProducts = [...seller.products, ...(seller.preorder_products ?? [])];
+    const allProducts = [...seller.products, ...(seller.preorder_products ?? []), ...(seller.addon_products ?? [])];
     const found = allProducts.find((p) => p.id === pid);
     if (found) {
       setSelectedProduct(found);
@@ -287,7 +287,7 @@ export function ShopDetails() {
     try {
       hapticFeedback('light');
 
-      const allProducts = [...(seller?.products ?? []), ...(seller?.preorder_products ?? [])];
+      const allProducts = [...(seller?.products ?? []), ...(seller?.preorder_products ?? []), ...(seller?.addon_products ?? [])];
       const product = allProducts.find((p: Product) => p.id === productId);
       if (!product) return;
 

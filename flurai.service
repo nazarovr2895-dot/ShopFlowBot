@@ -1,0 +1,15 @@
+[Unit]
+Description=Flurai Docker Compose Stack
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/root/flurai
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
