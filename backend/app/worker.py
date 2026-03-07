@@ -207,16 +207,29 @@ async def _reservation_sweeper():
 
 async def _analytics_aggregator():
     """Background task: roll up page_views into daily_stats every hour."""
-    from datetime import date as date_type, timedelta
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
     from backend.app.core.database import async_session
     from backend.app.services.analytics import AnalyticsService
+
+    MSK = ZoneInfo("Europe/Moscow")
+
+    # One-time cleanup of duplicate platform rows from NULL constraint bug
+    try:
+        async with async_session() as session:
+            svc = AnalyticsService(session)
+            deleted = await svc.cleanup_duplicate_platform_rows()
+            if deleted:
+                await session.commit()
+    except Exception as e:
+        logger.error("Analytics cleanup error", error=str(e))
 
     while True:
         try:
             await asyncio.sleep(3600)
             async with async_session() as session:
                 svc = AnalyticsService(session)
-                today = date_type.today()
+                today = datetime.now(MSK).date()
                 yesterday = today - timedelta(days=1)
                 await svc.rollup_daily_stats(yesterday)
                 await svc.rollup_daily_stats(today)

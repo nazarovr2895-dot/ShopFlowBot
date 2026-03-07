@@ -30,13 +30,14 @@ async def get_seller_visitor_analytics(
     session: AsyncSession = Depends(get_session),
 ):
     """Visitor analytics for seller: views, unique visitors, conversion."""
-    from datetime import date as date_type, timedelta
+    from datetime import date as date_type, datetime as dt_cls, timedelta
+    from zoneinfo import ZoneInfo
     from backend.app.services.analytics import AnalyticsService
 
     seller_id, owner_id = auth
     target = await resolve_branch_target(branch, seller_id, owner_id, session)
 
-    today = date_type.today()
+    today = dt_cls.now(ZoneInfo("Europe/Moscow")).date()
     d_from, d_to = today - timedelta(days=6), today
     if period:
         days_map = {"1d": 0, "7d": 6, "30d": 29, "90d": 89}

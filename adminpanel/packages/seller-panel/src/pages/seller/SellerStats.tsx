@@ -13,6 +13,7 @@ import {
 } from '../../api/sellerClient';
 import { useSellerAuth } from '../../contexts/SellerAuthContext';
 import { SalesChart } from '@shared/components/SalesChart';
+import { VisitorChart } from '@shared/components/VisitorChart';
 import { PageHeader, TabBar, EmptyState, useToast } from '@shared/components/ui';
 import '../Stats.css';
 
@@ -376,36 +377,43 @@ export function SellerStats() {
         )}
 
         {activeTab === 'visitors' && (
-          <div className="seller-stats-summary seller-stats-tab-content">
-            {loading ? (
-              <div className="seller-chart-loading" />
-            ) : visitorData ? (
-              <>
-                <div className="summary-item">
-                  <span className="summary-label">Просмотров магазина</span>
-                  <span className="summary-value">{visitorData.summary.shop_views.toLocaleString('ru')}</span>
-                </div>
-                <div className="summary-item">
-                  <span className="summary-label">Просмотров товаров</span>
-                  <span className="summary-value">{visitorData.summary.product_views.toLocaleString('ru')}</span>
-                </div>
-                <div className="summary-item">
-                  <span className="summary-label">Уникальных посетителей</span>
-                  <span className="summary-value">{visitorData.summary.unique_visitors.toLocaleString('ru')}</span>
-                </div>
-                <div className="summary-item">
-                  <span className="summary-label">Заказов</span>
-                  <span className="summary-value">{visitorData.summary.orders_placed.toLocaleString('ru')}</span>
-                </div>
-                <div className="summary-item accent">
-                  <span className="summary-label">Конверсия</span>
-                  <span className="summary-value accent">{visitorData.summary.conversion_rate}%</span>
-                </div>
-              </>
-            ) : (
-              <EmptyState title="Нет данных о посещениях" message="Данные появятся после первых визитов покупателей" />
+          <>
+            {visitorData && visitorData.daily.length > 1 && (
+              <div className="seller-stats-chart card" style={{ marginBottom: '1rem' }}>
+                {loading ? <div className="seller-chart-loading" /> : <VisitorChart daily={visitorData.daily} />}
+              </div>
             )}
-          </div>
+            <div className="seller-stats-summary seller-stats-tab-content">
+              {loading ? (
+                <div className="seller-chart-loading" />
+              ) : visitorData ? (
+                <>
+                  <div className="summary-item">
+                    <span className="summary-label">Просмотров магазина</span>
+                    <span className="summary-value">{visitorData.summary.shop_views.toLocaleString('ru')}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="summary-label">Просмотров товаров</span>
+                    <span className="summary-value">{visitorData.summary.product_views.toLocaleString('ru')}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="summary-label">Уникальных посетителей</span>
+                    <span className="summary-value">{visitorData.summary.unique_visitors.toLocaleString('ru')}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="summary-label">Заказов</span>
+                    <span className="summary-value">{visitorData.summary.orders_placed.toLocaleString('ru')}</span>
+                  </div>
+                  <div className="summary-item accent">
+                    <span className="summary-label">Конверсия</span>
+                    <span className="summary-value accent">{visitorData.summary.conversion_rate}%</span>
+                  </div>
+                </>
+              ) : (
+                <EmptyState title="Нет данных о посещениях" message="Данные появятся после первых визитов покупателей" />
+              )}
+            </div>
+          </>
         )}
 
         {activeTab === 'preorders' && (

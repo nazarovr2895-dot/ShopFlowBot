@@ -1,6 +1,7 @@
 """Analytics service — record page views and query visitor statistics."""
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Optional, List, Dict, Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, func, delete, case, cast, Date, literal
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -16,6 +17,27 @@ logger = get_logger(__name__)
 
 ALLOWED_EVENTS = {'app_open', 'shop_view', 'product_view'}
 MAX_BATCH = 50
+MSK = ZoneInfo("Europe/Moscow")
+
+
+def _fill_date_range(by_date: Dict[str, Dict], date_from: date, date_to: date) -> List[Dict]:
+    """Fill missing dates with zero entries and add conversion_rate to each day."""
+    daily = []
+    d = date_from
+    while d <= date_to:
+        d_iso = d.isoformat()
+        entry = by_date.get(d_iso, {
+            'date': d_iso,
+            'unique_visitors': 0,
+            'shop_views': 0,
+            'product_views': 0,
+            'orders_placed': 0,
+        })
+        uv = entry.get('unique_visitors', 0)
+        entry['conversion_rate'] = round(entry['orders_placed'] / uv * 100, 1) if uv else 0
+        daily.append(entry)
+        d += timedelta(days=1)
+    return daily
 
 
 class AnalyticsService:
@@ -63,23 +85,30 @@ class AnalyticsService:
         result = await self.session.execute(q)
         rows = result.scalars().all()
 
-        total_visitors = sum(r.unique_visitors for r in rows)
-        total_shop = sum(r.shop_views for r in rows)
-        total_product = sum(r.product_views for r in rows)
-        total_orders = sum(r.orders_placed for r in rows)
-        conversion = round(total_orders / total_visitors * 100, 1) if total_visitors else 0
-
-        daily = [
-            {
-                'date': r.date.isoformat(),
+        # Build daily map from DB rows (one row per date expected after rollup fix)
+        by_date: Dict[str, Dict] = {}
+        for r in rows:
+            d = r.date.isoformat()
+            # Take latest row per date (handles legacy duplicates from NULL constraint bug)
+            by_date[d] = {
+                'date': d,
                 'unique_visitors': r.unique_visitors,
                 'shop_views': r.shop_views,
                 'product_views': r.product_views,
                 'orders_placed': r.orders_placed,
-                'conversion_rate': round(r.orders_placed / r.unique_visitors * 100, 1) if r.unique_visitors else 0,
             }
-            for r in rows
-        ]
+
+        # Fill missing dates with zeros
+        daily = _fill_date_range(by_date, date_from, date_to)
+
+        total_shop = sum(d['shop_views'] for d in daily)
+        total_product = sum(d['product_views'] for d in daily)
+        total_orders = sum(d['orders_placed'] for d in daily)
+
+        # True unique visitors across entire period (not sum of daily)
+        total_visitors = await self._count_unique_visitors(date_from, date_to)
+
+        conversion = round(total_orders / total_visitors * 100, 1) if total_visitors else 0
 
         return {
             'summary': {
@@ -173,12 +202,6 @@ class AnalyticsService:
         result = await self.session.execute(q)
         rows = result.scalars().all()
 
-        total_visitors = sum(r.unique_visitors for r in rows)
-        total_shop = sum(r.shop_views for r in rows)
-        total_product = sum(r.product_views for r in rows)
-        total_orders = sum(r.orders_placed for r in rows)
-        conversion = round(total_orders / total_visitors * 100, 1) if total_visitors else 0
-
         # Aggregate by date for multi-branch
         by_date: Dict[str, Dict] = {}
         for r in rows:
@@ -190,12 +213,17 @@ class AnalyticsService:
             by_date[d]['product_views'] += r.product_views
             by_date[d]['orders_placed'] += r.orders_placed
 
-        daily = []
-        for d in sorted(by_date.keys()):
-            entry = by_date[d]
-            uv = entry['unique_visitors']
-            entry['conversion_rate'] = round(entry['orders_placed'] / uv * 100, 1) if uv else 0
-            daily.append(entry)
+        # Fill missing dates with zeros
+        daily = _fill_date_range(by_date, date_from, date_to)
+
+        total_shop = sum(d['shop_views'] for d in daily)
+        total_product = sum(d['product_views'] for d in daily)
+        total_orders = sum(d['orders_placed'] for d in daily)
+
+        # True unique visitors across entire period
+        total_visitors = await self._count_unique_visitors(date_from, date_to, seller_id)
+
+        conversion = round(total_orders / total_visitors * 100, 1) if total_visitors else 0
 
         return {
             'summary': {
@@ -247,12 +275,41 @@ class AnalyticsService:
             for r in result.all()
         ]
 
+    # ---- Helpers ----
+
+    async def _count_unique_visitors(
+        self,
+        date_from: date,
+        date_to: date,
+        seller_id: Optional[int | List[int]] = None,
+    ) -> int:
+        """Count truly unique visitors (distinct session_id) across a date range."""
+        dt_from = datetime.combine(date_from, time.min)
+        dt_to = datetime.combine(date_to, time.max)
+        q = select(func.count(func.distinct(PageView.session_id))).where(
+            PageView.created_at >= dt_from,
+            PageView.created_at <= dt_to,
+        )
+        if seller_id is not None:
+            if isinstance(seller_id, list):
+                q = q.where(PageView.seller_id.in_(seller_id))
+            else:
+                q = q.where(PageView.seller_id == seller_id)
+        return (await self.session.execute(q)).scalar() or 0
+
     # ---- Aggregation ----
 
     async def rollup_daily_stats(self, target_date: date) -> None:
-        """Aggregate page_views for target_date into daily_stats rows (upsert)."""
-        dt_from = datetime.combine(target_date, datetime.min.time())
-        dt_to = datetime.combine(target_date, datetime.max.time())
+        """Aggregate page_views for target_date into daily_stats rows.
+
+        Uses Moscow timezone for day boundaries. For platform rows (seller_id IS NULL),
+        deletes and re-inserts to avoid PostgreSQL NULL unique constraint issue.
+        """
+        # Moscow day boundaries converted to UTC for querying page_views
+        dt_from_msk = datetime.combine(target_date, time.min, tzinfo=MSK)
+        dt_to_msk = datetime.combine(target_date, time.max, tzinfo=MSK)
+        dt_from = dt_from_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+        dt_to = dt_to_msk.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
         # Platform-wide stats
         q = select(
@@ -265,14 +322,22 @@ class AnalyticsService:
         result = await self.session.execute(q)
         row = result.one()
 
-        # Orders for that day
+        # Orders for that day (also using Moscow day boundaries)
         orders_q = select(func.count()).select_from(Order).where(
-            cast(Order.created_at, Date) == target_date,
+            Order.created_at >= dt_from,
+            Order.created_at <= dt_to,
         )
         orders_count = (await self.session.execute(orders_q)).scalar() or 0
 
-        # Upsert platform row (seller_id IS NULL)
-        stmt = pg_insert(DailyStats).values(
+        # Delete + insert for platform row (seller_id IS NULL)
+        # PostgreSQL NULLs are DISTINCT in unique constraints, so ON CONFLICT won't fire
+        await self.session.execute(
+            delete(DailyStats).where(
+                DailyStats.date == target_date,
+                DailyStats.seller_id.is_(None),
+            )
+        )
+        self.session.add(DailyStats(
             date=target_date,
             seller_id=None,
             unique_visitors=row.unique_visitors or 0,
@@ -280,19 +345,10 @@ class AnalyticsService:
             shop_views=row.shop_views or 0,
             product_views=row.product_views or 0,
             orders_placed=orders_count,
-        ).on_conflict_do_update(
-            constraint='uq_daily_stats_date_seller',
-            set_={
-                'unique_visitors': row.unique_visitors or 0,
-                'total_views': row.total_views or 0,
-                'shop_views': row.shop_views or 0,
-                'product_views': row.product_views or 0,
-                'orders_placed': orders_count,
-            },
-        )
-        await self.session.execute(stmt)
+        ))
+        await self.session.flush()
 
-        # Per-seller stats
+        # Per-seller stats (ON CONFLICT works fine here — seller_id is NOT NULL)
         seller_q = (
             select(
                 PageView.seller_id,
@@ -311,9 +367,9 @@ class AnalyticsService:
         seller_result = await self.session.execute(seller_q)
 
         for sr in seller_result.all():
-            # Orders for this seller on that day
             so_q = select(func.count()).select_from(Order).where(
-                cast(Order.created_at, Date) == target_date,
+                Order.created_at >= dt_from,
+                Order.created_at <= dt_to,
                 Order.seller_id == sr.seller_id,
             )
             seller_orders = (await self.session.execute(so_q)).scalar() or 0
@@ -339,6 +395,49 @@ class AnalyticsService:
             await self.session.execute(stmt)
 
         logger.info("Analytics rollup complete", date=str(target_date))
+
+    async def cleanup_duplicate_platform_rows(self) -> int:
+        """Remove duplicate platform rows (seller_id IS NULL) created by the NULL constraint bug.
+
+        Keeps the row with the highest id per date (latest rollup) and deletes the rest.
+        """
+        # Find dates that have duplicates
+        sub = (
+            select(
+                DailyStats.date,
+                func.max(DailyStats.id).label('keep_id'),
+                func.count().label('cnt'),
+            )
+            .where(DailyStats.seller_id.is_(None))
+            .group_by(DailyStats.date)
+            .having(func.count() > 1)
+            .subquery()
+        )
+        # Get all IDs to keep
+        keep_q = select(sub.c.keep_id)
+        keep_result = await self.session.execute(keep_q)
+        keep_ids = {r[0] for r in keep_result.all()}
+
+        if not keep_ids:
+            return 0
+
+        # Get dates with duplicates
+        dates_q = select(sub.c.date)
+        dates_result = await self.session.execute(dates_q)
+        dup_dates = [r[0] for r in dates_result.all()]
+
+        # Delete all platform rows for those dates except the ones to keep
+        result = await self.session.execute(
+            delete(DailyStats).where(
+                DailyStats.seller_id.is_(None),
+                DailyStats.date.in_(dup_dates),
+                DailyStats.id.notin_(keep_ids),
+            )
+        )
+        deleted = result.rowcount
+        if deleted:
+            logger.info("Cleaned up duplicate platform daily_stats rows", deleted=deleted)
+        return deleted
 
     async def cleanup_old_events(self, days_to_keep: int = 90) -> int:
         """Delete page_views older than days_to_keep. Returns deleted count."""

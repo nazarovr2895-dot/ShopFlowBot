@@ -19,6 +19,8 @@ export { SlidePanel } from './components/ui/SlidePanel';
 // Feature Components
 export { SalesChart } from './components/SalesChart';
 export type { SalesChartPoint } from './components/SalesChart';
+export { VisitorChart } from './components/VisitorChart';
+export type { VisitorDailyPoint } from './components/VisitorChart';
 export { MetroSearchField } from './components/MetroSearchField';
 
 // Hooks

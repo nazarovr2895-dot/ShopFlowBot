@@ -25,10 +25,11 @@ async def get_visitor_analytics(
     _admin: None = Depends(require_admin_token),
 ):
     """Статистика посещений платформы: уники, просмотры, конверсия."""
-    from datetime import date as date_type, timedelta
+    from datetime import date as date_type, datetime, timedelta
+    from zoneinfo import ZoneInfo
     from backend.app.services.analytics import AnalyticsService
 
-    today = date_type.today()
+    today = datetime.now(ZoneInfo("Europe/Moscow")).date()
     d_from = date_type.fromisoformat(date_from) if date_from else today - timedelta(days=6)
     d_to = date_type.fromisoformat(date_to) if date_to else today
 
