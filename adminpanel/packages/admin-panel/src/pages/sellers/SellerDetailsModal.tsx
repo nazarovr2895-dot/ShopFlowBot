@@ -3,7 +3,7 @@ import { useToast } from '@shared/components/ui';
 import {
   Store, User, MapPin, Truck, Building2, Percent,
   Gauge, Calendar, Globe, Shield, Trash2, X, Edit3, Save,
-  Copy, Eye, EyeOff, CreditCard,
+  Copy, Eye, EyeOff, CreditCard, GitBranch, Network,
 } from 'lucide-react';
 import {
   updateSellerField,
@@ -17,9 +17,10 @@ import {
   setSellerWebCredentials,
   getOrgData,
   getDistricts,
+  getSellerBranches,
   type InnData,
 } from '../../api/adminClient';
-import type { Seller, MetroStation, District } from '../../types';
+import type { Seller, MetroStation, District, AdminBranchInfo } from '../../types';
 import { OrgDataDisplay } from '../../components/OrgDataDisplay';
 import {
   DELIVERY_TYPES,
@@ -32,7 +33,7 @@ import {
 
 // ── Section navigation types ──
 
-type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'limits' | 'commission' | 'payment' | 'placement' | 'web' | 'status' | 'delete';
+type SdmSection = 'profile' | 'address' | 'delivery' | 'org' | 'branches' | 'network' | 'limits' | 'commission' | 'payment' | 'placement' | 'web' | 'status' | 'delete';
 
 const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: typeof Store; danger?: boolean }[] }[] = [
   {
@@ -42,6 +43,8 @@ const SDM_NAV: { group: string; items: { id: SdmSection; label: string; icon: ty
       { id: 'address', label: 'Адрес', icon: MapPin },
       { id: 'delivery', label: 'Доставка', icon: Truck },
       { id: 'org', label: 'Организация', icon: Building2 },
+      { id: 'branches', label: 'Филиалы', icon: GitBranch },
+      { id: 'network', label: 'Тип аккаунта', icon: Network },
     ],
   },
   {
@@ -103,6 +106,14 @@ export function SellerDetailsModal({ seller, onClose, onSuccess, onUpdate }: Sel
 
   // Loading
   const [loading, setLoading] = useState(false);
+
+  // Branches
+  const [branchList, setBranchList] = useState<AdminBranchInfo[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [conversionCreds, setConversionCreds] = useState<{
+    management_login: string; management_password: string;
+    branch_seller_id: number; branch_login: string;
+  } | null>(null);
 
   // INN data
   const [innData, setInnData] = useState<InnData | null>(null);
@@ -184,6 +195,17 @@ export function SellerDetailsModal({ seller, onClose, onSuccess, onUpdate }: Sel
   useEffect(() => {
     setManageExpiryDate(formatPlacementExpired(seller.placement_expired_at));
   }, [seller.placement_expired_at]);
+
+  // Load branches for network sellers
+  useEffect(() => {
+    if ((seller.branch_count ?? 1) > 1) {
+      setBranchesLoading(true);
+      getSellerBranches(seller.owner_id ?? seller.tg_id)
+        .then(setBranchList)
+        .catch(() => setBranchList([]))
+        .finally(() => setBranchesLoading(false));
+    }
+  }, [seller.owner_id, seller.tg_id, seller.branch_count]);
 
   // ── Edit helpers ──
   const startEdit = (section: SdmSection) => {
@@ -744,6 +766,124 @@ export function SellerDetailsModal({ seller, onClose, onSuccess, onUpdate }: Sel
                 <p className="sdm-hint">ИНН и ОГРН не указаны</p>
               )}
             </div>
+
+            {/* === Branches === */}
+            {(seller.branch_count ?? 1) > 1 && (
+              <div ref={(el) => { sectionRefs.current['branches'] = el; }} className="sdm-section">
+                <div className="sdm-section-header">
+                  <h3 className="sdm-section-title"><GitBranch size={16} /> Филиалы ({seller.branch_count})</h3>
+                </div>
+                {branchesLoading ? (
+                  <div className="sdm-loading"><div className="loader" /></div>
+                ) : branchList.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {branchList.map((b) => (
+                      <div key={b.seller_id} style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-secondary, #f5f5f5)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <strong>{b.shop_name || `#${b.seller_id}`}</strong>
+                          {b.is_owner && <span className="badge badge-info">Основной</span>}
+                          {b.is_blocked && <span className="badge badge-danger">Заблокирован</span>}
+                        </div>
+                        {b.address_name && <div style={{ color: 'var(--text-secondary, #888)', marginTop: '0.15rem' }}>{b.address_name}</div>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="sdm-hint">Нет филиалов</p>
+                )}
+              </div>
+            )}
+
+            {/* === Network Type === */}
+            <div ref={(el) => { sectionRefs.current['network'] = el; }} className="sdm-section">
+              <div className="sdm-section-header">
+                <h3 className="sdm-section-title"><Network size={16} /> Тип аккаунта</h3>
+              </div>
+              <div className="sdm-field-row">
+                <span className="sdm-field-label">Тип</span>
+                <span className="sdm-field-value">
+                  {(seller.max_branches ?? 0) > 0
+                    ? <span className="badge badge-info">Сеть (до {seller.max_branches} филиалов)</span>
+                    : <span className="badge">Одиночный</span>
+                  }
+                </span>
+              </div>
+              {editingSection === 'network' ? (
+                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>max_branches:</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    min={0}
+                    max={100}
+                    value={editedFields.max_branches ?? String(seller.max_branches ?? 0)}
+                    onChange={(e) => setEditedFields(prev => ({ ...prev, max_branches: e.target.value }))}
+                    style={{ width: '100px' }}
+                  />
+                  <button
+                    className="btn btn-sm btn-primary"
+                    disabled={loading}
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const val = editedFields.max_branches ?? String(seller.max_branches ?? 0);
+                        const result = await updateSellerField(seller.tg_id, 'max_branches', val);
+                        const newVal = parseInt(val, 10) || null;
+                        onUpdate({ ...seller, max_branches: newVal });
+                        if (result.converted && result.management_login && result.management_password) {
+                          setConversionCreds({
+                            management_login: result.management_login,
+                            management_password: result.management_password,
+                            branch_seller_id: result.branch_seller_id!,
+                            branch_login: result.branch_login!,
+                          });
+                        } else {
+                          toast.success('Сохранено');
+                        }
+                        setEditingSection(null);
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : 'Ошибка');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <Save size={13} />
+                  </button>
+                  <button className="btn btn-sm" onClick={() => setEditingSection(null)}>Отмена</button>
+                </div>
+              ) : (
+                <button className="btn btn-sm" style={{ marginTop: '0.5rem' }} onClick={() => { setEditingSection('network'); setEditedFields({ max_branches: String(seller.max_branches ?? 0) }); }}>
+                  <Edit3 size={13} /> Изменить
+                </button>
+              )}
+            </div>
+
+            {/* Conversion credentials popup */}
+            {conversionCreds && (
+              <div className="sdm-section" style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid var(--primary, #6366f1)', borderRadius: '8px', padding: '1rem' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.75rem' }}>Продавец конвертирован в сеть</h3>
+                <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                  <strong>Управляющий (новые креды):</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <code>{conversionCreds.management_login}</code>
+                    <button className="btn btn-sm btn-secondary" onClick={() => { navigator.clipboard.writeText(conversionCreds.management_login); toast.success('Скопировано'); }}><Copy size={12} /></button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <code>{conversionCreds.management_password}</code>
+                    <button className="btn btn-sm btn-secondary" onClick={() => { navigator.clipboard.writeText(conversionCreds.management_password); toast.success('Скопировано'); }}><Copy size={12} /></button>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.8rem' }}>
+                  <strong>Филиал #{conversionCreds.branch_seller_id} (старые креды):</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <code>{conversionCreds.branch_login}</code>
+                    <button className="btn btn-sm btn-secondary" onClick={() => { navigator.clipboard.writeText(conversionCreds.branch_login); toast.success('Скопировано'); }}><Copy size={12} /></button>
+                  </div>
+                </div>
+                <button className="btn btn-sm" style={{ marginTop: '0.75rem' }} onClick={() => setConversionCreds(null)}>Закрыть</button>
+              </div>
+            )}
 
             {/* === Limits === */}
             <div ref={(el) => { sectionRefs.current['limits'] = el; }} className="sdm-section">
