@@ -1267,6 +1267,44 @@ export interface PreorderAnalytics {
   top_products: Array<{ product_name: string; count: number }>;
 }
 
+// ── Visitor Analytics ──
+
+export interface VisitorTopProduct {
+  product_id: number;
+  product_name: string;
+  views: number;
+}
+
+export interface SellerVisitorStats {
+  summary: {
+    unique_visitors: number;
+    shop_views: number;
+    product_views: number;
+    orders_placed: number;
+    conversion_rate: number;
+  };
+  daily: Array<{
+    date: string;
+    unique_visitors: number;
+    shop_views: number;
+    product_views: number;
+    orders_placed: number;
+    conversion_rate: number;
+  }>;
+  top_products: VisitorTopProduct[];
+}
+
+export async function getVisitorStats(params?: { period?: string; date_from?: string; date_to?: string; branch?: string }): Promise<SellerVisitorStats> {
+  const sp = new URLSearchParams();
+  if (params?.period) sp.set('period', params.period);
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.branch) sp.set('branch', params.branch);
+  const query = sp.toString();
+  const suffix = query ? `?${query}` : '';
+  return fetchSeller<SellerVisitorStats>(`/seller-web/analytics/visitors${suffix}`);
+}
+
 export async function getPreorderAnalytics(params?: { period?: '1d' | '7d' | '30d'; date_from?: string; date_to?: string; branch?: string }): Promise<PreorderAnalytics> {
   const sp = new URLSearchParams();
   if (params?.period) sp.set('period', params.period);

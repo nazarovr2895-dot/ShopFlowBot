@@ -8,6 +8,7 @@ import { addToGuestCart } from '../utils/guestCart';
 import { Loader, EmptyState, ProductImage, HeartIcon, DesktopBackNav } from '../components';
 import { ProductComposition } from '../components/ProductComposition';
 import { formatPrice } from '../utils/formatters';
+import { trackProductView } from '../utils/analytics';
 import './ProductDetail.css';
 
 export function ProductDetail() {
@@ -42,6 +43,7 @@ export function ProductDetail() {
         const pid = parseInt(productId, 10);
         const p = data.products.find((x) => x.id === pid) ?? (data.preorder_products ?? []).find((x) => x.id === pid) ?? null;
         setProduct(p ?? null);
+        if (p) trackProductView(id, pid);
       } catch {
         setProduct(null);
         setSellerDetail(null);

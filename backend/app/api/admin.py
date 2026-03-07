@@ -797,6 +797,32 @@ async def get_finance_by_branches(
 
 
 # ============================================
+# АНАЛИТИКА ПОСЕЩЕНИЙ
+# ============================================
+
+@router.get("/analytics/visitors")
+async def get_visitor_analytics(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+    _admin: None = Depends(require_admin_token),
+):
+    """Статистика посещений платформы: уники, просмотры, конверсия."""
+    from datetime import date as date_type, timedelta
+    from backend.app.services.analytics import AnalyticsService
+
+    today = date_type.today()
+    d_from = date_type.fromisoformat(date_from) if date_from else today - timedelta(days=6)
+    d_to = date_type.fromisoformat(date_to) if date_to else today
+
+    svc = AnalyticsService(session)
+    analytics = await svc.get_platform_analytics(d_from, d_to)
+    analytics['top_shops'] = await svc.get_platform_top_shops(d_from, d_to)
+    analytics['top_products'] = await svc.get_platform_top_products(d_from, d_to)
+    return analytics
+
+
+# ============================================
 # СТАТИСТИКА
 # ============================================
 

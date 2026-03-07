@@ -11,6 +11,7 @@ import { AboutUsModal } from '../components/AboutUsModal';
 import { ShopCartPanel } from '../components/ShopCartPanel';
 import { getYmapsApiKey } from '../api/ymapsConfig';
 import { formatPrice } from '../utils/formatters';
+import { trackShopView } from '../utils/analytics';
 import './ShopDetails.css';
 
 const MiniMap = lazy(() => import('../components/map/MiniMap').then(m => ({ default: m.MiniMap })));
@@ -115,6 +116,7 @@ export function ShopDetails() {
         const id = parseInt(sellerId, 10);
         const data = await api.getSellerDetail(id);
         setSeller(data);
+        trackShopView(id);
         // Pass addon data to cart context for cross-sell
         setAddonData(data.addon_products ?? [], data.addon_categories ?? []);
         // Auto-select tab: if no regular products but preorder products exist, switch to preorder

@@ -7,6 +7,7 @@ import { ImageViewer } from './ImageViewer';
 import { ProductComposition } from './ProductComposition';
 import { api } from '../api/client';
 import { isTelegram, DESKTOP_LAYOUT_BREAKPOINT } from '../utils/environment';
+import { trackProductView } from '../utils/analytics';
 import './ProductModal.css';
 
 function useIsDesktop() {
@@ -165,6 +166,7 @@ export function ProductModal({
     setCurrentImageIndex(0);
     setClosing(false);
     setQuantity(currentCartQuantity || 1);
+    if (sellerId && product?.id) trackProductView(sellerId, product.id);
 
     const html = document.documentElement;
     html.classList.add('scroll-locked');

@@ -292,6 +292,54 @@ export async function getLimitsAnalytics(): Promise<LimitsAnalytics> {
   return fetchAdmin<LimitsAnalytics>('/admin/stats/limits');
 }
 
+// ── Visitor Analytics ──
+
+export interface VisitorAnalyticsSummary {
+  unique_visitors: number;
+  shop_views: number;
+  product_views: number;
+  orders_placed: number;
+  conversion_rate: number;
+}
+
+export interface VisitorDailyPoint {
+  date: string;
+  unique_visitors: number;
+  shop_views: number;
+  product_views: number;
+  orders_placed: number;
+  conversion_rate: number;
+}
+
+export interface TopShop {
+  seller_id: number;
+  shop_name: string;
+  views: number;
+  unique_visitors: number;
+}
+
+export interface TopProduct {
+  product_id: number;
+  product_name: string;
+  seller_name: string;
+  views: number;
+}
+
+export interface VisitorAnalytics {
+  summary: VisitorAnalyticsSummary;
+  daily: VisitorDailyPoint[];
+  top_shops: TopShop[];
+  top_products: TopProduct[];
+}
+
+export async function getVisitorAnalytics(params?: StatsDateRange): Promise<VisitorAnalytics> {
+  const sp = new URLSearchParams();
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return fetchAdmin<VisitorAnalytics>(`/admin/analytics/visitors${q}`);
+}
+
 export async function getSellerStats(fio: string): Promise<SellerStats | null> {
   try {
     return await fetchAdmin<SellerStats>(`/admin/stats/seller?fio=${encodeURIComponent(fio)}`);

@@ -1051,6 +1051,45 @@ async def _resolve_branch_target(
     return seller_id
 
 
+@router.get("/analytics/visitors")
+async def get_seller_visitor_analytics(
+    period: Optional[str] = Query(None, description="Predefined range: 7d, 30d, 90d"),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    branch: Optional[str] = Query(None, description="'all' for aggregated or seller_id"),
+    auth: tuple = Depends(require_seller_token_with_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Visitor analytics for seller: views, unique visitors, conversion."""
+    from datetime import date as date_type, timedelta
+    from backend.app.services.analytics import AnalyticsService
+
+    seller_id, owner_id = auth
+    target = await _resolve_branch_target(branch, seller_id, owner_id, session)
+
+    today = date_type.today()
+    d_from, d_to = today - timedelta(days=6), today
+    if period:
+        days_map = {"1d": 0, "7d": 6, "30d": 29, "90d": 89}
+        days = days_map.get(period, 6)
+        d_from = today - timedelta(days=days)
+    elif date_from:
+        try:
+            d_from = date_type.fromisoformat(date_from)
+        except ValueError:
+            pass
+        if date_to:
+            try:
+                d_to = date_type.fromisoformat(date_to)
+            except ValueError:
+                pass
+
+    svc = AnalyticsService(session)
+    analytics = await svc.get_seller_analytics(target, d_from, d_to)
+    analytics['top_products'] = await svc.get_seller_top_products(target, d_from, d_to)
+    return analytics
+
+
 @router.get("/stats")
 async def get_stats(
     period: Optional[str] = Query(None, description="Predefined range: 1d, 7d, 30d"),

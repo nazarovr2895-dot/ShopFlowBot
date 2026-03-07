@@ -24,6 +24,7 @@ import { api } from './api/client';
 import { useLocationCache } from './hooks/useLocationCache';
 import type { SellerFilters } from './types';
 import { isTelegram, getTelegramInitData } from './utils/environment';
+import { trackAppOpen } from './utils/analytics';
 import { useTelegramWebApp } from './hooks/useTelegramWebApp';
 import WebApp from '@twa-dev/sdk';
 import './App.css';
@@ -53,6 +54,7 @@ function AppContent() {
         }
       }
       setAuthInitialized(true);
+      trackAppOpen();
     };
 
     initAuth();

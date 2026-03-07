@@ -171,7 +171,19 @@ async def _daily_scheduler():
                     await session.rollback()
                     logger.error("Daily scheduler: subscription check failed", error=str(e))
 
-                # 7. Clean up expired refresh tokens
+                # 7. Clean up old analytics events (keep 90 days)
+                try:
+                    from backend.app.services.analytics import AnalyticsService
+                    analytics_svc = AnalyticsService(session)
+                    deleted = await analytics_svc.cleanup_old_events(days_to_keep=90)
+                    if deleted > 0:
+                        await session.commit()
+                        logger.info("Daily scheduler: cleaned old analytics events", count=deleted)
+                except Exception as e:
+                    await session.rollback()
+                    logger.error("Daily scheduler: analytics cleanup failed", error=str(e))
+
+                # 8. Clean up expired refresh tokens
                 try:
                     from backend.app.services.token_service import cleanup_expired_tokens
                     cleaned = await cleanup_expired_tokens(session)
@@ -208,6 +220,30 @@ async def _reservation_sweeper():
             await _asyncio.sleep(10)
 
 
+async def _analytics_aggregator():
+    """Background task: roll up page_views into daily_stats every hour."""
+    import asyncio
+    from datetime import date as date_type, timedelta
+    from backend.app.core.database import async_session
+    from backend.app.services.analytics import AnalyticsService
+
+    while True:
+        try:
+            await asyncio.sleep(3600)
+            async with async_session() as session:
+                svc = AnalyticsService(session)
+                today = date_type.today()
+                yesterday = today - timedelta(days=1)
+                await svc.rollup_daily_stats(yesterday)
+                await svc.rollup_daily_stats(today)
+                await session.commit()
+                logger.info("Analytics aggregator: rolled up daily stats")
+        except Exception as e:
+            logger.error("Analytics aggregator error", error=str(e))
+            import asyncio as _asyncio
+            await _asyncio.sleep(60)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -220,10 +256,12 @@ async def lifespan(app: FastAPI):
     logger.info("Application starting up", version="1.0.0")
     scheduler_task = asyncio.create_task(_daily_scheduler())
     sweeper_task = asyncio.create_task(_reservation_sweeper())
+    aggregator_task = asyncio.create_task(_analytics_aggregator())
     yield
-    # Shutdown: cancel scheduler and sweeper, close Redis
+    # Shutdown: cancel background tasks, close Redis
     scheduler_task.cancel()
     sweeper_task.cancel()
+    aggregator_task.cancel()
     logger.info("Application shutting down")
     await CacheService.close()
 

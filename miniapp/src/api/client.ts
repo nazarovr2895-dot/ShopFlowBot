@@ -22,6 +22,10 @@ export function setApiBaseUrl(url: string): void {
   runtimeApiUrl = url;
 }
 
+export function getApiBaseUrl(): string {
+  return runtimeApiUrl != null && runtimeApiUrl !== '' ? runtimeApiUrl : API_BASE_URL;
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // JWT token storage keys

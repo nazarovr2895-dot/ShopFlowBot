@@ -3,5 +3,5 @@
 from backend.app.models import (  # noqa: F401
     user, seller, order, product, referral, settings,
     crm, loyalty, subscription, category, delivery_zone, cart,
-    commission_ledger, refresh_token,
+    commission_ledger, refresh_token, analytics,
 )

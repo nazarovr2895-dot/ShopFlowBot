@@ -23,6 +23,7 @@ from backend.app.services.cache import CacheService
 from backend.app.services.sellers import _today_6am_date, _is_open_now, SellerService
 from backend.app.services.bouquets import get_active_bouquet_ids
 from backend.app.core.logging import get_logger
+from backend.app.core.limiter import limiter
 from sqlalchemy import or_
 
 logger = get_logger(__name__)
@@ -1195,3 +1196,34 @@ async def get_seller_delivery_slots(
     except ValueError:
         d_to = today + timedelta(days=7)
     return await svc.get_available_slots(seller_id, d_from, d_to)
+
+
+# ============================================
+# ANALYTICS TRACKING
+# ============================================
+
+class TrackEvent(BaseModel):
+    event_type: str  # app_open, shop_view, product_view
+    seller_id: Optional[int] = None
+    product_id: Optional[int] = None
+
+
+class TrackEventsRequest(BaseModel):
+    session_id: str
+    visitor_id: Optional[int] = None
+    events: List[TrackEvent]
+
+
+@router.post("/track", status_code=204)
+@limiter.limit("60/minute")
+async def track_events(
+    request: Request,
+    body: TrackEventsRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Record page view events from Mini App (fire-and-forget)."""
+    from backend.app.services.analytics import AnalyticsService
+    svc = AnalyticsService(session)
+    events = [ev.model_dump() for ev in body.events[:50]]
+    await svc.record_events(body.session_id, body.visitor_id, events)
+    await session.commit()

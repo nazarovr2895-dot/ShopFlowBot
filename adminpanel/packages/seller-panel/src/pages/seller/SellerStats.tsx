@@ -4,10 +4,12 @@ import {
   getCustomerStats,
   exportStatsCSV,
   getPreorderAnalytics,
+  getVisitorStats,
   SellerStats as SellerStatsType,
   SellerStatsDeliveryBreakdown,
   CustomerStats,
   PreorderAnalytics,
+  SellerVisitorStats,
 } from '../../api/sellerClient';
 import { useSellerAuth } from '../../contexts/SellerAuthContext';
 import { SalesChart } from '@shared/components/SalesChart';
@@ -15,7 +17,7 @@ import { PageHeader, TabBar, EmptyState, useToast } from '@shared/components/ui'
 import '../Stats.css';
 
 type RangePreset = '1d' | '7d' | '30d' | 'custom';
-type StatsTab = 'sales' | 'customers' | 'preorders';
+type StatsTab = 'sales' | 'customers' | 'visitors' | 'preorders';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Ожидают',
@@ -53,6 +55,7 @@ const EMPTY_BREAKDOWN: SellerStatsDeliveryBreakdown = {
 const TABS: { key: StatsTab; label: string }[] = [
   { key: 'sales', label: 'Продажи' },
   { key: 'customers', label: 'Клиенты' },
+  { key: 'visitors', label: 'Посещаемость' },
   { key: 'preorders', label: 'Предзаказы' },
 ];
 
@@ -91,6 +94,7 @@ export function SellerStats() {
   const [stats, setStats] = useState<SellerStatsType | null>(null);
   const [customerData, setCustomerData] = useState<CustomerStats | null>(null);
   const [preorderData, setPreorderData] = useState<PreorderAnalytics | null>(null);
+  const [visitorData, setVisitorData] = useState<SellerVisitorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [custLoading, setCustLoading] = useState(false);
   const [preorderLoading, setPreorderLoading] = useState(false);
@@ -111,7 +115,7 @@ export function SellerStats() {
     setPreorderLoading(true);
     setError(null);
     try {
-      const [data, custData, preorderAnalytics] = await Promise.all([
+      const [data, custData, preorderAnalytics, visitors] = await Promise.all([
         getStats(fullParams),
         getCustomerStats(fullParams).catch((err) => {
           console.warn('Customer stats load failed:', err);
@@ -121,10 +125,15 @@ export function SellerStats() {
           console.warn('Preorder analytics load failed:', err);
           return null;
         }),
+        getVisitorStats(fullParams).catch((err) => {
+          console.warn('Visitor stats load failed:', err);
+          return null;
+        }),
       ]);
       setStats(data);
       setCustomerData(custData);
       setPreorderData(preorderAnalytics);
+      setVisitorData(visitors);
       if (data.filters?.date_from) {
         setCustomFrom(data.filters.date_from);
       }
@@ -135,6 +144,7 @@ export function SellerStats() {
       setStats(null);
       setCustomerData(null);
       setPreorderData(null);
+      setVisitorData(null);
       setError('Не удалось загрузить статистику');
     } finally {
       setLoading(false);
@@ -365,6 +375,39 @@ export function SellerStats() {
           </div>
         )}
 
+        {activeTab === 'visitors' && (
+          <div className="seller-stats-summary seller-stats-tab-content">
+            {loading ? (
+              <div className="seller-chart-loading" />
+            ) : visitorData ? (
+              <>
+                <div className="summary-item">
+                  <span className="summary-label">Просмотров магазина</span>
+                  <span className="summary-value">{visitorData.summary.shop_views.toLocaleString('ru')}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Просмотров товаров</span>
+                  <span className="summary-value">{visitorData.summary.product_views.toLocaleString('ru')}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Уникальных посетителей</span>
+                  <span className="summary-value">{visitorData.summary.unique_visitors.toLocaleString('ru')}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Заказов</span>
+                  <span className="summary-value">{visitorData.summary.orders_placed.toLocaleString('ru')}</span>
+                </div>
+                <div className="summary-item accent">
+                  <span className="summary-label">Конверсия</span>
+                  <span className="summary-value accent">{visitorData.summary.conversion_rate}%</span>
+                </div>
+              </>
+            ) : (
+              <EmptyState title="Нет данных о посещениях" message="Данные появятся после первых визитов покупателей" />
+            )}
+          </div>
+        )}
+
         {activeTab === 'preorders' && (
           <div className="seller-stats-summary seller-stats-tab-content">
             {preorderLoading ? (
@@ -512,6 +555,30 @@ export function SellerStats() {
             </div>
           )}
         </>
+      )}
+
+      {activeTab === 'visitors' && visitorData && (visitorData.top_products?.length ?? 0) > 0 && (
+        <div className="card seller-stats-top">
+          <h3>Топ товаров по просмотрам (за период)</h3>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Товар</th>
+                  <th>Просмотров</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visitorData.top_products.map((p) => (
+                  <tr key={p.product_id}>
+                    <td>{p.product_name}</td>
+                    <td>{p.views.toLocaleString('ru')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {activeTab === 'preorders' && preorderData && (preorderData.top_products?.length ?? 0) > 0 && (
