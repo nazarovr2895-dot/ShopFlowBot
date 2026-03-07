@@ -221,7 +221,7 @@ export function SellerBranches() {
       city_id: branch.city_id,
       district_id: branch.district_id,
       metro_id: branch.metro_id,
-      metro_walk_minutes: null,
+      metro_walk_minutes: branch.metro_walk_minutes ?? null,
       address_name: branch.address_name || '',
       delivery_type: branch.delivery_type || '',
       contact_tg_id: branch.contact_tg_id != null ? String(branch.contact_tg_id) : '',

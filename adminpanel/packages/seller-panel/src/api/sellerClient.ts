@@ -1477,6 +1477,7 @@ export interface BranchDetail {
   city_id: number | null;
   district_id: number | null;
   metro_id: number | null;
+  metro_walk_minutes: number | null;
   delivery_type: string | null;
   working_hours: string | null;
   is_blocked: boolean;
@@ -1505,8 +1506,8 @@ export async function createBranch(data: Record<string, unknown>): Promise<Creat
   });
 }
 
-export async function updateBranch(branchId: number, data: Record<string, unknown>): Promise<BranchDetail> {
-  return fetchSeller<BranchDetail>(`/seller-web/branches/${branchId}`, {
+export async function updateBranch(branchId: number, data: Record<string, unknown>): Promise<{ status: string; seller_id: number }> {
+  return fetchSeller<{ status: string; seller_id: number }>(`/seller-web/branches/${branchId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -1522,8 +1523,8 @@ export async function resetBranchPassword(branchId: number): Promise<{ web_login
   });
 }
 
-export async function switchBranch(sellerId: number): Promise<{ token: string; refresh_token?: string; seller_id: number; owner_id: number; branches: BranchInfo[] }> {
-  return fetchSeller<{ token: string; refresh_token?: string; seller_id: number; owner_id: number; branches: BranchInfo[] }>('/seller-web/switch-branch', {
+export async function switchBranch(sellerId: number): Promise<{ token: string; refresh_token?: string; seller_id: number; owner_id: number; is_primary: boolean; branches: BranchInfo[]; max_branches: number | null }> {
+  return fetchSeller<{ token: string; refresh_token?: string; seller_id: number; owner_id: number; is_primary: boolean; branches: BranchInfo[]; max_branches: number | null }>('/seller-web/switch-branch', {
     method: 'POST',
     body: JSON.stringify({ seller_id: sellerId }),
   });

@@ -53,7 +53,7 @@ function AppRoutes() {
         <Route path="customers" element={<SellerCustomerHub />} />
         <Route path="customers/:id" element={<SellerCustomers />} />
         <Route path="analytics" element={<SellerAnalytics />} />
-        <Route path="branches" element={<SellerBranches />} />
+        <Route path="branches" element={!isNetworkOwner ? <Navigate to="/" replace /> : <SellerBranches />} />
         <Route path="settings" element={<SellerSettings />} />
         {/* Legacy redirects */}
         <Route path="shop" element={<Navigate to="/settings?tab=shop" replace />} />

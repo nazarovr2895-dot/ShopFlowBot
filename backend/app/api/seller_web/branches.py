@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.api.seller_web._common import (
     logger,
     get_session,
-    require_seller_token_with_owner,
     Seller,
 )
+from backend.app.api.seller_auth import require_primary_seller
 
 router = APIRouter()
 
@@ -54,7 +54,7 @@ class UpdateBranchBody(BaseModel):
 
 @router.get("/branches")
 async def list_branches(
-    auth: tuple = Depends(require_seller_token_with_owner),
+    auth: tuple = Depends(require_primary_seller),
     session: AsyncSession = Depends(get_session),
 ):
     """List all branches for the current owner."""
@@ -74,6 +74,7 @@ async def list_branches(
             "city_id": b.city_id,
             "district_id": b.district_id,
             "metro_id": b.metro_id,
+            "metro_walk_minutes": b.metro_walk_minutes,
             "delivery_type": b.delivery_type,
             "is_blocked": b.is_blocked,
             "geo_lat": b.geo_lat,
@@ -89,7 +90,7 @@ async def list_branches(
 @router.get("/branches/stats")
 async def get_branches_stats(
     period: str = Query("7d", description="Period: 1d, 7d, 30d"),
-    auth: tuple = Depends(require_seller_token_with_owner),
+    auth: tuple = Depends(require_primary_seller),
     session: AsyncSession = Depends(get_session),
 ):
     """Get per-branch statistics for network dashboard."""
@@ -146,7 +147,7 @@ async def get_branches_stats(
 @router.post("/branches")
 async def create_branch(
     data: CreateBranchBody,
-    auth: tuple = Depends(require_seller_token_with_owner),
+    auth: tuple = Depends(require_primary_seller),
     session: AsyncSession = Depends(get_session),
 ):
     """Create a new branch for the current owner."""
@@ -155,7 +156,7 @@ async def create_branch(
     # Get owner's primary seller for network-level settings
     owner_result = await session.execute(
         select(Seller).where(
-            Seller.seller_id == _seller_id,
+            Seller.seller_id == owner_id,
             Seller.deleted_at.is_(None),
         )
     )
@@ -220,6 +221,16 @@ async def create_branch(
 
     # Clone products from another branch if requested
     if data.clone_products_from:
+        source_check = await session.execute(
+            select(Seller.seller_id).where(
+                Seller.seller_id == data.clone_products_from,
+                Seller.owner_id == owner_id,
+                Seller.deleted_at.is_(None),
+            )
+        )
+        if not source_check.scalar_one_or_none():
+            raise HTTPException(400, "Источник для клонирования должен принадлежать вашей сети")
+
         from backend.app.models.product import Product
         source_result = await session.execute(
             select(Product).where(
@@ -260,7 +271,7 @@ async def create_branch(
 async def update_branch(
     branch_id: int,
     data: UpdateBranchBody,
-    auth: tuple = Depends(require_seller_token_with_owner),
+    auth: tuple = Depends(require_primary_seller),
     session: AsyncSession = Depends(get_session),
 ):
     """Update a branch's settings."""
@@ -287,7 +298,7 @@ async def update_branch(
 @router.delete("/branches/{branch_id}")
 async def delete_branch(
     branch_id: int,
-    auth: tuple = Depends(require_seller_token_with_owner),
+    auth: tuple = Depends(require_primary_seller),
     session: AsyncSession = Depends(get_session),
 ):
     """Soft-delete a branch."""
@@ -303,6 +314,9 @@ async def delete_branch(
     branch_count = count_result.scalar() or 0
     if branch_count <= 1:
         raise HTTPException(status_code=400, detail="Нельзя удалить единственный филиал")
+
+    if branch_id == owner_id:
+        raise HTTPException(status_code=400, detail="Нельзя удалить основной аккаунт сети")
 
     result = await session.execute(
         select(Seller).where(
@@ -323,7 +337,7 @@ async def delete_branch(
 @router.post("/branches/{branch_id}/reset-password")
 async def reset_branch_password(
     branch_id: int,
-    auth: tuple = Depends(require_seller_token_with_owner),
+    auth: tuple = Depends(require_primary_seller),
     session: AsyncSession = Depends(get_session),
 ):
     """Generate a new password for a branch. Returns plaintext once."""
@@ -364,7 +378,7 @@ class NetworkSettingsBody(BaseModel):
 
 @router.get("/network-settings")
 async def get_network_settings(
-    auth: tuple = Depends(require_seller_token_with_owner),
+    auth: tuple = Depends(require_primary_seller),
     session: AsyncSession = Depends(get_session),
 ):
     """Get network-level settings from owner's primary record."""
@@ -372,9 +386,9 @@ async def get_network_settings(
     # Find the primary seller (owner's own record)
     result = await session.execute(
         select(Seller).where(
-            Seller.owner_id == owner_id,
+            Seller.seller_id == owner_id,
             Seller.deleted_at.is_(None),
-        ).order_by(Seller.seller_id).limit(1)
+        )
     )
     primary = result.scalar_one_or_none()
     if not primary:
@@ -410,7 +424,7 @@ async def get_network_settings(
 @router.put("/network-settings")
 async def update_network_settings(
     data: NetworkSettingsBody,
-    auth: tuple = Depends(require_seller_token_with_owner),
+    auth: tuple = Depends(require_primary_seller),
     session: AsyncSession = Depends(get_session),
 ):
     """Update network-level settings (propagates to all branches)."""

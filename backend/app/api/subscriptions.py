@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.deps import get_session
-from backend.app.api.seller_auth import require_seller_token
+from backend.app.api.seller_auth import require_seller_token, require_seller_token_with_owner, require_primary_seller
 from backend.app.services.subscription import SubscriptionService, SubscriptionServiceError
 from backend.app.core.settings import get_settings
 from backend.app.core.logging import get_logger
@@ -63,10 +63,11 @@ async def get_my_subscription_prices(
 async def create_subscription(
     data: CreateSubscriptionRequest,
     session: AsyncSession = Depends(get_session),
-    seller_id: int = Depends(require_seller_token),
+    auth: tuple = Depends(require_seller_token_with_owner),
 ):
     """Create a subscription payment for a specific branch or self.
     Returns confirmation_url for YooKassa redirect."""
+    seller_id, _owner_id = auth
     service = SubscriptionService(session)
     try:
         result = await service.create_subscription(
@@ -99,9 +100,10 @@ async def get_subscription_status(
 @router.get("/branches-status")
 async def get_branches_subscription_status(
     session: AsyncSession = Depends(get_session),
-    seller_id: int = Depends(require_seller_token),
+    auth: tuple = Depends(require_primary_seller),
 ):
     """Get per-branch subscription status for network owners."""
+    seller_id, _owner_id = auth
     service = SubscriptionService(session)
     try:
         statuses = await service.get_branches_subscription_status(seller_id)

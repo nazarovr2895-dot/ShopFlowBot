@@ -45,6 +45,8 @@ async def resolve_branch_target(
     - branch=None  -> current seller_id from token
     """
     if branch == "all":
+        if seller_id != owner_id:
+            return seller_id  # branch employee: own data only
         result = await session.execute(
             select(Seller.seller_id).where(
                 Seller.owner_id == owner_id,

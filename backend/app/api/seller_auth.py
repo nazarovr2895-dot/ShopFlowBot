@@ -64,6 +64,10 @@ class SwitchBranchResponse(BaseModel):
     token: str
     refresh_token: Optional[str] = None
     seller_id: int
+    owner_id: int
+    is_primary: bool = True
+    branches: list[BranchInfo] = []
+    max_branches: Optional[int] = None
 
 
 def create_seller_token(seller_id: int, owner_id: int, is_primary: bool = True) -> str:
@@ -148,6 +152,30 @@ async def require_seller_token_with_owner(
         raise HTTPException(status_code=401, detail="Продавец не найден")
     if seller.is_blocked:
         raise HTTPException(status_code=403, detail="Аккаунт заблокирован")
+    return seller_id, seller.owner_id
+
+
+async def require_primary_seller(
+    x_seller_token: Optional[str] = Header(None, alias="X-Seller-Token"),
+    session: AsyncSession = Depends(get_session),
+) -> Tuple[int, int]:
+    """Require valid seller token with is_primary=True. Returns (seller_id, owner_id)."""
+    if not x_seller_token:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    decoded = decode_seller_token(x_seller_token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Недействительный или истекший токен")
+    seller_id, _owner_id, is_primary = decoded
+    result = await session.execute(
+        select(Seller).where(Seller.seller_id == seller_id, Seller.deleted_at.is_(None))
+    )
+    seller = result.scalar_one_or_none()
+    if not seller:
+        raise HTTPException(status_code=401, detail="Продавец не найден")
+    if seller.is_blocked:
+        raise HTTPException(status_code=403, detail="Аккаунт заблокирован")
+    if not is_primary:
+        raise HTTPException(status_code=403, detail="Только владелец сети может управлять филиалами")
     return seller_id, seller.owner_id
 
 
@@ -277,7 +305,23 @@ async def switch_branch(
     )
     await session.commit()
 
-    return SwitchBranchResponse(token=token, refresh_token=refresh, seller_id=target.seller_id)
+    branches = await _get_owner_branches(session, owner_id)
+    # Get max_branches from owner's primary record
+    owner_result = await session.execute(
+        select(Seller).where(Seller.seller_id == owner_id, Seller.deleted_at.is_(None))
+    )
+    owner_seller = owner_result.scalar_one_or_none()
+    max_branches_val = getattr(owner_seller, 'max_branches', None) if owner_seller else None
+
+    return SwitchBranchResponse(
+        token=token,
+        refresh_token=refresh,
+        seller_id=target.seller_id,
+        owner_id=owner_id,
+        is_primary=True,
+        branches=branches,
+        max_branches=max_branches_val,
+    )
 
 
 class SellerRefreshRequest(BaseModel):
