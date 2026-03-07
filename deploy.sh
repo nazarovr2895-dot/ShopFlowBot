@@ -91,7 +91,7 @@ cd ~/flurai
 
 # Pull + Build + Up
 git pull
-docker compose -f docker-compose.prod.yml build backend bot admin_bot admin seller miniapp
+docker compose -f docker-compose.prod.yml build backend worker bot admin_bot admin seller miniapp
 docker compose -f docker-compose.prod.yml up -d
 
 # Перезагрузить nginx чтобы подхватить новые IP контейнеров

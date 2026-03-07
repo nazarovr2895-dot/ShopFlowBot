@@ -140,6 +140,45 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  worker:
+    build: ./backend
+    restart: always
+    networks:
+      - app_net
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_LOGIN=${ADMIN_LOGIN}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_SECRET=${ADMIN_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    command: ["python", "-m", "backend.app.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+      replicas: 1
+
   admin:
     build:
       context: ./adminpanel

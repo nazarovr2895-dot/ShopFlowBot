@@ -15,6 +15,10 @@ venv/
 # Игнорируем SSL сертификаты (содержат приватные ключи)
 nginx/ssl/
 
+# Python
+__pycache__/
+*.pyc
+
 # Node.js
 node_modules/
 dist/

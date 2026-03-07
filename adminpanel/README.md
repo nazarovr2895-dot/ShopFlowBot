@@ -1,37 +1,47 @@
-# ShopFlow — Админ-панель
+# Flurai — Админ-панель и Seller-панель
 
-Веб-приложение для управления платформой ShopFlow: продавцы, посредники, статистика.
+Монорепо с двумя React-приложениями (pnpm workspaces): Admin Panel (`admin.flurai.ru`) и Seller Panel (`seller.flurai.ru`).
 
 ## Запуск
 
 ### Разработка
 
 ```bash
-# Установка зависимостей (если ещё не установлены)
-npm install
+# Установка зависимостей
+pnpm install
 
-# Запуск dev-сервера на http://localhost:3001
-npm run dev
+# Admin Panel — http://localhost:3001
+pnpm dev:admin
+
+# Seller Panel — http://localhost:3002
+pnpm dev:seller
 ```
 
-Требуется запущенный backend (`http://localhost:8000`). Vite проксирует запросы к `/admin` и `/public`.
+Требуется запущенный backend (`http://localhost:8000`).
 
 ### Production
 
 ```bash
-npm run build
-npm run preview  # предпросмотр на порту 4173
+# Сборка обоих приложений
+pnpm build
+
+# Или по отдельности
+pnpm build:admin
+pnpm build:seller
 ```
 
 Для production задайте `VITE_API_URL` в `.env` — URL бэкенда.
 
 ## Авторизация
 
-Логин и пароль задаются в корневом `.env`: `ADMIN_LOGIN`, `ADMIN_PASSWORD`. Значения по умолчанию не документируются в целях безопасности.
+- **Admin Panel**: логин и пароль из `.env` (`ADMIN_LOGIN`, `ADMIN_PASSWORD`)
+- **Seller Panel**: JWT-авторизация через `X-Seller-Token`
 
-## Функционал
+## Структура
 
-- **Дашборд** — сводка: продавцы, заказы, продажи, доход
-- **Продавцы** — поиск, добавление, редактирование, блокировка, удаление, установка лимита заказов
-- **Посредники** — список агентов, баланс, снятие статуса, рефералы
-- **Статистика** — общая и по продавцам/агентам
+```
+adminpanel/
+├── packages/shared/        # @flurai/shared — UI kit, hooks, utils, styles
+├── packages/admin-panel/   # @flurai/admin-panel
+└── packages/seller-panel/  # @flurai/seller-panel
+```

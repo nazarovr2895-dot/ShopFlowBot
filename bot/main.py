@@ -31,12 +31,10 @@ async def main():
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    # 1. Создание таблиц (если их нет)
-    logger.info("⏳ Проверка/Создание таблиц в БД...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Схема БД управляется через Alembic (backend/migrations/).
+    # НЕ используем create_all() — это может создать таблицы по устаревшим моделям.
 
-    # 2. Инициализация бота с Redis для FSM storage
+    # Инициализация бота с Redis для FSM storage
     logger.info(f"🔗 Подключение к Redis: {REDIS_HOST}:{REDIS_PORT}, db={REDIS_DB}")
     redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
     storage = RedisStorage(redis=redis)
