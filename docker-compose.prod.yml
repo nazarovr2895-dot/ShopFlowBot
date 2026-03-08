@@ -107,6 +107,7 @@ services:
       - ADMIN_BOT_TOKEN=${ADMIN_BOT_TOKEN:-}
       - DADATA_API_KEY=${DADATA_API_KEY}
       - MINI_APP_URL=${MINI_APP_URL:-https://flowshop-miniapp.vercel.app}
+      - SELLER_MINI_APP_URL=${SELLER_MINI_APP_URL:-https://seller.flurai.ru}
       - ENVIRONMENT=production
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - WORKERS=${WORKERS:-4}
@@ -156,6 +157,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_BOT_TOKEN=${ADMIN_BOT_TOKEN:-}
+      - SELLER_MINI_APP_URL=${SELLER_MINI_APP_URL:-https://seller.flurai.ru}
       - ADMIN_LOGIN=${ADMIN_LOGIN}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN_SECRET=${ADMIN_SECRET}
