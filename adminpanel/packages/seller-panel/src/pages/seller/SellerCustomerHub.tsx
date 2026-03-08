@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { TabBar, PageHeader } from '@shared/components/ui';
 import { useTabs } from '@shared/hooks/useTabs';
 import { useSellerAuth } from '../../contexts/SellerAuthContext';
-import { SellerCustomers } from './SellerCustomers';
-import { SellerSubscribers } from './SellerSubscribers';
-import { LoyaltySettingsTab } from './LoyaltySettingsTab';
-import { AddCustomerTab } from './AddCustomerTab';
+import { CustomerList } from './customers/CustomerList';
+import { SubscribersTab } from './customers/SubscribersTab';
+import { LoyaltySettingsTab } from './customers/LoyaltySettingsTab';
+import { AddCustomerTab } from './customers/AddCustomerTab';
 
 const ALL_TABS = [
   { key: 'crm', label: 'Клиенты' },
@@ -45,9 +45,9 @@ export function SellerCustomerHub() {
         }
       />
       <TabBar tabs={ALL_TABS} activeTab={tab} onChange={setTab} />
-      {tab === 'crm' && <SellerCustomers branch={branchParam} />}
+      {tab === 'crm' && <CustomerList branch={branchParam} />}
       {tab === 'add' && <AddCustomerTab />}
-      {tab === 'subscribers' && <SellerSubscribers branch={branchParam} />}
+      {tab === 'subscribers' && <SubscribersTab branch={branchParam} />}
       {tab === 'loyalty' && <LoyaltySettingsTab />}
     </div>
   );

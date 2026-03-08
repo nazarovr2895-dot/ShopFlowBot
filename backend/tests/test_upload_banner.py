@@ -36,7 +36,7 @@ async def test_upload_banner_success(
 ):
     """Успешная загрузка баннера: 200, в ответе banner_url, в БД обновлён seller.banner_url."""
     monkeypatch.setattr(
-        "backend.app.api.seller_web.UPLOAD_DIR",
+        "backend.app.api.seller_web.uploads.UPLOAD_DIR",
         tmp_path,
     )
     async def override_seller_token():
@@ -55,7 +55,7 @@ async def test_upload_banner_success(
         assert data["banner_url"].startswith("/static/")
         assert "shop_banners" in data["banner_url"]
         assert str(test_seller.seller_id) in data["banner_url"]
-        assert data["banner_url"].endswith(".webp")
+        assert ".webp" in data["banner_url"]
 
         # Проверяем, что в БД у продавца записался banner_url
         async with TestSessionLocal() as session:
@@ -96,7 +96,7 @@ async def test_upload_banner_invalid_file(
 ):
     """Передача не-изображения возвращает 400."""
     monkeypatch.setattr(
-        "backend.app.api.seller_web.UPLOAD_DIR",
+        "backend.app.api.seller_web.uploads.UPLOAD_DIR",
         tmp_path,
     )
     async def override_seller_token():

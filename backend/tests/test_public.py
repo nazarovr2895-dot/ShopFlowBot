@@ -543,6 +543,7 @@ async def test_multiple_sellers_listing(
             seller_id=seller.seller_id,
             name=f"Product {i}",
             price=50.0 + i * 10,
+            quantity=10,
             is_active=True,
         )
         test_session.add(product)

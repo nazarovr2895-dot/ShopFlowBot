@@ -120,10 +120,10 @@ async def test_create_order_seller_limit_reached(
     test_seller: Seller,
 ):
     """Test order creation when seller has reached limit."""
-    # Set seller at limit
-    test_seller.max_orders = 5
-    test_seller.active_orders = 3
-    test_seller.pending_requests = 2
+    # Set seller at limit (per-type counters used by check_order_limit_for_seller)
+    test_seller.max_pickup_orders = 5
+    test_seller.active_pickup_orders = 3
+    test_seller.pending_pickup_requests = 2
     await test_session.commit()
     
     order_data = {

@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import {
   getLoyaltySettings,
   updateLoyaltySettings,
-} from '../../api/sellerClient';
-import type { LoyaltyTier } from '../../api/sellerClient';
-import { useToast, FormField, Card } from '@shared/components/ui';
+} from '../../../api/sellerClient';
+import type { LoyaltyTier } from '../../../api/sellerClient';
+import { useToast, FormField, Skeleton } from '@shared/components/ui';
+import { Gift, Settings, Trophy, Plus, X } from 'lucide-react';
+import './shared.css';
 import './LoyaltySettingsTab.css';
 
 function TierPreview({ tiers }: { tiers: LoyaltyTier[] }) {
@@ -98,29 +100,51 @@ export function LoyaltySettingsTab() {
 
   if (loading) {
     return (
-      <div className="loyalty-settings-tab">
-        <div className="loyalty-loading">Загрузка...</div>
+      <div className="loyalty-tab">
+        <Skeleton height="120px" borderRadius="var(--radius-lg)" className="loyalty-skeleton-mb" />
+        <Skeleton height="200px" borderRadius="var(--radius-lg)" className="loyalty-skeleton-mb" />
+        <Skeleton height="160px" borderRadius="var(--radius-lg)" />
       </div>
     );
   }
 
   return (
-    <div className="loyalty-settings-tab">
-      {/* Help card */}
-      <Card className="loyalty-help-card">
-        <h3>Как работает система лояльности</h3>
-        <p>
+    <div className="loyalty-tab">
+      {/* ═══ Help card ═══ */}
+      <div className="crm-card loyalty-help-card">
+        <div className="crm-card__header">
+          <div className="crm-card__header-left">
+            <div className="crm-card__icon-badge crm-card__icon-badge--amber">
+              <Gift size={18} />
+            </div>
+            <div>
+              <h3 className="crm-card__title">Как работает система лояльности</h3>
+            </div>
+          </div>
+        </div>
+        <p className="loyalty-help-text">
           При каждой покупке клиенту начисляются баллы — процент от суммы заказа.
           Клиент может использовать баллы для скидки на следующие покупки (1 балл = {pointsToRubleRate || '1'} ₽).
           Уровни лояльности позволяют увеличивать процент начисления для постоянных клиентов.
         </p>
-      </Card>
+      </div>
 
-      {/* Settings form */}
-      <Card>
-        <h2 className="loyalty-section-title">Настройки начисления</h2>
-        <div className="loyalty-fields">
-          <div className="loyalty-fields-grid">
+      {/* ═══ Accrual Settings ═══ */}
+      <div className="crm-card">
+        <div className="crm-card__header">
+          <div className="crm-card__header-left">
+            <div className="crm-card__icon-badge">
+              <Settings size={18} />
+            </div>
+            <div>
+              <h3 className="crm-card__title">Настройки начисления</h3>
+              <p className="crm-card__subtitle">Основные параметры программы лояльности</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="crm-form">
+          <div className="crm-form__row-2col">
             <FormField label="Начисление баллов (% от суммы заказа)">
               <input
                 type="text"
@@ -139,6 +163,8 @@ export function LoyaltySettingsTab() {
                 placeholder="100"
               />
             </FormField>
+          </div>
+          <div className="crm-form__row-2col">
             <FormField label="Курс: 1 балл = X рублей">
               <input
                 type="text"
@@ -159,59 +185,71 @@ export function LoyaltySettingsTab() {
             </FormField>
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* Tiers */}
-      <Card>
-        <h2 className="loyalty-section-title">Уровни лояльности</h2>
-        <p className="loyalty-tiers-hint">
-          Настройте уровни для автоматического изменения % начисления баллов в зависимости от суммы покупок клиента.
-        </p>
+      {/* ═══ Loyalty Tiers ═══ */}
+      <div className="crm-card">
+        <div className="crm-card__header">
+          <div className="crm-card__header-left">
+            <div className="crm-card__icon-badge crm-card__icon-badge--amber">
+              <Trophy size={18} />
+            </div>
+            <div>
+              <h3 className="crm-card__title">Уровни лояльности</h3>
+              <p className="crm-card__subtitle">Автоматическое изменение % начисления от суммы покупок</p>
+            </div>
+          </div>
+        </div>
 
-        {/* Tier visualization */}
         <TierPreview tiers={tiersConfig} />
 
         <div className="loyalty-tiers-list">
           {tiersConfig.map((tier, i) => (
             <div key={i} className="loyalty-tier-row">
-              <input
-                type="text"
-                placeholder="Название"
-                value={tier.name}
-                onChange={(e) => {
-                  const next = [...tiersConfig];
-                  next[i] = { ...next[i], name: e.target.value };
-                  setTiersConfig(next);
-                }}
-              />
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="От суммы ₽"
-                value={tier.min_total}
-                onChange={(e) => {
-                  const next = [...tiersConfig];
-                  next[i] = { ...next[i], min_total: Number(e.target.value) || 0 };
-                  setTiersConfig(next);
-                }}
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="% баллов"
-                value={tier.points_percent}
-                onChange={(e) => {
-                  const next = [...tiersConfig];
-                  next[i] = { ...next[i], points_percent: Number(e.target.value) || 0 };
-                  setTiersConfig(next);
-                }}
-              />
+              <FormField label={i === 0 ? 'Название' : undefined}>
+                <input
+                  type="text"
+                  placeholder="Название"
+                  value={tier.name}
+                  onChange={(e) => {
+                    const next = [...tiersConfig];
+                    next[i] = { ...next[i], name: e.target.value };
+                    setTiersConfig(next);
+                  }}
+                />
+              </FormField>
+              <FormField label={i === 0 ? 'От суммы ₽' : undefined}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="От суммы ₽"
+                  value={tier.min_total}
+                  onChange={(e) => {
+                    const next = [...tiersConfig];
+                    next[i] = { ...next[i], min_total: Number(e.target.value) || 0 };
+                    setTiersConfig(next);
+                  }}
+                />
+              </FormField>
+              <FormField label={i === 0 ? '% баллов' : undefined}>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="% баллов"
+                  value={tier.points_percent}
+                  onChange={(e) => {
+                    const next = [...tiersConfig];
+                    next[i] = { ...next[i], points_percent: Number(e.target.value) || 0 };
+                    setTiersConfig(next);
+                  }}
+                />
+              </FormField>
               <button
                 type="button"
                 className="loyalty-tier-remove"
                 onClick={() => setTiersConfig(tiersConfig.filter((_, j) => j !== i))}
               >
-                x
+                <X size={14} />
               </button>
             </div>
           ))}
@@ -221,9 +259,9 @@ export function LoyaltySettingsTab() {
           className="loyalty-tier-add"
           onClick={() => setTiersConfig([...tiersConfig, { name: '', min_total: 0, points_percent: 0 }])}
         >
-          + Добавить уровень
+          <Plus size={14} /> Добавить уровень
         </button>
-      </Card>
+      </div>
 
       {/* Save button */}
       <button
@@ -234,7 +272,6 @@ export function LoyaltySettingsTab() {
       >
         {saving ? 'Сохранение...' : 'Сохранить настройки'}
       </button>
-
     </div>
   );
 }

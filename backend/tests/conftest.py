@@ -304,6 +304,7 @@ async def test_product(test_session: AsyncSession, test_seller: Seller) -> Produ
         name="Test Product",
         description="A test product description",
         price=100.00,
+        quantity=10,
         is_active=True,
     )
     test_session.add(product)

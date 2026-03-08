@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createCustomer, createCustomerEvent } from '../../api/sellerClient';
-import { useToast, FormField, Card } from '@shared/components/ui';
+import { createCustomer, createCustomerEvent } from '../../../api/sellerClient';
+import { useToast, FormField, EmptyState } from '@shared/components/ui';
 import { formatPhoneInput, phoneToDigits } from '@shared/utils/phone';
+import { UserPlus, CalendarHeart, CalendarPlus, Plus, X } from 'lucide-react';
+import './shared.css';
 import './AddCustomerTab.css';
 
 interface EventDraft {
@@ -30,16 +32,12 @@ export function AddCustomerTab() {
   const toast = useToast();
   const navigate = useNavigate();
 
-  // Customer fields
   const [phone, setPhone] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthday, setBirthday] = useState('');
 
-  // Events
   const [events, setEvents] = useState<EventDraft[]>([]);
-
-  // Submission
   const [submitting, setSubmitting] = useState(false);
   const [statusText, setStatusText] = useState('');
 
@@ -64,7 +62,6 @@ export function AddCustomerTab() {
       return;
     }
 
-    // Filter out completely empty event rows, validate partially filled ones
     const filledEvents = events.filter((ev) => ev.title.trim() || ev.event_date);
     for (const ev of filledEvents) {
       if (!ev.title.trim()) {
@@ -102,7 +99,6 @@ export function AddCustomerTab() {
       return;
     }
 
-    // Create events sequentially
     let failedCount = 0;
     if (filledEvents.length > 0) {
       for (let i = 0; i < filledEvents.length; i++) {
@@ -127,7 +123,7 @@ export function AddCustomerTab() {
     const addedCount = filledEvents.length - failedCount;
     if (failedCount > 0) {
       toast.warning(
-        `Клиент создан, но ${failedCount} из ${filledEvents.length} дат не были добавлены. Вы можете добавить их в карточке клиента.`,
+        `Клиент создан, но ${failedCount} из ${filledEvents.length} дат не были добавлены.`,
       );
     } else if (addedCount > 0) {
       toast.success(`Клиент создан и ${pluralDates(addedCount)} добавлено`);
@@ -139,12 +135,23 @@ export function AddCustomerTab() {
   };
 
   return (
-    <div className="add-customer-tab">
+    <div className="add-cust">
       <form onSubmit={handleSubmit}>
-        {/* ── Customer Info ──────────────────── */}
-        <Card>
-          <h2 className="add-customer-section-title">Информация о клиенте</h2>
-          <div className="add-customer-fields-grid">
+        {/* ═══ Customer Info ═══ */}
+        <div className="crm-card">
+          <div className="crm-card__header">
+            <div className="crm-card__header-left">
+              <div className="crm-card__icon-badge crm-card__icon-badge--green">
+                <UserPlus size={18} />
+              </div>
+              <div>
+                <h3 className="crm-card__title">Информация о клиенте</h3>
+                <p className="crm-card__subtitle">Обязательные и дополнительные поля</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="crm-form">
             <FormField label="Телефон *">
               <input
                 type="tel"
@@ -156,45 +163,63 @@ export function AddCustomerTab() {
                 maxLength={16}
               />
             </FormField>
-            <FormField label="Имя">
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Имя"
-              />
-            </FormField>
-            <FormField label="Фамилия">
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Фамилия"
-              />
-            </FormField>
-            <FormField label="День рождения">
-              <input
-                type="date"
-                value={birthday}
-                onChange={(e) => setBirthday(e.target.value)}
-              />
-              <span className="add-customer-hint">Сохраняется в карточке клиента</span>
-            </FormField>
+            <div className="crm-form__row-2col">
+              <FormField label="Имя">
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Имя"
+                />
+              </FormField>
+              <FormField label="Фамилия">
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Фамилия"
+                />
+              </FormField>
+            </div>
+            <div className="crm-form__row-2col">
+              <FormField label="День рождения" hint="Сохраняется в карточке клиента">
+                <input
+                  type="date"
+                  value={birthday}
+                  onChange={(e) => setBirthday(e.target.value)}
+                />
+              </FormField>
+            </div>
           </div>
-        </Card>
+        </div>
 
-        {/* ── Significant Dates ────────────── */}
-        <Card>
-          <h2 className="add-customer-section-title">Значимые даты</h2>
-          <p className="add-customer-hint" style={{ marginBottom: 'var(--space-4)' }}>
-            Добавьте памятные даты клиента — мы напомним о них заранее
-          </p>
+        {/* ═══ Significant Dates ═══ */}
+        <div className="crm-card">
+          <div className="crm-card__header">
+            <div className="crm-card__header-left">
+              <div className="crm-card__icon-badge crm-card__icon-badge--pink">
+                <CalendarHeart size={18} />
+              </div>
+              <div>
+                <h3 className="crm-card__title">Значимые даты</h3>
+                <p className="crm-card__subtitle">Добавьте памятные даты клиента — мы напомним заранее</p>
+              </div>
+            </div>
+          </div>
 
           {events.length > 0 ? (
-            <div className="add-customer-events-list">
+            <div className="add-cust__events">
               {events.map((ev) => (
-                <div key={ev.key} className="add-customer-event-row">
-                  <div className="add-customer-event-row-fields">
+                <div key={ev.key} className="add-cust__event-card">
+                  <button
+                    type="button"
+                    className="add-cust__event-remove"
+                    onClick={() => removeEvent(ev.key)}
+                    title="Удалить дату"
+                  >
+                    <X size={14} />
+                  </button>
+                  <div className="crm-form__row-2col">
                     <FormField label="Название">
                       <input
                         type="text"
@@ -210,6 +235,8 @@ export function AddCustomerTab() {
                         onChange={(e) => updateEvent(ev.key, { event_date: e.target.value })}
                       />
                     </FormField>
+                  </div>
+                  <div className="crm-form__row-2col">
                     <FormField label="Напомнить за (дн.)">
                       <input
                         type="number"
@@ -228,34 +255,27 @@ export function AddCustomerTab() {
                       />
                     </FormField>
                   </div>
-                  <button
-                    type="button"
-                    className="add-customer-event-remove"
-                    onClick={() => removeEvent(ev.key)}
-                    title="Удалить дату"
-                  >
-                    ✕
-                  </button>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="add-customer-events-empty">
-              Нет добавленных дат. Нажмите кнопку ниже или выберите шаблон.
-            </div>
+            <EmptyState
+              icon={<CalendarPlus size={36} />}
+              title="Нет добавленных дат"
+              message="Нажмите кнопку ниже или выберите шаблон"
+            />
           )}
 
-          <div className="add-customer-events-actions">
-            <button type="button" className="add-customer-event-add-btn" onClick={() => addEvent()}>
-              + Добавить дату
+          <div className="add-cust__events-toolbar">
+            <button type="button" className="add-cust__add-btn" onClick={() => addEvent()}>
+              <Plus size={14} /> Добавить дату
             </button>
-
-            <div className="add-customer-presets">
+            <div className="add-cust__presets">
               {EVENT_PRESETS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
-                  className="add-customer-preset-chip"
+                  className="add-cust__preset"
                   onClick={() => addEvent(preset)}
                 >
                   {preset}
@@ -263,10 +283,11 @@ export function AddCustomerTab() {
               ))}
             </div>
           </div>
-        </Card>
+        </div>
 
-        {/* ── Submit ────────────────────────── */}
-        <button type="submit" className="add-customer-submit" disabled={submitting}>
+        {/* ═══ Submit ═══ */}
+        <button type="submit" className="add-cust__submit" disabled={submitting}>
+          <UserPlus size={16} />
           {submitting ? statusText || 'Создание…' : 'Создать клиента'}
         </button>
       </form>

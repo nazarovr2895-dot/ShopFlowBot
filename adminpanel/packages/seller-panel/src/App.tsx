@@ -12,7 +12,7 @@ import { SellerOrderDetail } from './pages/seller/SellerOrderDetail';
 import { SellerCatalog } from './pages/seller/SellerCatalog';
 import { SellerStock } from './pages/seller/SellerStock';
 import { SellerCustomerHub } from './pages/seller/SellerCustomerHub';
-import { SellerCustomers } from './pages/seller/SellerCustomers';
+import { CustomerDetail } from './pages/seller/customers/CustomerDetail';
 import { SellerAnalytics } from './pages/seller/SellerAnalytics';
 import { SellerSettings } from './pages/seller/SellerSettings';
 import { SellerBranches } from './pages/seller/SellerBranches';
@@ -51,7 +51,7 @@ function AppRoutes() {
         <Route path="catalog" element={isNetworkOwner ? <Navigate to="/" replace /> : <SellerCatalog />} />
         <Route path="stock" element={isNetworkOwner ? <Navigate to="/" replace /> : <SellerStock />} />
         <Route path="customers" element={<SellerCustomerHub />} />
-        <Route path="customers/:id" element={<SellerCustomers />} />
+        <Route path="customers/:id" element={<CustomerDetail />} />
         <Route path="analytics" element={<SellerAnalytics />} />
         <Route path="branches" element={!isNetworkOwner ? <Navigate to="/" replace /> : <SellerBranches />} />
         <Route path="settings" element={<SellerSettings />} />
