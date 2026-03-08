@@ -126,7 +126,7 @@ def _seller_order_keyboard() -> Optional[Dict[str, Any]]:
     if not SELLER_PANEL_URL:
         return None
     return {"inline_keyboard": [[
-        {"text": "📋 Открыть в панели управления", "url": f"{SELLER_PANEL_URL}/orders"},
+        {"text": "📋 Открыть в панели управления", "web_app": {"url": f"{SELLER_PANEL_URL}/orders"}},
     ]]}
 
 
