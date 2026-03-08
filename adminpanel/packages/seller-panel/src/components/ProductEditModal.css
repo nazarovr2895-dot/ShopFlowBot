@@ -250,3 +250,15 @@
     display: inline-flex;
   }
 }
+
+@media (max-width: 480px) {
+  .pem-photo-item,
+  .pem-photo-add {
+    width: 100px;
+    height: 100px;
+  }
+
+  .pem-section {
+    margin-bottom: var(--space-4);
+  }
+}

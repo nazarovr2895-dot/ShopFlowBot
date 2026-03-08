@@ -658,3 +658,11 @@
   .dash-sellers-row { grid-template-columns: 1.5fr 1fr 1fr; }
   .dash-sellers-cell--load { display: none; }
 }
+
+@media (max-width: 480px) {
+  .dash-kpi-grid { grid-template-columns: 1fr; }
+  .dashboard-stats-grid { grid-template-columns: 1fr; }
+  .dash-kpi-card { padding: var(--space-3) var(--space-4); }
+  .dash-pipe-item { min-width: 80px; padding: var(--space-2); }
+  .dash-nav-row { grid-template-columns: 1fr; }
+}

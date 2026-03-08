@@ -173,6 +173,18 @@
   display: block;
 }
 
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .dz-form__row-2col {
+    grid-template-columns: 1fr;
+  }
+
+  .dz-zone-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 /* Arrow */
 .dz-slot-hint__text::after {
   content: '';

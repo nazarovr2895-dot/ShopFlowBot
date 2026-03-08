@@ -278,3 +278,22 @@
 .occ {
   animation: occ-enter 0.3s ease-out backwards;
 }
+
+/* ── Mobile ──────────────────────────────── */
+@media (max-width: 768px) {
+  .occ {
+    padding: 12px 14px;
+    padding-left: 22px;
+    gap: 8px;
+    border-radius: var(--radius-lg);
+  }
+
+  .occ__btn {
+    padding: 8px 14px;
+    font-size: 0.8125rem;
+  }
+
+  .occ__price {
+    font-size: 1.125rem;
+  }
+}

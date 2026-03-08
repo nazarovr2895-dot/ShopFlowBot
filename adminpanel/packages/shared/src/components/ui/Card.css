@@ -9,3 +9,9 @@
 .ui-card--pad-sm     { padding: var(--space-4); }
 .ui-card--pad-default { padding: var(--space-6); }
 .ui-card--pad-lg     { padding: var(--space-8); }
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .ui-card--pad-default { padding: var(--space-4); }
+  .ui-card--pad-lg     { padding: var(--space-5); }
+}

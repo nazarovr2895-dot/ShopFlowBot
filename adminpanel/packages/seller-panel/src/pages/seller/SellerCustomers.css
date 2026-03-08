@@ -631,3 +631,41 @@
   outline: none;
   border-color: var(--accent);
 }
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .customer-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .customer-row-right {
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .customer-card {
+    padding: var(--space-4);
+  }
+}
+
+@media (max-width: 480px) {
+  .customers-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .record-sale form,
+  .deduct-points form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .record-sale input,
+  .deduct-points input {
+    width: 100%;
+  }
+}

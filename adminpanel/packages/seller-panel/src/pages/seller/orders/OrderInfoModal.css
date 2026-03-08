@@ -337,3 +337,27 @@
 .waiting-countdown--today { color: #22c55e; font-weight: 600; }
 .waiting-countdown--tomorrow { color: #f59e0b; font-weight: 600; }
 .waiting-countdown--overdue { color: #ef4444; font-weight: 600; }
+
+/* ── Mobile ──────────────────────────────── */
+@media (max-width: 480px) {
+  .oim__row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .oim__label {
+    width: auto;
+    font-size: 0.75rem;
+  }
+
+  .oim__product-card {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .oim__product-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius);
+  }
+}

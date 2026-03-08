@@ -99,6 +99,30 @@
   border-radius: 2px;
 }
 
+/* ── Mobile ──────────────────────────────── */
+@media (max-width: 768px) {
+  .kanban-board {
+    max-height: calc(100vh - 160px);
+  }
+
+  .kanban-col {
+    flex: 0 0 260px;
+    min-width: 240px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kanban-board {
+    max-height: calc(100vh - 140px);
+  }
+
+  .kanban-col {
+    flex: 0 0 calc(100vw - 32px);
+    min-width: calc(100vw - 32px);
+    max-width: none;
+  }
+}
+
 /* ── Empty column ──────────────────────────── */
 .kanban-col__empty {
   display: flex;

@@ -32,3 +32,15 @@
   color: var(--text-secondary);
   font-size: var(--text-xs);
 }
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .data-row {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .data-row-label {
+    min-width: 0;
+  }
+}

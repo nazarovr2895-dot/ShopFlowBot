@@ -80,6 +80,19 @@
   .slide-panel {
     width: 100%;
   }
+
+  .slide-panel-body {
+    padding: var(--space-4);
+  }
+
+  .slide-panel-header {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .slide-panel-close {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 /* ── Telegram fullscreen: сдвигаем панель ниже статус-бара ── */

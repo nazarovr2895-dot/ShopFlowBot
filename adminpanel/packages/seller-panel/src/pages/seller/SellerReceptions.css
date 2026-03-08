@@ -236,3 +236,10 @@
   font-weight: 600;
   margin-top: var(--space-2);
 }
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .seller-receptions-page .form-row-2 {
+    grid-template-columns: 1fr;
+  }
+}

@@ -51,3 +51,14 @@
 .stat-card-link:hover {
   color: var(--accent-hover);
 }
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .stat-card {
+    padding: var(--space-3);
+  }
+
+  .stat-card-value {
+    font-size: var(--text-xl);
+  }
+}

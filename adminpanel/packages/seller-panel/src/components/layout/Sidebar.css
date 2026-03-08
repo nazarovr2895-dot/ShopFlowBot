@@ -151,7 +151,10 @@
   }
 
   .sidebar-v2-divider {
-    display: none;
+    display: block;
+    width: 1px;
+    height: 24px;
+    margin: 0 var(--space-1);
   }
 
   .sidebar-v2-link {

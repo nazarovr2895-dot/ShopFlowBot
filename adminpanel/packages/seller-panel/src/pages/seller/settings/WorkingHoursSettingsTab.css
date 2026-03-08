@@ -99,3 +99,26 @@
   gap: var(--space-3);
   margin-top: var(--space-2);
 }
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .settings-hours-day-row {
+    flex-wrap: wrap;
+  }
+
+  .settings-hours-day-label {
+    min-width: 80px;
+    flex: 1;
+  }
+
+  .settings-hours-time-inputs {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .settings-hours-time-inputs input[type="time"] {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+}
