@@ -150,6 +150,11 @@
     gap: var(--space-1);
   }
 
+  .sidebar-v2-nav > div {
+    display: flex;
+    align-items: center;
+  }
+
   .sidebar-v2-divider {
     display: block;
     width: 1px;
@@ -170,6 +175,8 @@
   }
 
   .sidebar-v2-footer {
+    display: flex;
+    align-items: center;
     padding: 0;
     margin-left: auto;
     flex-shrink: 0;
