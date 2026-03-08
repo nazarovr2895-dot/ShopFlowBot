@@ -319,6 +319,26 @@
   white-space: pre-wrap;
 }
 
+/* ── Telegram DM button ──────────────────── */
+
+.oim__tg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  background: #2AABEE;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.oim__tg-btn:hover {
+  background: #229ED9;
+}
+
 /* ── Footer link ─────────────────────────── */
 
 .oim__full-link {

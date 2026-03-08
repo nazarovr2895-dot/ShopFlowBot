@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader, TabBar, EmptyState, FormField, useToast, useConfirm } from '@shared/components/ui';
 import {
@@ -16,7 +16,11 @@ import { OrderCardCompact } from './orders/OrderCardCompact';
 import type { CardContext } from './orders/OrderCardCompact';
 import { KanbanBoard } from './orders/KanbanBoard';
 import { DateStrip } from './orders/DateStrip';
+import { useTabBadge } from '../../hooks/useTabBadge';
 import './SellerOrders.css';
+
+const POLL_INTERVAL_MS = 30_000;
+const NOTIFICATION_TITLE = 'flurai';
 
 type MainTab = 'pending' | 'awaiting_payment' | 'active' | 'history' | 'cancelled' | 'preorder';
 type PreorderSubTab = 'requests' | 'waiting' | 'dashboard';
@@ -46,7 +50,13 @@ export function SellerOrders() {
   const [summaryDate, setSummaryDate] = useState('');
   const [summary, setSummary] = useState<PreorderSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    () => new Date().toISOString().slice(0, 10),
+  );
+  const [newPendingCount, setNewPendingCount] = useState(0);
+  const lastPendingIdsRef = useRef<Set<number> | null>(null);
+
+  useTabBadge(newPendingCount);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -116,6 +126,64 @@ export function SellerOrders() {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  // Capture pending order IDs when on the pending tab
+  useEffect(() => {
+    if (activeTab === 'pending' && !loading) {
+      lastPendingIdsRef.current = new Set(orders.map(o => o.id));
+      setNewPendingCount(0);
+    }
+  }, [activeTab, orders, loading]);
+
+  // Request notification permission
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  // Poll for new pending orders every 30s
+  useEffect(() => {
+    const tick = async () => {
+      try {
+        const pending = await getOrders({ status: 'pending', preorder: false });
+        const freshIds = new Set((pending || []).map(o => o.id));
+        const prevIds = lastPendingIdsRef.current;
+
+        if (prevIds === null) {
+          // First poll — just save current state
+          lastPendingIdsRef.current = freshIds;
+          return;
+        }
+
+        const newIds = [...freshIds].filter(id => !prevIds.has(id));
+
+        if (newIds.length > 0) {
+          if (activeTab === 'pending') {
+            // User is looking at pending tab → silently refresh the list
+            loadOrders();
+          } else {
+            // User is on another tab → show badge
+            setNewPendingCount(prev => prev + newIds.length);
+          }
+
+          // Browser notification when tab is hidden
+          if (document.visibilityState === 'hidden' && Notification.permission === 'granted') {
+            const text = newIds.length === 1
+              ? 'Новый запрос на покупку'
+              : `Новых запросов: ${newIds.length}`;
+            new Notification(NOTIFICATION_TITLE, { body: text });
+          }
+
+          lastPendingIdsRef.current = freshIds;
+        }
+      } catch {
+        // ignore poll errors
+      }
+    };
+    const id = setInterval(tick, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [activeTab, loadOrders]);
 
   // --- Action handlers ---
 
@@ -261,7 +329,8 @@ export function SellerOrders() {
         onChange={(key) => {
           setActiveTab(key as MainTab);
           setDeliveryFilter('all');
-          setSelectedDate(null);
+          setSelectedDate(key === 'active' ? new Date().toISOString().slice(0, 10) : null);
+          if (key === 'pending') setNewPendingCount(0);
         }}
       />
 

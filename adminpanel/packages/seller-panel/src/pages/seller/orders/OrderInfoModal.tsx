@@ -262,6 +262,17 @@ export function OrderInfoModal({
                 </a>
               </div>
             )}
+            {order.buyer_id && (
+              <div className="oim__row">
+                <span className="oim__label" />
+                <a
+                  href={`tg://user?id=${order.buyer_id}`}
+                  className="oim__tg-btn"
+                >
+                  Написать в Telegram
+                </a>
+              </div>
+            )}
             {order.recipient_name && (
               <>
                 <div className="oim__row">
