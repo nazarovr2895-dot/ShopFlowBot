@@ -1,13 +1,12 @@
 import { useEffect, useRef } from 'react';
 
-const ORIGINAL_TITLE = document.title;
-
 /**
  * Manages browser-tab visual indicator:
  * – Prepends "(N)" to document.title
  * – Draws a red dot on the favicon via Canvas
  */
 export function useTabBadge(count: number) {
+  const originalTitleRef = useRef(document.title || 'flurai — Панель продавца');
   const originalFaviconRef = useRef<string | null>(null);
 
   // Capture the original favicon href once
@@ -17,11 +16,13 @@ export function useTabBadge(count: number) {
   }, []);
 
   useEffect(() => {
+    const origTitle = originalTitleRef.current;
+
     // ── Title ──
     if (count > 0) {
-      document.title = `(${count}) ${ORIGINAL_TITLE}`;
+      document.title = `(${count}) ${origTitle}`;
     } else {
-      document.title = ORIGINAL_TITLE;
+      document.title = origTitle;
     }
 
     // ── Favicon ──
@@ -56,16 +57,12 @@ export function useTabBadge(count: number) {
 
       link.href = canvas.toDataURL('image/png');
     };
-
-    return () => {
-      // Clean up on count change
-    };
   }, [count]);
 
   // Restore everything on unmount
   useEffect(() => {
     return () => {
-      document.title = ORIGINAL_TITLE;
+      document.title = originalTitleRef.current;
       const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
       if (link && originalFaviconRef.current) {
         link.href = originalFaviconRef.current;

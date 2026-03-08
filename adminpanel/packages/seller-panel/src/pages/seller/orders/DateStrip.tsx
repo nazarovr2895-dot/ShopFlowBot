@@ -11,6 +11,13 @@ interface DateStripProps {
   onSelect: (date: string | null) => void;
 }
 
+interface DateItemInfo {
+  dayNum: number;
+  dayName: string;
+  month: string | null;
+  isToday: boolean;
+}
+
 function toDateKey(iso: string): string {
   return new Date(iso).toISOString().slice(0, 10);
 }
@@ -25,16 +32,6 @@ export function DateStrip({ orders, selectedDate, onSelect }: DateStripProps) {
   const activeRef = useRef<HTMLButtonElement>(null);
 
   const todayKey = useMemo(() => toDateKey(new Date().toISOString()), []);
-  const yesterdayKey = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return toDateKey(d.toISOString());
-  }, []);
-  const tomorrowKey = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return toDateKey(d.toISOString());
-  }, []);
 
   const { dates, countByDate } = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -55,34 +52,33 @@ export function DateStrip({ orders, selectedDate, onSelect }: DateStripProps) {
     }
   }, [selectedDate]);
 
-  const formatDatePill = (dateKey: string) => {
-    if (dateKey === todayKey) return { special: 'Сегодня', day: '' };
-    if (dateKey === yesterdayKey) return { special: 'Вчера', day: '' };
-    if (dateKey === tomorrowKey) return { special: 'Завтра', day: '' };
-
+  const formatDateItem = (dateKey: string): DateItemInfo => {
     const d = new Date(dateKey + 'T00:00:00');
-    const dayName = DAY_NAMES[d.getDay()];
-    const dayNum = d.getDate();
     const now = new Date();
+    const isToday = dateKey === todayKey;
     const sameMonth = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    const month = sameMonth ? '' : ` ${MONTH_NAMES[d.getMonth()]}`;
-    return { special: null, day: `${dayName} ${dayNum}${month}` };
+
+    return {
+      dayNum: d.getDate(),
+      dayName: isToday ? 'Сегодня' : DAY_NAMES[d.getDay()],
+      month: sameMonth ? null : MONTH_NAMES[d.getMonth()],
+      isToday,
+    };
   };
 
   return (
     <div className="date-strip">
       <button
-        className={`date-strip__item ${selectedDate === null ? 'date-strip__item--active' : ''}`}
+        className={`date-strip__item date-strip__item--all ${selectedDate === null ? 'date-strip__item--active' : ''}`}
         onClick={() => onSelect(null)}
         ref={selectedDate === null ? activeRef : undefined}
       >
-        <span className="date-strip__label">Все</span>
+        <span className="date-strip__all-label">Все</span>
         <span className="date-strip__count">{orders.length}</span>
       </button>
       {dates.map((dk) => {
         const isActive = selectedDate === dk;
-        const isToday = dk === todayKey;
-        const pill = formatDatePill(dk);
+        const info = formatDateItem(dk);
         const count = countByDate[dk] || 0;
 
         return (
@@ -92,12 +88,14 @@ export function DateStrip({ orders, selectedDate, onSelect }: DateStripProps) {
             className={[
               'date-strip__item',
               isActive && 'date-strip__item--active',
-              isToday && !isActive && 'date-strip__item--today',
+              info.isToday && !isActive && 'date-strip__item--today',
             ].filter(Boolean).join(' ')}
             onClick={() => onSelect(dk)}
           >
-            <span className="date-strip__label">{pill.special || pill.day}</span>
-            {count > 0 && <span className="date-strip__count">{count}</span>}
+            <span className="date-strip__day-num">{info.dayNum}</span>
+            <span className="date-strip__day-name">{info.dayName}</span>
+            {info.month && <span className="date-strip__month">{info.month}</span>}
+            <span className="date-strip__count">{count}</span>
           </button>
         );
       })}

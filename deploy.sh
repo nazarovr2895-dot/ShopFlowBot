@@ -6,80 +6,110 @@ set -e
 
 echo "🚀 Начинаем деплой..."
 
-# Проверяем, что есть изменения для коммита
-if [ -z "$(git status --porcelain)" ]; then
-    echo "❌ Нет изменений для коммита"
+HAS_CHANGES=false
+NEEDS_PUSH=false
+
+# Проверяем состояние рабочего дерева
+if [ -n "$(git status --porcelain)" ]; then
+    HAS_CHANGES=true
+fi
+
+# Проверяем, есть ли локальные коммиты не запушенные в remote
+git fetch origin main --quiet 2>/dev/null || true
+LOCAL_AHEAD=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo "0")
+if [ "$LOCAL_AHEAD" -gt 0 ]; then
+    NEEDS_PUSH=true
+fi
+
+if [ "$HAS_CHANGES" = false ] && [ "$NEEDS_PUSH" = false ]; then
+    echo "❌ Нет изменений для деплоя (рабочее дерево чистое, все коммиты запушены)"
     exit 1
 fi
 
 # Показываем изменения
-echo "📝 Изменения:"
-git status --short
+if [ "$HAS_CHANGES" = true ]; then
+    echo "📝 Изменения:"
+    git status --short
+fi
+if [ "$NEEDS_PUSH" = true ] && [ "$HAS_CHANGES" = false ]; then
+    echo "📝 Незапушенные коммиты: $LOCAL_AHEAD"
+    git log --oneline origin/main..HEAD
+fi
 
-# Проверяем, есть ли изменения в backend (любые: modified, added, deleted, renamed)
-BACKEND_CHANGES=$(git status --porcelain | grep -E 'backend/' || true)
+# Запускаем тесты только при наличии незакоммиченных backend-изменений
+if [ "$HAS_CHANGES" = true ]; then
+    BACKEND_CHANGES=$(git status --porcelain | grep -E 'backend/' || true)
 
-if [ -n "$BACKEND_CHANGES" ]; then
-    echo ""
-    echo "🧪 Обнаружены изменения в backend, запускаем тесты..."
-    echo ""
-
-    # Проверяем наличие виртуального окружения
-    if [ ! -d "backend/venv" ]; then
-        echo "⚠️  Виртуальное окружение не найдено, создаём..."
-        cd backend
-        python3 -m venv venv
-        source venv/bin/activate
-        pip install -r requirements.txt > /dev/null 2>&1
-        cd ..
-    fi
-
-    # Активируем виртуальное окружение и запускаем тесты
-    source backend/venv/bin/activate
-
-    echo "Running tests..."
-    if pytest backend/tests/test_admin.py \
-             backend/tests/test_buyers.py \
-             backend/tests/test_seller_web.py \
-             backend/tests/test_services.py \
-             backend/tests/test_payments.py \
-             backend/tests/test_categories.py \
-             -q --tb=short; then
+    if [ -n "$BACKEND_CHANGES" ]; then
         echo ""
-        echo "✅ Все тесты прошли успешно!"
+        echo "🧪 Обнаружены изменения в backend, запускаем тесты..."
         echo ""
+
+        # Проверяем наличие виртуального окружения
+        if [ ! -d "backend/venv" ]; then
+            echo "⚠️  Виртуальное окружение не найдено, создаём..."
+            cd backend
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt > /dev/null 2>&1
+            cd ..
+        fi
+
+        # Активируем виртуальное окружение и запускаем тесты
+        source backend/venv/bin/activate
+
+        echo "Running tests..."
+        if pytest backend/tests/test_admin.py \
+                 backend/tests/test_buyers.py \
+                 backend/tests/test_seller_web.py \
+                 backend/tests/test_services.py \
+                 backend/tests/test_payments.py \
+                 backend/tests/test_categories.py \
+                 -q --tb=short; then
+            echo ""
+            echo "✅ Все тесты прошли успешно!"
+            echo ""
+        else
+            echo ""
+            echo "❌ Тесты провалились! Деплой отменён."
+            echo ""
+            echo "💡 Исправьте ошибки и попробуйте снова."
+            echo "   Запустить тесты вручную:"
+            echo "   source backend/venv/bin/activate"
+            echo "   pytest backend/tests/ -v"
+            echo ""
+            exit 1
+        fi
+
+        deactivate
     else
         echo ""
-        echo "❌ Тесты провалились! Деплой отменён."
+        echo "⏭️  Изменений в backend нет, пропускаем тесты"
         echo ""
-        echo "💡 Исправьте ошибки и попробуйте снова."
-        echo "   Запустить тесты вручную:"
-        echo "   source backend/venv/bin/activate"
-        echo "   pytest backend/tests/ -v"
-        echo ""
-        exit 1
+    fi
+fi
+
+# Коммит (только если есть незакоммиченные изменения)
+if [ "$HAS_CHANGES" = true ]; then
+    if [ -z "$1" ]; then
+        echo "Введите сообщение коммита:"
+        read COMMIT_MSG
+    else
+        COMMIT_MSG="$1"
     fi
 
-    deactivate
-else
-    echo ""
-    echo "⏭️  Изменений в backend нет, пропускаем тесты"
-    echo ""
+    echo "💾 Коммитим..."
+    git add -A -- . ':!.claude/plans'
+    git commit -m "$COMMIT_MSG"
 fi
 
-# Коммит (если не передан как аргумент)
-if [ -z "$1" ]; then
-    echo "Введите сообщение коммита:"
-    read COMMIT_MSG
-else
-    COMMIT_MSG="$1"
+# Push (с автоматическим pull --rebase при необходимости)
+echo "📤 Пушим..."
+if ! git push 2>/dev/null; then
+    echo "⚠️  Push отклонён, подтягиваем remote изменения..."
+    git pull --rebase origin main
+    git push
 fi
-
-# Commit + Push
-echo "💾 Коммитим и пушим..."
-git add .
-git commit -m "$COMMIT_MSG"
-git push
 
 echo "✅ Код отправлен в GitHub"
 

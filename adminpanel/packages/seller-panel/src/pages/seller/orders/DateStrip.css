@@ -1,12 +1,12 @@
 /* ============================================
-   DateStrip — horizontal date navigation
+   DateStrip — calendar-style date navigation
    ============================================ */
 .date-strip {
   display: flex;
   gap: var(--space-2);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding: var(--space-2) 0;
+  padding: var(--space-2) var(--space-1);
   margin-bottom: var(--space-3);
   scrollbar-width: thin;
 }
@@ -20,20 +20,22 @@
   border-radius: 2px;
 }
 
+/* --- Item base --- */
 .date-strip__item {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius);
+  min-width: 56px;
+  min-height: 72px;
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   color: var(--text-secondary);
-  font-size: var(--text-xs);
   cursor: pointer;
-  min-width: 52px;
   transition: all var(--transition-fast);
   font-family: var(--font);
 }
@@ -43,6 +45,7 @@
   color: var(--text);
 }
 
+/* --- Active state --- */
 .date-strip__item--active {
   background: var(--accent);
   border-color: var(--accent);
@@ -54,22 +57,62 @@
   color: #fff;
 }
 
+/* --- Today (not selected) --- */
 .date-strip__item--today {
   border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
-.date-strip__label {
-  font-weight: 600;
-  font-size: var(--text-xs);
+/* --- Day number (large) --- */
+.date-strip__day-num {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+/* --- Day name / "Сегодня" --- */
+.date-strip__day-name {
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
+.date-strip__item--today .date-strip__day-name {
+  color: var(--accent);
+}
+
+.date-strip__item--active .date-strip__day-name {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* --- Month (when different from current) --- */
+.date-strip__month {
+  font-size: 0.5625rem;
+  color: var(--text-tertiary);
+  line-height: 1;
+  margin-top: -1px;
+}
+
+.date-strip__item--active .date-strip__month {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* --- Order count --- */
 .date-strip__count {
-  font-size: 0.625rem;
+  font-size: 0.5625rem;
   font-family: var(--font-mono);
-  opacity: 0.8;
+  color: var(--text-tertiary);
+  line-height: 1;
+  margin-top: 2px;
 }
 
 .date-strip__item--active .date-strip__count {
-  opacity: 1;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* --- "Все" label --- */
+.date-strip__all-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
 }

@@ -19,7 +19,7 @@ import { DateStrip } from './orders/DateStrip';
 import { useTabBadge } from '../../hooks/useTabBadge';
 import './SellerOrders.css';
 
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 15_000;
 const NOTIFICATION_TITLE = 'flurai';
 
 type MainTab = 'pending' | 'awaiting_payment' | 'active' | 'history' | 'cancelled' | 'preorder';
@@ -58,8 +58,8 @@ export function SellerOrders() {
 
   useTabBadge(newPendingCount);
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
+  const loadOrders = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       let status: string | undefined;
       let date_from: string | undefined;
@@ -119,7 +119,7 @@ export function SellerOrders() {
     } catch {
       setOrders([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [activeTab, preorderSubTab, dateFrom, dateTo, deliveryFilter]);
 
@@ -142,7 +142,7 @@ export function SellerOrders() {
     }
   }, []);
 
-  // Poll for new pending orders every 30s
+  // Poll for new pending orders every 15s
   useEffect(() => {
     const tick = async () => {
       try {
@@ -150,18 +150,17 @@ export function SellerOrders() {
         const freshIds = new Set((pending || []).map(o => o.id));
         const prevIds = lastPendingIdsRef.current;
 
-        if (prevIds === null) {
-          // First poll — just save current state
-          lastPendingIdsRef.current = freshIds;
-          return;
-        }
+        // Always update ref to track current state
+        lastPendingIdsRef.current = freshIds;
+
+        if (prevIds === null) return; // First poll — just save state
 
         const newIds = [...freshIds].filter(id => !prevIds.has(id));
 
         if (newIds.length > 0) {
           if (activeTab === 'pending') {
-            // User is looking at pending tab → silently refresh the list
-            loadOrders();
+            // User is looking at pending tab → silently refresh the list (no spinner)
+            loadOrders(true);
           } else {
             // User is on another tab → show badge
             setNewPendingCount(prev => prev + newIds.length);
@@ -174,8 +173,6 @@ export function SellerOrders() {
               : `Новых запросов: ${newIds.length}`;
             new Notification(NOTIFICATION_TITLE, { body: text });
           }
-
-          lastPendingIdsRef.current = freshIds;
         }
       } catch {
         // ignore poll errors
@@ -318,7 +315,7 @@ export function SellerOrders() {
       {/* Main tabs */}
       <TabBar
         tabs={[
-          { key: 'pending', label: 'Запросы' },
+          { key: 'pending', label: newPendingCount > 0 ? `Запросы (+${newPendingCount})` : 'Запросы' },
           { key: 'awaiting_payment', label: '💳 Ожидает оплаты' },
           { key: 'active', label: 'Активные' },
           { key: 'history', label: 'История' },
