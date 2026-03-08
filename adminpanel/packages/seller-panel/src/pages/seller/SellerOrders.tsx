@@ -50,9 +50,10 @@ export function SellerOrders() {
   const [summaryDate, setSummaryDate] = useState('');
   const [summary, setSummary] = useState<PreorderSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string | null>(
-    () => new Date().toISOString().slice(0, 10),
-  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [newPendingCount, setNewPendingCount] = useState(0);
   const lastPendingIdsRef = useRef<Set<number> | null>(null);
 
@@ -268,18 +269,22 @@ export function SellerOrders() {
 
     let filtered = orders;
 
+    // Helper: convert ISO string to local YYYY-MM-DD
+    const toLocalDate = (iso: string) => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
     // Filter "done" orders: by selected date (completed_at), or last 24h when "Все"
     if (selectedDate) {
       filtered = filtered.filter(o => {
         if (o.status !== 'done') {
-          // Non-done orders: filter by delivery_slot_date or created_at
           const dateStr = o.delivery_slot_date || o.created_at;
           if (!dateStr) return false;
-          return dateStr.slice(0, 10) === selectedDate;
+          return toLocalDate(dateStr) === selectedDate;
         }
-        // Done orders: filter by completed_at
         if (!o.completed_at) return false;
-        return o.completed_at.slice(0, 10) === selectedDate;
+        return toLocalDate(o.completed_at) === selectedDate;
       });
     } else {
       // "Все" — limit done orders to last 24 hours
@@ -326,7 +331,12 @@ export function SellerOrders() {
         onChange={(key) => {
           setActiveTab(key as MainTab);
           setDeliveryFilter('all');
-          setSelectedDate(key === 'active' ? new Date().toISOString().slice(0, 10) : null);
+          if (key === 'active') {
+            const d = new Date();
+            setSelectedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+          } else {
+            setSelectedDate(null);
+          }
           if (key === 'pending') setNewPendingCount(0);
         }}
       />
