@@ -18,10 +18,20 @@
   padding-right: 36px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 999px;
   color: var(--text);
   font-size: var(--text-sm);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+[data-theme="light"] .search-input {
+  background: var(--bg-elevated);
+  border-color: transparent;
+}
+
+[data-theme="light"] .search-input:focus {
+  background: var(--bg-surface);
+  border-color: var(--accent);
 }
 
 .search-input:focus {

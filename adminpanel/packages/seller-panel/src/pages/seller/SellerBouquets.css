@@ -60,9 +60,14 @@
 
 .bouquet-card {
   padding: var(--space-4);
-  background: var(--bg-surface);
-  border-radius: var(--radius);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
+}
+
+[data-theme="light"] .bouquet-card {
+  border-color: transparent;
+  box-shadow: var(--shadow);
 }
 
 .bouquet-card-header {
@@ -119,6 +124,6 @@
   margin-bottom: var(--space-4);
 }
 
-.shop-section {
+.bouquets-section {
   margin-bottom: var(--space-6);
 }

@@ -508,7 +508,7 @@ export function SellerReceptions() {
         )}
       </Modal>
 
-      <div className="card shop-section">
+      <div className="card receptions-section">
         <h3 className="section-title">Справочник цветов</h3>
         <p className="section-hint">Цветы для выбора при добавлении позиций в приёмку.</p>
         {flowers.length === 0 ? (
@@ -533,7 +533,7 @@ export function SellerReceptions() {
         )}
       </div>
 
-      <div className="card shop-section">
+      <div className="card receptions-section">
         <h3 className="section-title">Приёмки</h3>
         <p className="section-hint">Выберите приёмку, чтобы увидеть и редактировать позиции.</p>
         {receptions.length === 0 ? (

@@ -15,6 +15,7 @@ export { ConfirmProvider, useConfirm } from './components/ui/ConfirmDialog';
 export { DataRow } from './components/ui/DataRow';
 export { ActionCard } from './components/ui/ActionCard';
 export { SlidePanel } from './components/ui/SlidePanel';
+export { ThemeToggle } from './components/ui/ThemeToggle';
 
 // Feature Components
 export { SalesChart } from './components/SalesChart';
@@ -29,6 +30,7 @@ export { useEditMode } from './hooks/useEditMode';
 export { useTabs } from './hooks/useTabs';
 export { useTelegramWebApp } from './hooks/useTelegramWebApp';
 export { useUnsavedChanges } from './hooks/useUnsavedChanges';
+export { ThemeProvider, useTheme } from './hooks/useTheme';
 
 // Utils
 export * from './utils/formatters';

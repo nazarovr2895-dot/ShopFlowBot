@@ -5,16 +5,25 @@
   padding: var(--space-5);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   text-decoration: none;
   color: inherit;
   transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+[data-theme="light"] .action-card {
+  border-color: transparent;
+  box-shadow: var(--shadow);
+}
+
 .action-card:hover {
   background: var(--bg-surface-hover);
   border-color: var(--accent-soft);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="light"] .action-card:hover {
+  box-shadow: var(--shadow-lg);
 }
 
 .action-card-icon {

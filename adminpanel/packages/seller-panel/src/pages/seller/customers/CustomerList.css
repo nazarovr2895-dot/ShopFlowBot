@@ -122,12 +122,21 @@
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
-  background: var(--bg-surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl, 16px);
   transition: all var(--transition-fast);
   text-decoration: none;
   color: inherit;
+}
+
+[data-theme="light"] .clist-row {
+  border-color: transparent;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .clist-row:hover {
+  box-shadow: var(--shadow);
 }
 
 .clist-row--clickable {
@@ -165,9 +174,9 @@
 .clist-row__branch {
   display: inline-flex;
   padding: 1px var(--space-2);
-  border-radius: var(--radius-xl);
+  border-radius: 999px;
   font-size: 0.6875rem;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-elevated);
   color: var(--text-secondary);
 }
 

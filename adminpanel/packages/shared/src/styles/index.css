@@ -1,34 +1,11 @@
+/* ══════════════════════════════════════════════════════════
+   Theme system: use [data-theme="light"] or [data-theme="dark"]
+   on <html>. :root is the dark fallback for backward compat.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Shared (theme-independent) tokens ──────────────────── */
 :root {
-  /* ── Surfaces ──────────────────────────────────────────── */
-  --bg: #0f172a;
-  --bg-card: #1e293b;              /* legacy alias */
-  --bg-surface: #1e293b;
-  --bg-surface-hover: #253349;
-  --bg-hover: #334155;             /* legacy alias */
-  --bg-elevated: #334155;
-
-  /* ── Borders ───────────────────────────────────────────── */
-  --border: #334155;
-  --border-subtle: #1e293b;
-
-  /* ── Text ──────────────────────────────────────────────── */
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;           /* legacy alias */
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-
-  /* ── Accent ────────────────────────────────────────────── */
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-soft: rgba(99, 102, 241, 0.1);
-
-  /* ── Semantic ──────────────────────────────────────────── */
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #3b82f6;
-
-  /* ── Spacing (8px grid) ────────────────────────────────── */
+  /* Spacing (8px grid) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -39,7 +16,7 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* ── Typography ────────────────────────────────────────── */
+  /* Typography */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -48,30 +25,101 @@
   --text-2xl: 1.5rem;
   --text-3xl: 1.875rem;
 
-  /* ── Radii ─────────────────────────────────────────────── */
+  /* Radii */
   --radius-sm: 6px;
   --radius: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  /* ── Shadows ───────────────────────────────────────────── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
-
-  /* ── Transitions ───────────────────────────────────────── */
+  /* Transitions */
   --transition-fast: 0.1s ease;
   --transition: 0.15s ease;
   --transition-slow: 0.3s ease;
 
-  /* ── Layout ────────────────────────────────────────────── */
+  /* Layout */
   --sidebar-width: 240px;
   --page-max-width: 1200px;
   --page-padding: var(--space-8);
 
-  /* ── Fonts ─────────────────────────────────────────────── */
+  /* Fonts */
   --font: 'Manrope', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* ── Dark fallback (when data-theme is not set) ────────── */
+  --bg: #0f172a;
+  --bg-card: #1e293b;
+  --bg-surface: #1e293b;
+  --bg-surface-hover: #253349;
+  --bg-hover: #334155;
+  --bg-elevated: #334155;
+  --border: #334155;
+  --border-subtle: #1e293b;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.1);
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Dark theme ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --bg-card: #1e293b;
+  --bg-surface: #1e293b;
+  --bg-surface-hover: #253349;
+  --bg-hover: #334155;
+  --bg-elevated: #334155;
+  --border: #334155;
+  --border-subtle: #1e293b;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.1);
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Light theme ────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #f8f9fc;
+  --bg-card: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f3f9;
+  --bg-hover: #eef0f6;
+  --bg-elevated: #f1f3f9;
+  --border: #e2e5f0;
+  --border-subtle: #eef0f6;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-soft: rgba(99, 102, 241, 0.08);
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.04), 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -155,6 +203,10 @@ body.tg-fullscreen::before {
   backdrop-filter: blur(20px) saturate(180%);
   z-index: 10001;
   pointer-events: none;
+}
+
+[data-theme="light"] body.tg-fullscreen::before {
+  background: rgba(248, 249, 252, 0.7);
 }
 
 /* ── Telegram auth loading state ─────────────────────────── */

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SellerAuthProvider, useSellerAuth } from './contexts/SellerAuthContext';
 import { ToastProvider, ConfirmProvider } from '@shared/components/ui';
+import { ThemeProvider } from '@shared/hooks/useTheme';
 import { SellerLayout } from './components/layout/SellerLayout';
 import { SellerLogin } from './pages/SellerLogin';
 import { useTelegramWebApp } from '@shared/hooks/useTelegramWebApp';
@@ -74,14 +75,16 @@ function AppRoutes() {
 
 export function App() {
   return (
-    <SellerAuthProvider>
-      <ToastProvider>
-        <ConfirmProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </ConfirmProvider>
-      </ToastProvider>
-    </SellerAuthProvider>
+    <ThemeProvider defaultTheme="light">
+      <SellerAuthProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </ConfirmProvider>
+        </ToastProvider>
+      </SellerAuthProvider>
+    </ThemeProvider>
   );
 }

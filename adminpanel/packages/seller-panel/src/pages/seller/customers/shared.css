@@ -5,12 +5,17 @@
 
 /* ── Card container ───────────────────────────── */
 .crm-card {
-  background: var(--bg-surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl, 16px);
   padding: var(--space-6);
   margin-bottom: var(--space-5);
   transition: border-color var(--transition);
+}
+
+[data-theme="light"] .crm-card {
+  border-color: transparent;
+  box-shadow: var(--shadow);
 }
 
 /* ── Card header ──────────────────────────────── */

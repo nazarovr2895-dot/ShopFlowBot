@@ -9,9 +9,9 @@
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
-  background: var(--bg-surface);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl, 16px);
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
   text-align: left;

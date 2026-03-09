@@ -9,15 +9,24 @@
   animation: confirm-fade-in 0.15s ease-out;
 }
 
+[data-theme="light"] .confirm-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
 .confirm-dialog {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-6);
   max-width: 400px;
   width: 90%;
   box-shadow: var(--shadow-lg);
   animation: confirm-scale-in 0.15s ease-out;
+}
+
+[data-theme="light"] .confirm-dialog {
+  border-color: transparent;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
 .confirm-title {

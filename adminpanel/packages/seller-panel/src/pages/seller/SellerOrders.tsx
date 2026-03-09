@@ -186,9 +186,6 @@ export function SellerOrders() {
   // --- Action handlers ---
 
   const handleAccept = async (order: SellerOrder) => {
-    const price = order.total_price ?? 0;
-    const msg = `Итоговая цена: ${price} ₽.\n\nПодтвердить принятие заказа? Покупатель увидит именно эту сумму.`;
-    if (!await confirm({ message: msg })) return;
     try {
       await acceptOrder(order.id);
       loadOrders();

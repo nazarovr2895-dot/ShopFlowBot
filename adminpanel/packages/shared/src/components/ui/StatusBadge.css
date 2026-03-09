@@ -2,7 +2,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   font-weight: 500;
   white-space: nowrap;
 }

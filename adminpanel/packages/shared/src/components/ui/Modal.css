@@ -10,6 +10,10 @@
   animation: modal-fade-in 0.15s ease-out;
 }
 
+[data-theme="light"] .ui-modal-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
 .ui-modal {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -20,6 +24,11 @@
   width: 100%;
   box-shadow: var(--shadow-lg);
   animation: modal-scale-in 0.15s ease-out;
+}
+
+[data-theme="light"] .ui-modal {
+  border-color: transparent;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
 .ui-modal--sm { max-width: 400px; }

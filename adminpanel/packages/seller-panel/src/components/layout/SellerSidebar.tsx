@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useSellerAuth } from '../../contexts/SellerAuthContext';
 import { isTelegram, getTelegramWebApp } from '@shared/utils/environment';
+import { ThemeToggle } from '@shared/components/ui/ThemeToggle';
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -87,7 +88,7 @@ function BranchSwitcher() {
             bottom: '100%',
             left: 0,
             right: 0,
-            background: 'var(--card-bg, #fff)',
+            background: 'var(--bg-card)',
             border: '1px solid var(--border, #e5e7eb)',
             borderRadius: '8px',
             boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
@@ -195,6 +196,7 @@ export function SellerSidebar() {
       <div className="sidebar-v2-footer">
         <div className="sidebar-v2-divider" />
         {isNetwork && isPrimary && !isNetworkOwner && <BranchSwitcher />}
+        <ThemeToggle />
         <button className="sidebar-v2-link sidebar-v2-logout" onClick={handleLogout}>
           <LogOut size={18} className="sidebar-v2-icon" />
           <span className="sidebar-v2-link-text">Выход</span>

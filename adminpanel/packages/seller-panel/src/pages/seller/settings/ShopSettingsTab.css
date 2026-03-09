@@ -4,41 +4,36 @@
    generous whitespace, and subtle depth layers.
    ══════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
-
-/* ── Design tokens ───────────────────────────── */
+/* ── Design tokens (mapped to shared theme) ──── */
 .settings-shop {
-  --shop-font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --shop-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --shop-radius: 20px;
-  --shop-radius-sm: 12px;
-  --shop-radius-xs: 8px;
-  --shop-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
-  --shop-shadow-hover: 0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.05);
-  --shop-transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --shop-font: var(--font, -apple-system, BlinkMacSystemFont, sans-serif);
+  --shop-mono: var(--font-mono, ui-monospace, monospace);
+  --shop-radius: var(--radius-xl, 16px);
+  --shop-radius-sm: var(--radius-lg, 12px);
+  --shop-radius-xs: var(--radius, 8px);
+  --shop-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,0.06));
+  --shop-shadow-hover: var(--shadow-lg, 0 4px 12px rgba(0,0,0,0.08));
+  --shop-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* warm neutrals */
-  --shop-bg: #faf9f7;
-  --shop-surface: #ffffff;
-  --shop-input-bg: #f5f3ef;
-  --shop-border: #eee9e2;
-  --shop-border-subtle: #f4f0eb;
-  --shop-text: #1a1614;
-  --shop-text-secondary: #6b6259;
-  --shop-text-muted: #a69d93;
+  --shop-bg: var(--bg);
+  --shop-surface: var(--bg-card);
+  --shop-input-bg: var(--bg-elevated);
+  --shop-border: var(--border);
+  --shop-border-subtle: var(--border-subtle);
+  --shop-text: var(--text);
+  --shop-text-secondary: var(--text-secondary);
+  --shop-text-muted: var(--text-tertiary);
 
-  /* accent palette */
-  --shop-accent: #3d5af1;
-  --shop-accent-soft: rgba(61, 90, 241, 0.08);
-  --shop-accent-glow: rgba(61, 90, 241, 0.15);
+  --shop-accent: var(--accent);
+  --shop-accent-soft: var(--accent-soft);
+  --shop-accent-glow: rgba(99, 102, 241, 0.15);
 
-  /* semantic */
-  --shop-success: #2cb67d;
-  --shop-success-soft: rgba(44, 182, 125, 0.1);
-  --shop-amber: #e4a84f;
-  --shop-amber-soft: rgba(228, 168, 79, 0.1);
-  --shop-rose: #e05288;
-  --shop-rose-soft: rgba(224, 82, 136, 0.1);
+  --shop-success: var(--success);
+  --shop-success-soft: rgba(34, 197, 94, 0.1);
+  --shop-amber: var(--warning);
+  --shop-amber-soft: rgba(245, 158, 11, 0.1);
+  --shop-rose: var(--danger);
+  --shop-rose-soft: rgba(239, 68, 68, 0.1);
   --shop-emerald: #34d399;
   --shop-emerald-soft: rgba(52, 211, 153, 0.1);
 
@@ -47,35 +42,6 @@
   flex-direction: column;
   gap: 20px;
   padding-bottom: 40px;
-}
-
-/* ── Dark mode adaptation ────────────────────── */
-@media (prefers-color-scheme: dark) {
-  .settings-shop {
-    --shop-bg: #1a1816;
-    --shop-surface: #222019;
-    --shop-input-bg: #2a2722;
-    --shop-border: #3a352e;
-    --shop-border-subtle: #302c26;
-    --shop-text: #f0ece6;
-    --shop-text-secondary: #b5aa9c;
-    --shop-text-muted: #7d7268;
-    --shop-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.15);
-    --shop-shadow-hover: 0 2px 8px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.2);
-  }
-}
-
-[data-theme="dark"] .settings-shop {
-  --shop-bg: #1a1816;
-  --shop-surface: #222019;
-  --shop-input-bg: #2a2722;
-  --shop-border: #3a352e;
-  --shop-border-subtle: #302c26;
-  --shop-text: #f0ece6;
-  --shop-text-secondary: #b5aa9c;
-  --shop-text-muted: #7d7268;
-  --shop-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.15);
-  --shop-shadow-hover: 0 2px 8px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.2);
 }
 
 /* ── Section card ────────────────────────────── */
@@ -784,11 +750,11 @@
   }
 }
 
-.shop-section {
+.settings-shop .shop-section {
   animation: fadeSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-.shop-section:nth-child(1) { animation-delay: 0ms; }
-.shop-section:nth-child(2) { animation-delay: 60ms; }
-.shop-section:nth-child(3) { animation-delay: 120ms; }
-.shop-section:nth-child(4) { animation-delay: 180ms; }
+.settings-shop .shop-section:nth-child(1) { animation-delay: 0ms; }
+.settings-shop .shop-section:nth-child(2) { animation-delay: 60ms; }
+.settings-shop .shop-section:nth-child(3) { animation-delay: 120ms; }
+.settings-shop .shop-section:nth-child(4) { animation-delay: 180ms; }

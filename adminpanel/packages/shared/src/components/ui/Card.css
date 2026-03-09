@@ -1,8 +1,14 @@
 .ui-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   margin-bottom: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .ui-card {
+  border-color: transparent;
+  box-shadow: var(--shadow);
 }
 
 .ui-card--pad-none   { padding: 0; }

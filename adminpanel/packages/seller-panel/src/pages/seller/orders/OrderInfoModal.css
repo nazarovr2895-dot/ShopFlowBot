@@ -12,7 +12,7 @@
 
 .oim__section {
   padding: 18px 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .oim__section:first-child {
@@ -98,7 +98,7 @@
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -110,20 +110,18 @@
   font-weight: 600;
   font-size: 0.75rem;
   padding: 3px 10px;
-  border-radius: 8px;
+  border-radius: 999px;
   letter-spacing: 0.02em;
 }
 
 .oim__pill--delivery {
   background: rgba(59, 130, 246, 0.12);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
 }
 
 .oim__pill--pickup {
   background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: #16a34a;
 }
 
 /* ── Address copy ────────────────────────── */
@@ -204,14 +202,14 @@
   align-items: center;
   gap: 14px;
   padding: 12px 14px;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(148, 163, 184, 0.06);
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   transition: background 0.15s ease;
 }
 
 .oim__product-card:hover {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--bg-hover);
 }
 
 .oim__product-thumb {
@@ -326,7 +324,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   font-size: 0.8125rem;
   font-weight: 600;
   color: #fff;

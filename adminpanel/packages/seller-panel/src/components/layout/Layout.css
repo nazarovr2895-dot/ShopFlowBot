@@ -6,8 +6,14 @@
 .layout-v2-main {
   flex: 1;
   overflow-y: auto;
-  padding: var(--page-padding);
-  max-width: calc(var(--page-max-width) + var(--page-padding) * 2);
+  padding: var(--space-10);
+  max-width: calc(var(--page-max-width) + var(--space-10) * 2);
+}
+
+@media (max-width: 1024px) {
+  .layout-v2-main {
+    padding: var(--space-6);
+  }
 }
 
 @media (max-width: 768px) {
@@ -16,6 +22,6 @@
   }
 
   .layout-v2-main {
-    padding: var(--space-2);
+    padding: var(--space-3);
   }
 }

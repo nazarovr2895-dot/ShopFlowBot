@@ -256,7 +256,7 @@ export function SellerBouquets() {
         </form>
       )}
 
-      <div className="card shop-section">
+      <div className="card bouquets-section">
         <h3>Мои букеты</h3>
         {bouquets.length === 0 ? (
           <EmptyState title="Нет букетов" message="Создайте букет из цветов в наличии." />
