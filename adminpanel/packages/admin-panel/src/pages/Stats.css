@@ -208,18 +208,13 @@
 
 .seller-chart-grid {
   stroke: var(--border);
-  stroke-dasharray: 4 4;
-  opacity: 0.7;
-}
-
-.seller-chart-axis {
-  stroke: var(--border-strong, var(--border));
+  opacity: 0.35;
 }
 
 .seller-chart-axis-label {
-  fill: var(--text);
-  font-size: 0.8125rem;
-  font-weight: 500;
+  fill: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
 }
 
 .seller-chart-axis-label--y {
@@ -379,7 +374,7 @@
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
@@ -389,14 +384,14 @@
 
 /* ── Chart tooltip ─────────────────────────────────── */
 .chart-tooltip {
-  background: var(--bg-surface, #1a1a2e);
+  background: var(--bg-elevated, #1e293b);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 10px;
+  padding: 8px 12px;
   font-size: 0.75rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   pointer-events: none;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .chart-tooltip-date {

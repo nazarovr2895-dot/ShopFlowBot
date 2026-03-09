@@ -1,4 +1,5 @@
-import { useId, useState } from 'react';
+import { useState } from 'react';
+import { buildSmoothPath, computeNiceTicks, type ChartPoint } from '../utils/chartUtils';
 
 export interface SalesChartPoint {
   date: string;
@@ -45,47 +46,6 @@ function pluralize(n: number, one: string, few: string, many: string): string {
   return many;
 }
 
-/* ── Nice-ticks algorithm ──────────────────────────────── */
-
-function computeNiceTicks(maxVal: number, targetCount = 5): number[] {
-  if (maxVal <= 0) return [0];
-  const roughStep = maxVal / (targetCount - 1);
-  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
-  const normalized = roughStep / mag;
-
-  let niceStep: number;
-  if (normalized <= 1.5) niceStep = 1 * mag;
-  else if (normalized <= 3) niceStep = 2 * mag;
-  else if (normalized <= 7) niceStep = 5 * mag;
-  else niceStep = 10 * mag;
-
-  const niceMax = Math.ceil(maxVal / niceStep) * niceStep;
-  const ticks: number[] = [];
-  for (let v = 0; v <= niceMax + niceStep * 0.001; v += niceStep) {
-    ticks.push(Math.round(v * 100) / 100);
-  }
-  return ticks;
-}
-
-/* ── Path builder ──────────────────────────────────────── */
-
-function buildPaths(
-  data: SalesChartPoint[],
-  getValue: (p: SalesChartPoint) => number,
-  scaleX: (i: number) => number,
-  scaleY: (v: number) => number,
-  chartBottom: number,
-): { linePath: string; areaPath: string } {
-  let linePath = '';
-  data.forEach((point, index) => {
-    const x = scaleX(index);
-    const y = scaleY(getValue(point));
-    linePath += index === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
-  });
-  const areaPath = `${linePath} L ${scaleX(data.length - 1)} ${chartBottom} L ${scaleX(0)} ${chartBottom} Z`;
-  return { linePath, areaPath };
-}
-
 /* ── Line config ───────────────────────────────────────── */
 
 interface LineConfig {
@@ -112,7 +72,6 @@ const PROFIT_LINE: LineConfig = {
 /* ── Component ─────────────────────────────────────────── */
 
 export function SalesChart({ data, showLegend }: SalesChartProps) {
-  const instanceId = useId();
   const [hovered, setHovered] = useState<number | null>(null);
   const [visibleLines, setVisibleLines] = useState<Record<string, boolean>>({
     revenue: true,
@@ -133,7 +92,6 @@ export function SalesChart({ data, showLegend }: SalesChartProps) {
   const toggleLine = (key: string) => {
     setVisibleLines((prev) => {
       const next = { ...prev, [key]: !prev[key] };
-      // Don't allow hiding all lines
       const anyVisible = lines.some((l) => next[l.key]);
       if (!anyVisible) return prev;
       return next;
@@ -190,25 +148,34 @@ export function SalesChart({ data, showLegend }: SalesChartProps) {
     xTicks.push({ x: scaleX(data.length - 1), label: lastLabel });
   }
 
-  /* ── Build paths for visible lines ── */
+  /* ── Build smooth paths for visible lines ── */
   const renderedLines = lines
     .filter((l) => visibleLines[l.key])
-    .map((l) => ({
-      ...l,
-      ...buildPaths(data, l.getValue, scaleX, scaleY, chartBottom),
-      gradientId: `${l.key}-grad${instanceId}`,
-    }));
+    .map((l) => {
+      const points: ChartPoint[] = data.map((_, i) => ({
+        x: scaleX(i),
+        y: scaleY(l.getValue(data[i])),
+      }));
+      return { ...l, linePath: buildSmoothPath(points) };
+    });
 
   /* ── Tooltip positioning ── */
   const hoveredPoint = hovered !== null ? data[hovered] : null;
   const hoveredX = hovered !== null ? scaleX(hovered) : 0;
-  const hoveredY = hoveredPoint ? scaleY(hoveredPoint.revenue) : 0;
   const tooltipW = 150;
   const tooltipH = 52 + (hasProfitData && visibleLines.profit ? 20 : 0);
+
   let tooltipX = hoveredX - tooltipW / 2;
   if (tooltipX < paddingLeft) tooltipX = paddingLeft;
   if (tooltipX + tooltipW > width - paddingRight) tooltipX = width - paddingRight - tooltipW;
-  const tooltipY = hoveredY - tooltipH - 12 > paddingTop ? hoveredY - tooltipH - 12 : hoveredY + 16;
+
+  const hoveredYs = hovered !== null
+    ? renderedLines.map((rl) => scaleY(rl.getValue(data[hovered])))
+    : [];
+  const minHoveredY = hoveredYs.length ? Math.min(...hoveredYs) : 0;
+  const tooltipY = minHoveredY - tooltipH - 14 > paddingTop
+    ? minHoveredY - tooltipH - 14
+    : (hoveredYs.length ? Math.max(...hoveredYs) : 0) + 16;
 
   return (
     <div className="seller-chart-wrap">
@@ -234,17 +201,6 @@ export function SalesChart({ data, showLegend }: SalesChartProps) {
 
       {/* ── SVG Chart ── */}
       <svg className="seller-chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id={`revenue-grad${instanceId}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(123, 142, 255, 0.5)" />
-            <stop offset="100%" stopColor="rgba(123, 142, 255, 0.05)" />
-          </linearGradient>
-          <linearGradient id={`profit-grad${instanceId}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(34, 197, 94, 0.4)" />
-            <stop offset="100%" stopColor="rgba(34, 197, 94, 0.05)" />
-          </linearGradient>
-        </defs>
-
         {/* ── Y-axis grid + labels ── */}
         <g>
           {yTicks.map((value) => {
@@ -271,12 +227,7 @@ export function SalesChart({ data, showLegend }: SalesChartProps) {
           })}
         </g>
 
-        {/* ── Area fills (revenue first, profit on top) ── */}
-        {renderedLines.map((rl) => (
-          <path key={`area-${rl.key}`} d={rl.areaPath} fill={`url(#${rl.gradientId})`} />
-        ))}
-
-        {/* ── Line strokes ── */}
+        {/* ── Line strokes (smooth curves) ── */}
         {renderedLines.map((rl) => (
           <path
             key={`line-${rl.key}`}
@@ -289,25 +240,24 @@ export function SalesChart({ data, showLegend }: SalesChartProps) {
           />
         ))}
 
-        {/* ── Data point circles ── */}
-        {renderedLines.map((rl) =>
-          data.map((point, index) => {
-            const x = scaleX(index);
-            const y = scaleY(rl.getValue(point));
-            const isHovered = hovered === index;
+        {/* ── Hover-only data point dots ── */}
+        {hovered !== null &&
+          renderedLines.map((rl) => {
+            const x = scaleX(hovered);
+            const y = scaleY(rl.getValue(data[hovered]));
             return (
               <circle
-                key={`dot-${rl.key}-${index}`}
+                key={`dot-${rl.key}`}
                 cx={x}
                 cy={y}
-                r={isHovered ? 5 : 3.5}
-                fill={isHovered ? rl.color : 'var(--bg)'}
-                stroke={rl.color}
-                strokeWidth={2}
+                r={5}
+                fill={rl.color}
+                stroke="var(--bg-elevated, var(--bg))"
+                strokeWidth={2.5}
+                pointerEvents="none"
               />
             );
-          }),
-        )}
+          })}
 
         {/* ── Hit areas for hover ── */}
         {data.map((_point, index) => {
@@ -341,14 +291,7 @@ export function SalesChart({ data, showLegend }: SalesChartProps) {
           />
         )}
 
-        {/* ── X-axis ── */}
-        <line
-          x1={paddingLeft}
-          y1={chartBottom}
-          x2={paddingLeft + chartWidth}
-          y2={chartBottom}
-          className="seller-chart-axis"
-        />
+        {/* ── X-axis labels ── */}
         {xTicks.map((tick, idx) => (
           <text
             key={`x-${idx}-${tick.label}`}
