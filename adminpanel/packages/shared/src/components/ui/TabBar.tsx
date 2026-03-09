@@ -4,6 +4,7 @@ interface Tab {
   key: string;
   label: string;
   count?: number;
+  countVariant?: 'default' | 'danger';
 }
 
 interface TabBarProps {
@@ -26,7 +27,9 @@ export function TabBar({ tabs, activeTab, onChange, size = 'default' }: TabBarPr
         >
           {tab.label}
           {tab.count !== undefined && tab.count > 0 && (
-            <span className="tab-bar-count">{tab.count}</span>
+            <span className={`tab-bar-count${tab.countVariant === 'danger' ? ' tab-bar-count--danger' : ''}`}>
+              {tab.count}
+            </span>
           )}
         </button>
       ))}

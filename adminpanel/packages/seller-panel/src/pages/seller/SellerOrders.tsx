@@ -320,7 +320,7 @@ export function SellerOrders() {
       {/* Main tabs */}
       <TabBar
         tabs={[
-          { key: 'pending', label: newPendingCount > 0 ? `Запросы (+${newPendingCount})` : 'Запросы' },
+          { key: 'pending', label: 'Запросы', count: newPendingCount || undefined, countVariant: 'danger' as const },
           { key: 'awaiting_payment', label: '💳 Ожидает оплаты' },
           { key: 'active', label: 'Активные' },
           { key: 'history', label: 'История' },
