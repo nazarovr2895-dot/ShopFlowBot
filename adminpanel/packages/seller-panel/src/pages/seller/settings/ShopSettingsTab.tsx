@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import { updateMe, searchMetro } from '../../../api/sellerClient';
-import { FormField, useToast } from '@shared/components/ui';
+import { useToast } from '@shared/components/ui';
 import { useEditMode } from '@shared/hooks/useEditMode';
 import { LocationPicker } from '../../../components/LocationPicker';
 import { MetroSearchField } from '@shared/components/MetroSearchField';
 import { Toggle } from '@shared/components/ui';
-import { Store, Link as LinkIcon, Pencil, MapPin, Truck, Copy, ExternalLink, MessageSquare, Phone, AtSign, Eye, EyeOff } from 'lucide-react';
+import {
+  Store, Link as LinkIcon, Pencil, MapPin, Truck, Copy,
+  ExternalLink, MessageSquare, Phone, AtSign, Eye, EyeOff,
+  Check, X,
+} from 'lucide-react';
 import type { SettingsTabProps } from './types';
 import './ShopSettingsTab.css';
 
@@ -36,7 +40,6 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
 
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [savingGeo, setSavingGeo] = useState(false);
-  // Metro state
   const [metroId, setMetroId] = useState<number | null>(me.metro_id ?? null);
   const [metroWalkMinutes, setMetroWalkMinutes] = useState<number | null>(me.metro_walk_minutes ?? null);
 
@@ -56,13 +59,10 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
         contact_phone: shopEdit.draft.contactPhone.trim(),
         contact_username: shopEdit.draft.contactUsername.trim(),
       };
-      // Metro fields (0 = clear)
       if (me.has_metro) {
         payload.metro_id = metroId ?? 0;
         payload.metro_walk_minutes = metroWalkMinutes ?? 0;
       }
-      // If seller already has geo coordinates and address changed, keep existing coords
-      // (they'll be auto-geocoded by backend, but seller can re-pick on map)
       await updateMe(payload);
       await reload();
       shopEdit.setIsEditing(false);
@@ -89,138 +89,149 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
   };
 
   const hasGeo = me.geo_lat != null && me.geo_lon != null;
-
   const isVisible = me.is_visible ?? true;
 
   return (
     <div className="settings-shop">
-      {/* ── Section 0: Shop visibility toggle ─────── */}
-      <div className="shop-card">
-        <div className="shop-card__header">
-          <div className="shop-card__header-left">
-            <div className={`shop-card__icon-badge ${isVisible ? 'shop-card__icon-badge--green' : ''}`}>
-              {isVisible ? <Eye size={18} /> : <EyeOff size={18} />}
+
+      {/* ═══ Visibility ═══════════════════════════ */}
+      <section className="shop-section">
+        <div className="shop-section__header">
+          <div className="shop-section__header-left">
+            <div className={`shop-section__icon ${isVisible ? 'shop-section__icon--emerald' : ''}`}>
+              {isVisible ? <Eye size={20} /> : <EyeOff size={20} />}
             </div>
-            <div>
-              <h3 className="shop-card__title">Видимость магазина</h3>
-              <p className="shop-card__subtitle">Управляйте отображением в каталоге</p>
+            <div className="shop-section__titles">
+              <h3 className="shop-section__title">Видимость магазина</h3>
+              <p className="shop-section__subtitle">Управляйте отображением в каталоге</p>
             </div>
           </div>
+          <span className={`shop-status-pill ${isVisible ? 'shop-status-pill--active' : 'shop-status-pill--hidden'}`}>
+            <span className="shop-status-pill__dot" />
+            {isVisible ? 'Активен' : 'Скрыт'}
+          </span>
         </div>
-        <div style={{ padding: '0 20px 20px' }}>
-          <Toggle
-            checked={isVisible}
-            onChange={async (checked) => {
-              try {
-                await updateMe({ is_visible: checked });
-                await reload();
-                toast.success(checked ? 'Магазин виден в каталоге' : 'Магазин скрыт из каталога');
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Ошибка');
-              }
-            }}
-            label="Показывать магазин в каталоге"
-          />
+        <div className="shop-section__body">
+          <div className="shop-toggle-row">
+            <span className="shop-toggle-row__label">Показывать магазин в каталоге</span>
+            <Toggle
+              checked={isVisible}
+              onChange={async (checked) => {
+                try {
+                  await updateMe({ is_visible: checked });
+                  await reload();
+                  toast.success(checked ? 'Магазин виден в каталоге' : 'Магазин скрыт из каталога');
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : 'Ошибка');
+                }
+              }}
+            />
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* ── Section 1: Shop info ──────────────────── */}
-      <div className="shop-card">
-        <div className="shop-card__header">
-          <div className="shop-card__header-left">
-            <div className="shop-card__icon-badge">
-              <Store size={18} />
+      {/* ═══ Main Settings ════════════════════════ */}
+      <section className="shop-section">
+        <div className="shop-section__header">
+          <div className="shop-section__header-left">
+            <div className="shop-section__icon shop-section__icon--accent">
+              <Store size={20} />
             </div>
-            <div>
-              <h3 className="shop-card__title">Основные настройки</h3>
-              <p className="shop-card__subtitle">Информация о вашем магазине</p>
+            <div className="shop-section__titles">
+              <h3 className="shop-section__title">Основные настройки</h3>
+              <p className="shop-section__subtitle">Информация о вашем магазине</p>
             </div>
           </div>
           {!shopEdit.isEditing && (
-            <button className="shop-card__edit-btn" onClick={shopEdit.startEditing}>
+            <button className="shop-edit-btn" onClick={shopEdit.startEditing}>
               <Pencil size={14} />
-              <span>Изменить</span>
+              Изменить
             </button>
           )}
         </div>
 
         {shopEdit.isEditing ? (
+          /* ── Edit Mode ──────────────────────── */
           <div className="shop-form">
-            {/* Row 1: Name */}
-            <FormField label="Название магазина">
+            {/* Name (wide) */}
+            <div className="shop-form__group">
+              <label className="shop-form__label">Название магазина</label>
               <input
                 type="text"
+                className="shop-form__input"
                 value={shopEdit.draft.shopName}
                 onChange={(e) => shopEdit.updateField('shopName', e.target.value)}
                 placeholder="Например: Цветочный рай"
-                className="form-input"
               />
-            </FormField>
+            </div>
 
-            {/* Row 2: Description */}
-            <FormField label="Описание">
+            {/* Description (wide) */}
+            <div className="shop-form__group">
+              <label className="shop-form__label">Описание</label>
               <textarea
+                className="shop-form__input shop-form__input--textarea"
                 value={shopEdit.draft.description}
                 onChange={(e) => shopEdit.updateField('description', e.target.value)}
                 placeholder="Краткое описание вашего магазина"
-                className="form-input"
                 rows={3}
               />
-            </FormField>
+            </div>
 
-            {/* Row 3: Delivery — 2 columns */}
-            <div className="shop-form__row-2col">
-              <FormField label="Тип доставки">
+            {/* Delivery + Price */}
+            <div className="shop-form__grid">
+              <div className="shop-form__group">
+                <label className="shop-form__label">Тип доставки</label>
                 <select
+                  className="shop-form__input shop-form__select"
                   value={shopEdit.draft.deliveryType}
                   onChange={(e) => shopEdit.updateField('deliveryType', e.target.value)}
-                  className="form-input"
                 >
                   {DELIVERY_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
-              </FormField>
-              <FormField label="Цена доставки">
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  Настраивается в зонах доставки
-                </span>
-              </FormField>
+              </div>
+              <div className="shop-form__group">
+                <label className="shop-form__label">Цена доставки</label>
+                <span className="shop-form__hint">Настраивается в зонах доставки</span>
+              </div>
             </div>
 
-            {/* Row 4: Address + Map button */}
-            <div className="shop-form__row-2col">
-              <FormField label="Адрес магазина">
+            {/* Address + Map */}
+            <div className="shop-form__grid">
+              <div className="shop-form__group">
+                <label className="shop-form__label">Адрес магазина</label>
                 <input
                   type="text"
+                  className="shop-form__input"
                   value={shopEdit.draft.addressName}
                   onChange={(e) => shopEdit.updateField('addressName', e.target.value)}
                   placeholder="Например: ул. Тверская, д. 1"
-                  className="form-input"
                 />
-              </FormField>
-              <FormField label="Точка на карте">
+              </div>
+              <div className="shop-form__group">
+                <label className="shop-form__label">Точка на карте</label>
                 <button
                   type="button"
-                  className="shop-form__map-btn"
+                  className="shop-form__map-trigger"
                   onClick={() => setShowMapPicker(true)}
                   disabled={savingGeo}
                 >
-                  <MapPin size={15} />
+                  <MapPin size={16} />
                   {hasGeo
                     ? (savingGeo ? 'Сохранение...' : 'Изменить точку на карте')
                     : (savingGeo ? 'Сохранение...' : 'Указать на карте')
                   }
                 </button>
                 {hasGeo && (
-                  <span className="shop-form__geo-hint">
+                  <span className="shop-form__geo-coords">
                     {me.geo_lat!.toFixed(5)}, {me.geo_lon!.toFixed(5)}
                   </span>
                 )}
-              </FormField>
+              </div>
             </div>
 
-            {/* Row 5: Metro (only if city has metro) */}
+            {/* Metro */}
             {me.has_metro && (
               <MetroSearchField
                 metroId={metroId}
@@ -234,258 +245,268 @@ export function ShopSettingsTab({ me, reload }: SettingsTabProps) {
               />
             )}
 
-            {/* Row 6: Contact phone + Telegram username */}
-            <div className="shop-form__row-2col">
-              <FormField label="Рабочий телефон">
+            {/* Contact phone + Telegram */}
+            <div className="shop-form__grid">
+              <div className="shop-form__group">
+                <label className="shop-form__label">Рабочий телефон</label>
                 <input
                   type="tel"
+                  className="shop-form__input"
                   value={shopEdit.draft.contactPhone}
                   onChange={(e) => shopEdit.updateField('contactPhone', e.target.value)}
                   placeholder="+7 (999) 123-45-67"
-                  className="form-input"
                 />
-              </FormField>
-              <FormField label="Telegram для связи">
+              </div>
+              <div className="shop-form__group">
+                <label className="shop-form__label">Telegram для связи</label>
                 <input
                   type="text"
+                  className="shop-form__input"
                   value={shopEdit.draft.contactUsername}
                   onChange={(e) => shopEdit.updateField('contactUsername', e.target.value)}
                   placeholder="@username"
-                  className="form-input"
                 />
-              </FormField>
+              </div>
             </div>
 
             {/* Actions */}
-            <div className="shop-form__actions">
+            <div className="shop-form__footer">
               <button
-                className="btn btn-primary"
+                className="shop-btn shop-btn--primary"
                 onClick={handleSaveShopSettings}
                 disabled={shopEdit.saving}
               >
+                <Check size={16} />
                 {shopEdit.saving ? 'Сохранение...' : 'Сохранить'}
               </button>
-              <button className="btn btn-ghost" onClick={shopEdit.cancelEditing}>
+              <button className="shop-btn shop-btn--ghost" onClick={shopEdit.cancelEditing}>
+                <X size={16} />
                 Отмена
               </button>
             </div>
           </div>
         ) : (
-          <div className="shop-view">
-            <div className="shop-view__grid">
-              {/* Name + Description — full width */}
-              <div className="shop-view__item shop-view__item--wide">
-                <span className="shop-view__label">Название</span>
-                <span className="shop-view__value shop-view__value--primary">{me.shop_name || '—'}</span>
-              </div>
-              <div className="shop-view__item shop-view__item--wide">
-                <span className="shop-view__label">Описание</span>
-                <span className="shop-view__value">{me.description || '—'}</span>
-              </div>
+          /* ── View Mode ──────────────────────── */
+          <div className="shop-data">
+            {/* Name */}
+            <div className="shop-data__cell shop-data__cell--wide">
+              <span className="shop-data__label">Название</span>
+              <span className={`shop-data__value ${me.shop_name ? 'shop-data__value--bold' : 'shop-data__value--empty'}`}>
+                {me.shop_name || 'Не указано'}
+              </span>
+            </div>
 
-              {/* Delivery — 2 columns */}
-              <div className="shop-view__item">
-                <div className="shop-view__label-row">
-                  <Truck size={14} className="shop-view__label-icon" />
-                  <span className="shop-view__label">Доставка</span>
-                </div>
-                <span className="shop-view__value">
-                  {DELIVERY_LABELS[me.delivery_type || ''] || me.delivery_type || '—'}
-                </span>
-              </div>
-              <div className="shop-view__item">
-                <span className="shop-view__label">Цена доставки</span>
-                <span className="shop-view__value" style={{ color: 'var(--text-muted)' }}>
-                  Настраивается в зонах доставки
-                </span>
-              </div>
+            {/* Description */}
+            <div className="shop-data__cell shop-data__cell--wide">
+              <span className="shop-data__label">Описание</span>
+              <span className={`shop-data__value ${!me.description ? 'shop-data__value--empty' : ''}`}>
+                {me.description || 'Не указано'}
+              </span>
+            </div>
 
-              {/* Address + Location — 2 columns */}
-              <div className="shop-view__item">
-                <div className="shop-view__label-row">
-                  <MapPin size={14} className="shop-view__label-icon" />
-                  <span className="shop-view__label">Адрес</span>
-                </div>
-                <span className="shop-view__value">{me.address_name || '—'}</span>
+            {/* Delivery */}
+            <div className="shop-data__cell">
+              <span className="shop-data__label">
+                <Truck size={13} className="shop-data__label-icon" />
+                Доставка
+              </span>
+              <span className={`shop-data__value ${!me.delivery_type ? 'shop-data__value--empty' : ''}`}>
+                {DELIVERY_LABELS[me.delivery_type || ''] || me.delivery_type || 'Не указано'}
+              </span>
+            </div>
+
+            {/* Delivery price */}
+            <div className="shop-data__cell">
+              <span className="shop-data__label">Цена доставки</span>
+              <span className="shop-data__value shop-data__value--empty">
+                Настраивается в зонах доставки
+              </span>
+            </div>
+
+            {/* Address */}
+            <div className="shop-data__cell">
+              <span className="shop-data__label">
+                <MapPin size={13} className="shop-data__label-icon" />
+                Адрес
+              </span>
+              <span className={`shop-data__value ${!me.address_name ? 'shop-data__value--empty' : ''}`}>
+                {me.address_name || 'Не указан'}
+              </span>
+            </div>
+
+            {/* Map point */}
+            <div className="shop-data__cell">
+              <span className="shop-data__label">Точка на карте</span>
+              <div className="shop-data__actions">
+                {hasGeo ? (
+                  <>
+                    <a
+                      href={`https://yandex.ru/maps/?pt=${me.geo_lon},${me.geo_lat}&z=16&l=map`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shop-action-link"
+                    >
+                      <ExternalLink size={13} />
+                      Открыть на карте
+                    </a>
+                    <button
+                      className="shop-action-link"
+                      onClick={() => setShowMapPicker(true)}
+                      disabled={savingGeo}
+                    >
+                      <MapPin size={13} />
+                      {savingGeo ? 'Сохранение...' : 'Изменить'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="shop-action-link shop-action-link--primary"
+                    onClick={() => setShowMapPicker(true)}
+                    disabled={savingGeo}
+                  >
+                    <MapPin size={13} />
+                    {savingGeo ? 'Сохранение...' : 'Указать на карте'}
+                  </button>
+                )}
               </div>
-              <div className="shop-view__item">
-                <span className="shop-view__label">Точка на карте</span>
-                <span className="shop-view__value">
-                  {hasGeo ? (
-                    <span className="shop-view__geo-info">
-                      <a
-                        href={`https://yandex.ru/maps/?pt=${me.geo_lon},${me.geo_lat}&z=16&l=map`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shop-view__link"
-                      >
-                        <ExternalLink size={13} />
-                        Открыть на карте
-                      </a>
-                      <button
-                        className="shop-view__map-btn"
-                        onClick={() => setShowMapPicker(true)}
-                        disabled={savingGeo}
-                      >
-                        <MapPin size={13} />
-                        {savingGeo ? 'Сохранение...' : 'Изменить'}
-                      </button>
-                    </span>
+            </div>
+
+            {/* Metro */}
+            {me.has_metro && (
+              <div className="shop-data__cell shop-data__cell--wide">
+                <span className="shop-data__label">Метро</span>
+                <span className={`shop-data__value ${!me.metro_name ? 'shop-data__value--empty' : ''}`}>
+                  {me.metro_name ? (
+                    <>
+                      {me.metro_line_color && (
+                        <span className="shop-metro-dot" style={{ background: me.metro_line_color }} />
+                      )}
+                      {me.metro_name}
+                      {me.metro_walk_minutes ? ` (${me.metro_walk_minutes} мин пешком)` : ''}
+                    </>
                   ) : (
-                    <span className="shop-view__geo-info">
-                      <span style={{ color: 'var(--text-tertiary)' }}>Не указана</span>
-                      <button
-                        className="shop-view__map-btn shop-view__map-btn--primary"
-                        onClick={() => setShowMapPicker(true)}
-                        disabled={savingGeo}
-                      >
-                        <MapPin size={13} />
-                        {savingGeo ? 'Сохранение...' : 'Указать на карте'}
-                      </button>
-                    </span>
+                    'Не указано'
                   )}
                 </span>
               </div>
+            )}
 
-              {/* Metro (only if city has metro) */}
-              {me.has_metro && (
-                <div className="shop-view__item shop-view__item--wide">
-                  <span className="shop-view__label">Метро</span>
-                  <span className="shop-view__value">
-                    {me.metro_name ? (
-                      <>
-                        {me.metro_line_color && (
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              width: 10,
-                              height: 10,
-                              borderRadius: '50%',
-                              background: me.metro_line_color,
-                              marginRight: 6,
-                              verticalAlign: 'middle',
-                            }}
-                          />
-                        )}
-                        {me.metro_name}
-                        {me.metro_walk_minutes ? ` (${me.metro_walk_minutes} мин пешком)` : ''}
-                      </>
-                    ) : (
-                      <span style={{ color: 'var(--text-tertiary)' }}>Не указано</span>
-                    )}
-                  </span>
+            {/* Phone */}
+            <div className="shop-data__cell">
+              <span className="shop-data__label">
+                <Phone size={13} className="shop-data__label-icon" />
+                Телефон
+              </span>
+              <span className={`shop-data__value ${!me.contact_phone ? 'shop-data__value--empty' : ''}`}>
+                {me.contact_phone || 'Не указан'}
+              </span>
+            </div>
+
+            {/* Telegram */}
+            <div className="shop-data__cell">
+              <span className="shop-data__label">
+                <AtSign size={13} className="shop-data__label-icon" />
+                Telegram для связи
+              </span>
+              <span className={`shop-data__value ${!me.contact_username ? 'shop-data__value--empty' : ''}`}>
+                {me.contact_username ? `@${me.contact_username}` : 'Не указан'}
+              </span>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ═══ Shop Links ═══════════════════════════ */}
+      <section className="shop-section">
+        <div className="shop-section__header">
+          <div className="shop-section__header-left">
+            <div className="shop-section__icon shop-section__icon--amber">
+              <LinkIcon size={20} />
+            </div>
+            <div className="shop-section__titles">
+              <h3 className="shop-section__title">Ссылки на магазин</h3>
+              <p className="shop-section__subtitle">Отправьте клиентам — они сразу попадут в каталог</p>
+            </div>
+          </div>
+        </div>
+        <div className="shop-section__body">
+          {me.shop_link ? (
+            <div className="shop-links">
+              <div className="shop-link-row">
+                <span className="shop-link-row__badge shop-link-row__badge--tg">TG</span>
+                <code className="shop-link-row__url">{me.shop_link}</code>
+                <button
+                  className="shop-link-row__copy"
+                  onClick={() => {
+                    navigator.clipboard.writeText(me.shop_link!);
+                    toast.success('Ссылка скопирована');
+                  }}
+                >
+                  <Copy size={13} />
+                  Копировать
+                </button>
+              </div>
+              {me.shop_link_web && (
+                <div className="shop-link-row">
+                  <span className="shop-link-row__badge shop-link-row__badge--web">WEB</span>
+                  <code className="shop-link-row__url">{me.shop_link_web}</code>
+                  <button
+                    className="shop-link-row__copy"
+                    onClick={() => {
+                      navigator.clipboard.writeText(me.shop_link_web!);
+                      toast.success('Ссылка скопирована');
+                    }}
+                  >
+                    <Copy size={13} />
+                    Копировать
+                  </button>
                 </div>
               )}
-
-              {/* Contact phone + Telegram */}
-              <div className="shop-view__item">
-                <div className="shop-view__label-row">
-                  <Phone size={14} className="shop-view__label-icon" />
-                  <span className="shop-view__label">Телефон</span>
-                </div>
-                <span className="shop-view__value">{me.contact_phone || <span style={{ color: 'var(--text-tertiary)' }}>Не указан</span>}</span>
-              </div>
-              <div className="shop-view__item">
-                <div className="shop-view__label-row">
-                  <AtSign size={14} className="shop-view__label-icon" />
-                  <span className="shop-view__label">Telegram для связи</span>
-                </div>
-                <span className="shop-view__value">{me.contact_username ? `@${me.contact_username}` : <span style={{ color: 'var(--text-tertiary)' }}>Не указан</span>}</span>
-              </div>
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <p className="shop-links__empty">
+              Ссылка генерируется автоматически. Обратитесь к администратору.
+            </p>
+          )}
+        </div>
+      </section>
 
-      {/* ── Section 2: Shop links ─────────────────── */}
-      <div className="shop-card">
-        <div className="shop-card__header">
-          <div className="shop-card__header-left">
-            <div className="shop-card__icon-badge shop-card__icon-badge--amber">
-              <LinkIcon size={18} />
+      {/* ═══ Gift Note ════════════════════════════ */}
+      <section className="shop-section">
+        <div className="shop-section__header">
+          <div className="shop-section__header-left">
+            <div className="shop-section__icon shop-section__icon--rose">
+              <MessageSquare size={20} />
             </div>
-            <div>
-              <h3 className="shop-card__title">Ссылки на магазин</h3>
-              <p className="shop-card__subtitle">Отправьте клиентам — они сразу попадут в каталог</p>
+            <div className="shop-section__titles">
+              <h3 className="shop-section__title">Записка к цветам</h3>
+              <p className="shop-section__subtitle">Покупатели смогут приложить записку к букету</p>
             </div>
           </div>
         </div>
-
-        {me.shop_link ? (
-          <div className="shop-link">
-            <span className="shop-link__label">Telegram</span>
-            <code className="shop-link__url">{me.shop_link}</code>
-            <button
-              className="shop-link__copy-btn"
-              onClick={() => {
-                navigator.clipboard.writeText(me.shop_link!);
-                toast.success('Ссылка скопирована');
+        <div className="shop-section__body">
+          <div className="shop-toggle-row">
+            <span className="shop-toggle-row__label">Разрешить записки к заказам</span>
+            <Toggle
+              checked={me.gift_note_enabled ?? false}
+              onChange={async (checked) => {
+                try {
+                  await updateMe({ gift_note_enabled: checked });
+                  await reload();
+                  toast.success(checked ? 'Записки включены' : 'Записки отключены');
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : 'Ошибка');
+                }
               }}
-            >
-              <Copy size={14} />
-              Копировать
-            </button>
-          </div>
-        ) : (
-          <p className="shop-card__muted">Ссылка генерируется автоматически. Обратитесь к администратору.</p>
-        )}
-
-        {me.shop_link_web && (
-          <div className="shop-link" style={{ marginTop: 8 }}>
-            <span className="shop-link__label">Веб</span>
-            <code className="shop-link__url">{me.shop_link_web}</code>
-            <button
-              className="shop-link__copy-btn"
-              onClick={() => {
-                navigator.clipboard.writeText(me.shop_link_web!);
-                toast.success('Ссылка скопирована');
-              }}
-            >
-              <Copy size={14} />
-              Копировать
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ── Section 4: Gift note toggle ────────────── */}
-      <div className="shop-card">
-        <div className="shop-card__header">
-          <div className="shop-card__header-left">
-            <div className="shop-card__icon-badge shop-card__icon-badge--pink">
-              <MessageSquare size={18} />
-            </div>
-            <div>
-              <h3 className="shop-card__title">Записка к цветам</h3>
-              <p className="shop-card__subtitle">Покупатели смогут приложить записку к букету</p>
-            </div>
+            />
           </div>
         </div>
-        <div style={{ padding: '0 20px 20px' }}>
-          <Toggle
-            checked={me.gift_note_enabled ?? false}
-            onChange={async (checked) => {
-              try {
-                await updateMe({ gift_note_enabled: checked });
-                await reload();
-                toast.success(checked ? 'Записки включены' : 'Записки отключены');
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Ошибка');
-              }
-            }}
-            label="Разрешить записки к заказам"
-          />
-        </div>
-      </div>
+      </section>
 
-      {/* ── Map Picker Modal ──────────────────────── */}
+      {/* ═══ Map Picker Modal ═════════════════════ */}
       {showMapPicker && (
         <LocationPicker
-          initialCenter={
-            hasGeo
-              ? [me.geo_lon!, me.geo_lat!]
-              : undefined
-          }
+          initialCenter={hasGeo ? [me.geo_lon!, me.geo_lat!] : undefined}
           onConfirm={handleMapConfirm}
           onClose={() => setShowMapPicker(false)}
         />
