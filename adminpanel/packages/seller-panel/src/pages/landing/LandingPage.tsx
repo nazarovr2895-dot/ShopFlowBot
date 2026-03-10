@@ -7,7 +7,6 @@ import {
   Users, Globe, Megaphone,
 } from 'lucide-react';
 import { ApplicationModal } from './ApplicationModal';
-import { PhoneMockup } from './components/PhoneMockup';
 import { DashboardCarousel } from './components/DashboardCarousel';
 import { DecorativeBlob } from './components/DecorativeBlob';
 import { useScrollReveal } from './hooks/useScrollReveal';
@@ -170,9 +169,6 @@ export function LandingPage() {
                 <span>приём заказов</span>
               </div>
             </div>
-          </div>
-          <div className="landing-hero__visual">
-            <PhoneMockup />
           </div>
         </div>
       </section>
