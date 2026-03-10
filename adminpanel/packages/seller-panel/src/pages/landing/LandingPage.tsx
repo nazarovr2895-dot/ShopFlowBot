@@ -289,7 +289,7 @@ export function LandingPage() {
       <section className="landing-section landing-section--alt" ref={reveal}>
         <div className="landing-container">
           <div className="landing-section__header landing-reveal">
-            <h2 className="landing-section__title">Почему flurai, а&nbsp;не&nbsp;свой сайт</h2>
+            <h2 className="landing-section__title">Почему flurai <img src="/favicon.ico" alt="" className="landing-inline-logo" /> а&nbsp;не&nbsp;свой сайт</h2>
             <p className="landing-section__subtitle">
               Собственный интернет-магазин с Mini App — это дорого, долго и требует постоянного обслуживания
             </p>
@@ -315,7 +315,7 @@ export function LandingPage() {
             </div>
             <div className="landing-comparison__col landing-comparison__col--flurai">
               <div className="landing-comparison__header landing-comparison__header--flurai">
-                flurai
+                flurai <img src="/favicon.ico" alt="" className="landing-inline-logo" />
               </div>
               <ul className="landing-comparison__list">
                 <li><span className="landing-comparison__label">Telegram + сайт</span><span className="landing-comparison__value">готов за 5 минут</span></li>
@@ -475,7 +475,7 @@ export function LandingPage() {
       <section className="landing-section landing-section--alt" ref={reveal}>
         <div className="landing-container">
           <div className="landing-section__header landing-reveal">
-            <h2 className="landing-section__title">Почему flurai</h2>
+            <h2 className="landing-section__title">Почему flurai <img src="/favicon.ico" alt="" className="landing-inline-logo" /></h2>
           </div>
           <div className="landing-advantages">
             {advantages.map((text, i) => (

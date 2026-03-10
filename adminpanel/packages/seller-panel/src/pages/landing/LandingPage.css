@@ -388,6 +388,14 @@
   background: var(--landing-border);
 }
 
+/* ── Inline logo ──────────────────────────────────── */
+.landing-inline-logo {
+  height: 1em;
+  width: auto;
+  vertical-align: -0.1em;
+  display: inline;
+}
+
 /* ── Sections ──────────────────────────────────────── */
 .landing-section {
   padding: 80px 0;
