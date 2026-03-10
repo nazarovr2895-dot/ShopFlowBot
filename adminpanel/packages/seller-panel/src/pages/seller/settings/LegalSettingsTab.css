@@ -12,7 +12,9 @@
   max-width: 800px;
 }
 
-.legal-tab__doc-title {
+/* Shared legal content uses .legal-doc__* classes */
+.legal-tab__doc-title,
+.legal-tab .legal-doc__title {
   font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text);
@@ -23,65 +25,67 @@
 
 /* ── Section ─────────────────────────────── */
 
-.legal-tab__section {
+.legal-tab__section,
+.legal-tab .legal-doc__section {
   margin-bottom: var(--space-8);
 }
 
-.legal-tab__section:last-child {
+.legal-tab__section:last-child,
+.legal-tab .legal-doc__section:last-child {
   margin-bottom: 0;
 }
 
-.legal-tab__section h3 {
+.legal-tab__section h3,
+.legal-tab .legal-doc__section h3 {
   font-size: var(--text-base);
   font-weight: 700;
   color: var(--text);
   margin-bottom: var(--space-3);
 }
 
-.legal-tab__section p {
+.legal-tab__section p,
+.legal-tab .legal-doc__section p {
   font-size: var(--text-sm);
   line-height: 1.65;
   color: var(--text-secondary);
   margin-bottom: var(--space-3);
 }
 
-.legal-tab__section p:last-child {
+.legal-tab__section p:last-child,
+.legal-tab .legal-doc__section p:last-child {
   margin-bottom: 0;
 }
 
-.legal-tab__section strong {
+.legal-tab__section strong,
+.legal-tab .legal-doc__section strong {
   color: var(--text);
   font-weight: 600;
 }
 
 /* ── Lists ───────────────────────────────── */
 
-.legal-tab__section ul {
+.legal-tab__section ul,
+.legal-tab .legal-doc__section ul {
   padding-left: var(--space-5);
   margin-bottom: var(--space-3);
 }
 
-.legal-tab__section li {
+.legal-tab__section li,
+.legal-tab .legal-doc__section li {
   font-size: var(--text-sm);
   line-height: 1.65;
   color: var(--text-secondary);
   margin-bottom: var(--space-1);
 }
 
-.legal-tab__section li:last-child {
+.legal-tab__section li:last-child,
+.legal-tab .legal-doc__section li:last-child {
   margin-bottom: 0;
 }
 
-.legal-tab__section li strong {
+.legal-tab__section li strong,
+.legal-tab .legal-doc__section li strong {
   color: var(--text);
-}
-
-/* ── Date ────────────────────────────────── */
-
-.legal-tab__date {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  margin-top: var(--space-4);
 }
 
 /* ── Mobile ──────────────────────────────── */

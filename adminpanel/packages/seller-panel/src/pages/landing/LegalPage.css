@@ -1,0 +1,79 @@
+/* ═══════════════════════════════════════════════════════════
+   Legal Page — публичные юридические документы
+   ═══════════════════════════════════════════════════════════ */
+
+.legal-page {
+  padding: 48px 0 80px;
+  min-height: 60vh;
+}
+
+.legal-page__document {
+  max-width: 720px;
+  margin: 0 auto;
+  background: var(--landing-bg, #fff);
+  border: 1px solid var(--landing-border, #e5e7eb);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+
+.legal-doc__title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 32px;
+  color: var(--landing-text, #111827);
+  letter-spacing: -0.02em;
+}
+
+.legal-doc__section {
+  margin-bottom: 28px;
+}
+
+.legal-doc__section h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--landing-text, #111827);
+}
+
+.legal-doc__section p {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--landing-text-muted, #6b7280);
+  margin-bottom: 8px;
+}
+
+.legal-doc__section strong {
+  color: var(--landing-text, #111827);
+}
+
+.legal-doc__section ul {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+}
+
+.legal-doc__section li {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--landing-text-muted, #6b7280);
+  margin-bottom: 4px;
+}
+
+.legal-doc__section li strong {
+  color: var(--landing-text, #111827);
+}
+
+@media (max-width: 768px) {
+  .legal-page {
+    padding: 24px 0 48px;
+  }
+
+  .legal-page__document {
+    padding: 24px 20px;
+    border-radius: 16px;
+  }
+
+  .legal-doc__title {
+    font-size: 1.3rem;
+  }
+}

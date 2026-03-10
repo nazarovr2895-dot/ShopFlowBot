@@ -1,0 +1,362 @@
+/* ═══════════════════════════════════════════════════════════
+   Pricing Page — тарифы flurai
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Hero ──────────────────────────────────────────── */
+.pricing-hero {
+  padding: 60px 0 40px;
+  text-align: center;
+  background: linear-gradient(180deg, var(--landing-bg-alt, #f8f9fc), var(--landing-bg, #fff));
+}
+
+.pricing-hero__title {
+  font-size: 2.8rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #111827 40%, var(--landing-accent, #6366f1));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pricing-hero__subtitle {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: var(--landing-text-muted, #6b7280);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ── Main pricing card ─────────────────────────────── */
+.pricing-main-card {
+  max-width: 680px;
+  margin: 0 auto;
+  border: 2px solid var(--landing-accent, #6366f1);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(99, 102, 241, 0.1);
+}
+
+.pricing-main-card__header {
+  background: linear-gradient(135deg, var(--landing-accent, #6366f1), #8b5cf6);
+  padding: 32px;
+  text-align: center;
+  color: #fff;
+}
+
+.pricing-main-card__price {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.pricing-main-card__price span {
+  font-size: 1.2rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.pricing-main-card__badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 16px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.pricing-main-card__body {
+  padding: 32px;
+  background: var(--landing-bg, #fff);
+}
+
+/* ── Explanation ───────────────────────────────────── */
+.pricing-explanation {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.pricing-explanation__block {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.pricing-explanation__icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.pricing-explanation__icon--green {
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 1.1rem;
+}
+
+.pricing-explanation__icon--accent {
+  background: var(--landing-accent-light, rgba(99, 102, 241, 0.08));
+  color: var(--landing-accent, #6366f1);
+}
+
+.pricing-explanation__block strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.pricing-explanation__block p {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--landing-text-muted, #6b7280);
+}
+
+.pricing-explanation__divider {
+  height: 1px;
+  background: var(--landing-border, #e5e7eb);
+}
+
+/* ── Callout ───────────────────────────────────────── */
+.pricing-callout {
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 14px;
+  padding: 16px 20px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--landing-text, #111827);
+}
+
+.pricing-callout strong {
+  color: var(--landing-accent, #6366f1);
+}
+
+/* ── Example cards ─────────────────────────────────── */
+.pricing-examples {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.pricing-example-card {
+  text-align: center;
+  padding: 28px 20px;
+  background: var(--landing-bg, #fff);
+  border: 1px solid var(--landing-border, #e5e7eb);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.pricing-example-card:hover {
+  border-color: var(--landing-accent, #6366f1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
+}
+
+.pricing-example-card__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--landing-accent, #6366f1);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+
+.pricing-example-card__sales {
+  font-size: 0.88rem;
+  color: var(--landing-text-muted, #6b7280);
+  margin-bottom: 12px;
+}
+
+.pricing-example-card__cost {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--landing-text, #111827);
+  margin-bottom: 8px;
+}
+
+.pricing-example-card__cost span {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--landing-text-muted, #6b7280);
+}
+
+.pricing-example-card__note {
+  font-size: 0.78rem;
+  color: var(--landing-text-muted, #6b7280);
+}
+
+/* ── Included grid ─────────────────────────────────── */
+.pricing-included-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.pricing-included-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--landing-bg, #fff);
+  border: 1px solid var(--landing-border, #e5e7eb);
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.pricing-included-item__icon {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--landing-accent-light, rgba(99, 102, 241, 0.08));
+  color: var(--landing-accent, #6366f1);
+  border-radius: 10px;
+}
+
+/* ── FAQ ───────────────────────────────────────────── */
+.pricing-faq {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pricing-faq__item {
+  border: 1px solid var(--landing-border, #e5e7eb);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.pricing-faq__item--open {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.pricing-faq__question {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  color: var(--landing-text, #111827);
+  transition: background 0.15s;
+}
+
+.pricing-faq__question:hover {
+  background: var(--landing-bg-alt, #f8f9fc);
+}
+
+.pricing-faq__icon {
+  flex-shrink: 0;
+  color: var(--landing-accent, #6366f1);
+}
+
+.pricing-faq__question span {
+  flex: 1;
+}
+
+.pricing-faq__chevron {
+  flex-shrink: 0;
+  color: var(--landing-text-muted, #6b7280);
+  transition: transform 0.25s ease;
+}
+
+.pricing-faq__item--open .pricing-faq__chevron {
+  transform: rotate(180deg);
+}
+
+.pricing-faq__answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.pricing-faq__item--open .pricing-faq__answer {
+  max-height: 300px;
+  padding: 0 20px 16px 52px;
+}
+
+.pricing-faq__answer p {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--landing-text-muted, #6b7280);
+}
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 768px) {
+  .pricing-hero__title {
+    font-size: 2rem;
+  }
+
+  .pricing-hero__subtitle {
+    font-size: 0.95rem;
+  }
+
+  .pricing-main-card__header {
+    padding: 24px 20px;
+  }
+
+  .pricing-main-card__price {
+    font-size: 2.2rem;
+  }
+
+  .pricing-main-card__body {
+    padding: 20px;
+  }
+
+  .pricing-examples {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .pricing-included-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-faq__item--open .pricing-faq__answer {
+    padding: 0 16px 16px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pricing-hero {
+    padding: 40px 0 24px;
+  }
+
+  .pricing-hero__title {
+    font-size: 1.7rem;
+  }
+
+  .pricing-example-card {
+    padding: 20px 16px;
+  }
+
+  .pricing-example-card__cost {
+    font-size: 1.5rem;
+  }
+}
