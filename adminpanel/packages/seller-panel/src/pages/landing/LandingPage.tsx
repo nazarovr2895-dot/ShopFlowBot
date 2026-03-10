@@ -301,22 +301,22 @@ export function LandingPage() {
                 flurai
               </div>
               <ul className="landing-comparison__list">
-                <li><span className="landing-comparison__label">Всё включено</span><span className="landing-comparison__value">2 000 ₽/мес</span></li>
                 <li><span className="landing-comparison__label">Telegram + сайт</span><span className="landing-comparison__value">готов за 5 минут</span></li>
                 <li><span className="landing-comparison__label">Каталог, заказы, доставка</span><span className="landing-comparison__value">из коробки</span></li>
-                <li><span className="landing-comparison__label">CRM + лояльность + аналитика</span><span className="landing-comparison__value">бесплатно</span></li>
+                <li><span className="landing-comparison__label">CRM + лояльность + аналитика</span><span className="landing-comparison__value">включено</span></li>
                 <li><span className="landing-comparison__label">Обновления</span><span className="landing-comparison__value">автоматически</span></li>
                 <li><span className="landing-comparison__label">Поддержка</span><span className="landing-comparison__value">включена</span></li>
+                <li><span className="landing-comparison__label">Комиссия с продаж</span><span className="landing-comparison__value">0%</span></li>
               </ul>
               <div className="landing-comparison__total landing-comparison__total--flurai">
-                <div>Итого за первый год</div>
-                <div className="landing-comparison__total-value">24 000 ₽</div>
+                <div>Подписка</div>
+                <div className="landing-comparison__total-value">от 2 000 ₽/мес</div>
                 <div className="landing-comparison__total-time">Срок запуска: 1 день</div>
               </div>
             </div>
           </div>
           <div className="landing-comparison__callout landing-reveal landing-reveal--d3">
-            В 40 раз дешевле и работает уже сегодня
+            Всё включено — и работает уже сегодня
           </div>
         </div>
       </section>
@@ -480,8 +480,8 @@ export function LandingPage() {
           </div>
           <div className="landing-pricing-teaser landing-reveal landing-reveal--d2">
             <div className="landing-pricing-teaser__card">
-              <div className="landing-pricing-teaser__value">2 000 ₽</div>
-              <div className="landing-pricing-teaser__label">базовая подписка в месяц</div>
+              <div className="landing-pricing-teaser__value">от 2 000 ₽</div>
+              <div className="landing-pricing-teaser__label">подписка в месяц</div>
             </div>
             <div className="landing-pricing-teaser__card">
               <div className="landing-pricing-teaser__value">0%</div>
