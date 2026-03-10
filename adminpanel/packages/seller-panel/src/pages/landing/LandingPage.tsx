@@ -102,6 +102,7 @@ function AnimatedStat({ target, label, suffix = '' }: { target: number; label: s
 
 export function LandingPage() {
   const [showModal, setShowModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const reveal = useScrollReveal();
 
@@ -123,8 +124,24 @@ export function LandingPage() {
               Открыть магазин
             </button>
           </div>
+          <button
+            className={`landing-header__burger${menuOpen ? ' landing-header__burger--open' : ''}`}
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Меню"
+          >
+            <span />
+          </button>
         </div>
       </header>
+      <div className={`landing-header__mobile-menu${menuOpen ? ' landing-header__mobile-menu--open' : ''}`}>
+        <Link to="/pricing" className="landing-header__link" onClick={() => setMenuOpen(false)}>Тарифы</Link>
+        <button className="landing-btn landing-btn--ghost" onClick={() => { navigate('/login'); setMenuOpen(false); }}>
+          Войти
+        </button>
+        <button className="landing-btn landing-btn--primary" onClick={() => { setShowModal(true); setMenuOpen(false); }}>
+          Открыть магазин
+        </button>
+      </div>
 
       {/* ─── Hero ─── */}
       <section className="landing-hero">
