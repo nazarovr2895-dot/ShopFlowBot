@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { ApplicationModal } from './ApplicationModal';
 import { PhoneMockup } from './components/PhoneMockup';
-import { DashboardPreview } from './components/DashboardPreview';
+import { DashboardCarousel } from './components/DashboardCarousel';
 import { DecorativeBlob } from './components/DecorativeBlob';
 import { useScrollReveal } from './hooks/useScrollReveal';
 import { useAnimatedCounter } from './hooks/useAnimatedCounter';
@@ -115,10 +115,8 @@ export function LandingPage() {
             <img src="/android-chrome-192x192.png" alt="flurai" width={32} height={32} />
             <span className="landing-header__name">flurai</span>
           </div>
-          <nav className="landing-header__nav">
-            <Link to="/pricing" className="landing-header__link">Тарифы</Link>
-          </nav>
           <div className="landing-header__actions">
+            <Link to="/pricing" className="landing-header__link">Тарифы</Link>
             <button className="landing-btn landing-btn--ghost" onClick={() => navigate('/login')}>
               Войти
             </button>
@@ -212,7 +210,7 @@ export function LandingPage() {
             </p>
           </div>
           <div className="landing-reveal landing-reveal--d2">
-            <DashboardPreview />
+            <DashboardCarousel />
           </div>
         </div>
       </section>
@@ -235,7 +233,7 @@ export function LandingPage() {
               <p>
                 Мы создаём инфраструктуру — вы создаёте магазин. Покупатели подписываются именно на&nbsp;вас,
                 а не на платформу. Клиентская база, история заказов, программа лояльности — всё это принадлежит вам.
-                Как Yandex Kit или Shopify, но&nbsp;для&nbsp;Telegram и&nbsp;российского рынка.
+                Готовая платформа для&nbsp;Telegram и&nbsp;российского рынка.
               </p>
             </div>
             <div className="landing-philosophy__grid">
@@ -274,8 +272,169 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Steps ─── */}
+      {/* ─── Why flurai vs DIY ─── */}
+      <section className="landing-section landing-section--alt" ref={reveal}>
+        <div className="landing-container">
+          <div className="landing-section__header landing-reveal">
+            <h2 className="landing-section__title">Почему flurai, а&nbsp;не&nbsp;свой сайт</h2>
+            <p className="landing-section__subtitle">
+              Собственный интернет-магазин с Mini App — это дорого, долго и требует постоянного обслуживания
+            </p>
+          </div>
+          <div className="landing-comparison landing-reveal landing-reveal--d2">
+            <div className="landing-comparison__col landing-comparison__col--diy">
+              <div className="landing-comparison__header landing-comparison__header--diy">
+                Своё решение
+              </div>
+              <ul className="landing-comparison__list">
+                <li><span className="landing-comparison__label">Разработка сайта</span><span className="landing-comparison__value">от 300 000 ₽</span></li>
+                <li><span className="landing-comparison__label">Telegram Mini App</span><span className="landing-comparison__value">от 500 000 ₽</span></li>
+                <li><span className="landing-comparison__label">Хостинг и серверы</span><span className="landing-comparison__value">от 5 000 ₽/мес</span></li>
+                <li><span className="landing-comparison__label">Платёжная интеграция</span><span className="landing-comparison__value">от 50 000 ₽</span></li>
+                <li><span className="landing-comparison__label">CRM + лояльность</span><span className="landing-comparison__value">от 3 000 ₽/мес</span></li>
+                <li><span className="landing-comparison__label">Техподдержка и обновления</span><span className="landing-comparison__value">от 30 000 ₽/мес</span></li>
+              </ul>
+              <div className="landing-comparison__total landing-comparison__total--diy">
+                <div>Итого за первый год</div>
+                <div className="landing-comparison__total-value">~1 000 000 ₽+</div>
+                <div className="landing-comparison__total-time">Срок запуска: 3-6 месяцев</div>
+              </div>
+            </div>
+            <div className="landing-comparison__col landing-comparison__col--flurai">
+              <div className="landing-comparison__header landing-comparison__header--flurai">
+                flurai
+              </div>
+              <ul className="landing-comparison__list">
+                <li><span className="landing-comparison__label">Всё включено</span><span className="landing-comparison__value">2 000 ₽/мес</span></li>
+                <li><span className="landing-comparison__label">Telegram + сайт</span><span className="landing-comparison__value">готов за 5 минут</span></li>
+                <li><span className="landing-comparison__label">Каталог, заказы, доставка</span><span className="landing-comparison__value">из коробки</span></li>
+                <li><span className="landing-comparison__label">CRM + лояльность + аналитика</span><span className="landing-comparison__value">бесплатно</span></li>
+                <li><span className="landing-comparison__label">Обновления</span><span className="landing-comparison__value">автоматически</span></li>
+                <li><span className="landing-comparison__label">Поддержка</span><span className="landing-comparison__value">включена</span></li>
+              </ul>
+              <div className="landing-comparison__total landing-comparison__total--flurai">
+                <div>Итого за первый год</div>
+                <div className="landing-comparison__total-value">24 000 ₽</div>
+                <div className="landing-comparison__total-time">Срок запуска: 1 день</div>
+              </div>
+            </div>
+          </div>
+          <div className="landing-comparison__callout landing-reveal landing-reveal--d3">
+            В 40 раз дешевле и работает уже сегодня
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Why business needs a website ─── */}
       <section className="landing-section" ref={reveal}>
+        <div className="landing-container">
+          <div className="landing-section__header landing-reveal">
+            <h2 className="landing-section__title">Зачем бизнесу свой магазин онлайн</h2>
+            <p className="landing-section__subtitle">
+              В 2026 году без онлайн-присутствия бизнес теряет деньги каждый день
+            </p>
+          </div>
+          <div className="landing-why-online landing-reveal landing-reveal--d2">
+            <div className="landing-why-online__card">
+              <div className="landing-why-online__num">01</div>
+              <h3>E-commerce растёт на 25-30% в год</h3>
+              <p>
+                По данным АКИТ, объём онлайн-торговли в&nbsp;России превысил 7,8 трлн ₽.
+                Бизнес без интернет-магазина теряет клиентов тем, кто уже продаёт онлайн.
+              </p>
+            </div>
+            <div className="landing-why-online__card">
+              <div className="landing-why-online__num">02</div>
+              <h3>Маркетплейсы забирают вашу маржу</h3>
+              <p>
+                Комиссии на Wildberries и Ozon составляют 15-30% от продажи. Свой магазин — это прямые
+                продажи без посредников. Вы сами контролируете цены и&nbsp;клиентскую базу.
+              </p>
+            </div>
+            <div className="landing-why-online__card">
+              <div className="landing-why-online__num">03</div>
+              <h3>Покупатели ушли в интернет</h3>
+              <p>
+                Более 70% россиян покупают через интернет. Telegram стал второй по&nbsp;популярности платформой
+                для бизнеса — ваши клиенты уже&nbsp;там.
+              </p>
+            </div>
+            <div className="landing-why-online__card">
+              <div className="landing-why-online__num">04</div>
+              <h3>Налоговый контроль ужесточается</h3>
+              <p>
+                ФНС автоматически отслеживает онлайн-транзакции. Легальный магазин
+                с&nbsp;онлайн-кассой по&nbsp;54-ФЗ — это прозрачность и&nbsp;защита от&nbsp;штрафов.
+              </p>
+            </div>
+            <div className="landing-why-online__card">
+              <div className="landing-why-online__num">05</div>
+              <h3>Конкуренция не ждёт</h3>
+              <p>
+                Каждый месяц без онлайн-продаж — это клиенты, которых получают ваши конкуренты.
+                Запуск магазина на&nbsp;flurai занимает один день, а&nbsp;не&nbsp;полгода.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── What is Mini App ─── */}
+      <section className="landing-section" ref={reveal}>
+        <div className="landing-container">
+          <div className="landing-section__header landing-reveal">
+            <h2 className="landing-section__title">Что такое Mini App в&nbsp;Telegram</h2>
+            <p className="landing-section__subtitle">
+              Ваш магазин — прямо внутри мессенджера, без скачивания приложений
+            </p>
+          </div>
+          <div className="landing-miniapp-explainer landing-reveal landing-reveal--d2">
+            <div className="landing-miniapp-step">
+              <div className="landing-miniapp-step__visual">
+                <div className="landing-miniapp-chat">
+                  <div className="landing-miniapp-chat__bubble">Привет! Нажмите кнопку, чтобы открыть магазин</div>
+                  <div className="landing-miniapp-chat__btn">Открыть магазин</div>
+                </div>
+              </div>
+              <div className="landing-miniapp-step__num">1</div>
+              <h3>Покупатель открывает чат</h3>
+              <p>Нажимает кнопку в чате бота — и магазин открывается прямо внутри Telegram</p>
+            </div>
+            <div className="landing-miniapp-step">
+              <div className="landing-miniapp-step__visual">
+                <div className="landing-miniapp-window">
+                  <div className="landing-miniapp-window__bar" />
+                  <div className="landing-miniapp-window__content">
+                    <div className="landing-miniapp-window__card" />
+                    <div className="landing-miniapp-window__card" />
+                    <div className="landing-miniapp-window__btn">В корзину</div>
+                  </div>
+                </div>
+              </div>
+              <div className="landing-miniapp-step__num">2</div>
+              <h3>Выбирает товары</h3>
+              <p>Полноценный каталог с фото, ценами, категориями — как в обычном интернет-магазине</p>
+            </div>
+            <div className="landing-miniapp-step">
+              <div className="landing-miniapp-step__visual">
+                <div className="landing-miniapp-done">
+                  <div className="landing-miniapp-done__check">✓</div>
+                  <div className="landing-miniapp-done__text">Заказ оформлен!</div>
+                </div>
+              </div>
+              <div className="landing-miniapp-step__num">3</div>
+              <h3>Оплачивает и получает</h3>
+              <p>Онлайн-оплата, уведомления о статусе — всё не выходя из мессенджера</p>
+            </div>
+          </div>
+          <p className="landing-miniapp-note landing-reveal landing-reveal--d3">
+            950+ млн пользователей Telegram — ваши потенциальные клиенты. Не нужно скачивать приложение, не нужно регистрироваться.
+          </p>
+        </div>
+      </section>
+
+      {/* ─── Steps ─── */}
+      <section className="landing-section landing-section--alt" ref={reveal}>
         <div className="landing-container">
           <div className="landing-section__header landing-reveal">
             <h2 className="landing-section__title">Как начать продавать</h2>
