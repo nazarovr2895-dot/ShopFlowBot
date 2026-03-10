@@ -1227,3 +1227,132 @@ async def track_events(
     events = [ev.model_dump() for ev in body.events[:50]]
     await svc.record_events(body.session_id, body.visitor_id, events)
     await session.commit()
+
+
+# ── Заявки на подключение (Landing Page) ──────────────────────────────
+
+def _validate_inn_checksum(inn: str) -> bool:
+    """Проверка контрольной суммы ИНН по алгоритму ФНС."""
+    if len(inn) == 10:
+        weights = [2, 4, 10, 3, 5, 9, 4, 6, 8]
+        check = sum(int(inn[i]) * weights[i] for i in range(9)) % 11 % 10
+        return check == int(inn[9])
+    elif len(inn) == 12:
+        weights11 = [7, 2, 4, 10, 3, 5, 9, 4, 6, 8]
+        weights12 = [3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8]
+        check11 = sum(int(inn[i]) * weights11[i] for i in range(10)) % 11 % 10
+        check12 = sum(int(inn[i]) * weights12[i] for i in range(11)) % 11 % 10
+        return check11 == int(inn[10]) and check12 == int(inn[11])
+    return False
+
+
+class VerifyInnRequest(BaseModel):
+    inn: str
+
+
+class SellerApplicationRequest(BaseModel):
+    shop_name: str
+    inn: str
+    phone: str
+    org_name: Optional[str] = None
+    org_type: Optional[str] = None
+    ogrn: Optional[str] = None
+    management_name: Optional[str] = None
+    org_address: Optional[str] = None
+
+
+@router.post("/verify-inn")
+@limiter.limit("10/minute")
+async def verify_inn_public(request: Request, body: VerifyInnRequest):
+    """Проверка ИНН через DaData (проксирование, без авторизации)."""
+    inn = body.inn.strip()
+    if not inn.isdigit() or len(inn) not in (10, 12):
+        raise HTTPException(status_code=400, detail="ИНН должен содержать 10 цифр (юрлицо) или 12 цифр (ИП)")
+
+    if not _validate_inn_checksum(inn):
+        raise HTTPException(status_code=400, detail="Неверная контрольная сумма ИНН")
+
+    from backend.app.services.dadata import validate_inn
+    try:
+        org_data = await validate_inn(inn)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not org_data:
+        raise HTTPException(status_code=404, detail="ИНН не найден в реестре ФНС")
+
+    # Извлекаем ФИО руководителя
+    management_name = None
+    mgmt = org_data.get("management")
+    if mgmt and mgmt.get("name"):
+        management_name = mgmt["name"]
+    elif org_data.get("fio"):
+        fio = org_data["fio"]
+        parts = [fio.get("surname"), fio.get("name"), fio.get("patronymic")]
+        management_name = " ".join(p for p in parts if p) or None
+
+    address = org_data.get("address", {})
+    address_value = address.get("value") if isinstance(address, dict) else None
+
+    return {
+        "inn": org_data.get("inn"),
+        "ogrn": org_data.get("ogrn"),
+        "name": org_data.get("name", {}).get("full_with_opf") if isinstance(org_data.get("name"), dict) else None,
+        "short_name": org_data.get("name", {}).get("short_with_opf") if isinstance(org_data.get("name"), dict) else None,
+        "type": org_data.get("type"),
+        "management_name": management_name,
+        "address": address_value,
+        "state": org_data.get("state", {}).get("status"),
+    }
+
+
+@router.post("/seller-application")
+@limiter.limit("5/minute")
+async def submit_seller_application(
+    request: Request,
+    body: SellerApplicationRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Отправка заявки на подключение продавца."""
+    inn = body.inn.strip()
+    if not inn.isdigit() or len(inn) not in (10, 12):
+        raise HTTPException(status_code=400, detail="ИНН должен содержать 10 или 12 цифр")
+
+    if not _validate_inn_checksum(inn):
+        raise HTTPException(status_code=400, detail="Неверная контрольная сумма ИНН")
+
+    phone = body.phone.strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="Телефон обязателен")
+
+    shop_name = body.shop_name.strip()
+    if len(shop_name) < 2:
+        raise HTTPException(status_code=400, detail="Название магазина — минимум 2 символа")
+
+    from backend.app.models.seller_application import SellerApplication
+
+    # Проверка на дубликат — не создавать заявку, если уже есть активная
+    existing = await session.execute(
+        select(SellerApplication).where(
+            SellerApplication.inn == inn,
+            SellerApplication.status == "new",
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Заявка с этим ИНН уже на рассмотрении")
+
+    application = SellerApplication(
+        shop_name=shop_name,
+        inn=inn,
+        phone=phone,
+        org_name=body.org_name,
+        org_type=body.org_type,
+        ogrn=body.ogrn,
+        management_name=body.management_name,
+        org_address=body.org_address,
+    )
+    session.add(application)
+    await session.commit()
+
+    logger.info("Seller application submitted", inn=inn, shop_name=shop_name)
+    return {"status": "ok"}

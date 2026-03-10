@@ -662,3 +662,32 @@ export async function remapMetroDistricts(cityId: number): Promise<{ remapped: n
     method: 'POST',
   });
 }
+
+// ── Заявки на подключение ──
+
+export interface SellerApplicationItem {
+  id: number;
+  shop_name: string;
+  inn: string;
+  phone: string;
+  org_name: string | null;
+  org_type: string | null;
+  ogrn: string | null;
+  management_name: string | null;
+  org_address: string | null;
+  status: string;
+  created_at: string | null;
+  reviewed_at: string | null;
+}
+
+export async function getApplications(status?: string): Promise<SellerApplicationItem[]> {
+  const params = status ? `?status=${status}` : '';
+  return fetchAdmin<SellerApplicationItem[]>(`/admin/applications${params}`);
+}
+
+export async function updateApplicationStatus(id: number, status: string): Promise<{ status: string }> {
+  return fetchAdmin<{ status: string }>(`/admin/applications/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+}

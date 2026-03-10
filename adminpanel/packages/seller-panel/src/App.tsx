@@ -4,6 +4,7 @@ import { ToastProvider, ConfirmProvider } from '@shared/components/ui';
 import { ThemeProvider } from '@shared/hooks/useTheme';
 import { SellerLayout } from './components/layout/SellerLayout';
 import { SellerLogin } from './pages/SellerLogin';
+import { LandingPage } from './pages/landing/LandingPage';
 import { useTelegramWebApp } from '@shared/hooks/useTelegramWebApp';
 
 import { SellerDashboard } from './pages/seller/SellerDashboard';
@@ -29,6 +30,15 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Корневой маршрут: landing для гостей, dashboard для авторизованных */
+function AuthGate() {
+  const { isAuthenticated } = useSellerAuth();
+  if (!isAuthenticated && !localStorage.getItem('seller_token')) {
+    return <LandingPage />;
+  }
+  return <SellerLayout />;
+}
+
 function AppRoutes() {
   const { isNetworkOwner, telegramAuthLoading } = useSellerAuth();
   useTelegramWebApp();
@@ -45,7 +55,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<SellerLogin />} />
-      <Route path="/" element={<PrivateRoute><SellerLayout /></PrivateRoute>}>
+      <Route path="/" element={<AuthGate />}>
         <Route index element={isNetworkOwner ? <NetworkDashboard /> : <SellerDashboard />} />
         <Route path="orders" element={isNetworkOwner ? <Navigate to="/" replace /> : <SellerOrders />} />
         <Route path="orders/:orderId" element={isNetworkOwner ? <Navigate to="/" replace /> : <SellerOrderDetail />} />

@@ -19,6 +19,7 @@ from backend.app.api.admin.dashboard import router as dashboard_router
 from backend.app.api.admin.orders import router as orders_router
 from backend.app.api.admin.customers import router as customers_router
 from backend.app.api.admin.finance import router as finance_router
+from backend.app.api.admin.applications import router as applications_router
 
 router = APIRouter()
 router.include_router(directories_router)
@@ -29,3 +30,4 @@ router.include_router(dashboard_router)
 router.include_router(orders_router)
 router.include_router(customers_router)
 router.include_router(finance_router)
+router.include_router(applications_router)

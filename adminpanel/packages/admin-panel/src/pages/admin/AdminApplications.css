@@ -1,0 +1,63 @@
+.admin-applications__filters {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-applications__shop-name {
+  font-weight: 600;
+  max-width: 200px;
+}
+
+.admin-applications__org {
+  max-width: 200px;
+  font-size: var(--text-sm);
+}
+
+.admin-applications__date {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-applications__actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.admin-applications__actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-success {
+  background: var(--success);
+  color: #fff;
+  border: none;
+}
+
+.btn-success:hover {
+  opacity: 0.9;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+}
+
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}

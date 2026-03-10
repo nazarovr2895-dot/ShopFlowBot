@@ -13,6 +13,7 @@ import { AdminOrders } from './pages/admin/AdminOrders';
 import { AdminCustomers } from './pages/admin/AdminCustomers';
 import { AdminFinance } from './pages/admin/AdminFinance';
 import { AdminCoverage } from './pages/admin/AdminCoverage';
+import { AdminApplications } from './pages/admin/AdminApplications';
 
 import '@shared/styles/index.css';
 import '@shared/styles/app.css';
@@ -57,6 +58,7 @@ function AppRoutes() {
         <Route path="finance" element={<AdminFinance />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="coverage" element={<AdminCoverage />} />
+        <Route path="applications" element={<AdminApplications />} />
         <Route path="stats" element={<Navigate to="/analytics" replace />} />
         <Route path="stats/sellers" element={<Navigate to="/analytics?tab=sellers" replace />} />
       </Route>

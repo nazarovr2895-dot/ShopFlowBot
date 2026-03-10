@@ -5,7 +5,7 @@ export function setSellerApiBaseUrl(url: string): void {
   runtimeApiUrl = url;
 }
 
-function getApiBase(): string {
+export function getApiBase(): string {
   return runtimeApiUrl ?? (import.meta.env.VITE_API_URL || '');
 }
 

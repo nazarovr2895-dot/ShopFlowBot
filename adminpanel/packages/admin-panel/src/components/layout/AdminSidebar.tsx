@@ -3,7 +3,7 @@ import { useAdminAuth } from '../../contexts/AdminAuthContext';
 import { isTelegram, getTelegramWebApp } from '@shared/utils/environment';
 import {
   LayoutDashboard, ShoppingBag, UserCircle, Users,
-  DollarSign, BarChart3, MapPin, LogOut,
+  DollarSign, BarChart3, MapPin, LogOut, ClipboardList,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import './Sidebar.css';
@@ -18,6 +18,7 @@ const adminNav: NavItem[] = [
   { to: '/finance', label: 'Финансы', icon: DollarSign },
   { to: '/analytics', label: 'Аналитика', icon: BarChart3 },
   { to: '/coverage', label: 'Покрытие', icon: MapPin },
+  { to: '/applications', label: 'Заявки', icon: ClipboardList },
 ];
 
 export function AdminSidebar() {

@@ -20,9 +20,11 @@ interface AddSellerModalProps {
   onClose: () => void;
   onSuccess: () => void;
   initialInnData?: InnData;
+  initialPhone?: string;
+  initialShopName?: string;
 }
 
-export function AddSellerModal({ onClose, onSuccess, initialInnData }: AddSellerModalProps) {
+export function AddSellerModal({ onClose, onSuccess, initialInnData, initialPhone, initialShopName }: AddSellerModalProps) {
   const toast = useToast();
   const [tgId, setTgId] = useState('');
   const [fio, setFio] = useState('');
@@ -51,16 +53,21 @@ export function AddSellerModal({ onClose, onSuccess, initialInnData }: AddSeller
   const addressWrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (initialInnData) {
-      if (initialInnData.name && !shopName) {
-        setShopName(initialInnData.short_name || initialInnData.name);
-      }
-      if (initialInnData.management && !fio) {
-        setFio(initialInnData.management);
-      }
+    // Предзаполнение из заявки (приоритет над INN-данными)
+    if (initialShopName && !shopName) {
+      setShopName(initialShopName);
+    } else if (initialInnData?.name && !shopName) {
+      setShopName(initialInnData.short_name || initialInnData.name);
+    }
+    if (initialInnData?.management && !fio) {
+      setFio(initialInnData.management);
+    }
+    if (initialPhone) {
+      const formatted = formatPhoneInput(initialPhone);
+      if (!phoneDisplay) setPhoneDisplay(formatted);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialInnData]);
+  }, [initialInnData, initialPhone, initialShopName]);
 
   // Load cities on mount
   useEffect(() => {
