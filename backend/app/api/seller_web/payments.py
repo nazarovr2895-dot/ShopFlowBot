@@ -126,36 +126,3 @@ async def yookassa_disconnect(
 
     logger.info("YooKassa OAuth disconnected", seller_id=seller_id)
     return {"status": "ok"}
-
-
-# --- COMMISSION BALANCE ---
-
-
-@router.get("/commission/balance")
-async def get_commission_balance_endpoint(
-    auth: tuple = Depends(require_seller_token_with_owner),
-    session: AsyncSession = Depends(get_session),
-):
-    """Get current commission balance for the seller."""
-    seller_id, _owner_id = auth
-    from backend.app.services.commissions import get_commission_balance, get_effective_commission_rate
-    balance = await get_commission_balance(session, seller_id)
-    rate = await get_effective_commission_rate(session, seller_id)
-    return {
-        "balance": float(balance),
-        "commission_rate": rate,
-    }
-
-
-@router.get("/commission/history")
-async def get_commission_history_endpoint(
-    auth: tuple = Depends(require_seller_token_with_owner),
-    session: AsyncSession = Depends(get_session),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-):
-    """Get commission history for the seller."""
-    seller_id, _owner_id = auth
-    from backend.app.services.commissions import get_commission_history
-    entries = await get_commission_history(session, seller_id, limit, offset)
-    return {"entries": entries}

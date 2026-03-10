@@ -224,9 +224,7 @@ export function SellerDashboard() {
   }
 
   const hasAlerts = (alerts?.low_stock_bouquets?.length ?? 0) + (alerts?.expiring_items?.length ?? 0) > 0;
-  const commissionRate = stats?.commission_rate ?? 3;
   const weekRevenue = weekStats?.total_revenue ?? 0;
-  const weekNetRevenue = weekStats?.net_revenue ?? 0;
   const sparklineData = weekStats?.daily_sales?.map((d) => ({ date: d.date, revenue: d.revenue })) ?? [];
   const pendingCount = pendingOrders.length;
   const inlinePending = pendingOrders.slice(0, MAX_INLINE_PENDING);
@@ -292,12 +290,6 @@ export function SellerDashboard() {
           {sparklineData.length >= 2 && (
             <MiniSparkline data={sparklineData} width={160} height={48} />
           )}
-        </div>
-        <div className="dashboard-hero-card">
-          <div className="dashboard-hero-content">
-            <span className="dashboard-hero-label">К получению (−{commissionRate}%)</span>
-            <span className="dashboard-hero-value">{fmtCurrency(weekNetRevenue)}</span>
-          </div>
           <div className="dashboard-hero-secondary">
             <span className="dashboard-hero-orders">
               {weekStats?.total_completed_orders ?? 0} {pluralOrders(weekStats?.total_completed_orders ?? 0)}

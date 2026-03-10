@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     YOOKASSA_OAUTH_REDIRECT_URI: Optional[str] = Field(default=None, description="YuKassa OAuth redirect URI (e.g. https://seller.flurai.ru/yookassa/callback)")
 
     # Subscription configuration
-    SUBSCRIPTION_BASE_PRICE: int = Field(default=990, description="Base monthly subscription price in rubles")
+    SUBSCRIPTION_BASE_PRICE: int = Field(default=2000, description="Base monthly subscription price in rubles")
 
     # Database pool configuration
     DB_POOL_SIZE: int = Field(default=50, description="Database connection pool size")

@@ -4,7 +4,7 @@ Payment service — YuKassa payment operations via Partner API (OAuth).
 Each seller connects their own YuKassa account via OAuth.
 Payments are created using the seller's OAuth token — money goes
 directly to the seller's account.  Platform commission is tracked
-internally via CommissionLedger and billed with the monthly subscription.
+as part of the monthly subscription pricing model.
 """
 import asyncio
 import uuid
@@ -466,30 +466,8 @@ class PaymentService:
             new_payment_status=payment_status,
         )
 
-        # Send notifications and record commission on successful payment
+        # Send notifications on successful payment
         if payment_status == "succeeded" and old_status != "succeeded":
-            # Record platform commission in ledger
-            try:
-                from backend.app.services.commissions import record_commission
-                if order.total_price:
-                    await record_commission(
-                        self.session,
-                        seller_id=order.seller_id,
-                        order_id=order_id,
-                        order_total=Decimal(str(order.total_price)),
-                    )
-                    logger.info(
-                        "Commission recorded",
-                        order_id=order_id,
-                        seller_id=order.seller_id,
-                    )
-            except Exception as comm_err:
-                logger.error(
-                    "Failed to record commission (critical)",
-                    order_id=order_id,
-                    error=str(comm_err),
-                )
-
             # Send Telegram notifications
             try:
                 from backend.app.services.telegram_notify import (

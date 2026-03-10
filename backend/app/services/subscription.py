@@ -27,15 +27,11 @@ from backend.app.core.exceptions import ServiceError
 
 logger = get_logger(__name__)
 
-VALID_PERIODS = (1, 3, 6, 12)
+VALID_PERIODS = (1,)
 
-# Discount multipliers per period
-PERIOD_MULTIPLIERS = {
-    1: 1.0,     # 0% discount
-    3: 0.9,     # 10% discount
-    6: 0.85,    # 15% discount
-    12: 0.75,   # 25% discount
-}
+# Dynamic pricing: base + 1% of sales if turnover > threshold
+TURNOVER_THRESHOLD = 100_000  # rubles
+TURNOVER_PERCENT = Decimal("0.01")  # 1%
 
 
 # ---------------------------------------------------------------------------
@@ -87,12 +83,51 @@ class SubscriptionService:
 
     # -- Pricing ----------------------------------------------------------------
 
+    def get_base_price(self) -> int:
+        """Return base monthly subscription price."""
+        return get_settings().SUBSCRIPTION_BASE_PRICE
+
     def get_prices(self) -> Dict[int, int]:
         """Return price table per single branch: {period_months: price_in_rubles}."""
-        base = get_settings().SUBSCRIPTION_BASE_PRICE
+        base = self.get_base_price()
+        return {1: base}
+
+    async def calculate_dynamic_price(self, seller_id: int) -> Dict[str, Any]:
+        """Calculate subscription price based on last 30 days turnover.
+
+        Formula: base (2000₽) + 1% of total sales if turnover > 100,000₽.
+        """
+        from backend.app.models.order import Order
+        from backend.app.core.constants import COMPLETED_ORDER_STATUSES
+
+        base = self.get_base_price()
+        cutoff = datetime.utcnow() - timedelta(days=30)
+
+        result = await self.session.execute(
+            select(sa_func.coalesce(sa_func.sum(Order.total_price), 0))
+            .where(
+                Order.seller_id == seller_id,
+                Order.status.in_(COMPLETED_ORDER_STATUSES),
+                Order.created_at >= cutoff,
+            )
+        )
+        turnover = Decimal(str(result.scalar()))
+
+        additional_amount = Decimal("0")
+        if turnover > TURNOVER_THRESHOLD:
+            additional_amount = (turnover * TURNOVER_PERCENT).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
+
+        total = Decimal(str(base)) + additional_amount
+
         return {
-            period: round(base * period * multiplier)
-            for period, multiplier in PERIOD_MULTIPLIERS.items()
+            "base_price": base,
+            "turnover_30d": float(turnover),
+            "threshold": TURNOVER_THRESHOLD,
+            "additional_percent": 1,
+            "additional_amount": float(additional_amount),
+            "total_price": float(total),
         }
 
     # -- Subscription lifecycle -------------------------------------------------
@@ -100,15 +135,14 @@ class SubscriptionService:
     async def create_subscription(
         self,
         seller_id: int,
-        period_months: int,
+        period_months: int = 1,
         target_seller_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Create a pending subscription record and a YooKassa payment.
 
+        Price is dynamic: base 2000₽ + 1% of last 30 days turnover if > 100k.
         Per-branch: subscription is for a specific seller/branch.
-        - target_seller_id: if set, create subscription for this branch (network owner paying for a branch)
-        - if not set: create subscription for seller_id directly (regular seller or self)
 
         Returns dict with subscription_id, confirmation_url, status.
         """
@@ -121,7 +155,6 @@ class SubscriptionService:
 
         # Determine the actual seller to subscribe
         if target_seller_id is not None:
-            # Network owner paying for a specific branch
             caller_owner_id = await self._get_owner_id(seller_id)
             target_seller = await self.session.get(Seller, target_seller_id)
             if not target_seller or target_seller.deleted_at is not None:
@@ -132,25 +165,19 @@ class SubscriptionService:
         else:
             sub_seller_id = seller_id
 
-        prices = self.get_prices()
-        subscription_price = prices[period_months]
-        subscription_decimal = Decimal(str(subscription_price)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        # Calculate dynamic price based on turnover
+        pricing = await self.calculate_dynamic_price(sub_seller_id)
+        total_amount = Decimal(str(pricing["total_price"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        # Add accumulated commission balance to the total
-        from backend.app.services.commissions import get_commission_balance
-        commission_balance = await get_commission_balance(self.session, sub_seller_id)
-        commission_decimal = commission_balance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        total_amount = subscription_decimal + commission_decimal
-
-        # Create subscription record for the specific branch/seller
+        # Create subscription record
         sub = Subscription(
             seller_id=sub_seller_id,
-            period_months=period_months,
+            period_months=1,
             status="pending",
             amount_paid=total_amount,
         )
         self.session.add(sub)
-        await self.session.flush()  # get sub.id
+        await self.session.flush()
 
         settings = get_settings()
         return_url = settings.YOOKASSA_RETURN_URL or "https://app.flurai.ru/?tab=settings"
@@ -161,10 +188,10 @@ class SubscriptionService:
 
         receipt_items = [
             {
-                "description": f"Подписка Flurai ({period_months} мес.) — {shop_label}"[:128],
+                "description": f"Подписка Flurai (1 мес.) — {shop_label}"[:128],
                 "quantity": "1",
                 "amount": {
-                    "value": str(subscription_decimal),
+                    "value": str(total_amount),
                     "currency": "RUB",
                 },
                 "vat_code": 1,
@@ -173,21 +200,7 @@ class SubscriptionService:
             },
         ]
 
-        # Add commission as separate receipt line if > 0
-        if commission_decimal > 0:
-            receipt_items.append({
-                "description": f"Комиссия платформы — {shop_label}"[:128],
-                "quantity": "1",
-                "amount": {
-                    "value": str(commission_decimal),
-                    "currency": "RUB",
-                },
-                "vat_code": 1,
-                "payment_mode": "full_payment",
-                "payment_subject": "service",
-            })
-
-        desc = f"Подписка Flurai ({period_months} мес.) — {shop_label}"
+        desc = f"Подписка Flurai (1 мес.) — {shop_label}"
         receipt = {
             "customer": {"email": "subscription@flurai.ru"},
             "items": receipt_items,
@@ -209,7 +222,6 @@ class SubscriptionService:
                 "type": "subscription",
                 "subscription_id": str(sub.id),
                 "seller_id": str(sub_seller_id),
-                "commission_amount": str(commission_decimal),
             },
         }
 
@@ -238,7 +250,6 @@ class SubscriptionService:
             seller_id=sub_seller_id,
             subscription_id=sub.id,
             payment_id=payment.id,
-            period_months=period_months,
             amount=str(total_amount),
         )
 
@@ -425,26 +436,6 @@ class SubscriptionService:
         if seller:
             seller.subscription_plan = "active"
             seller.grace_period_until = None
-
-        # Mark accumulated commissions as paid
-        try:
-            from backend.app.services.commissions import mark_commissions_paid
-            paid_count = await mark_commissions_paid(
-                self.session, target_seller_id, sub.payment_id
-            )
-            if paid_count:
-                logger.info(
-                    "Commissions marked as paid with subscription",
-                    seller_id=target_seller_id,
-                    count=paid_count,
-                    payment_id=sub.payment_id,
-                )
-        except Exception as e:
-            logger.error(
-                "Failed to mark commissions as paid",
-                seller_id=target_seller_id,
-                error=str(e),
-            )
 
         logger.info(
             "Subscription activated",

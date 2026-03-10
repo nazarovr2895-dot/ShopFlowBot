@@ -2,26 +2,19 @@ import { useState, useEffect } from 'react';
 import {
   getSubscriptionPrices,
   getSubscriptionStatus,
+  getMySubscriptionPrice,
   createSubscription,
   getBranchesSubscriptionStatus,
-  getCommissionBalance,
 } from '../../../api/sellerClient';
 import type {
-  SubscriptionPricesResponse,
   SubscriptionStatusResponse,
+  SubscriptionDynamicPrice,
   BranchSubscriptionInfo,
 } from '../../../api/sellerClient';
 import { useSellerAuth } from '../../../contexts/SellerAuthContext';
 import { useToast } from '@shared/components/ui';
-import { CheckCircle, XCircle, CreditCard, Clock, Store, MapPin } from 'lucide-react';
+import { CheckCircle, XCircle, CreditCard, Clock, Store, MapPin, Info } from 'lucide-react';
 import type { SettingsTabProps } from './types';
-
-const PERIOD_LABELS: Record<number, string> = {
-  1: '1 месяц',
-  3: '3 месяца',
-  6: '6 месяцев',
-  12: '12 месяцев',
-};
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Активна',
@@ -45,28 +38,25 @@ function formatPrice(amount: number): string {
 function NetworkSubscriptionView(_props: SettingsTabProps) {
   const toast = useToast();
   const [branches, setBranches] = useState<BranchSubscriptionInfo[]>([]);
-  const [prices, setPrices] = useState<SubscriptionPricesResponse | null>(null);
+  const [basePrice, setBasePrice] = useState<number>(2000);
   const [loading, setLoading] = useState(true);
-  const [payingFor, setPayingFor] = useState<number | null>(null); // seller_id being paid for
-  const [selectedPeriods, setSelectedPeriods] = useState<Record<number, number>>({}); // seller_id -> period
+  const [payingFor, setPayingFor] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([getBranchesSubscriptionStatus(), getSubscriptionPrices()])
       .then(([b, p]) => {
         setBranches(b);
-        setPrices(p);
+        setBasePrice(p.base_price);
       })
       .catch(() => toast.error('Не удалось загрузить данные подписок'))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getPeriod = (sellerId: number) => selectedPeriods[sellerId] ?? 1;
-
   const handlePay = async (sellerId: number) => {
     setPayingFor(sellerId);
     try {
-      const result = await createSubscription(getPeriod(sellerId), sellerId);
+      const result = await createSubscription(1, sellerId);
       if (result.confirmation_url) {
         window.open(result.confirmation_url, '_blank');
         toast.success('Перенаправление на страницу оплаты...');
@@ -100,11 +90,9 @@ function NetworkSubscriptionView(_props: SettingsTabProps) {
             <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
               Подписки филиалов: {activeCount} / {branches.length} активны
             </div>
-            {prices && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                {formatPrice(prices.base_price)}/мес за филиал
-              </div>
-            )}
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+              от {formatPrice(basePrice)}/мес за филиал
+            </div>
           </div>
         </div>
       </div>
@@ -113,8 +101,6 @@ function NetworkSubscriptionView(_props: SettingsTabProps) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {branches.map(branch => {
           const isActive = branch.subscription_plan === 'active';
-          const period = getPeriod(branch.seller_id);
-          const price = prices?.prices[period] ?? 0;
 
           return (
             <div key={branch.seller_id} className="card" style={{ padding: '1.25rem' }}>
@@ -153,38 +139,20 @@ function NetworkSubscriptionView(_props: SettingsTabProps) {
                 </div>
               )}
 
-              {/* Period selector + pay button */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <select
-                  className="form-input"
-                  style={{ width: 'auto', fontSize: '0.85rem', padding: '0.35rem 0.5rem' }}
-                  value={period}
-                  onChange={e => setSelectedPeriods(prev => ({ ...prev, [branch.seller_id]: Number(e.target.value) }))}
-                >
-                  {([1, 3, 6, 12] as number[]).map(p => {
-                    const pPrice = prices?.prices[p] ?? 0;
-                    const disc = prices?.discounts[p] ?? 0;
-                    return (
-                      <option key={p} value={p}>
-                        {PERIOD_LABELS[p]} — {formatPrice(pPrice)}{disc > 0 ? ` (-${disc}%)` : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => handlePay(branch.seller_id)}
-                  disabled={payingFor === branch.seller_id}
-                  style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}
-                >
-                  {payingFor === branch.seller_id
-                    ? 'Оплата...'
-                    : isActive
-                      ? `Продлить ${formatPrice(price)}`
-                      : `Оплатить ${formatPrice(price)}`
-                  }
-                </button>
-              </div>
+              {/* Pay button */}
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => handlePay(branch.seller_id)}
+                disabled={payingFor === branch.seller_id}
+                style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+              >
+                {payingFor === branch.seller_id
+                  ? 'Оплата...'
+                  : isActive
+                    ? 'Продлить на 1 месяц'
+                    : 'Оплатить на 1 месяц'
+                }
+              </button>
             </div>
           );
         })}
@@ -197,21 +165,18 @@ function NetworkSubscriptionView(_props: SettingsTabProps) {
 
 function RegularSubscriptionView({ me }: SettingsTabProps) {
   const toast = useToast();
-  const [prices, setPrices] = useState<SubscriptionPricesResponse | null>(null);
+  const [pricing, setPricing] = useState<SubscriptionDynamicPrice | null>(null);
   const [subStatus, setSubStatus] = useState<SubscriptionStatusResponse | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [commissionBalance, setCommissionBalance] = useState<number>(0);
 
   const isActive = me.subscription_plan === 'active';
 
   useEffect(() => {
-    Promise.all([getSubscriptionPrices(), getSubscriptionStatus(), getCommissionBalance()])
-      .then(([p, s, c]) => {
-        setPrices(p);
+    Promise.all([getMySubscriptionPrice(), getSubscriptionStatus()])
+      .then(([p, s]) => {
+        setPricing(p);
         setSubStatus(s);
-        setCommissionBalance(c.balance);
       })
       .catch(() => toast.error('Не удалось загрузить данные подписки'))
       .finally(() => setLoading(false));
@@ -221,7 +186,7 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
   const handlePay = async () => {
     setPaying(true);
     try {
-      const result = await createSubscription(selectedPeriod);
+      const result = await createSubscription(1);
       if (result.confirmation_url) {
         window.open(result.confirmation_url, '_blank');
         toast.success('Перенаправление на страницу оплаты...');
@@ -245,6 +210,7 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
 
   const current = subStatus?.current;
   const history = subStatus?.history ?? [];
+  const hasAdditional = pricing && pricing.additional_amount > 0;
 
   return (
     <div className="card" style={{ padding: '1.5rem' }}>
@@ -279,69 +245,77 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
         </div>
       </div>
 
-      {/* Pricing Cards */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-          <CreditCard size={18} /> Выберите период
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
-          {prices && ([1, 3, 6, 12] as number[]).map((period) => {
-            const price = prices.prices[period] ?? 0;
-            const discount = prices.discounts[period] ?? 0;
-            const isSelected = selectedPeriod === period;
-            return (
-              <button
-                key={period}
-                onClick={() => setSelectedPeriod(period)}
-                style={{
-                  padding: '1rem',
-                  borderRadius: '10px',
-                  border: isSelected ? '2px solid var(--primary, #6366f1)' : '1px solid var(--border, #e5e7eb)',
-                  background: isSelected ? 'rgba(99, 102, 241, 0.06)' : 'transparent',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  transition: 'all 0.15s',
-                }}
-              >
-                <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.25rem' }}>
-                  {PERIOD_LABELS[period]}
-                </div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-                  {formatPrice(price)}
-                </div>
-                {discount > 0 && (
-                  <div style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: 600, marginTop: '0.25rem' }}>
-                    -{discount}%
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Pricing Breakdown */}
+      {pricing && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+            <CreditCard size={18} /> Стоимость подписки на 1 месяц
+          </h3>
 
-      {/* Payment breakdown */}
-      {commissionBalance > 0 && (
-        <div style={{
-          padding: '0.75rem 1rem',
-          borderRadius: '8px',
-          background: 'rgba(234, 179, 8, 0.06)',
-          border: '1px solid rgba(234, 179, 8, 0.15)',
-          marginBottom: '0.75rem',
-          fontSize: '0.85rem',
-          lineHeight: 1.6,
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Подписка:</span>
-            <span>{formatPrice(prices?.prices[selectedPeriod] ?? 0)}</span>
+          <div style={{
+            padding: '1rem',
+            borderRadius: '10px',
+            border: '1px solid var(--border, #e5e7eb)',
+            fontSize: '0.9rem',
+            lineHeight: 1.8,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Базовая подписка</span>
+              <span style={{ fontWeight: 600 }}>{formatPrice(pricing.base_price)}</span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+              <span>Оборот за 30 дней</span>
+              <span>{formatPrice(pricing.turnover_30d)}</span>
+            </div>
+
+            {hasAdditional ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--primary, #6366f1)' }}>
+                <span>+ {pricing.additional_percent}% от оборота</span>
+                <span style={{ fontWeight: 600 }}>+ {formatPrice(pricing.additional_amount)}</span>
+              </div>
+            ) : (
+              <div style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)',
+                padding: '0.25rem 0',
+                fontStyle: 'italic',
+              }}>
+                Оборот ниже {formatPrice(pricing.threshold)} — только базовая подписка
+              </div>
+            )}
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontWeight: 700,
+              fontSize: '1.05rem',
+              borderTop: '1px solid var(--border, #e5e7eb)',
+              paddingTop: '0.5rem',
+              marginTop: '0.25rem',
+            }}>
+              <span>Итого</span>
+              <span>{formatPrice(pricing.total_price)}</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Комиссия платформы:</span>
-            <span>{formatPrice(commissionBalance)}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, borderTop: '1px solid rgba(234, 179, 8, 0.2)', paddingTop: '0.375rem', marginTop: '0.375rem' }}>
-            <span>Итого:</span>
-            <span>{formatPrice((prices?.prices[selectedPeriod] ?? 0) + commissionBalance)}</span>
+
+          {/* Info note */}
+          <div style={{
+            display: 'flex',
+            gap: '0.5rem',
+            marginTop: '0.75rem',
+            padding: '0.6rem 0.75rem',
+            borderRadius: '8px',
+            background: 'rgba(99, 102, 241, 0.05)',
+            fontSize: '0.8rem',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.5,
+          }}>
+            <Info size={16} style={{ flexShrink: 0, marginTop: '0.1rem', color: 'var(--primary, #6366f1)' }} />
+            <span>
+              Все деньги от покупателей поступают напрямую на ваш счёт через ЮKassa.
+              Платформа не удерживает средства из вашей выручки.
+            </span>
           </div>
         </div>
       )}
@@ -356,8 +330,8 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
         {paying
           ? 'Создание платежа...'
           : isActive
-            ? `Продлить за ${formatPrice((prices?.prices[selectedPeriod] ?? 0) + commissionBalance)}`
-            : `Оплатить ${formatPrice((prices?.prices[selectedPeriod] ?? 0) + commissionBalance)}`
+            ? `Продлить за ${formatPrice(pricing?.total_price ?? 0)}`
+            : `Оплатить ${formatPrice(pricing?.total_price ?? 0)}`
         }
       </button>
 
@@ -372,7 +346,6 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border, #e5e7eb)' }}>
                   <th style={{ textAlign: 'left', padding: '0.5rem' }}>Дата</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Период</th>
                   <th style={{ textAlign: 'left', padding: '0.5rem' }}>Сумма</th>
                   <th style={{ textAlign: 'left', padding: '0.5rem' }}>Статус</th>
                 </tr>
@@ -381,7 +354,6 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
                 {history.map((item) => (
                   <tr key={item.id} style={{ borderBottom: '1px solid var(--border, #e5e7eb)' }}>
                     <td style={{ padding: '0.5rem' }}>{formatDate(item.created_at ?? null)}</td>
-                    <td style={{ padding: '0.5rem' }}>{PERIOD_LABELS[item.period_months] ?? `${item.period_months} мес.`}</td>
                     <td style={{ padding: '0.5rem' }}>{formatPrice(item.amount_paid)}</td>
                     <td style={{ padding: '0.5rem' }}>
                       <span style={{

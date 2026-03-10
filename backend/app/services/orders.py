@@ -929,8 +929,7 @@ class OrderService:
     async def _calculate_revenue_metrics(
         self, seller_id, completed_conditions: list,  # seller_id: int | list[int]
     ) -> Dict[str, Any]:
-        """Calculate revenue, commission, and average check."""
-        _commission_seller_id = seller_id[0] if isinstance(seller_id, list) else seller_id
+        """Calculate revenue and average check."""
         totals_stmt = (
             select(
                 func.count(Order.id).label("total_orders"),
@@ -941,18 +940,11 @@ class OrderService:
         totals_row = (await self.session.execute(totals_stmt)).one()
         total_orders = totals_row.total_orders or 0
         total_revenue = float(totals_row.total_revenue or 0)
-
-        from backend.app.services.commissions import get_effective_commission_rate
-        _eff_pct = await get_effective_commission_rate(self.session, _commission_seller_id)
-        commission_rate = _eff_pct / 100
-        commission = float(Decimal(str(total_revenue * commission_rate)).quantize(ONE_CENT, rounding=ROUND_HALF_UP))
         average_check = round(total_revenue / total_orders, 2) if total_orders else 0
 
         return {
             "total_orders": total_orders,
             "total_revenue": total_revenue,
-            "commission_rate": commission_rate,
-            "commission": commission,
             "average_check": average_check,
         }
 
@@ -1191,15 +1183,10 @@ class OrderService:
         top_products, top_bouquets = await self._extract_top_products(seller_id, completed_conditions)
 
         total_revenue = revenue["total_revenue"]
-        commission = revenue["commission"]
-        commission_rate = revenue["commission_rate"]
 
         return {
             "total_completed_orders": revenue["total_orders"],
             "total_revenue": round(total_revenue, 2),
-            "commission_rate": round(commission_rate * 100),
-            "commission_amount": commission,
-            "net_revenue": round(total_revenue - commission, 2),
             "average_check": revenue["average_check"],
             "orders_by_status": status_counts,
             "daily_sales": daily_series,

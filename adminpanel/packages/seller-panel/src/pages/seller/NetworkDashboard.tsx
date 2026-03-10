@@ -59,9 +59,7 @@ export function NetworkDashboard() {
     );
   }
 
-  const commissionRate = weekStats?.commission_rate ?? 3;
   const weekRevenue = weekStats?.total_revenue ?? 0;
-  const weekNetRevenue = weekStats?.net_revenue ?? 0;
   const sparklineData = weekStats?.daily_sales?.map((d) => ({ date: d.date, revenue: d.revenue })) ?? [];
   const totalActive = branchStats.reduce((s, b) => s + b.active_orders, 0);
   const totalPending = branchStats.reduce((s, b) => s + b.pending_requests, 0);
@@ -84,12 +82,6 @@ export function NetworkDashboard() {
           {sparklineData.length >= 2 && (
             <MiniSparkline data={sparklineData} width={160} height={48} />
           )}
-        </div>
-        <div className="dashboard-hero-card">
-          <div className="dashboard-hero-content">
-            <span className="dashboard-hero-label">К получению (−{commissionRate}%)</span>
-            <span className="dashboard-hero-value">{fmtCurrency(weekNetRevenue)}</span>
-          </div>
           <div className="dashboard-hero-secondary">
             <span className="dashboard-hero-orders">
               {weekStats?.total_completed_orders ?? 0} {pluralOrders(weekStats?.total_completed_orders ?? 0)}

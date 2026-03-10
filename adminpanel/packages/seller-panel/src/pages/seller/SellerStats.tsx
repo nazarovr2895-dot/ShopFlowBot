@@ -323,18 +323,6 @@ export function SellerStats() {
                   </span>
                 </div>
               )}
-              <div className="summary-item">
-                <span className="summary-label">Комиссия Flurai ({stats?.commission_rate ?? 3}%)</span>
-                <span className="summary-value">{formatCurrency(stats?.commission_amount ?? 0, true)}</span>
-              </div>
-              <div className="summary-item">
-                <span className="summary-label">Комиссия платёжной системы (~3.5%)</span>
-                <span className="summary-value summary-value--muted">Удерживается ЮKassa</span>
-              </div>
-              <div className="summary-item accent">
-                <span className="summary-label">К получению</span>
-                <span className="summary-value accent">{formatCurrency(stats?.net_revenue ?? 0, true)}</span>
-              </div>
             </div>
           </div>
         )}

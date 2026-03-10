@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 class CreateSubscriptionRequest(BaseModel):
-    period_months: int = Field(..., description="Subscription period: 1, 3, 6, or 12 months")
+    period_months: int = Field(default=1, description="Subscription period in months (only 1 month supported)")
     target_seller_id: Optional[int] = Field(None, description="Branch seller_id to subscribe (for network owners)")
 
 
@@ -30,14 +30,11 @@ class CreateSubscriptionRequest(BaseModel):
 async def get_subscription_prices(
     session: AsyncSession = Depends(get_session),
 ):
-    """Get subscription pricing table with discounts (price per single branch)."""
-    service = SubscriptionService(session)
-    prices = service.get_prices()
+    """Get base subscription pricing (public, unauthenticated)."""
     base = get_settings().SUBSCRIPTION_BASE_PRICE
     return {
         "base_price": base,
-        "prices": prices,
-        "discounts": {1: 0, 3: 10, 6: 15, 12: 25},
+        "prices": {1: base},
     }
 
 
@@ -48,15 +45,10 @@ async def get_my_subscription_prices(
     session: AsyncSession = Depends(get_session),
     seller_id: int = Depends(require_seller_token),
 ):
-    """Get subscription pricing for the current seller (per-branch, same for everyone)."""
+    """Get personalized subscription pricing with dynamic turnover-based calculation."""
     service = SubscriptionService(session)
-    prices = service.get_prices()
-    base = get_settings().SUBSCRIPTION_BASE_PRICE
-    return {
-        "base_price": base,
-        "prices": prices,
-        "discounts": {1: 0, 3: 10, 6: 15, 12: 25},
-    }
+    pricing = await service.calculate_dynamic_price(seller_id)
+    return pricing
 
 
 @router.post("/create")

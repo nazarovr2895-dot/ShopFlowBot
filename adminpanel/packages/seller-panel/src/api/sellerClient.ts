@@ -163,7 +163,6 @@ export interface SellerMe {
   yookassa_oauth_token?: string | null;
   yookassa_shop_id?: string | null;
   yookassa_connected_at?: string | null;
-  commission_balance?: number;
   use_delivery_zones?: boolean;
   // Delivery slot settings
   deliveries_per_slot?: number | null;
@@ -284,9 +283,6 @@ export interface SellerStatsTopBouquet {
 export interface SellerStats {
   total_completed_orders: number;
   total_revenue: number;
-  commission_rate?: number;
-  commission_amount: number;
-  net_revenue: number;
   average_check?: number;
   previous_period_orders?: number;
   previous_period_revenue?: number;
@@ -375,7 +371,6 @@ export async function updateMe(payload: {
   yookassa_oauth_token?: string | null;
   yookassa_shop_id?: string | null;
   yookassa_connected_at?: string | null;
-  commission_balance?: number;
   use_delivery_zones?: boolean;
   deliveries_per_slot?: number | null;
   slot_days_ahead?: number;
@@ -1321,7 +1316,15 @@ export async function getPreorderAnalytics(params?: { period?: '1d' | '7d' | '30
 export interface SubscriptionPricesResponse {
   base_price: number;
   prices: Record<number, number>;
-  discounts: Record<number, number>;
+}
+
+export interface SubscriptionDynamicPrice {
+  base_price: number;
+  turnover_30d: number;
+  threshold: number;
+  additional_percent: number;
+  additional_amount: number;
+  total_price: number;
 }
 
 export interface SubscriptionInfo {
@@ -1360,7 +1363,11 @@ export interface BranchSubscriptionInfo {
 }
 
 export async function getSubscriptionPrices(): Promise<SubscriptionPricesResponse> {
-  return fetchSeller<SubscriptionPricesResponse>('/subscriptions/prices/me');
+  return fetchSeller<SubscriptionPricesResponse>('/subscriptions/prices');
+}
+
+export async function getMySubscriptionPrice(): Promise<SubscriptionDynamicPrice> {
+  return fetchSeller<SubscriptionDynamicPrice>('/subscriptions/prices/me');
 }
 
 export async function getSubscriptionStatus(): Promise<SubscriptionStatusResponse> {
@@ -1604,23 +1611,3 @@ export async function disconnectYookassa(): Promise<{ status: string }> {
   return fetchSeller('/seller-web/yookassa/disconnect', { method: 'POST' });
 }
 
-// --- Commission ---
-
-export async function getCommissionBalance(): Promise<{ balance: number; commission_rate: number }> {
-  return fetchSeller('/seller-web/commission/balance');
-}
-
-export interface CommissionEntry {
-  id: number;
-  order_id: number;
-  order_total: number;
-  commission_rate: number;
-  commission_amount: number;
-  created_at: string | null;
-  paid: boolean;
-  paid_at: string | null;
-}
-
-export async function getCommissionHistory(limit = 50, offset = 0): Promise<{ entries: CommissionEntry[] }> {
-  return fetchSeller(`/seller-web/commission/history?limit=${limit}&offset=${offset}`);
-}

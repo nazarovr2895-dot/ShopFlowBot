@@ -1311,19 +1311,18 @@ def test_seller_not_onboarded_error():
 # ============================================
 
 @pytest.mark.asyncio
-async def test_commission_recorded_on_webhook_success(
+async def test_no_commission_recorded_on_webhook_success(
     test_session: AsyncSession,
     mock_yookassa_configured,
     payment_order: Order,
     test_seller: Seller,
 ):
-    """Commission is recorded in ledger when payment webhook reports success."""
+    """Commission is no longer recorded — subscription model replaced per-order commission."""
     from backend.app.services.payment import PaymentService
     from backend.app.models.commission_ledger import CommissionLedger
     from sqlalchemy import select
 
     test_seller.yookassa_oauth_token = "test_token"
-    test_seller.commission_percent = 5  # 5%
     payment_order.payment_id = "pay_webhook_comm"
     await test_session.commit()
 
@@ -1343,16 +1342,12 @@ async def test_commission_recorded_on_webhook_success(
         await service.handle_webhook(event_data)
         await test_session.commit()
 
-    # Check commission was recorded
+    # Verify no commission entry was created
     result = await test_session.execute(
         select(CommissionLedger).where(CommissionLedger.order_id == payment_order.id)
     )
     entry = result.scalar_one_or_none()
-    assert entry is not None
-    assert float(entry.commission_rate) == 5
-    # 5% of 200 = 10.00
-    assert float(entry.commission_amount) == 10.00
-    assert entry.paid is False
+    assert entry is None
 
 
 # ============================================

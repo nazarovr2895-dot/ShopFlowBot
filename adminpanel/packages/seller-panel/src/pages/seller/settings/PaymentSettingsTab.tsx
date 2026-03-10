@@ -1,25 +1,14 @@
-import { useState, useEffect } from 'react';
-import { getYookassaConnectUrl, disconnectYookassa, getCommissionBalance } from '../../../api/sellerClient';
+import { useState } from 'react';
+import { getYookassaConnectUrl, disconnectYookassa } from '../../../api/sellerClient';
 import { useToast } from '@shared/components/ui';
-import { CreditCard, CheckCircle, XCircle, Link2, Unlink, Wallet } from 'lucide-react';
+import { CreditCard, CheckCircle, XCircle, Link2, Unlink } from 'lucide-react';
 import type { SettingsTabProps } from './types';
 
 export function PaymentSettingsTab({ me, reload }: SettingsTabProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [balance, setBalance] = useState<number | null>(null);
-  const [commissionRate, setCommissionRate] = useState<number | null>(null);
 
   const isConnected = !!me.yookassa_oauth_token;
-
-  useEffect(() => {
-    getCommissionBalance()
-      .then((data) => {
-        setBalance(data.balance);
-        setCommissionRate(data.commission_rate);
-      })
-      .catch(() => {});
-  }, []);
 
   const handleConnect = async () => {
     setLoading(true);
@@ -92,7 +81,7 @@ export function PaymentSettingsTab({ me, reload }: SettingsTabProps) {
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         {!isConnected ? (
           <button
             className="btn btn-primary"
@@ -112,31 +101,6 @@ export function PaymentSettingsTab({ me, reload }: SettingsTabProps) {
             <Unlink size={14} /> Отключить
           </button>
         )}
-      </div>
-
-      {/* Commission Balance */}
-      <div
-        style={{
-          padding: '1rem',
-          borderRadius: '8px',
-          background: 'rgba(59, 130, 246, 0.06)',
-          border: '1px solid rgba(59, 130, 246, 0.15)',
-        }}
-      >
-        <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-          <Wallet size={16} /> Баланс комиссии
-        </h4>
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          <div>
-            Текущий долг: <strong style={{ color: 'var(--text-primary)' }}>{balance !== null ? `${balance.toFixed(2)} ₽` : '...'}</strong>
-          </div>
-          {commissionRate !== null && (
-            <div>Ставка комиссии: {commissionRate}%</div>
-          )}
-          <div style={{ marginTop: '0.25rem', fontSize: '0.8rem' }}>
-            Комиссия оплачивается вместе с подпиской в конце периода.
-          </div>
-        </div>
       </div>
     </div>
   );
