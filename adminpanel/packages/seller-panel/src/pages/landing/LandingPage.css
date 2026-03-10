@@ -17,6 +17,8 @@
   background: var(--landing-bg);
   color: var(--landing-text);
   overflow-x: hidden;
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }
 
 .landing-container {

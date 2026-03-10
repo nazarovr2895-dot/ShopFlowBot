@@ -5,7 +5,6 @@ import { ThemeProvider } from '@shared/hooks/useTheme';
 import { SellerLayout } from './components/layout/SellerLayout';
 import { SellerLogin } from './pages/SellerLogin';
 import { LandingPage } from './pages/landing/LandingPage';
-import { PricingPage } from './pages/landing/PricingPage';
 import { LegalPage } from './pages/landing/LegalPage';
 import { useTelegramWebApp } from '@shared/hooks/useTelegramWebApp';
 
@@ -57,7 +56,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<SellerLogin />} />
-      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/pricing" element={<Navigate to="/#pricing" replace />} />
       <Route path="/legal/offer" element={<LegalPage type="offer" />} />
       <Route path="/legal/privacy" element={<LegalPage type="privacy" />} />
       <Route path="/" element={<AuthGate />}>

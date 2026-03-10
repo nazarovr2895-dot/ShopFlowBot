@@ -4,14 +4,16 @@ import {
   ShoppingBag, BarChart3, Heart,
   ClipboardList, Shield, Zap, ArrowRight,
   CheckCircle2, Store, Settings, TrendingUp,
-  Users, Globe, Megaphone,
+  Users, Globe, Megaphone, Truck, HelpCircle, ChevronDown,
 } from 'lucide-react';
 import { ApplicationModal } from './ApplicationModal';
 import { DashboardCarousel } from './components/DashboardCarousel';
+import { PricingCalculator } from './components/PricingCalculator';
 import { DecorativeBlob } from './components/DecorativeBlob';
 import { useScrollReveal } from './hooks/useScrollReveal';
 import { useAnimatedCounter } from './hooks/useAnimatedCounter';
 import './LandingPage.css';
+import './PricingPage.css';
 
 const features = [
   {
@@ -78,6 +80,56 @@ const advantages = [
   'Детальная аналитика продаж и поведения покупателей',
 ];
 
+const pricingExamples = [
+  { sales: 80000, cost: 2000, label: 'Небольшой магазин', note: 'Только базовая подписка' },
+  { sales: 200000, cost: 4000, label: 'Средний магазин', note: '2 000 + 1% × 200 000' },
+  { sales: 500000, cost: 7000, label: 'Крупный магазин', note: '2 000 + 1% × 500 000' },
+];
+
+const pricingIncluded = [
+  { icon: ShoppingBag, text: 'Каталог товаров с фото и ценами' },
+  { icon: ClipboardList, text: 'Приём и управление заказами' },
+  { icon: BarChart3, text: 'Аналитика продаж и статистика' },
+  { icon: Heart, text: 'Программа лояльности для покупателей' },
+  { icon: Truck, text: 'Зоны доставки и слоты' },
+  { icon: Shield, text: 'Приём оплаты через YooKassa' },
+];
+
+const faqs = [
+  {
+    q: 'Что значит «1% от продаж»? Это комиссия?',
+    a: 'Нет, это не комиссия. Все деньги от покупателей поступают напрямую на ваш счёт через YooKassa. 1% от суммы продаж свыше 100 000 ₽ добавляется к стоимости подписки на следующий месяц.',
+  },
+  {
+    q: 'Когда начинать платить за подписку?',
+    a: 'После одобрения заявки и настройки магазина у вас есть пробный период. Подписка оплачивается через панель управления.',
+  },
+  {
+    q: 'Как рассчитывается стоимость подписки?',
+    a: 'Базовая подписка — 2 000 ₽/мес. Если оборот за предыдущие 30 дней превышает 100 000 ₽, к базовой цене добавляется 1% от суммы продаж.',
+  },
+  {
+    q: 'Что будет, если продажи в месяц 0 ₽?',
+    a: 'Вы платите только базовую подписку — 2 000 ₽. Никаких дополнительных начислений.',
+  },
+];
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`pricing-faq__item ${open ? 'pricing-faq__item--open' : ''}`}>
+      <button className="pricing-faq__question" onClick={() => setOpen(!open)}>
+        <HelpCircle size={18} className="pricing-faq__icon" />
+        <span>{q}</span>
+        <ChevronDown size={18} className="pricing-faq__chevron" />
+      </button>
+      <div className="pricing-faq__answer">
+        <p>{a}</p>
+      </div>
+    </div>
+  );
+}
+
 function AnimatedStat({ target, label, suffix = '' }: { target: number; label: string; suffix?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -116,7 +168,7 @@ export function LandingPage() {
             <span className="landing-header__name">flurai</span>
           </div>
           <div className="landing-header__actions">
-            <Link to="/pricing" className="landing-header__link">Тарифы</Link>
+            <a href="#pricing" className="landing-header__link">Тарифы</a>
             <button className="landing-btn landing-btn--ghost" onClick={() => navigate('/login')}>
               Войти
             </button>
@@ -134,7 +186,7 @@ export function LandingPage() {
         </div>
       </header>
       <div className={`landing-header__mobile-menu${menuOpen ? ' landing-header__mobile-menu--open' : ''}`}>
-        <Link to="/pricing" className="landing-header__link" onClick={() => setMenuOpen(false)}>Тарифы</Link>
+        <a href="#pricing" className="landing-header__link" onClick={() => setMenuOpen(false)}>Тарифы</a>
         <button className="landing-btn landing-btn--ghost" onClick={() => { navigate('/login'); setMenuOpen(false); }}>
           Войти
         </button>
@@ -169,9 +221,9 @@ export function LandingPage() {
                 Открыть магазин
                 <ArrowRight size={18} />
               </button>
-              <Link to="/pricing" className="landing-btn landing-btn--outline landing-btn--lg">
+              <a href="#pricing" className="landing-btn landing-btn--outline landing-btn--lg">
                 Тарифы
-              </Link>
+              </a>
             </div>
             <div className="landing-hero__stats">
               <AnimatedStat target={0} label="комиссия с продаж" suffix="" />
@@ -488,32 +540,103 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Pricing teaser ─── */}
-      <section className="landing-section" ref={reveal}>
+      {/* ─── Pricing ─── */}
+      <section id="pricing" className="landing-section" ref={reveal}>
         <div className="landing-container">
           <div className="landing-section__header landing-reveal">
             <h2 className="landing-section__title">Прозрачные тарифы</h2>
-            <p className="landing-section__subtitle">Никаких скрытых комиссий — вы знаете, сколько платите</p>
+            <p className="landing-section__subtitle">
+              Простая модель: фиксированная подписка + формирование стоимости по объёму продаж. Никаких скрытых комиссий.
+            </p>
           </div>
-          <div className="landing-pricing-teaser landing-reveal landing-reveal--d2">
-            <div className="landing-pricing-teaser__card">
-              <div className="landing-pricing-teaser__value">от 2 000 ₽</div>
-              <div className="landing-pricing-teaser__label">подписка в месяц</div>
-            </div>
-            <div className="landing-pricing-teaser__card">
-              <div className="landing-pricing-teaser__value">0%</div>
-              <div className="landing-pricing-teaser__label">комиссия с ваших продаж</div>
-            </div>
-            <div className="landing-pricing-teaser__card">
-              <div className="landing-pricing-teaser__value">100%</div>
-              <div className="landing-pricing-teaser__label">выручка — ваша</div>
+          <div className="landing-reveal landing-reveal--d2">
+            <div className="pricing-main-card">
+              <div className="pricing-main-card__header">
+                <div className="pricing-main-card__price">2 000 ₽<span>/мес</span></div>
+                <div className="pricing-main-card__badge">базовая подписка</div>
+              </div>
+              <div className="pricing-main-card__body">
+                <div className="pricing-explanation">
+                  <div className="pricing-explanation__block">
+                    <div className="pricing-explanation__icon pricing-explanation__icon--green">✓</div>
+                    <div>
+                      <strong>Продажи до 100 000 ₽/мес</strong>
+                      <p>Вы платите только 2 000 ₽ — базовую подписку. Больше ничего.</p>
+                    </div>
+                  </div>
+                  <div className="pricing-explanation__divider" />
+                  <div className="pricing-explanation__block">
+                    <div className="pricing-explanation__icon pricing-explanation__icon--accent">+1%</div>
+                    <div>
+                      <strong>Продажи свыше 100 000 ₽/мес</strong>
+                      <p>
+                        К базовой подписке добавляется 1% от суммы продаж. <strong>Деньги от покупателей поступают напрямую на ваш счёт</strong> — мы ничего не удерживаем.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="pricing-callout">
+                  <strong>Важно:</strong> 1% — это не комиссия с продаж. Это часть формирования стоимости подписки.
+                  Вся выручка поступает на ваш счёт через YooKassa без удержаний.
+                </div>
+              </div>
             </div>
           </div>
-          <div className="landing-pricing-teaser__action landing-reveal landing-reveal--d3">
-            <Link to="/pricing" className="landing-btn landing-btn--outline">
-              Подробнее о тарифах
-              <ArrowRight size={16} />
-            </Link>
+        </div>
+      </section>
+
+      {/* ─── Pricing examples ─── */}
+      <section className="landing-section landing-section--alt" ref={reveal}>
+        <div className="landing-container">
+          <div className="landing-section__header landing-reveal">
+            <h2 className="landing-section__title">Примеры расчёта</h2>
+          </div>
+          <div className="pricing-examples landing-reveal landing-reveal--d2">
+            {pricingExamples.map((ex) => (
+              <div key={ex.sales} className="pricing-example-card">
+                <div className="pricing-example-card__label">{ex.label}</div>
+                <div className="pricing-example-card__sales">Продажи: {ex.sales.toLocaleString('ru-RU')} ₽/мес</div>
+                <div className="pricing-example-card__cost">{ex.cost.toLocaleString('ru-RU')} ₽<span>/мес</span></div>
+                <div className="pricing-example-card__note">{ex.note}</div>
+              </div>
+            ))}
+          </div>
+          <div className="landing-reveal landing-reveal--d3" style={{ marginTop: 40 }}>
+            <PricingCalculator />
+          </div>
+        </div>
+      </section>
+
+      {/* ─── What's included ─── */}
+      <section className="landing-section" ref={reveal}>
+        <div className="landing-container">
+          <div className="landing-section__header landing-reveal">
+            <h2 className="landing-section__title">Что входит в подписку</h2>
+            <p className="landing-section__subtitle">Все инструменты для управления магазином — без ограничений</p>
+          </div>
+          <div className="pricing-included-grid landing-reveal landing-reveal--d2">
+            {pricingIncluded.map((item) => (
+              <div key={item.text} className="pricing-included-item">
+                <div className="pricing-included-item__icon">
+                  <item.icon size={20} />
+                </div>
+                <span>{item.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── FAQ ─── */}
+      <section className="landing-section landing-section--alt" ref={reveal}>
+        <div className="landing-container">
+          <div className="landing-section__header landing-reveal">
+            <h2 className="landing-section__title">Частые вопросы</h2>
+          </div>
+          <div className="pricing-faq landing-reveal landing-reveal--d2">
+            {faqs.map((faq) => (
+              <FaqItem key={faq.q} q={faq.q} a={faq.a} />
+            ))}
           </div>
         </div>
       </section>
@@ -552,7 +675,7 @@ export function LandingPage() {
             </div>
             <div className="landing-footer__col">
               <h4 className="landing-footer__col-title">Платформа</h4>
-              <Link to="/pricing" className="landing-footer__link">Тарифы</Link>
+              <a href="#pricing" className="landing-footer__link">Тарифы</a>
               <button className="landing-footer__link" onClick={() => setShowModal(true)}>Открыть магазин</button>
               <button className="landing-footer__link" onClick={() => navigate('/login')}>Войти</button>
             </div>
