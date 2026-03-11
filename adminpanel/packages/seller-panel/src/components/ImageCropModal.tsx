@@ -39,8 +39,9 @@ export function ImageCropModal({
   const [saving, setSaving] = useState(false);
 
   const isLandscape = aspect >= 3;
-  const effectiveObjectFit = objectFit ?? (isLandscape ? 'horizontal-cover' : undefined);
-  const minZoom = effectiveObjectFit === 'contain' ? 0.5 : 1;
+  const effectiveObjectFit = objectFit ?? (isLandscape ? 'contain' : undefined);
+  const isContain = effectiveObjectFit === 'contain';
+  const minZoom = isContain ? 0.3 : 1;
   const hasChanges = zoom !== 1 || rotation !== 0;
 
   const onCropAreaChange = useCallback((_croppedArea: Area, croppedPixels: Area) => {
@@ -103,7 +104,7 @@ export function ImageCropModal({
           aspect={aspect}
           cropShape={cropShape}
           objectFit={effectiveObjectFit}
-          restrictPosition={effectiveObjectFit !== 'contain'}
+          restrictPosition={!isContain}
           minZoom={minZoom}
           maxZoom={3}
           onCropChange={setCrop}

@@ -302,7 +302,7 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
           isOpen
           imageSrc={bannerCropSrc}
           aspect={5}
-          objectFit="horizontal-cover"
+          objectFit="contain"
           title="Обрезать баннер"
           onCropComplete={handleBannerCropComplete}
           onClose={handleBannerCropClose}
