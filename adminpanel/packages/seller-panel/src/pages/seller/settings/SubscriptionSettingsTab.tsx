@@ -213,6 +213,12 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
   const hasAdditional = pricing && pricing.additional_amount > 0;
   const showPayButton = !isActive || (current?.days_remaining ?? 0) <= 7;
 
+  // Overdue counter: find last expired subscription
+  const lastExpired = (subStatus?.history ?? []).find(h => h.status === 'expired');
+  const overdueDays = !isActive && lastExpired?.expires_at
+    ? Math.max(0, Math.floor((Date.now() - new Date(lastExpired.expires_at).getTime()) / 86400000))
+    : 0;
+
   return (
     <div className="card" style={{ padding: '1.5rem' }}>
       {/* Status Banner */}
@@ -235,12 +241,14 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
         )}
         <div>
           <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-            {isActive ? 'Подписка активна' : 'Подписка не активна'}
+            {isActive ? 'Подписка активна' : overdueDays > 0 ? 'Подписка просрочена' : 'Подписка не активна'}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             {current
               ? `Действует до ${formatDate(current.expires_at)} (${current.days_remaining ?? 0} дн.)`
-              : 'Оформите подписку, чтобы принимать заказы'
+              : overdueDays > 0
+                ? `Просрочка: ${overdueDays} дн. Оплатите подписку, чтобы магазин продолжал работать.`
+                : 'Оформите подписку, чтобы принимать заказы'
             }
           </div>
         </div>
@@ -327,7 +335,13 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
           className="btn btn-primary"
           onClick={handlePay}
           disabled={paying}
-          style={{ width: '100%', padding: '0.75rem', fontSize: '1rem', marginBottom: '1.5rem' }}
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            fontSize: '1rem',
+            marginBottom: '1.5rem',
+            ...(overdueDays > 0 ? { background: '#ef4444', borderColor: '#ef4444' } : {}),
+          }}
         >
           {paying
             ? 'Создание платежа...'
