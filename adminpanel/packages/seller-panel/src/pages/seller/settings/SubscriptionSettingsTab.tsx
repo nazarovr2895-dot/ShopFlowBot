@@ -209,8 +209,9 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
   }
 
   const current = subStatus?.current;
-  const history = subStatus?.history ?? [];
+  const history = (subStatus?.history ?? []).filter(h => h.status === 'active' || h.status === 'expired');
   const hasAdditional = pricing && pricing.additional_amount > 0;
+  const showPayButton = !isActive || (current?.days_remaining ?? 0) <= 7;
 
   return (
     <div className="card" style={{ padding: '1.5rem' }}>
@@ -320,20 +321,22 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
         </div>
       )}
 
-      {/* Pay Button */}
-      <button
-        className="btn btn-primary"
-        onClick={handlePay}
-        disabled={paying}
-        style={{ width: '100%', padding: '0.75rem', fontSize: '1rem', marginBottom: '1.5rem' }}
-      >
-        {paying
-          ? 'Создание платежа...'
-          : isActive
-            ? `Продлить за ${formatPrice(pricing?.total_price ?? 0)}`
-            : `Оплатить ${formatPrice(pricing?.total_price ?? 0)}`
-        }
-      </button>
+      {/* Pay Button — only show when subscription is not active or expiring soon (≤ 7 days) */}
+      {showPayButton && (
+        <button
+          className="btn btn-primary"
+          onClick={handlePay}
+          disabled={paying}
+          style={{ width: '100%', padding: '0.75rem', fontSize: '1rem', marginBottom: '1.5rem' }}
+        >
+          {paying
+            ? 'Создание платежа...'
+            : isActive
+              ? `Продлить за ${formatPrice(pricing?.total_price ?? 0)}`
+              : `Оплатить ${formatPrice(pricing?.total_price ?? 0)}`
+          }
+        </button>
+      )}
 
       {/* History */}
       {history.length > 0 && (
