@@ -644,7 +644,7 @@ export function ShopDetails() {
             </div>
             {/* Inline mini-map — loads only on button click */}
             {showMiniMap && seller.geo_lat && seller.geo_lon && (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 8, width: '100%' }}>
                 <Suspense fallback={<div style={{ height: 150, borderRadius: 12, background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)' }} />}>
                   <YandexMapProvider height={150}>
                     <MiniMap
