@@ -8,7 +8,7 @@ import {
   updateMe,
 } from '../../../api/sellerClient';
 import type { DeliveryZone, CreateDeliveryZoneData } from '../../../api/sellerClient';
-import { FormField, useToast } from '@shared/components/ui';
+import { FormField, Toggle, useToast } from '@shared/components/ui';
 import {
   MapPin, Plus, Pencil, Trash2, Clock, Info,
   ChevronDown, ChevronUp, MapPinned, Truck, X,
@@ -210,14 +210,11 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
         </div>
 
         <div className="dz-slots" style={{ padding: '0 var(--space-4) var(--space-4)' }}>
-          <label className="dz-slots__toggle">
-            <input
-              type="checkbox"
-              checked={slotsEnabled}
-              onChange={e => setSlotsEnabled(e.target.checked)}
-            />
-            <span>Включить выбор времени доставки</span>
-          </label>
+          <Toggle
+            checked={slotsEnabled}
+            onChange={setSlotsEnabled}
+            label="Включить выбор времени доставки"
+          />
 
           {slotsEnabled && (
             <div className="dz-slots__grid">
