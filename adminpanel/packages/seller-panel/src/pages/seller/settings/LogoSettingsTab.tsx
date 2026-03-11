@@ -4,6 +4,20 @@ import { useToast } from '@shared/components/ui';
 import { ImageCropModal } from '../../../components/ImageCropModal';
 import { Image, GalleryHorizontal, Upload, Trash2 } from 'lucide-react';
 import type { SettingsTabProps } from './types';
+import './LogoSettingsTab.css';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+function validateFile(file: File): string | null {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return 'Допустимые форматы: JPG, PNG, WebP, GIF';
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return 'Файл слишком большой (макс. 10 МБ)';
+  }
+  return null;
+}
 
 export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
   const toast = useToast();
@@ -20,11 +34,40 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
   const [bannerCropSrc, setBannerCropSrc] = useState<string | null>(null);
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Drag state
+  const [logoDragActive, setLogoDragActive] = useState(false);
+  const [bannerDragActive, setBannerDragActive] = useState(false);
+
+  // ── Shared helpers ──
+
+  const openCrop = (file: File, setter: (src: string) => void) => {
+    const error = validateFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    setter(URL.createObjectURL(file));
+  };
+
+  const makeDragHandlers = (
+    setActive: (v: boolean) => void,
+    setter: (src: string) => void,
+  ) => ({
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); setActive(true); },
+    onDragLeave: (e: React.DragEvent) => { e.preventDefault(); setActive(false); },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setActive(false);
+      const file = e.dataTransfer.files?.[0];
+      if (file) openCrop(file, setter);
+    },
+  });
+
   // ── Logo handlers ──
+
   const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setCropImageSrc(URL.createObjectURL(file));
+    if (file) openCrop(file, setCropImageSrc);
     e.target.value = '';
   };
 
@@ -62,10 +105,10 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
   };
 
   // ── Banner handlers ──
+
   const handleBannerFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setBannerCropSrc(URL.createObjectURL(file));
+    if (file) openCrop(file, setBannerCropSrc);
     e.target.value = '';
   };
 
@@ -102,129 +145,144 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
     }
   };
 
+  const logoDrag = makeDragHandlers(setLogoDragActive, setCropImageSrc);
+  const bannerDrag = makeDragHandlers(setBannerDragActive, setBannerCropSrc);
+
   return (
     <div className="settings-shop">
       {/* ── Logo ── */}
-      <div className="shop-card">
-        <div className="shop-card__header">
-          <div className="shop-card__header-left">
-            <div className="shop-card__icon-badge shop-card__icon-badge--teal">
-              <Image size={18} />
+      <section className="shop-section">
+        <div className="shop-section__header">
+          <div className="shop-section__header-left">
+            <div className="shop-section__icon shop-section__icon--accent">
+              <Image size={20} />
             </div>
-            <div>
-              <h3 className="shop-card__title">Логотип магазина</h3>
-              <p className="shop-card__subtitle">Квадратное изображение, рекомендуемый размер: 512 x 512 px</p>
+            <div className="shop-section__titles">
+              <h3 className="shop-section__title">Логотип магазина</h3>
+              <p className="shop-section__subtitle">Квадратное изображение, 512 × 512 px</p>
             </div>
           </div>
         </div>
 
-        {me.logo_url ? (
-          <div className="shop-banner">
-            <div className="shop-logo__preview">
-              <img src={getLogoImageUrl(me.logo_url) ?? ''} alt="Логотип магазина" />
+        <div className="shop-section__body">
+          {me.logo_url ? (
+            <div className="media-preview">
+              <div className="media-preview__image media-preview__image--round">
+                <img src={getLogoImageUrl(me.logo_url) ?? ''} alt="Логотип магазина" />
+              </div>
+              <div className="media-preview__actions">
+                <button
+                  type="button"
+                  className="shop-action-link shop-action-link--primary"
+                  disabled={logoUploading}
+                  onClick={() => logoFileInputRef.current?.click()}
+                >
+                  <Upload size={14} />
+                  {logoUploading ? 'Загрузка...' : 'Заменить'}
+                </button>
+                <button
+                  type="button"
+                  className="shop-action-link"
+                  disabled={logoRemoving}
+                  onClick={handleRemoveLogo}
+                >
+                  <Trash2 size={14} />
+                  {logoRemoving ? 'Удаление...' : 'Удалить'}
+                </button>
+              </div>
             </div>
-            <div className="shop-banner__actions">
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                disabled={logoUploading}
-                onClick={() => logoFileInputRef.current?.click()}
-              >
-                <Upload size={14} />
-                {logoUploading ? 'Загрузка...' : 'Заменить'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm shop-banner__remove-btn"
-                disabled={logoRemoving}
-                onClick={handleRemoveLogo}
-              >
-                <Trash2 size={14} />
-                {logoRemoving ? 'Удаление...' : 'Удалить'}
-              </button>
+          ) : (
+            <div
+              className={`media-dropzone${logoDragActive ? ' media-dropzone--active' : ''}`}
+              onClick={() => logoFileInputRef.current?.click()}
+              {...logoDrag}
+            >
+              <div className="media-dropzone__icon">
+                <Upload size={24} />
+              </div>
+              <span className="media-dropzone__text">
+                {logoUploading ? 'Загрузка...' : 'Перетащите или нажмите для загрузки'}
+              </span>
+              <span className="media-dropzone__hint">JPG, PNG, WebP или GIF, до 10 МБ</span>
             </div>
-          </div>
-        ) : (
-          <div
-            className="shop-banner__dropzone"
-            onClick={() => logoFileInputRef.current?.click()}
-          >
-            <Upload size={24} className="shop-banner__dropzone-icon" />
-            <span className="shop-banner__dropzone-text">
-              {logoUploading ? 'Загрузка...' : 'Нажмите, чтобы загрузить логотип'}
-            </span>
-            <span className="shop-banner__dropzone-hint">JPG, PNG, WebP или GIF</span>
-          </div>
-        )}
+          )}
+        </div>
+
         <input
           ref={logoFileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
           onChange={handleLogoFileSelect}
-          className="shop-banner__file-input"
+          className="media-file-input"
         />
-      </div>
+      </section>
 
       {/* ── Banner ── */}
-      <div className="shop-card">
-        <div className="shop-card__header">
-          <div className="shop-card__header-left">
-            <div className="shop-card__icon-badge shop-card__icon-badge--teal">
-              <GalleryHorizontal size={18} />
+      <section className="shop-section">
+        <div className="shop-section__header">
+          <div className="shop-section__header-left">
+            <div className="shop-section__icon shop-section__icon--amber">
+              <GalleryHorizontal size={20} />
             </div>
-            <div>
-              <h3 className="shop-card__title">Баннер магазина</h3>
-              <p className="shop-card__subtitle">Рекомендуемый размер: 2000 x 400 px (5:1)</p>
+            <div className="shop-section__titles">
+              <h3 className="shop-section__title">Баннер магазина</h3>
+              <p className="shop-section__subtitle">Широкое изображение, 2000 × 400 px (5:1)</p>
             </div>
           </div>
         </div>
 
-        {me.banner_url ? (
-          <div className="shop-banner">
-            <div className="shop-banner__preview">
-              <img src={getBannerImageUrl(me.banner_url) ?? ''} alt="Баннер магазина" />
+        <div className="shop-section__body">
+          {me.banner_url ? (
+            <div className="media-preview">
+              <div className="media-preview__image media-preview__image--banner">
+                <img src={getBannerImageUrl(me.banner_url) ?? ''} alt="Баннер магазина" />
+              </div>
+              <div className="media-preview__actions">
+                <button
+                  type="button"
+                  className="shop-action-link shop-action-link--primary"
+                  disabled={bannerUploading}
+                  onClick={() => bannerFileInputRef.current?.click()}
+                >
+                  <Upload size={14} />
+                  {bannerUploading ? 'Загрузка...' : 'Заменить'}
+                </button>
+                <button
+                  type="button"
+                  className="shop-action-link"
+                  disabled={bannerRemoving}
+                  onClick={handleRemoveBanner}
+                >
+                  <Trash2 size={14} />
+                  {bannerRemoving ? 'Удаление...' : 'Удалить'}
+                </button>
+              </div>
             </div>
-            <div className="shop-banner__actions">
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                disabled={bannerUploading}
-                onClick={() => bannerFileInputRef.current?.click()}
-              >
-                <Upload size={14} />
-                {bannerUploading ? 'Загрузка...' : 'Заменить'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm shop-banner__remove-btn"
-                disabled={bannerRemoving}
-                onClick={handleRemoveBanner}
-              >
-                <Trash2 size={14} />
-                {bannerRemoving ? 'Удаление...' : 'Удалить'}
-              </button>
+          ) : (
+            <div
+              className={`media-dropzone media-dropzone--banner${bannerDragActive ? ' media-dropzone--active' : ''}`}
+              onClick={() => bannerFileInputRef.current?.click()}
+              {...bannerDrag}
+            >
+              <div className="media-dropzone__icon">
+                <Upload size={24} />
+              </div>
+              <span className="media-dropzone__text">
+                {bannerUploading ? 'Загрузка...' : 'Перетащите или нажмите для загрузки'}
+              </span>
+              <span className="media-dropzone__hint">JPG, PNG, WebP или GIF, до 10 МБ</span>
             </div>
-          </div>
-        ) : (
-          <div
-            className="shop-banner__dropzone"
-            onClick={() => bannerFileInputRef.current?.click()}
-          >
-            <Upload size={24} className="shop-banner__dropzone-icon" />
-            <span className="shop-banner__dropzone-text">
-              {bannerUploading ? 'Загрузка...' : 'Нажмите, чтобы загрузить баннер'}
-            </span>
-            <span className="shop-banner__dropzone-hint">JPG, PNG, WebP или GIF</span>
-          </div>
-        )}
+          )}
+        </div>
+
         <input
           ref={bannerFileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
           onChange={handleBannerFileSelect}
-          className="shop-banner__file-input"
+          className="media-file-input"
         />
-      </div>
+      </section>
 
       {/* Logo crop modal */}
       {cropImageSrc && (
@@ -232,6 +290,7 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
           isOpen
           imageSrc={cropImageSrc}
           cropShape="round"
+          title="Обрезать логотип"
           onCropComplete={handleLogoCropComplete}
           onClose={handleLogoCropClose}
         />
@@ -243,25 +302,12 @@ export function LogoSettingsTab({ me, reload }: SettingsTabProps) {
           isOpen
           imageSrc={bannerCropSrc}
           aspect={5}
-          objectFit="contain"
+          objectFit="horizontal-cover"
+          title="Обрезать баннер"
           onCropComplete={handleBannerCropComplete}
           onClose={handleBannerCropClose}
         />
       )}
-
-      <style>{`
-        .shop-logo__preview {
-          display: flex;
-          justify-content: center;
-        }
-        .shop-logo__preview img {
-          width: 120px;
-          height: 120px;
-          border-radius: 50%;
-          object-fit: cover;
-          border: 2px solid var(--border);
-        }
-      `}</style>
     </div>
   );
 }

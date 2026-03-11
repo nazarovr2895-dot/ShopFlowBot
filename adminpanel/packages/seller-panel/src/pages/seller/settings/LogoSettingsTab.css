@@ -1,0 +1,137 @@
+/* ══════════════════════════════════════════════
+   LogoSettingsTab — Media upload UI
+   Uses shop-section pattern from ShopSettingsTab.css
+   ══════════════════════════════════════════════ */
+
+/* ── Hidden file input ─────────────────────── */
+
+.media-file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Image preview ─────────────────────────── */
+
+.media-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.media-preview__image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-preview__image--round {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--border, #334155);
+  flex-shrink: 0;
+  transition: border-color 0.2s ease;
+}
+
+.media-preview__image--round:hover {
+  border-color: var(--accent, #6366f1);
+}
+
+.media-preview__image--banner {
+  width: 100%;
+  aspect-ratio: 5 / 1;
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle, #1e293b);
+}
+
+.media-preview__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── Dropzone ──────────────────────────────── */
+
+.media-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 36px 20px;
+  border: 2px dashed var(--border, #334155);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--bg, #0f172a);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.media-dropzone:hover {
+  border-color: var(--accent, #6366f1);
+  background: var(--accent-soft, rgba(99, 102, 241, 0.1));
+}
+
+.media-dropzone--active {
+  border-color: var(--accent, #6366f1);
+  background: rgba(99, 102, 241, 0.08);
+  border-style: solid;
+}
+
+.media-dropzone--banner {
+  padding: 28px 20px;
+  min-height: 80px;
+}
+
+.media-dropzone__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius, 8px);
+  background: var(--accent-soft, rgba(99, 102, 241, 0.1));
+  color: var(--accent, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.media-dropzone:hover .media-dropzone__icon {
+  transform: scale(1.05) translateY(-2px);
+}
+
+.media-dropzone__text {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-secondary, #94a3b8);
+  text-align: center;
+}
+
+.media-dropzone__hint {
+  font-size: 0.78rem;
+  color: var(--text-tertiary, #64748b);
+}
+
+/* ── Responsive ────────────────────────────── */
+
+@media (max-width: 640px) {
+  .media-preview__image--round {
+    width: 96px;
+    height: 96px;
+  }
+
+  .media-dropzone {
+    padding: 24px 16px;
+  }
+
+  .media-dropzone--banner {
+    padding: 20px 16px;
+  }
+}

@@ -106,24 +106,6 @@
   margin-bottom: var(--space-3);
 }
 
-.dz-form__districts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.dz-form__district-checkbox {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.dz-form__district-checkbox input {
-  accent-color: var(--accent);
-}
 
 .dz-form__actions {
   display: flex;

@@ -10,23 +10,51 @@ function createImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+function getRadianAngle(degreeValue: number): number {
+  return (degreeValue * Math.PI) / 180;
+}
+
+function rotateSize(width: number, height: number, rotation: number): { width: number; height: number } {
+  const rotRad = getRadianAngle(rotation);
+  return {
+    width: Math.abs(Math.cos(rotRad) * width) + Math.abs(Math.sin(rotRad) * height),
+    height: Math.abs(Math.sin(rotRad) * width) + Math.abs(Math.cos(rotRad) * height),
+  };
+}
+
 export async function getCroppedImg(
   imageSrc: string,
   pixelCrop: Area,
+  rotation: number = 0,
 ): Promise<Blob> {
   const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas context not available');
 
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
+  const rotRad = getRadianAngle(rotation);
+  const { width: bBoxWidth, height: bBoxHeight } = rotateSize(image.width, image.height, rotation);
 
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, pixelCrop.width, pixelCrop.height);
+  canvas.width = bBoxWidth;
+  canvas.height = bBoxHeight;
 
-  ctx.drawImage(
-    image,
+  ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
+  ctx.rotate(rotRad);
+  ctx.translate(-image.width / 2, -image.height / 2);
+  ctx.drawImage(image, 0, 0);
+
+  const croppedCanvas = document.createElement('canvas');
+  const croppedCtx = croppedCanvas.getContext('2d');
+  if (!croppedCtx) throw new Error('Canvas context not available');
+
+  croppedCanvas.width = pixelCrop.width;
+  croppedCanvas.height = pixelCrop.height;
+
+  croppedCtx.fillStyle = '#ffffff';
+  croppedCtx.fillRect(0, 0, pixelCrop.width, pixelCrop.height);
+
+  croppedCtx.drawImage(
+    canvas,
     pixelCrop.x,
     pixelCrop.y,
     pixelCrop.width,
@@ -38,7 +66,7 @@ export async function getCroppedImg(
   );
 
   return new Promise((resolve, reject) => {
-    canvas.toBlob(
+    croppedCanvas.toBlob(
       (blob) => {
         if (blob) resolve(blob);
         else reject(new Error('Canvas toBlob failed'));

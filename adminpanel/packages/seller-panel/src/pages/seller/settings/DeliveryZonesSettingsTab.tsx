@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   getDeliveryZones,
   createDeliveryZone,
@@ -10,6 +10,7 @@ import {
 import type { DeliveryZone, CreateDeliveryZoneData } from '../../../api/sellerClient';
 import { FormField, useToast } from '@shared/components/ui';
 import { MapPin, Plus, Pencil, Trash2, Clock, Info } from 'lucide-react';
+import { DistrictSelector } from './DistrictSelector';
 import type { SettingsTabProps } from './types';
 import './DeliveryZonesSettingsTab.css';
 
@@ -156,24 +157,15 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
     }
   };
 
-  const toggleDistrict = (districtId: number) => {
-    setForm(prev => ({
-      ...prev,
-      district_ids: prev.district_ids.includes(districtId)
-        ? prev.district_ids.filter(id => id !== districtId)
-        : [...prev.district_ids, districtId],
-    }));
-  };
-
-  const selectAllDistricts = () => {
-    setForm(prev => ({ ...prev, district_ids: districts.map(d => d.id) }));
-  };
-
-  const clearAllDistricts = () => {
-    setForm(prev => ({ ...prev, district_ids: [] }));
-  };
-
   const districtName = (id: number) => districts.find(d => d.id === id)?.name ?? `#${id}`;
+
+  const usedByOtherZonesMap = useMemo(() => {
+    const map = new Map<number, string>();
+    zones.filter(z => z.id !== editingZoneId).forEach(z => {
+      (z.district_ids || []).forEach(id => map.set(id, z.name));
+    });
+    return map;
+  }, [zones, editingZoneId]);
 
   if (loading) {
     return (
@@ -202,7 +194,7 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
         </div>
 
         <div style={{ padding: '0 var(--space-4) var(--space-4)' }}>
-          <label className="dz-form__district-checkbox" style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <label style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={slotsEnabled}
@@ -376,23 +368,13 @@ export function DeliveryZonesSettingsTab({ me, reload }: SettingsTabProps) {
 
             <div className="dz-form__row">
               <FormField label="Районы">
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={selectAllDistricts}>Выбрать все</button>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={clearAllDistricts}>Снять все</button>
-                </div>
                 {districts.length > 0 ? (
-                  <div className="dz-form__districts-grid">
-                    {districts.map(d => (
-                      <label key={d.id} className="dz-form__district-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={form.district_ids.includes(d.id)}
-                          onChange={() => toggleDistrict(d.id)}
-                        />
-                        {d.name}
-                      </label>
-                    ))}
-                  </div>
+                  <DistrictSelector
+                    districts={districts}
+                    selectedIds={form.district_ids}
+                    onChange={(ids) => setForm(f => ({ ...f, district_ids: ids }))}
+                    usedByOtherZonesMap={usedByOtherZonesMap}
+                  />
                 ) : (
                   <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
                     Укажите город в настройках магазина, чтобы увидеть районы
