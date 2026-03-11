@@ -1,126 +1,36 @@
 /* ══════════════════════════════════════════════
-   DeliveryZonesSettingsTab — Zone Management
+   DeliveryZonesSettingsTab — Complete Redesign
    ══════════════════════════════════════════════ */
 
-.dz-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-
-.dz-toggle__label {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-/* ── Zone cards ──────────────────────────────── */
-.dz-zones-list {
+/* ── Slots section ───────────────────────────── */
+.dz-slots {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
 
-.dz-zone-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-}
-
-[data-theme="light"] .dz-zone-card {
-  border-color: transparent;
-  box-shadow: var(--shadow-sm);
-}
-
-.dz-zone-card--inactive {
-  opacity: 0.6;
-}
-
-.dz-zone-card__header {
+.dz-slots__toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.dz-zone-card__name {
-  font-weight: 600;
-  font-size: var(--text-base);
-  color: var(--text);
-}
-
-.dz-zone-card__price {
-  font-weight: 600;
-  color: var(--accent);
-  white-space: nowrap;
-}
-
-.dz-zone-card__districts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-bottom: var(--space-3);
-}
-
-.dz-zone-card__district-tag {
-  background: var(--accent-soft);
-  color: var(--accent);
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: var(--text-xs);
-  font-weight: 500;
-}
-
-.dz-zone-card__meta {
-  display: flex;
-  gap: var(--space-4);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  margin-bottom: var(--space-3);
-}
-
-.dz-zone-card__actions {
-  display: flex;
   gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text);
+  user-select: none;
 }
 
-/* ── Add/Edit form ───────────────────────────── */
-.dz-form {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-4);
-  margin-top: var(--space-3);
+.dz-slots__toggle input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
 }
 
-.dz-form__row {
-  margin-bottom: var(--space-3);
-}
-
-.dz-form__row-2col {
+.dz-slots__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
-  margin-bottom: var(--space-3);
 }
 
-
-.dz-form__actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-}
-
-.dz-empty {
-  text-align: center;
-  padding: var(--space-6);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-/* ── Slot info hints ────────────────────────────── */
 .dz-slot-label {
   display: inline-flex;
   align-items: center;
@@ -160,19 +70,6 @@
   display: block;
 }
 
-/* ── Mobile ───────────────────────────────────────────── */
-@media (max-width: 600px) {
-  .dz-form__row-2col {
-    grid-template-columns: 1fr;
-  }
-
-  .dz-zone-card__header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-/* Arrow */
 .dz-slot-hint__text::after {
   content: '';
   position: absolute;
@@ -181,4 +78,301 @@
   transform: translateX(-50%);
   border: 6px solid transparent;
   border-top-color: var(--border);
+}
+
+/* ── Zones header ────────────────────────────── */
+.dz-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.dz-header__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+}
+
+/* ── Empty state ─────────────────────────────── */
+.dz-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.dz-empty__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
+
+.dz-empty__title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dz-empty__desc {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* ── Zone cards ──────────────────────────────── */
+.dz-zones-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.dz-zone-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--transition);
+}
+
+[data-theme="light"] .dz-zone-card {
+  border-color: transparent;
+  box-shadow: var(--shadow-sm);
+}
+
+.dz-zone-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+[data-theme="light"] .dz-zone-card:hover {
+  box-shadow: var(--shadow);
+}
+
+.dz-zone-card--inactive {
+  opacity: 0.55;
+}
+
+.dz-zone-card__top {
+  padding: var(--space-4);
+}
+
+.dz-zone-card__row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.dz-zone-card__name {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dz-zone-card__inactive-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+.dz-zone-card__price {
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.dz-zone-card__price--free {
+  color: var(--success);
+}
+
+/* Stats row */
+.dz-zone-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.dz-zone-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* District preview */
+.dz-zone-card__districts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.dz-zone-card__district-tag {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.dz-zone-card__district-more {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dz-zone-card__district-more:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Expanded districts */
+.dz-zone-card__districts-expanded {
+  padding: 0 var(--space-4) var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  animation: dz-expand 0.2s ease-out;
+}
+
+@keyframes dz-expand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Actions footer */
+.dz-zone-card__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+[data-theme="light"] .dz-zone-card__footer {
+  background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+}
+
+.dz-zone-card__footer .btn {
+  font-size: var(--text-xs);
+}
+
+.dz-zone-card__footer-spacer {
+  flex: 1;
+}
+
+/* ── Form ────────────────────────────────────── */
+.dz-form {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  animation: dz-expand 0.2s ease-out;
+}
+
+[data-theme="light"] .dz-form {
+  border-color: transparent;
+  box-shadow: var(--shadow);
+}
+
+.dz-form__header {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dz-form__title {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.dz-form__body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dz-form__row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.dz-form__row-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.dz-form__footer {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+[data-theme="light"] .dz-form__footer {
+  background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+}
+
+/* ── Mobile ──────────────────────────────────── */
+@media (max-width: 600px) {
+  .dz-form__row-2col,
+  .dz-form__row-3col,
+  .dz-slots__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dz-zone-card__row1 {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  .dz-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
 }
