@@ -93,22 +93,43 @@ class SubscriptionService:
         return {1: base}
 
     async def calculate_dynamic_price(self, seller_id: int) -> Dict[str, Any]:
-        """Calculate subscription price based on last 30 days turnover.
+        """Calculate subscription price based on 30 days turnover.
 
         Formula: base (2000₽) + 1% of total sales if turnover > 100,000₽.
+
+        The 30-day window is anchored to the active subscription's expiry date
+        (not utcnow()) to prevent double-counting on early renewal.
         """
         from backend.app.models.order import Order
         from backend.app.core.constants import COMPLETED_ORDER_STATUSES
 
         base = self.get_base_price()
-        cutoff = datetime.utcnow() - timedelta(days=30)
+        now = datetime.utcnow()
+
+        # Anchor window to active subscription expiry to prevent double-counting
+        active_result = await self.session.execute(
+            select(Subscription).where(
+                Subscription.seller_id == seller_id,
+                Subscription.status == "active",
+                Subscription.expires_at > now,
+            ).order_by(Subscription.expires_at.desc()).limit(1)
+        )
+        active_sub = active_result.scalar_one_or_none()
+
+        if active_sub and active_sub.expires_at:
+            period_end = active_sub.expires_at
+        else:
+            period_end = now
+
+        period_start = period_end - timedelta(days=30)
 
         result = await self.session.execute(
             select(sa_func.coalesce(sa_func.sum(Order.total_price), 0))
             .where(
                 Order.seller_id == seller_id,
                 Order.status.in_(COMPLETED_ORDER_STATUSES),
-                Order.created_at >= cutoff,
+                Order.created_at >= period_start,
+                Order.created_at < period_end,
             )
         )
         turnover = Decimal(str(result.scalar()))
@@ -128,6 +149,8 @@ class SubscriptionService:
             "additional_percent": 1,
             "additional_amount": float(additional_amount),
             "total_price": float(total),
+            "period_start": period_start.isoformat(),
+            "period_end": period_end.isoformat(),
         }
 
     # -- Subscription lifecycle -------------------------------------------------
@@ -164,6 +187,20 @@ class SubscriptionService:
             sub_seller_id = target_seller_id
         else:
             sub_seller_id = seller_id
+
+        # Prevent duplicate pending subscriptions (e.g. double-click)
+        existing_pending = await self.session.execute(
+            select(Subscription).where(
+                Subscription.seller_id == sub_seller_id,
+                Subscription.status == "pending",
+                Subscription.created_at >= datetime.utcnow() - timedelta(hours=1),
+            ).limit(1)
+        )
+        if existing_pending.scalar_one_or_none():
+            raise SubscriptionServiceError(
+                "У вас уже есть незавершённый платёж. Дождитесь его завершения или попробуйте позже.",
+                409,
+            )
 
         # Calculate dynamic price based on turnover
         pricing = await self.calculate_dynamic_price(sub_seller_id)

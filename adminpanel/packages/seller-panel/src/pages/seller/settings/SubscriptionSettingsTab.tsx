@@ -265,7 +265,7 @@ function RegularSubscriptionView({ me }: SettingsTabProps) {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-              <span>Оборот за 30 дней</span>
+              <span>Оборот за период {new Date(pricing.period_start).toLocaleDateString('ru')} — {new Date(pricing.period_end).toLocaleDateString('ru')}</span>
               <span>{formatPrice(pricing.turnover_30d)}</span>
             </div>
 

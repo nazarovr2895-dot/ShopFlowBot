@@ -1325,6 +1325,8 @@ export interface SubscriptionDynamicPrice {
   additional_percent: number;
   additional_amount: number;
   total_price: number;
+  period_start: string;
+  period_end: string;
 }
 
 export interface SubscriptionInfo {
