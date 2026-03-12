@@ -26,12 +26,22 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _column_exists(table: str, column: str) -> bool:
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns WHERE table_name=:t AND column_name=:c"
+    ), {"t": table, "c": column})
+    return result.scalar() is not None
+
+
 def upgrade() -> None:
     # ============================================================
-    # 1. sellers: missing P0 columns
+    # 1. sellers: missing P0 columns (may already exist from p1_tiers_expiry_tags)
     # ============================================================
-    op.add_column('sellers', sa.Column('max_points_discount_percent', sa.Integer(), nullable=True, server_default='100'))
-    op.add_column('sellers', sa.Column('points_to_ruble_rate', sa.DECIMAL(5, 2), nullable=True, server_default='1'))
+    if not _column_exists('sellers', 'max_points_discount_percent'):
+        op.add_column('sellers', sa.Column('max_points_discount_percent', sa.Integer(), nullable=True, server_default='100'))
+    if not _column_exists('sellers', 'points_to_ruble_rate'):
+        op.add_column('sellers', sa.Column('points_to_ruble_rate', sa.DECIMAL(5, 2), nullable=True, server_default='1'))
 
     # ============================================================
     # 2. orders: points payment columns
