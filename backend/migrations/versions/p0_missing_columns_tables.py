@@ -34,6 +34,14 @@ def _column_exists(table: str, column: str) -> bool:
     return result.scalar() is not None
 
 
+def _table_exists(table: str) -> bool:
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name=:t AND table_schema='public'"
+    ), {"t": table})
+    return result.scalar() is not None
+
+
 def upgrade() -> None:
     # ============================================================
     # 1. sellers: missing P0 columns (may already exist from p1_tiers_expiry_tags)
@@ -44,48 +52,53 @@ def upgrade() -> None:
         op.add_column('sellers', sa.Column('points_to_ruble_rate', sa.DECIMAL(5, 2), nullable=True, server_default='1'))
 
     # ============================================================
-    # 2. orders: points payment columns
+    # 2. orders: points payment columns (may already exist from p1_tiers_expiry_tags)
     # ============================================================
-    op.add_column('orders', sa.Column('points_used', sa.DECIMAL(12, 2), nullable=True, server_default='0'))
-    op.add_column('orders', sa.Column('points_discount', sa.DECIMAL(10, 2), nullable=True, server_default='0'))
+    if not _column_exists('orders', 'points_used'):
+        op.add_column('orders', sa.Column('points_used', sa.DECIMAL(12, 2), nullable=True, server_default='0'))
+    if not _column_exists('orders', 'points_discount'):
+        op.add_column('orders', sa.Column('points_discount', sa.DECIMAL(10, 2), nullable=True, server_default='0'))
 
     # ============================================================
-    # 3. seller_customers: birthday
+    # 3. seller_customers: birthday (may already exist from p1_tiers_expiry_tags)
     # ============================================================
-    op.add_column('seller_customers', sa.Column('birthday', sa.Date(), nullable=True))
+    if not _column_exists('seller_customers', 'birthday'):
+        op.add_column('seller_customers', sa.Column('birthday', sa.Date(), nullable=True))
 
     # ============================================================
     # 4. NEW TABLE: customer_events
     # ============================================================
-    op.create_table(
-        'customer_events',
-        sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column('customer_id', sa.Integer(), sa.ForeignKey('seller_customers.id'), nullable=False),
-        sa.Column('seller_id', sa.BigInteger(), sa.ForeignKey('users.tg_id'), nullable=False),
-        sa.Column('title', sa.String(255), nullable=False),
-        sa.Column('event_date', sa.Date(), nullable=False),
-        sa.Column('remind_days_before', sa.Integer(), server_default='3'),
-        sa.Column('notes', sa.Text(), nullable=True),
-    )
-    op.create_index('ix_customer_events_customer_id', 'customer_events', ['customer_id'])
-    op.create_index('ix_customer_events_seller_id', 'customer_events', ['seller_id'])
+    if not _table_exists('customer_events'):
+        op.create_table(
+            'customer_events',
+            sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column('customer_id', sa.Integer(), sa.ForeignKey('seller_customers.id'), nullable=False),
+            sa.Column('seller_id', sa.BigInteger(), sa.ForeignKey('users.tg_id'), nullable=False),
+            sa.Column('title', sa.String(255), nullable=False),
+            sa.Column('event_date', sa.Date(), nullable=False),
+            sa.Column('remind_days_before', sa.Integer(), server_default='3'),
+            sa.Column('notes', sa.Text(), nullable=True),
+        )
+        op.create_index('ix_customer_events_customer_id', 'customer_events', ['customer_id'])
+        op.create_index('ix_customer_events_seller_id', 'customer_events', ['seller_id'])
 
     # ============================================================
     # 5. NEW TABLE: write_offs
     # ============================================================
-    op.create_table(
-        'write_offs',
-        sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column('seller_id', sa.BigInteger(), sa.ForeignKey('users.tg_id'), nullable=False),
-        sa.Column('reception_item_id', sa.Integer(), sa.ForeignKey('reception_items.id'), nullable=False),
-        sa.Column('quantity', sa.Integer(), nullable=False),
-        sa.Column('reason', sa.String(50), nullable=False),
-        sa.Column('comment', sa.Text(), nullable=True),
-        sa.Column('loss_amount', sa.DECIMAL(12, 2), server_default='0'),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()')),
-    )
-    op.create_index('ix_write_offs_seller_id', 'write_offs', ['seller_id'])
-    op.create_index('ix_write_offs_created_at', 'write_offs', ['created_at'])
+    if not _table_exists('write_offs'):
+        op.create_table(
+            'write_offs',
+            sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column('seller_id', sa.BigInteger(), sa.ForeignKey('users.tg_id'), nullable=False),
+            sa.Column('reception_item_id', sa.Integer(), sa.ForeignKey('reception_items.id'), nullable=False),
+            sa.Column('quantity', sa.Integer(), nullable=False),
+            sa.Column('reason', sa.String(50), nullable=False),
+            sa.Column('comment', sa.Text(), nullable=True),
+            sa.Column('loss_amount', sa.DECIMAL(12, 2), server_default='0'),
+            sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()')),
+        )
+        op.create_index('ix_write_offs_seller_id', 'write_offs', ['seller_id'])
+        op.create_index('ix_write_offs_created_at', 'write_offs', ['created_at'])
 
 
 def downgrade() -> None:
